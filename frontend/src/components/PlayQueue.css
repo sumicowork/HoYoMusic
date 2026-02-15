@@ -1,0 +1,68 @@
+.play-queue-drawer .ant-drawer-body {
+  padding: 0;
+}
+
+.queue-item {
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.queue-item:hover {
+  background-color: #f5f5f5;
+}
+
+.queue-item.current {
+  background-color: #e6f7ff;
+  border-left: 3px solid #1890ff;
+}
+
+.queue-item.current:hover {
+  background-color: #e6f7ff;
+}
+
+.queue-item-number {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+  color: #666;
+  font-size: 14px;
+}
+
+.queue-item.current .queue-item-number {
+  color: #1890ff;
+  font-weight: 700;
+}
+
+.queue-item-title {
+  font-size: 14px;
+  margin-bottom: 4px;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue-item.current .queue-item-title {
+  color: #1890ff;
+}
+
+.queue-item-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+
+.queue-item-duration {
+  margin-left: 8px;
+}
+
+.ant-list-item-action {
+  margin-left: 8px !important;
+}
+

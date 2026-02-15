@@ -1,0 +1,13 @@
+.credits-card {
+  margin: 20px 0;
+}
+
+.credits-card .ant-descriptions-item-label {
+  font-weight: 600;
+  background-color: #fafafa;
+}
+
+.credits-card .ant-descriptions-item-content {
+  color: #333;
+}
+

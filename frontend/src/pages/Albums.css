@@ -1,0 +1,148 @@
+.albums-layout {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.albums-header {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-content {
+  max-width: 1600px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-content h1 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+}
+
+/* Navigation tag hover effects */
+.header-actions .ant-tag {
+  transition: all 0.3s ease;
+  border: none;
+}
+
+.header-actions .ant-tag:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.albums-content {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 32px 24px;
+}
+
+.album-card {
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  min-width: 200px;
+  width: 100%;
+}
+
+.album-card:hover {
+  transform: translateY(-8px);
+}
+
+.album-cover-wrapper {
+  position: relative;
+  padding-top: 100%;
+  overflow: hidden;
+  background: var(--bg-tertiary);
+  transition: background 0.3s ease;
+}
+
+.album-cover-wrapper img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+/* 确保占位符 SVG 正确显示 */
+.album-cover-wrapper img[src^="data:"] {
+  object-fit: contain !important;
+  padding: 5% !important;
+  background: var(--bg-tertiary);
+  transition: background 0.3s ease;
+}
+
+.album-card:hover .album-cover-wrapper img {
+  transform: scale(1.05);
+}
+
+.album-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  transition: color 0.3s ease;
+}
+
+.album-card .ant-card-meta-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 8px !important;
+  color: var(--text-primary);
+  /* 允许标题换行，不截断 */
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  line-height: 1.4;
+  /* 限制最多显示 3 行，超出才截断 */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  transition: color 0.3s ease;
+}
+
+.album-card .ant-card-body {
+  padding: 16px;
+}
+
+@media (max-width: 768px) {
+  .albums-content {
+    padding: 16px;
+  }
+
+  .header-content h1 {
+    font-size: 20px;
+  }
+
+  .header-actions {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+  }
+
+  .header-actions .ant-input-search {
+    width: 200px !important;
+  }
+}
+
