@@ -7,7 +7,11 @@ export const MUSIC_ICON_PLACEHOLDER = 'data:image/svg+xml;charset=utf-8,%3Csvg x
 // 获取封面 URL，如果没有则返回占位符
 export const getCoverUrl = (coverPath: string | null, apiBaseUrl: string = 'http://localhost:3000'): string => {
   if (!coverPath) return MUSIC_ICON_PLACEHOLDER;
-  return `${apiBaseUrl}${coverPath}`;
+  // WebDAV mode: already a full URL
+  if (coverPath.startsWith('http://') || coverPath.startsWith('https://')) return coverPath;
+  // Local mode: /uploads/... (new) or covers/... (legacy)
+  const normalized = coverPath.startsWith('/') ? coverPath : `/uploads/${coverPath}`;
+  return `${apiBaseUrl}${normalized}`;
 };
 
 // 处理图片加载错误，防止无限循环

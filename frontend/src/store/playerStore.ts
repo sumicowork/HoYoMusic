@@ -33,6 +33,7 @@ interface PlayerState {
   clearPlaylist: () => void;
   addToPlaylist: (track: Track) => void;
   playTrackOnly: (track: Track) => void;
+  reorderPlaylist: (newPlaylist: Track[]) => void;
 }
 
 export const usePlayerStore = create<PlayerState>()(
@@ -233,6 +234,10 @@ export const usePlayerStore = create<PlayerState>()(
     if (!exists) {
       set({ playlist: [...state.playlist, track] });
     }
+  },
+
+  reorderPlaylist: (newPlaylist) => {
+    set({ playlist: newPlaylist });
   },
 }),
     {

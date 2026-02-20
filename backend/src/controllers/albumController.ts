@@ -2,7 +2,8 @@ import { Request, Response } from 'express';
 import pool from '../config/database';
 import archiver from 'archiver';
 import path from 'path';
-import webdavService from '../services/webdavService';
+import fs from 'fs';
+import storageService from '../services/storageService';
 
 // Get all albums with track count
 export const getAlbums = async (req: Request, res: Response) => {
@@ -226,16 +227,19 @@ export const downloadAlbum = async (req: Request, res: Response) => {
     archive.pipe(res);
 
     // Add each track file to the archive
-    const uploadsDir = path.join(__dirname, '../../uploads');
-
     for (const track of tracksResult.rows) {
-      const filePath = path.join(uploadsDir, track.file_path);
+      const filePath = storageService.isLocal()
+        ? storageService.getFullPath(track.file_path)
+        : track.file_path;
 
-      // Check if file exists
-      if (fs.existsSync(filePath)) {
+      // Check if file exists (only for local storage)
+      if (storageService.isLocal() && fs.existsSync(filePath)) {
         const trackNumber = track.track_number ? String(track.track_number).padStart(2, '0') : '00';
         const fileName = `${trackNumber} - ${track.title}.flac`;
         archive.file(filePath, { name: fileName });
+      } else if (storageService.isWebDAV()) {
+        console.warn('WebDAV batch download not implemented yet');
+        // TODO: 实现WebDAV批量下载
       } else {
         console.warn(`File not found: ${filePath}`);
       }
@@ -266,11 +270,11 @@ export const uploadCover = async (req: Request, res: Response) => {
       });
     }
 
-    // Upload to WebDAV
-    const coverRemotePath = webdavService.generateRemotePath(req.file.originalname, 'covers');
-    const coverUrl = await webdavService.uploadFile(
+    // Upload to storage
+    const coverUrl = await storageService.uploadFile(
       req.file.buffer,
-      coverRemotePath,
+      req.file.originalname,
+      'covers',
       req.file.mimetype
     );
 
@@ -282,7 +286,7 @@ export const uploadCover = async (req: Request, res: Response) => {
 
     if (result.rows.length === 0) {
       // Delete uploaded file if album not found
-      await webdavService.deleteFile(coverRemotePath);
+      await storageService.deleteFile(coverUrl);
 
       return res.status(404).json({
         success: false,

@@ -97,15 +97,22 @@ const Library: React.FC = () => {
       dataIndex: 'cover_path',
       key: 'cover',
       width: 80,
-      render: (coverPath) => (
-        <Image
-          width={50}
-          height={50}
-          src={trackService.getCoverUrl(coverPath)}
-          fallback={MUSIC_ICON_PLACEHOLDER}
-          style={{ borderRadius: 4, objectFit: 'cover' }}
-        />
-      ),
+      render: (coverPath, record) => {
+        const src = coverPath
+          ? trackService.getCoverUrl(coverPath)
+          : record.album_cover
+            ? trackService.getCoverUrl(record.album_cover)
+            : undefined;
+        return (
+          <Image
+            width={50}
+            height={50}
+            src={src}
+            fallback={MUSIC_ICON_PLACEHOLDER}
+            style={{ borderRadius: 4, objectFit: 'cover' }}
+          />
+        );
+      },
     },
     {
       title: 'Title',

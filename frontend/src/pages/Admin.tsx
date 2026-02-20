@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Button, Upload, message, Space, Image, Tag, Modal, Form, Input, Card } from 'antd';
+import { Table, Button, message, Space, Image, Tag, Modal, Form, Input, Card } from 'antd';
 import {
   UploadOutlined,
   PlayCircleOutlined,
@@ -19,13 +19,14 @@ import LyricsEditor from '../components/LyricsEditor';
 import CreditsEditor from '../components/CreditsEditor';
 import TrackTagsManager from '../components/TrackTagsManager';
 import AdminLayout from '../components/AdminLayout';
+import UploadModal from '../components/UploadModal';
 import './Admin.css';
 
 
 const Admin: React.FC = () => {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [uploadModalVisible, setUploadModalVisible] = useState(false);
   const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
   const [editingTrack, setEditingTrack] = useState<Track | null>(null);
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -34,7 +35,6 @@ const Admin: React.FC = () => {
   const [tagsManagerVisible, setTagsManagerVisible] = useState(false);
   const [currentTrackId, setCurrentTrackId] = useState<number | null>(null);
   const [currentTrackTitle, setCurrentTrackTitle] = useState<string>('');
-  const [fileList, setFileList] = useState<any[]>([]);
   const [form] = Form.useForm();
 
   const { playTrackOnly } = usePlayerStore();
@@ -60,42 +60,6 @@ const Admin: React.FC = () => {
     fetchTracks();
   }, []);
 
-  const handleBeforeUpload = (file: any) => {
-    // 阻止自动上传，只添加到文件列表
-    return false;
-  };
-
-  const handleFileChange = (info: any) => {
-    // 只更新文件列表，不触发上传
-    setFileList(info.fileList);
-  };
-
-  const handleStartUpload = async () => {
-    if (fileList.length === 0) {
-      message.warning('Please select files first');
-      return;
-    }
-
-    if (uploading) {
-      return;
-    }
-
-    setUploading(true);
-    try {
-      const files = fileList.map((f: any) => f.originFileObj || f);
-      await trackService.uploadTracks(files);
-      message.success(`${fileList.length} track(s) uploaded successfully`);
-
-      // 清空文件列表
-      setFileList([]);
-
-      fetchTracks();
-    } catch (error: any) {
-      message.error(error.message || 'Upload failed');
-    } finally {
-      setUploading(false);
-    }
-  };
 
   const handlePlay = (track: Track) => {
     // Only add this single track to queue
@@ -172,15 +136,22 @@ const Admin: React.FC = () => {
       dataIndex: 'cover_path',
       key: 'cover',
       width: 80,
-      render: (coverPath) => (
-        <Image
-          width={50}
-          height={50}
-          src={trackService.getCoverUrl(coverPath)}
-          fallback={MUSIC_ICON_PLACEHOLDER}
-          style={{ borderRadius: 4, objectFit: 'cover' }}
-        />
-      ),
+      render: (coverPath, record) => {
+        const src = coverPath
+          ? trackService.getCoverUrl(coverPath)
+          : record.album_cover
+            ? trackService.getCoverUrl(record.album_cover)
+            : undefined;
+        return (
+          <Image
+            width={50}
+            height={50}
+            src={src}
+            fallback={MUSIC_ICON_PLACEHOLDER}
+            style={{ borderRadius: 4, objectFit: 'cover' }}
+          />
+        );
+      },
     },
     {
       title: 'Title',
@@ -212,14 +183,14 @@ const Admin: React.FC = () => {
       key: 'quality',
       width: 150,
       render: (_, record) => (
-        <Space direction="vertical" size={0}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <Tag color="blue">FLAC</Tag>
           {record.sample_rate && record.bit_depth && (
             <span style={{ fontSize: 12, color: '#888' }}>
               {(record.sample_rate / 1000).toFixed(1)}kHz / {record.bit_depth}bit
             </span>
           )}
-        </Space>
+        </div>
       ),
     },
     {
@@ -302,29 +273,13 @@ const Admin: React.FC = () => {
       <Card
         title="Track Management"
         extra={
-          <Space>
-            <Upload
-              beforeUpload={handleBeforeUpload}
-              onChange={handleFileChange}
-              fileList={fileList}
-              multiple
-              accept=".flac"
-              showUploadList={false}
-            >
-              <Button icon={<UploadOutlined />}>
-                Select Files {fileList.length > 0 && `(${fileList.length})`}
-              </Button>
-            </Upload>
-            {fileList.length > 0 && (
-              <Button
-                type="primary"
-                loading={uploading}
-                onClick={handleStartUpload}
-              >
-                Upload {fileList.length} File(s)
-              </Button>
-            )}
-          </Space>
+          <Button
+            type="primary"
+            icon={<UploadOutlined />}
+            onClick={() => setUploadModalVisible(true)}
+          >
+            上传音乐
+          </Button>
         }
       >
         <Table
@@ -401,6 +356,15 @@ const Admin: React.FC = () => {
           }}
         />
       )}
+      {/* Upload Modal */}
+      <UploadModal
+        visible={uploadModalVisible}
+        onClose={() => setUploadModalVisible(false)}
+        onSuccess={() => {
+          setUploadModalVisible(false);
+          fetchTracks();
+        }}
+      />
     </AdminLayout>
   );
 };

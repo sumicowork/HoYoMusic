@@ -1,6 +1,6 @@
 import React from 'react';
-import { Drawer, List, Button, Empty, Typography, Space, Popconfirm } from 'antd';
-import { PlayCircleOutlined, DeleteOutlined, ClearOutlined } from '@ant-design/icons';
+import { Drawer, List, Button, Empty, Typography, Popconfirm, message } from 'antd';
+import { PlayCircleOutlined, DeleteOutlined, ClearOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons';
 import { usePlayerStore } from '../store/playerStore';
 import { Track } from '../types';
 import './PlayQueue.css';
@@ -13,7 +13,7 @@ interface PlayQueueProps {
 }
 
 const PlayQueue: React.FC<PlayQueueProps> = ({ visible, onClose }) => {
-  const { playlist, currentTrack, play, removeFromPlaylist, clearPlaylist } = usePlayerStore();
+  const { playlist, currentTrack, play, removeFromPlaylist, clearPlaylist, reorderPlaylist } = usePlayerStore();
 
   const handlePlayTrack = (track: Track) => {
     play(track);
@@ -26,6 +26,22 @@ const PlayQueue: React.FC<PlayQueueProps> = ({ visible, onClose }) => {
   const handleClearPlaylist = () => {
     clearPlaylist();
     onClose();
+  };
+
+  const handleMoveUp = (index: number) => {
+    if (index === 0) return;
+    const newPlaylist = [...playlist];
+    [newPlaylist[index - 1], newPlaylist[index]] = [newPlaylist[index], newPlaylist[index - 1]];
+    reorderPlaylist(newPlaylist);
+    message.success('已上移');
+  };
+
+  const handleMoveDown = (index: number) => {
+    if (index === playlist.length - 1) return;
+    const newPlaylist = [...playlist];
+    [newPlaylist[index], newPlaylist[index + 1]] = [newPlaylist[index + 1], newPlaylist[index]];
+    reorderPlaylist(newPlaylist);
+    message.success('已下移');
   };
 
   const formatDuration = (seconds: number | null) => {
@@ -77,9 +93,24 @@ const PlayQueue: React.FC<PlayQueueProps> = ({ visible, onClose }) => {
                 actions={[
                   <Button
                     type="text"
+                    icon={<ArrowUpOutlined />}
+                    onClick={() => handleMoveUp(index)}
+                    disabled={index === 0}
+                    title="上移"
+                  />,
+                  <Button
+                    type="text"
+                    icon={<ArrowDownOutlined />}
+                    onClick={() => handleMoveDown(index)}
+                    disabled={index === playlist.length - 1}
+                    title="下移"
+                  />,
+                  <Button
+                    type="text"
                     icon={<PlayCircleOutlined />}
                     onClick={() => handlePlayTrack(track)}
                     disabled={isCurrentTrack}
+                    title="播放"
                   />,
                   <Popconfirm
                     title="确定要从队列中移除这首歌吗？"
@@ -91,6 +122,7 @@ const PlayQueue: React.FC<PlayQueueProps> = ({ visible, onClose }) => {
                       type="text"
                       danger
                       icon={<DeleteOutlined />}
+                      title="移除"
                     />
                   </Popconfirm>,
                 ]}

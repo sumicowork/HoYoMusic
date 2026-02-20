@@ -10,9 +10,10 @@ interface LyricLine {
 interface LyricsDisplayProps {
   lyricsContent: string | null;
   currentTime: number;
+  onSeek?: (time: number) => void;
 }
 
-const LyricsDisplay: React.FC<LyricsDisplayProps> = ({ lyricsContent, currentTime }) => {
+const LyricsDisplay: React.FC<LyricsDisplayProps> = ({ lyricsContent, currentTime, onSeek }) => {
   const [lyrics, setLyrics] = useState<LyricLine[]>([]);
   const [currentIndex, setCurrentIndex] = useState(-1);
   const lyricsRef = useRef<HTMLDivElement>(null);
@@ -75,6 +76,12 @@ const LyricsDisplay: React.FC<LyricsDisplayProps> = ({ lyricsContent, currentTim
     }
   };
 
+  const handleLineClick = (time: number) => {
+    if (onSeek) {
+      onSeek(time);
+    }
+  };
+
   if (!lyricsContent) {
     return (
       <Card className="lyrics-card">
@@ -92,7 +99,9 @@ const LyricsDisplay: React.FC<LyricsDisplayProps> = ({ lyricsContent, currentTim
             data-index={index}
             className={`lyrics-line ${index === currentIndex ? 'active' : ''} ${
               index < currentIndex ? 'passed' : ''
-            }`}
+            } ${onSeek ? 'clickable' : ''}`}
+            onClick={() => handleLineClick(line.time)}
+            title={onSeek ? '点击跳转' : ''}
           >
             {line.text}
           </div>

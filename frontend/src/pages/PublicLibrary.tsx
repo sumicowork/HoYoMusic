@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Layout, Table, Button, Space, Image, Tag, Input } from 'antd';
-import { PlayCircleOutlined, DownloadOutlined, LoginOutlined, SearchOutlined, AppstoreOutlined, UserOutlined } from '@ant-design/icons';
+import { PlayCircleOutlined, DownloadOutlined, SearchOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { Track } from '../types';
 import { trackService } from '../services/trackService';
 import { usePlayerStore } from '../store/playerStore';
 import { useNavigate } from 'react-router-dom';
 import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
+import ThemeToggle from '../components/ThemeToggle';
 import './PublicLibrary.css';
 
 const { Header, Content } = Layout;
@@ -76,15 +77,22 @@ const PublicLibrary: React.FC = () => {
       dataIndex: 'cover_path',
       key: 'cover',
       width: 80,
-      render: (coverPath) => (
-        <Image
-          width={50}
-          height={50}
-          src={trackService.getCoverUrl(coverPath)}
-          fallback={MUSIC_ICON_PLACEHOLDER}
-          style={{ borderRadius: 4, objectFit: 'cover' }}
-        />
-      ),
+      render: (coverPath, record) => {
+        const src = coverPath
+          ? trackService.getCoverUrl(coverPath)
+          : record.album_cover
+            ? trackService.getCoverUrl(record.album_cover)
+            : undefined;
+        return (
+          <Image
+            width={50}
+            height={50}
+            src={src}
+            fallback={MUSIC_ICON_PLACEHOLDER}
+            style={{ borderRadius: 4, objectFit: 'cover' }}
+          />
+        );
+      },
     },
     {
       title: '标题',
@@ -171,36 +179,14 @@ const PublicLibrary: React.FC = () => {
         <div className="header-content">
           <h1 onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>🎵 HoYoMusic</h1>
           <div className="header-actions">
+            <ThemeToggle />
             <Search
               placeholder="搜索音乐..."
               allowClear
               enterButton={<SearchOutlined />}
               onSearch={handleSearch}
-              style={{ width: 300, marginRight: 16 }}
+              style={{ width: 300, marginRight: 16, marginLeft: 16 }}
             />
-            <Space size="middle">
-              <Tag
-                color="blue"
-                style={{ cursor: 'pointer', padding: '6px 16px', fontSize: '14px', fontWeight: 500 }}
-                onClick={() => navigate('/albums')}
-              >
-                <AppstoreOutlined /> 专辑
-              </Tag>
-              <Tag
-                color="purple"
-                style={{ cursor: 'pointer', padding: '6px 16px', fontSize: '14px', fontWeight: 500 }}
-                onClick={() => navigate('/artists')}
-              >
-                <UserOutlined /> 艺术家
-              </Tag>
-              <Tag
-                color="default"
-                style={{ cursor: 'pointer', padding: '6px 16px', fontSize: '14px', fontWeight: 500 }}
-                onClick={() => navigate('/admin/login')}
-              >
-                <LoginOutlined /> 管理
-              </Tag>
-            </Space>
           </div>
         </div>
       </Header>

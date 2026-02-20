@@ -31,7 +31,7 @@ const TrackDetail: React.FC = () => {
   const [tags, setTags] = useState<TagType[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const { progress, playTrackOnly } = usePlayerStore();
+  const { progress, playTrackOnly, seek } = usePlayerStore();
 
   useEffect(() => {
     if (id) {
@@ -98,6 +98,11 @@ const TrackDetail: React.FC = () => {
     }
   };
 
+  const handleSeek = (time: number) => {
+    seek(time);
+    message.success(`已跳转到 ${Math.floor(time / 60)}:${Math.floor(time % 60).toString().padStart(2, '0')}`);
+  };
+
   if (loading) {
     return (
       <Layout style={{ minHeight: '100vh' }}>
@@ -137,15 +142,22 @@ const TrackDetail: React.FC = () => {
       <Content className="track-detail-content">
         <Card className="track-info-card">
           <div className="track-info-container">
-            {track.cover_path && (
-              <Image
-                width={250}
-                height={250}
-                src={trackService.getCoverUrl(track.cover_path)}
-                fallback={MUSIC_ICON_PLACEHOLDER}
-                style={{ borderRadius: 8 }}
-              />
-            )}
+            {(() => {
+              const coverSrc = track.cover_path
+                ? trackService.getCoverUrl(track.cover_path)
+                : track.album_cover
+                  ? trackService.getCoverUrl(track.album_cover)
+                  : null;
+              return (
+                <Image
+                  width={250}
+                  height={250}
+                  src={coverSrc || MUSIC_ICON_PLACEHOLDER}
+                  fallback={MUSIC_ICON_PLACEHOLDER}
+                  style={{ borderRadius: 8 }}
+                />
+              );
+            })()}
 
             <div className="track-info-details">
               <h1>{track.title}</h1>
@@ -210,7 +222,11 @@ const TrackDetail: React.FC = () => {
 
         {/* Lyrics Section */}
         {lyrics && (
-          <LyricsDisplay lyricsContent={lyrics} currentTime={progress} />
+          <LyricsDisplay
+            lyricsContent={lyrics}
+            currentTime={progress}
+            onSeek={handleSeek}
+          />
         )}
 
         {/* Credits Section */}

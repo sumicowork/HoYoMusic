@@ -1,0 +1,150 @@
+/* 全局主题CSS变量 */
+
+:root[data-theme='light'] {
+  /* 背景色 */
+  --bg-primary: #ffffff;
+  --bg-secondary: #fafafa;
+  --bg-tertiary: #f5f5f5;
+  --bg-elevated: #ffffff;
+  --bg-overlay: rgba(0, 0, 0, 0.45);
+
+  /* 文字颜色 */
+  --text-primary: rgba(0, 0, 0, 0.88);
+  --text-secondary: rgba(0, 0, 0, 0.65);
+  --text-tertiary: rgba(0, 0, 0, 0.45);
+  --text-disabled: rgba(0, 0, 0, 0.25);
+  --text-inverse: rgba(255, 255, 255, 0.85);
+
+  /* 边框颜色 */
+  --border-primary: #d9d9d9;
+  --border-secondary: #f0f0f0;
+  --border-tertiary: rgba(5, 5, 5, 0.06);
+
+  /* 分割线 */
+  --divider: rgba(5, 5, 5, 0.06);
+
+  /* 阴影 */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+  --shadow-md: 0 1px 2px -2px rgba(0, 0, 0, 0.16), 0 3px 6px 0 rgba(0, 0, 0, 0.12), 0 5px 12px 4px rgba(0, 0, 0, 0.09);
+  --shadow-lg: 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 9px 28px 8px rgba(0, 0, 0, 0.05);
+
+  /* 音乐卡片 */
+  --card-bg: #ffffff;
+  --card-hover-bg: #fafafa;
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  --card-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.1);
+
+  /* 播放器 */
+  --player-bg: #ffffff;
+  --player-control-bg: rgba(0, 0, 0, 0.04);
+  --player-control-hover: rgba(0, 0, 0, 0.08);
+
+  /* 侧边栏 */
+  --sidebar-bg: #ffffff;
+  --sidebar-item-hover: rgba(0, 0, 0, 0.04);
+  --sidebar-item-active: #e6f7ff;
+
+  /* 输入框 */
+  --input-bg: #ffffff;
+  --input-border: #d9d9d9;
+  --input-hover-border: #40a9ff;
+
+  /* 专辑封面叠加 */
+  --album-overlay: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.5) 100%);
+
+  /* 滚动条 */
+  --scrollbar-track: #f0f0f0;
+  --scrollbar-thumb: #bfbfbf;
+  --scrollbar-thumb-hover: #999999;
+}
+
+:root[data-theme='dark'] {
+  /* 背景色 */
+  --bg-primary: #141414;
+  --bg-secondary: #1f1f1f;
+  --bg-tertiary: #262626;
+  --bg-elevated: #1f1f1f;
+  --bg-overlay: rgba(0, 0, 0, 0.65);
+
+  /* 文字颜色 */
+  --text-primary: rgba(255, 255, 255, 0.85);
+  --text-secondary: rgba(255, 255, 255, 0.65);
+  --text-tertiary: rgba(255, 255, 255, 0.45);
+  --text-disabled: rgba(255, 255, 255, 0.25);
+  --text-inverse: rgba(0, 0, 0, 0.85);
+
+  /* 边框颜色 */
+  --border-primary: #434343;
+  --border-secondary: #303030;
+  --border-tertiary: rgba(255, 255, 255, 0.12);
+
+  /* 分割线 */
+  --divider: rgba(255, 255, 255, 0.12);
+
+  /* 阴影 */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 1px 2px -2px rgba(0, 0, 0, 0.64), 0 3px 6px 0 rgba(0, 0, 0, 0.48), 0 5px 12px 4px rgba(0, 0, 0, 0.36);
+  --shadow-lg: 0 6px 16px 0 rgba(0, 0, 0, 0.32), 0 3px 6px -4px rgba(0, 0, 0, 0.48), 0 9px 28px 8px rgba(0, 0, 0, 0.2);
+
+  /* 音乐卡片 */
+  --card-bg: #1f1f1f;
+  --card-hover-bg: #262626;
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --card-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.5);
+
+  /* 播放器 */
+  --player-bg: #1f1f1f;
+  --player-control-bg: rgba(255, 255, 255, 0.08);
+  --player-control-hover: rgba(255, 255, 255, 0.12);
+
+  /* 侧边栏 */
+  --sidebar-bg: #141414;
+  --sidebar-item-hover: rgba(255, 255, 255, 0.08);
+  --sidebar-item-active: #111d2c;
+
+  /* 输入框 */
+  --input-bg: #1f1f1f;
+  --input-border: #434343;
+  --input-hover-border: #177ddc;
+
+  /* 专辑封面叠加 */
+  --album-overlay: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.7) 100%);
+
+  /* 滚动条 */
+  --scrollbar-track: #1f1f1f;
+  --scrollbar-thumb: #434343;
+  --scrollbar-thumb-hover: #595959;
+}
+
+/* 应用主题变量到全局 */
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* 选择文本颜色 */
+::selection {
+  background-color: #1890ff;
+  color: #ffffff;
+}
+

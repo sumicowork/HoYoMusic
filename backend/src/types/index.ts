@@ -37,6 +37,7 @@ export interface Artist {
 
 export interface TrackWithDetails extends Track {
   album_title?: string;
+  album_cover?: string | null;
   artists: Artist[];
 }
 

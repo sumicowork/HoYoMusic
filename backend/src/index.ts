@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
 import dotenv from 'dotenv';
 import passport from './config/passport';
 import { initWebDAVDirectories, testWebDAVConnection } from './config/webdav';
@@ -11,7 +12,6 @@ import creditsRoutes from './routes/creditsRoutes';
 import albumRoutes from './routes/albumRoutes';
 import artistRoutes from './routes/artistRoutes';
 import gameRoutes from './routes/gameRoutes';
-import playlistRoutes from './routes/playlistRoutes';
 import tagRoutes from './routes/tagRoutes';
 import { errorHandler } from './middleware/errorHandler';
 
@@ -26,8 +26,12 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(passport.initialize());
 
-// 注意: 文件现在存储在WebDAV服务器上，不再需要静态文件服务
-// 前端将直接访问WebDAV公开URL
+// 本地存储模式下，提供静态文件访问（WebDAV模式下文件直接从WebDAV URL获取）
+const STATIC_STORAGE_MODE = process.env.STORAGE_MODE || 'local';
+if (STATIC_STORAGE_MODE !== 'webdav') {
+  const uploadDir = path.join(process.cwd(), process.env.UPLOAD_DIR || 'uploads');
+  app.use('/uploads', express.static(uploadDir));
+}
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -37,7 +41,6 @@ app.use('/api/credits', creditsRoutes); // Credits routes
 app.use('/api/albums', albumRoutes); // Album routes
 app.use('/api/artists', artistRoutes); // Artist routes
 app.use('/api/games', gameRoutes); // Game routes
-app.use('/api/playlists', playlistRoutes); // Playlist routes
 app.use('/api/tags', tagRoutes); // Tag routes
 app.use('/api/public', publicRoutes); // Public routes (无需认证)
 
@@ -49,29 +52,40 @@ app.get('/api/health', (req, res) => {
 // Error handler (should be last)
 app.use(errorHandler);
 
-// Initialize WebDAV and start server
+// Initialize storage and start server
 const startServer = async () => {
   try {
-    // Test WebDAV connection
-    console.log('🔗 Testing WebDAV connection...');
-    const connected = await testWebDAVConnection();
+    const STORAGE_MODE = process.env.STORAGE_MODE || 'local';
 
-    if (!connected) {
-      console.error('❌ WebDAV connection failed. Please check your configuration.');
-      console.error('Set WEBDAV_URL, WEBDAV_USERNAME, WEBDAV_PASSWORD in .env file');
-      process.exit(1);
+    if (STORAGE_MODE === 'webdav') {
+      // WebDAV模式：测试连接并初始化目录
+      console.log('🔗 Testing WebDAV connection...');
+      const connected = await testWebDAVConnection();
+
+      if (!connected) {
+        console.error('❌ WebDAV connection failed. Please check your configuration.');
+        console.error('Set WEBDAV_URL, WEBDAV_USERNAME, WEBDAV_PASSWORD in .env file');
+        process.exit(1);
+      }
+
+      console.log('📁 Initializing WebDAV directories...');
+      await initWebDAVDirectories();
+    } else {
+      // 本地存储模式：跳过WebDAV初始化
+      console.log('💾 Using local storage mode');
+      console.log('📁 Files will be stored in ./uploads directory');
     }
-
-    // Initialize WebDAV directories
-    console.log('📁 Initializing WebDAV directories...');
-    await initWebDAVDirectories();
 
     // Start server
     app.listen(PORT, () => {
       console.log(`🎵 HoYoMusic Backend Server running on port ${PORT}`);
       console.log(`🌐 API URL: http://localhost:${PORT}`);
       console.log(`📖 Public access enabled at /api/public`);
-      console.log(`☁️  WebDAV storage configured and ready`);
+      if (STORAGE_MODE === 'webdav') {
+        console.log(`☁️  WebDAV storage configured and ready`);
+      } else {
+        console.log(`💾 Local storage mode active`);
+      }
     });
   } catch (error) {
     console.error('Failed to start server:', error);

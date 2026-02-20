@@ -27,26 +27,7 @@ const upload = multer({
 
 // Cover image upload configuration (也使用内存存储)
 const coverStorage = multer.memoryStorage();
-    cb(null, COVERS_DIR);
-  },
-  filename: (req, file, cb) => {
-    const uniqueName = `${uuidv4()}${path.extname(file.originalname)}`;
-    cb(null, uniqueName);
-  },
-});
 
-// File filter for images
-const imageFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-  const ext = path.extname(file.originalname).toLowerCase();
-  const allowedExts = ['.jpg', '.jpeg', '.png', '.webp'];
-
-  if (allowedMimeTypes.includes(file.mimetype) || allowedExts.includes(ext)) {
-    cb(null, true);
-  } else {
-    cb(new Error('Only image files (JPEG, PNG, WebP) are allowed'));
-  }
-};
 // Cover image filter
 const imageFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];

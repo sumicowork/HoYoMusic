@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Layout, Card, Input, Row, Col, Spin, Empty, Tag, Space, message } from 'antd';
+import { Layout, Card, Input, Row, Col, Spin, Empty, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
-import { SearchOutlined, LoginOutlined, SoundOutlined, HomeOutlined } from '@ant-design/icons';
+import { SearchOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import { getCoverUrl, handleImageError } from '../utils/imageUtils';
 import ThemeToggle from '../components/ThemeToggle';
@@ -76,29 +76,6 @@ const Albums: React.FC = () => {
               onSearch={handleSearch}
               style={{ width: 300, marginRight: 16, marginLeft: 16 }}
             />
-            <Space size="middle">
-              <Tag
-                color="green"
-                style={{ cursor: 'pointer', padding: '6px 16px', fontSize: '14px', fontWeight: 500 }}
-                onClick={() => navigate('/')}
-              >
-                <HomeOutlined /> 主页
-              </Tag>
-              <Tag
-                color="purple"
-                style={{ cursor: 'pointer', padding: '6px 16px', fontSize: '14px', fontWeight: 500 }}
-                onClick={() => navigate('/artists')}
-              >
-                <SoundOutlined /> 艺术家
-              </Tag>
-              <Tag
-                color="default"
-                style={{ cursor: 'pointer', padding: '6px 16px', fontSize: '14px', fontWeight: 500 }}
-                onClick={() => navigate('/admin/login')}
-              >
-                <LoginOutlined /> 管理
-              </Tag>
-            </Space>
           </div>
         </div>
       </Header>

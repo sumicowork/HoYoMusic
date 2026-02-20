@@ -1,0 +1,209 @@
+/* 前台页面通用主题适配样式 */
+
+/* 布局背景渐变 */
+.albums-layout,
+.artists-layout,
+.tags-layout,
+.library-layout {
+  transition: background 0.3s ease;
+}
+
+[data-theme='light'] .albums-layout,
+[data-theme='light'] .artists-layout,
+[data-theme='light'] .tags-layout,
+[data-theme='light'] .library-layout {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+[data-theme='dark'] .albums-layout,
+[data-theme='dark'] .artists-layout,
+[data-theme='dark'] .tags-layout,
+[data-theme='dark'] .library-layout {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+}
+
+/* GameDetail layout 保持自定义游戏背景 */
+.game-detail-layout {
+  /* 不应用通用背景样式，使用各自的游戏主题背景 */
+}
+
+/* 页面Header */
+.albums-header,
+.artists-header,
+.tags-header,
+.library-header {
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-md);
+  border-bottom: 1px solid var(--border-secondary);
+  transition: all 0.3s ease;
+}
+
+[data-theme='light'] .albums-header,
+[data-theme='light'] .artists-header,
+[data-theme='light'] .tags-header,
+[data-theme='light'] .library-header {
+  background: rgba(255, 255, 255, 0.95);
+}
+
+[data-theme='dark'] .albums-header,
+[data-theme='dark'] .artists-header,
+[data-theme='dark'] .tags-header,
+[data-theme='dark'] .library-header {
+  background: rgba(20, 20, 20, 0.95);
+}
+
+/* GameDetail header 保持透明，不添加边框 */
+.game-detail-header {
+  backdrop-filter: none;
+  box-shadow: none;
+  border-bottom: none !important;
+  background: transparent !important;
+}
+
+/* 卡片样式 */
+.album-card,
+.artist-card,
+.tag-card,
+.track-card {
+  background: var(--card-bg);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--border-secondary);
+  transition: all 0.3s ease;
+}
+
+[data-theme='light'] .album-card,
+[data-theme='light'] .artist-card,
+[data-theme='light'] .tag-card,
+[data-theme='light'] .track-card {
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme='dark'] .album-card,
+[data-theme='dark'] .artist-card,
+[data-theme='dark'] .tag-card,
+[data-theme='dark'] .track-card {
+  background: rgba(31, 31, 31, 0.95);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.album-card:hover,
+.artist-card:hover,
+.tag-card:hover,
+.track-card:hover {
+  box-shadow: var(--card-shadow-hover);
+}
+
+[data-theme='light'] .album-card:hover,
+[data-theme='light'] .artist-card:hover,
+[data-theme='light'] .tag-card:hover,
+[data-theme='light'] .track-card:hover {
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme='dark'] .album-card:hover,
+[data-theme='dark'] .artist-card:hover,
+[data-theme='dark'] .tag-card:hover,
+[data-theme='dark'] .track-card:hover {
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.6);
+}
+
+/* 详情页Hero区域 */
+.album-hero,
+.artist-hero,
+.tag-hero,
+.track-hero {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-secondary);
+  box-shadow: var(--shadow-lg);
+  transition: all 0.3s ease;
+}
+
+[data-theme='light'] .album-hero,
+[data-theme='light'] .artist-hero,
+[data-theme='light'] .tag-hero,
+[data-theme='light'] .track-hero {
+  background: rgba(255, 255, 255, 0.95);
+}
+
+[data-theme='dark'] .album-hero,
+[data-theme='dark'] .artist-hero,
+[data-theme='dark'] .tag-hero,
+[data-theme='dark'] .track-hero {
+  background: rgba(31, 31, 31, 0.95);
+}
+
+/* 搜索框 */
+.ant-input-search {
+  transition: all 0.3s ease;
+}
+
+[data-theme='dark'] .ant-input-search .ant-input {
+  background: var(--input-bg);
+  border-color: var(--input-border);
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .ant-input-search .ant-input:hover {
+  border-color: var(--input-hover-border);
+}
+
+[data-theme='dark'] .ant-input-search .ant-input:focus {
+  border-color: #1890ff;
+}
+
+/* 表格背景 */
+[data-theme='dark'] .ant-table {
+  background: var(--card-bg);
+}
+
+[data-theme='dark'] .ant-table-thead > tr > th {
+  background: var(--bg-tertiary);
+  border-color: var(--border-primary);
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .ant-table-tbody > tr > td {
+  border-color: var(--border-secondary);
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .ant-table-tbody > tr:hover > td {
+  background: var(--bg-tertiary);
+}
+
+/* Empty状态 */
+[data-theme='dark'] .ant-empty-description {
+  color: var(--text-secondary);
+}
+
+/* 面包屑 */
+[data-theme='dark'] .ant-breadcrumb {
+  color: var(--text-secondary);
+}
+
+[data-theme='dark'] .ant-breadcrumb a {
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .ant-breadcrumb a:hover {
+  color: #1890ff;
+}
+
+/* Spin加载器 */
+[data-theme='dark'] .ant-spin-text {
+  color: var(--text-primary);
+}
+
+/* Descriptions */
+[data-theme='dark'] .ant-descriptions-item-label {
+  color: var(--text-secondary);
+}
+
+[data-theme='dark'] .ant-descriptions-item-content {
+  color: var(--text-primary);
+}
+
+
+

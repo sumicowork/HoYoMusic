@@ -18,6 +18,7 @@ export interface Track {
   created_at: string;
   updated_at: string;
   album_title?: string;
+  album_cover?: string | null;
   artists: Artist[];
 }
 

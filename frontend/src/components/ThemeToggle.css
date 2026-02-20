@@ -1,0 +1,20 @@
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.theme-toggle-label {
+  font-size: 14px;
+  color: var(--text-secondary);
+  user-select: none;
+}
+
+.theme-toggle-switch {
+  transition: all 0.3s ease;
+}
+
+.theme-toggle-switch:hover {
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+}
+

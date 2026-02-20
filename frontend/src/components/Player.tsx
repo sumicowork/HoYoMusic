@@ -200,13 +200,20 @@ const Player: React.FC = () => {
     <div className="player-container">
       <div className="player-content">
         <div className="player-track-info">
-          {currentTrack.cover_path && (
-            <img
-              src={trackService.getCoverUrl(currentTrack.cover_path)}
-              alt={currentTrack.title}
-              className="player-cover"
-            />
-          )}
+          {(() => {
+            const coverSrc = currentTrack.cover_path
+              ? trackService.getCoverUrl(currentTrack.cover_path)
+              : (currentTrack as any).album_cover
+                ? trackService.getCoverUrl((currentTrack as any).album_cover)
+                : null;
+            return coverSrc ? (
+              <img
+                src={coverSrc}
+                alt={currentTrack.title}
+                className="player-cover"
+              />
+            ) : null;
+          })()}
           <div className="player-text">
             <div className="player-title">{currentTrack.title}</div>
             <div className="player-artist">

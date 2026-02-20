@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Layout, Card, Row, Col, Spin, message, Tag, Space } from 'antd';
+import { Layout, Card, Row, Col, Spin, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
-import { PlayCircleOutlined, AppstoreOutlined, LoginOutlined, BookOutlined, UserOutlined, TagsOutlined } from '@ant-design/icons';
+import { PlayCircleOutlined, AppstoreOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import ThemeToggle from '../components/ThemeToggle';
 import './Home.css';
@@ -46,37 +46,7 @@ const Home: React.FC = () => {
       <Header className="home-header">
         <div className="header-content">
           <h1>🎵 HoYoMusic</h1>
-          <Space>
-            <ThemeToggle />
-            <Tag
-              color="blue"
-              style={{ cursor: 'pointer', padding: '6px 16px', fontSize: '14px', fontWeight: 500 }}
-              onClick={() => navigate('/albums')}
-            >
-              <BookOutlined /> 专辑
-            </Tag>
-            <Tag
-              color="cyan"
-              style={{ cursor: 'pointer', padding: '6px 16px', fontSize: '14px', fontWeight: 500 }}
-              onClick={() => navigate('/artists')}
-            >
-              <UserOutlined /> 艺术家
-            </Tag>
-            <Tag
-              color="green"
-              style={{ cursor: 'pointer', padding: '6px 16px', fontSize: '14px', fontWeight: 500 }}
-              onClick={() => navigate('/tags')}
-            >
-              <TagsOutlined /> 标签
-            </Tag>
-            <Tag
-              color="default"
-              style={{ cursor: 'pointer', padding: '6px 16px', fontSize: '14px', fontWeight: 500 }}
-              onClick={() => navigate('/admin/login')}
-            >
-              <LoginOutlined /> 管理
-            </Tag>
-          </Space>
+          <ThemeToggle />
         </div>
       </Header>
 
