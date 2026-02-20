@@ -1,10 +1,14 @@
 .library-layout {
   min-height: 100vh;
+  background: transparent !important;
 }
 
 .library-header {
-  background: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  box-shadow: 0 4px 24px rgba(102, 126, 234, 0.12);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.7);
   padding: 0 24px;
 }
 
@@ -19,7 +23,10 @@
 .header-content h1 {
   margin: 0;
   font-size: 24px;
-  color: #1890ff;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .library-content {

@@ -1,12 +1,14 @@
 .artist-detail-layout {
   min-height: 100vh;
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  background: transparent !important;
 }
 
 .artist-detail-header {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  box-shadow: 0 4px 24px rgba(102, 126, 234, 0.12);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.7);
   padding: 0 24px;
 }
 
@@ -21,10 +23,12 @@
   gap: 32px;
   margin-bottom: 48px;
   padding: 32px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 20px;
+  box-shadow: 0 8px 40px rgba(102, 126, 234, 0.15), 0 2px 0 rgba(255,255,255,0.9);
   align-items: center;
 }
 
@@ -36,7 +40,7 @@
   font-size: 36px;
   font-weight: 700;
   margin-bottom: 16px;
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 60%, #f093fb 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -49,11 +53,13 @@
 }
 
 .artist-tabs {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 20px;
   padding: 24px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 40px rgba(102, 126, 234, 0.12);
 }
 
 .album-card {

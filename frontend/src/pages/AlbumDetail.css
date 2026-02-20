@@ -1,6 +1,6 @@
 .album-detail-layout {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: transparent !important;
 }
 
 .album-detail-header {
@@ -19,8 +19,12 @@
   gap: 32px;
   margin-bottom: 48px;
   padding: 32px;
-  backdrop-filter: blur(10px);
-  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 20px;
+  box-shadow: 0 8px 40px rgba(102, 126, 234, 0.15), 0 2px 0 rgba(255,255,255,0.9);
 }
 
 .album-hero-info {
@@ -44,9 +48,13 @@
 }
 
 .album-tracks {
-  backdrop-filter: blur(10px);
-  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 20px;
   padding: 24px;
+  box-shadow: 0 8px 40px rgba(102, 126, 234, 0.12);
 }
 
 .album-tracks h2 {

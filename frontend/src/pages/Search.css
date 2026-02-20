@@ -1,6 +1,6 @@
 .search-layout {
   min-height: 100vh;
-  background: var(--bg-layout, #f5f5f5);
+  background: transparent !important;
 }
 
 .search-header {

@@ -1,0 +1,1172 @@
+/* ============================================================
+   Aurora Gradient + Glassmorphism — Global Design System
+   ============================================================ */
+
+/* ── CSS 变量：极光色板 ── */
+:root {
+  /* Aurora 极光渐变色 */
+  --aurora-1: #667eea;   /* 紫蓝 */
+  --aurora-2: #764ba2;   /* 深紫 */
+  --aurora-3: #f093fb;   /* 粉紫 */
+  --aurora-4: #4facfe;   /* 天蓝 */
+  --aurora-5: #43e97b;   /* 极光绿 */
+  --aurora-6: #fa709a;   /* 玫红 */
+  --aurora-7: #a18cd1;   /* 淡紫 */
+
+  /* Aurora 背景渐变 */
+  --aurora-bg-light:
+    radial-gradient(ellipse 80% 50% at 20% -10%, rgba(102,126,234,0.25) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 110%, rgba(118,75,162,0.2) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 60% at 50% 50%, rgba(240,147,251,0.1) 0%, transparent 70%),
+    linear-gradient(135deg, #f0f4ff 0%, #faf5ff 50%, #f0f8ff 100%);
+
+  --aurora-bg-dark:
+    radial-gradient(ellipse 80% 50% at 20% -10%, rgba(102,126,234,0.18) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 110%, rgba(118,75,162,0.15) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 60% at 50% 50%, rgba(240,147,251,0.06) 0%, transparent 70%),
+    linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+
+  /* Glass 效果变量 */
+  --glass-bg-light:       rgba(255, 255, 255, 0.6);
+  --glass-bg-dark:        rgba(20, 20, 40, 0.55);
+  --glass-border-light:   rgba(255, 255, 255, 0.7);
+  --glass-border-dark:    rgba(255, 255, 255, 0.12);
+  --glass-shadow-light:   0 8px 32px rgba(102, 126, 234, 0.18), 0 2px 8px rgba(0,0,0,0.08);
+  --glass-shadow-dark:    0 8px 32px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0,0,0,0.3);
+  --glass-blur:           blur(18px) saturate(180%);
+  --glass-blur-heavy:     blur(28px) saturate(200%);
+  --glass-blur-light:     blur(10px) saturate(150%);
+
+  /* Aurora 动画色 */
+  --aurora-animate-1: rgba(102, 126, 234, 0.35);
+  --aurora-animate-2: rgba(240, 147, 251, 0.25);
+  --aurora-animate-3: rgba(67, 233, 123, 0.15);
+  --aurora-animate-4: rgba(79, 172, 254, 0.2);
+}
+
+/* ── 暗色模式 Token 覆盖 ── */
+[data-theme='dark'] {
+  --glass-bg:     var(--glass-bg-dark);
+  --glass-border: var(--glass-border-dark);
+  --glass-shadow: var(--glass-shadow-dark);
+}
+[data-theme='light'] {
+  --glass-bg:     var(--glass-bg-light);
+  --glass-border: var(--glass-border-light);
+  --glass-shadow: var(--glass-shadow-light);
+}
+
+/* ============================================================
+   全局 Aurora 背景
+   ============================================================ */
+
+/* 全局 body — 极光背景层 */
+body {
+  position: relative;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  transition: opacity 0.6s ease;
+}
+
+[data-theme='light'] body::before {
+  background: var(--aurora-bg-light);
+}
+
+[data-theme='dark'] body::before {
+  background: var(--aurora-bg-dark);
+}
+
+/* 动态极光光晕层 */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 40% 30% at 70% 20%, var(--aurora-animate-1) 0%, transparent 70%),
+    radial-gradient(ellipse 35% 25% at 10% 80%, var(--aurora-animate-2) 0%, transparent 70%),
+    radial-gradient(ellipse 30% 40% at 90% 60%, var(--aurora-animate-4) 0%, transparent 70%);
+  animation: auroraShift 18s ease-in-out infinite alternate;
+  opacity: 0.8;
+}
+
+@keyframes auroraShift {
+  0% {
+    background:
+      radial-gradient(ellipse 40% 30% at 70% 20%, var(--aurora-animate-1) 0%, transparent 70%),
+      radial-gradient(ellipse 35% 25% at 10% 80%, var(--aurora-animate-2) 0%, transparent 70%),
+      radial-gradient(ellipse 30% 40% at 90% 60%, var(--aurora-animate-4) 0%, transparent 70%);
+  }
+  33% {
+    background:
+      radial-gradient(ellipse 50% 35% at 30% 10%, var(--aurora-animate-2) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 30% at 85% 70%, var(--aurora-animate-1) 0%, transparent 70%),
+      radial-gradient(ellipse 25% 45% at 50% 90%, var(--aurora-animate-3) 0%, transparent 70%);
+  }
+  66% {
+    background:
+      radial-gradient(ellipse 45% 40% at 60% 80%, var(--aurora-animate-4) 0%, transparent 70%),
+      radial-gradient(ellipse 30% 25% at 20% 30%, var(--aurora-animate-1) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 30% at 95% 10%, var(--aurora-animate-2) 0%, transparent 70%);
+  }
+  100% {
+    background:
+      radial-gradient(ellipse 38% 28% at 15% 60%, var(--aurora-animate-3) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 35% at 75% 40%, var(--aurora-animate-1) 0%, transparent 70%),
+      radial-gradient(ellipse 30% 40% at 40% 5%,  var(--aurora-animate-4) 0%, transparent 70%);
+  }
+}
+
+/* ============================================================
+   Glassmorphism 工具类
+   ============================================================ */
+
+.glass {
+  background: var(--glass-bg) !important;
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+  border: 1px solid var(--glass-border) !important;
+  box-shadow: var(--glass-shadow) !important;
+}
+
+.glass-heavy {
+  backdrop-filter: var(--glass-blur-heavy) !important;
+  -webkit-backdrop-filter: var(--glass-blur-heavy) !important;
+}
+
+.glass-light {
+  backdrop-filter: var(--glass-blur-light) !important;
+  -webkit-backdrop-filter: var(--glass-blur-light) !important;
+}
+
+/* ============================================================
+   页面布局背景 — 极光渐变
+   ============================================================ */
+
+.home-layout,
+.albums-layout,
+.artists-layout,
+.tags-layout,
+.library-layout,
+.search-layout,
+.tag-detail-container,
+.tags-container,
+.track-detail-layout,
+.album-detail-layout,
+.artist-detail-layout {
+  background: transparent !important;
+  min-height: 100vh;
+}
+
+/* Login 页面独立极光 */
+.login-container {
+  background:
+    radial-gradient(ellipse 70% 50% at 20% 10%, rgba(102,126,234,0.55) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 90%, rgba(118,75,162,0.45) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 60% at 60% 50%, rgba(240,147,251,0.2) 0%, transparent 70%),
+    linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%) !important;
+  position: relative;
+  overflow: hidden;
+}
+
+.login-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 40% 30% at 70% 20%, rgba(79,172,254,0.2) 0%, transparent 60%),
+    radial-gradient(ellipse 35% 25% at 20% 70%, rgba(67,233,123,0.1) 0%, transparent 60%);
+  animation: auroraShift 12s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+/* ============================================================
+   Header / Navbar — 玻璃效果
+   ============================================================ */
+
+.home-header,
+.albums-header,
+.artists-header,
+.library-header,
+.artist-detail-header,
+.album-detail-header,
+.game-detail-header {
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+  border-bottom: 1px solid var(--glass-border) !important;
+  transition: all 0.3s ease !important;
+}
+
+[data-theme='light'] .home-header,
+[data-theme='light'] .albums-header,
+[data-theme='light'] .artists-header,
+[data-theme='light'] .library-header,
+[data-theme='light'] .artist-detail-header,
+[data-theme='light'] .album-detail-header {
+  background: rgba(255, 255, 255, 0.72) !important;
+  box-shadow: 0 4px 24px rgba(102, 126, 234, 0.12), 0 1px 0 rgba(255,255,255,0.6) !important;
+}
+
+[data-theme='dark'] .home-header,
+[data-theme='dark'] .albums-header,
+[data-theme='dark'] .artists-header,
+[data-theme='dark'] .library-header,
+[data-theme='dark'] .artist-detail-header,
+[data-theme='dark'] .album-detail-header {
+  background: rgba(15, 12, 41, 0.72) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 1px 0 rgba(255,255,255,0.06) !important;
+}
+
+/* 搜索页 Header */
+.search-header {
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+  border-bottom: 1px solid var(--glass-border) !important;
+  transition: all 0.3s ease !important;
+}
+
+[data-theme='light'] .search-header {
+  background: rgba(255, 255, 255, 0.72) !important;
+  box-shadow: 0 4px 24px rgba(102, 126, 234, 0.12) !important;
+}
+
+[data-theme='dark'] .search-header {
+  background: rgba(15, 12, 41, 0.72) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* ============================================================
+   Player — 底部玻璃播放器
+   ============================================================ */
+
+.player-container {
+  backdrop-filter: var(--glass-blur-heavy) !important;
+  -webkit-backdrop-filter: var(--glass-blur-heavy) !important;
+  border-top: 1px solid var(--glass-border) !important;
+}
+
+[data-theme='light'] .player-container {
+  background: rgba(255, 255, 255, 0.75) !important;
+  box-shadow: 0 -4px 32px rgba(102, 126, 234, 0.15), 0 -1px 0 rgba(255,255,255,0.8) !important;
+}
+
+[data-theme='dark'] .player-container {
+  background: rgba(10, 8, 30, 0.8) !important;
+  box-shadow: 0 -4px 32px rgba(0, 0, 0, 0.5), 0 -1px 0 rgba(255,255,255,0.05) !important;
+}
+
+/* 播放器封面图 — 极光光环 */
+.player-cover {
+  box-shadow:
+    0 0 0 2px rgba(102, 126, 234, 0.4),
+    0 4px 20px rgba(102, 126, 234, 0.3),
+    0 0 40px rgba(240, 147, 251, 0.15) !important;
+  transition: box-shadow 0.4s ease !important;
+}
+
+.player-cover:hover {
+  box-shadow:
+    0 0 0 3px rgba(102, 126, 234, 0.6),
+    0 6px 30px rgba(102, 126, 234, 0.5),
+    0 0 60px rgba(240, 147, 251, 0.25) !important;
+}
+
+/* ============================================================
+   Cards — 玻璃卡片
+   ============================================================ */
+
+.album-card,
+.artist-card,
+.tag-card,
+.track-card,
+.game-card {
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+  transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 卡片极光光晕边框 */
+.album-card::before,
+.artist-card::before,
+.game-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg,
+    rgba(102, 126, 234, 0.5),
+    rgba(240, 147, 251, 0.3),
+    rgba(79, 172, 254, 0.4),
+    rgba(102, 126, 234, 0.3));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.album-card:hover::before,
+.artist-card:hover::before,
+.game-card:hover::before {
+  opacity: 1;
+}
+
+[data-theme='light'] .album-card,
+[data-theme='light'] .artist-card,
+[data-theme='light'] .tag-card,
+[data-theme='light'] .track-card {
+  background: rgba(255, 255, 255, 0.65) !important;
+  border: 1px solid rgba(255, 255, 255, 0.8) !important;
+  box-shadow: 0 4px 24px rgba(102, 126, 234, 0.12), 0 1px 0 rgba(255,255,255,0.9) !important;
+}
+
+[data-theme='dark'] .album-card,
+[data-theme='dark'] .artist-card,
+[data-theme='dark'] .tag-card,
+[data-theme='dark'] .track-card {
+  background: rgba(20, 18, 50, 0.6) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 1px 0 rgba(255,255,255,0.04) !important;
+}
+
+[data-theme='light'] .album-card:hover,
+[data-theme='light'] .artist-card:hover,
+[data-theme='light'] .tag-card:hover,
+[data-theme='light'] .track-card:hover {
+  background: rgba(255, 255, 255, 0.85) !important;
+  box-shadow: 0 16px 48px rgba(102, 126, 234, 0.25), 0 4px 16px rgba(240,147,251,0.15) !important;
+}
+
+[data-theme='dark'] .album-card:hover,
+[data-theme='dark'] .artist-card:hover,
+[data-theme='dark'] .tag-card:hover,
+[data-theme='dark'] .track-card:hover {
+  background: rgba(30, 25, 70, 0.75) !important;
+  box-shadow: 0 16px 48px rgba(102, 126, 234, 0.3), 0 4px 16px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Game 卡片独立极光色 */
+[data-theme='light'] .game-card {
+  background: rgba(255, 255, 255, 0.7) !important;
+  border: 1px solid rgba(255, 255, 255, 0.8) !important;
+  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.15), 0 2px 0 rgba(255,255,255,0.9) !important;
+}
+
+[data-theme='dark'] .game-card {
+  background: rgba(15, 12, 41, 0.65) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+}
+
+[data-theme='light'] .game-card:hover {
+  box-shadow: 0 20px 60px rgba(102, 126, 234, 0.3), 0 8px 24px rgba(240,147,251,0.2) !important;
+}
+
+[data-theme='dark'] .game-card:hover {
+  box-shadow: 0 20px 60px rgba(102, 126, 234, 0.35), 0 8px 24px rgba(0,0,0,0.6) !important;
+}
+
+/* ============================================================
+   Detail Hero 区域 — 玻璃面板
+   ============================================================ */
+
+.album-hero,
+.artist-hero,
+.album-tracks,
+.artist-tabs,
+.tag-detail-tracks {
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+  border-radius: 20px !important;
+}
+
+[data-theme='light'] .album-hero,
+[data-theme='light'] .artist-hero,
+[data-theme='light'] .album-tracks,
+[data-theme='light'] .artist-tabs,
+[data-theme='light'] .tag-detail-tracks {
+  background: rgba(255, 255, 255, 0.65) !important;
+  border: 1px solid rgba(255, 255, 255, 0.8) !important;
+  box-shadow: 0 8px 40px rgba(102, 126, 234, 0.15), 0 2px 0 rgba(255,255,255,0.9) !important;
+}
+
+[data-theme='dark'] .album-hero,
+[data-theme='dark'] .artist-hero,
+[data-theme='dark'] .album-tracks,
+[data-theme='dark'] .artist-tabs,
+[data-theme='dark'] .tag-detail-tracks {
+  background: rgba(15, 12, 41, 0.65) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(255,255,255,0.05) !important;
+}
+
+/* ============================================================
+   Artists 列表容器
+   ============================================================ */
+
+.artists-list-container {
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+  border-radius: 20px !important;
+}
+
+[data-theme='light'] .artists-list-container {
+  background: rgba(255, 255, 255, 0.65) !important;
+  border: 1px solid rgba(255, 255, 255, 0.8) !important;
+  box-shadow: 0 8px 40px rgba(102, 126, 234, 0.15) !important;
+}
+
+[data-theme='dark'] .artists-list-container {
+  background: rgba(15, 12, 41, 0.65) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* ============================================================
+   Login Card — 极光玻璃登录框
+   ============================================================ */
+
+.login-card {
+  backdrop-filter: var(--glass-blur-heavy) !important;
+  -webkit-backdrop-filter: var(--glass-blur-heavy) !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  box-shadow:
+    0 16px 64px rgba(102, 126, 234, 0.4),
+    0 4px 16px rgba(0,0,0,0.2),
+    inset 0 1px 0 rgba(255,255,255,0.3) !important;
+  border-radius: 24px !important;
+}
+
+.login-card .ant-card-body {
+  background: transparent !important;
+}
+
+[data-theme='light'] .login-card {
+  background: rgba(255, 255, 255, 0.55) !important;
+  border: 1px solid rgba(255, 255, 255, 0.75) !important;
+}
+
+/* ============================================================
+   Admin Sidebar — 极光玻璃侧边栏
+   ============================================================ */
+
+.admin-sidebar {
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+  position: relative;
+  overflow: hidden;
+}
+
+.admin-sidebar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg,
+    rgba(102, 126, 234, 0.1) 0%,
+    rgba(118, 75, 162, 0.08) 50%,
+    rgba(240, 147, 251, 0.06) 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+[data-theme='dark'] .admin-sidebar {
+  background: rgba(10, 8, 30, 0.85) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 4px 0 32px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-theme='light'] .admin-sidebar {
+  background: rgba(255, 255, 255, 0.75) !important;
+  border-right: 1px solid rgba(102, 126, 234, 0.15) !important;
+  box-shadow: 4px 0 32px rgba(102, 126, 234, 0.1) !important;
+}
+
+/* ============================================================
+   Modal / Drawer — 玻璃弹出层
+   ============================================================ */
+
+.ant-modal-content {
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+  border-radius: 20px !important;
+}
+
+[data-theme='light'] .ant-modal-content {
+  background: rgba(255, 255, 255, 0.82) !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 24px 80px rgba(102, 126, 234, 0.2), 0 8px 24px rgba(0,0,0,0.1) !important;
+}
+
+[data-theme='dark'] .ant-modal-content {
+  background: rgba(15, 12, 41, 0.88) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6), 0 8px 24px rgba(102,126,234,0.1) !important;
+}
+
+.ant-drawer-content {
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+}
+
+[data-theme='light'] .ant-drawer-content {
+  background: rgba(255, 255, 255, 0.82) !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.8) !important;
+}
+
+[data-theme='dark'] .ant-drawer-content {
+  background: rgba(15, 12, 41, 0.88) !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* ============================================================
+   Table — 玻璃表格
+   ============================================================ */
+
+.ant-table-container {
+  backdrop-filter: var(--glass-blur-light) !important;
+  -webkit-backdrop-filter: var(--glass-blur-light) !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+}
+
+[data-theme='light'] .ant-table {
+  background: rgba(255, 255, 255, 0.7) !important;
+}
+
+[data-theme='dark'] .ant-table {
+  background: rgba(15, 12, 41, 0.6) !important;
+}
+
+[data-theme='light'] .ant-table-thead > tr > th {
+  background: rgba(240, 244, 255, 0.85) !important;
+}
+
+[data-theme='dark'] .ant-table-thead > tr > th {
+  background: rgba(30, 24, 60, 0.8) !important;
+}
+
+/* ============================================================
+   Ant Design Card — 玻璃风格
+   ============================================================ */
+
+.ant-card {
+  backdrop-filter: var(--glass-blur-light) !important;
+  -webkit-backdrop-filter: var(--glass-blur-light) !important;
+  border-radius: 16px !important;
+  transition: all 0.3s ease !important;
+}
+
+[data-theme='light'] .ant-card {
+  background: rgba(255, 255, 255, 0.7) !important;
+  border: 1px solid rgba(255, 255, 255, 0.85) !important;
+  box-shadow: 0 2px 16px rgba(102, 126, 234, 0.1) !important;
+}
+
+[data-theme='dark'] .ant-card {
+  background: rgba(20, 18, 50, 0.65) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* ============================================================
+   Input / Search — 玻璃输入框
+   ============================================================ */
+
+.ant-input,
+.ant-input-affix-wrapper,
+.ant-input-search .ant-input-affix-wrapper,
+.ant-select-selector {
+  backdrop-filter: var(--glass-blur-light) !important;
+  -webkit-backdrop-filter: var(--glass-blur-light) !important;
+  transition: all 0.25s ease !important;
+}
+
+[data-theme='light'] .ant-input,
+[data-theme='light'] .ant-input-affix-wrapper,
+[data-theme='light'] .ant-select-selector {
+  background: rgba(255, 255, 255, 0.7) !important;
+  border-color: rgba(102, 126, 234, 0.25) !important;
+}
+
+[data-theme='light'] .ant-input:focus,
+[data-theme='light'] .ant-input-affix-wrapper:focus,
+[data-theme='light'] .ant-input-affix-wrapper-focused {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-color: #667eea !important;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.18) !important;
+}
+
+[data-theme='dark'] .ant-input,
+[data-theme='dark'] .ant-input-affix-wrapper,
+[data-theme='dark'] .ant-select-selector {
+  background: rgba(15, 12, 41, 0.6) !important;
+  border-color: rgba(102, 126, 234, 0.3) !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+[data-theme='dark'] .ant-input:focus,
+[data-theme='dark'] .ant-input-affix-wrapper-focused {
+  background: rgba(20, 16, 55, 0.8) !important;
+  border-color: #667eea !important;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.25) !important;
+}
+
+/* ============================================================
+   Button — 极光渐变按钮
+   ============================================================ */
+
+.ant-btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  border: none !important;
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4) !important;
+  transition: all 0.25s ease !important;
+}
+
+.ant-btn-primary:hover {
+  background: linear-gradient(135deg, #7b93ff 0%, #8c5fb5 100%) !important;
+  box-shadow: 0 6px 24px rgba(102, 126, 234, 0.55) !important;
+  transform: translateY(-1px) !important;
+}
+
+.ant-btn-primary:active {
+  transform: translateY(0) !important;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4) !important;
+}
+
+.ant-btn-default,
+.ant-btn:not(.ant-btn-primary):not(.ant-btn-text):not(.ant-btn-link) {
+  backdrop-filter: var(--glass-blur-light) !important;
+  -webkit-backdrop-filter: var(--glass-blur-light) !important;
+  transition: all 0.25s ease !important;
+}
+
+[data-theme='light'] .ant-btn-default {
+  background: rgba(255, 255, 255, 0.7) !important;
+  border-color: rgba(102, 126, 234, 0.3) !important;
+}
+
+[data-theme='dark'] .ant-btn-default {
+  background: rgba(20, 18, 50, 0.6) !important;
+  border-color: rgba(102, 126, 234, 0.35) !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+[data-theme='light'] .ant-btn-default:hover {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-color: #667eea !important;
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.2) !important;
+}
+
+[data-theme='dark'] .ant-btn-default:hover {
+  background: rgba(30, 25, 70, 0.75) !important;
+  border-color: #667eea !important;
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3) !important;
+}
+
+/* ============================================================
+   Tag — 极光标签
+   ============================================================ */
+
+.ant-tag {
+  backdrop-filter: var(--glass-blur-light) !important;
+  -webkit-backdrop-filter: var(--glass-blur-light) !important;
+  border-radius: 20px !important;
+  transition: all 0.2s ease !important;
+}
+
+/* ============================================================
+   Dropdown / Menu — 玻璃下拉
+   ============================================================ */
+
+.ant-dropdown .ant-dropdown-menu,
+.ant-select-dropdown,
+.ant-picker-dropdown .ant-picker-panel-container {
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+  border-radius: 12px !important;
+}
+
+[data-theme='light'] .ant-dropdown .ant-dropdown-menu,
+[data-theme='light'] .ant-select-dropdown {
+  background: rgba(255, 255, 255, 0.88) !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.2) !important;
+}
+
+[data-theme='dark'] .ant-dropdown .ant-dropdown-menu,
+[data-theme='dark'] .ant-select-dropdown {
+  background: rgba(15, 12, 41, 0.92) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* ============================================================
+   Tabs — 极光标签页
+   ============================================================ */
+
+.ant-tabs-nav {
+  backdrop-filter: var(--glass-blur-light) !important;
+  -webkit-backdrop-filter: var(--glass-blur-light) !important;
+}
+
+.ant-tabs-ink-bar {
+  background: linear-gradient(90deg, #667eea, #764ba2) !important;
+  border-radius: 2px !important;
+  height: 3px !important;
+}
+
+/* ============================================================
+   PlayQueue Drawer
+   ============================================================ */
+
+.play-queue-drawer .ant-drawer-body {
+  background: transparent !important;
+}
+
+[data-theme='light'] .queue-item {
+  background: rgba(255, 255, 255, 0.5) !important;
+  border-bottom: 1px solid rgba(102, 126, 234, 0.1) !important;
+}
+
+[data-theme='dark'] .queue-item {
+  background: rgba(20, 18, 50, 0.4) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+[data-theme='light'] .queue-item:hover {
+  background: rgba(255, 255, 255, 0.85) !important;
+}
+
+[data-theme='dark'] .queue-item:hover {
+  background: rgba(30, 25, 70, 0.65) !important;
+}
+
+[data-theme='light'] .queue-item.current {
+  background: rgba(102, 126, 234, 0.15) !important;
+  border-left: 3px solid #667eea !important;
+}
+
+[data-theme='dark'] .queue-item.current {
+  background: rgba(102, 126, 234, 0.2) !important;
+  border-left: 3px solid #667eea !important;
+}
+
+/* ============================================================
+   Upload Modal
+   ============================================================ */
+
+.upload-dragger {
+  background: rgba(102, 126, 234, 0.06) !important;
+  border: 2px dashed rgba(102, 126, 234, 0.45) !important;
+  backdrop-filter: var(--glass-blur-light) !important;
+  -webkit-backdrop-filter: var(--glass-blur-light) !important;
+  border-radius: 16px !important;
+  transition: all 0.25s ease !important;
+}
+
+.upload-dragger:hover {
+  background: rgba(102, 126, 234, 0.12) !important;
+  border-color: rgba(118, 75, 162, 0.6) !important;
+  box-shadow: 0 4px 24px rgba(102, 126, 234, 0.2) !important;
+}
+
+/* ============================================================
+   Lyrics — 玻璃词卡
+   ============================================================ */
+
+.lyrics-card {
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+  border-radius: 16px !important;
+}
+
+[data-theme='light'] .lyrics-card {
+  background: rgba(255, 255, 255, 0.65) !important;
+  border: 1px solid rgba(255, 255, 255, 0.8) !important;
+  box-shadow: 0 4px 24px rgba(102, 126, 234, 0.12) !important;
+}
+
+[data-theme='dark'] .lyrics-card {
+  background: rgba(15, 12, 41, 0.65) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* ============================================================
+   Credits Card
+   ============================================================ */
+
+.credits-card {
+  backdrop-filter: var(--glass-blur-light) !important;
+  -webkit-backdrop-filter: var(--glass-blur-light) !important;
+  border-radius: 16px !important;
+}
+
+[data-theme='light'] .credits-card {
+  background: rgba(255, 255, 255, 0.65) !important;
+  border: 1px solid rgba(255, 255, 255, 0.8) !important;
+  box-shadow: 0 4px 24px rgba(102, 126, 234, 0.1) !important;
+}
+
+[data-theme='dark'] .credits-card {
+  background: rgba(15, 12, 41, 0.65) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35) !important;
+}
+
+[data-theme='dark'] .credits-card .ant-descriptions-item-label {
+  background: rgba(30, 25, 70, 0.6) !important;
+}
+
+/* ============================================================
+   Tag Detail / Track Detail 特殊区域
+   ============================================================ */
+
+.tag-detail-tracks,
+.track-info-card {
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+  border-radius: 16px !important;
+}
+
+[data-theme='light'] .tag-detail-tracks,
+[data-theme='light'] .track-info-card {
+  background: rgba(255, 255, 255, 0.7) !important;
+  border: 1px solid rgba(255, 255, 255, 0.85) !important;
+  box-shadow: 0 4px 24px rgba(102, 126, 234, 0.12) !important;
+}
+
+[data-theme='dark'] .tag-detail-tracks,
+[data-theme='dark'] .track-info-card {
+  background: rgba(15, 12, 41, 0.65) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* TrackDetail layout */
+.track-detail-layout {
+  background: transparent !important;
+}
+
+.track-detail-header {
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+}
+
+[data-theme='dark'] .track-detail-header {
+  background: rgba(10, 8, 30, 0.85) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-theme='light'] .track-detail-header {
+  background: rgba(255, 255, 255, 0.72) !important;
+  border-bottom: 1px solid rgba(102, 126, 234, 0.15) !important;
+  box-shadow: 0 4px 24px rgba(102, 126, 234, 0.1) !important;
+}
+
+/* ============================================================
+   Search 页面特殊组件
+   ============================================================ */
+
+.search-active-tags {
+  backdrop-filter: var(--glass-blur-light) !important;
+  -webkit-backdrop-filter: var(--glass-blur-light) !important;
+}
+
+[data-theme='light'] .search-active-tags {
+  background: rgba(102, 126, 234, 0.08) !important;
+  border: 1px solid rgba(102, 126, 234, 0.25) !important;
+}
+
+[data-theme='dark'] .search-active-tags {
+  background: rgba(102, 126, 234, 0.12) !important;
+  border: 1px solid rgba(102, 126, 234, 0.3) !important;
+}
+
+/* ============================================================
+   Side Navigation — 极光悬浮导航
+   ============================================================ */
+
+.side-nav-item {
+  backdrop-filter: var(--glass-blur-light) !important;
+  -webkit-backdrop-filter: var(--glass-blur-light) !important;
+  box-shadow: 2px 2px 12px rgba(102, 126, 234, 0.3), inset 0 1px 0 rgba(255,255,255,0.2) !important;
+}
+
+.side-nav-item:hover {
+  box-shadow: 4px 4px 24px rgba(102, 126, 234, 0.45), inset 0 1px 0 rgba(255,255,255,0.25) !important;
+}
+
+.side-nav-item.active {
+  box-shadow: 4px 4px 28px rgba(102, 126, 234, 0.55), inset 0 1px 0 rgba(255,255,255,0.3) !important;
+}
+
+/* ============================================================
+   Tags Container
+   ============================================================ */
+
+.tag-card {
+  backdrop-filter: var(--glass-blur-light) !important;
+  -webkit-backdrop-filter: var(--glass-blur-light) !important;
+}
+
+[data-theme='light'] .tag-stats,
+[data-theme='light'] .tag-actions {
+  border-color: rgba(102, 126, 234, 0.15) !important;
+}
+
+[data-theme='dark'] .tag-stats,
+[data-theme='dark'] .tag-actions {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* ============================================================
+   Notification / Message — 玻璃通知
+   ============================================================ */
+
+.ant-notification-notice,
+.ant-message-notice-content {
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+  border-radius: 12px !important;
+}
+
+[data-theme='light'] .ant-notification-notice,
+[data-theme='light'] .ant-message-notice-content {
+  background: rgba(255, 255, 255, 0.88) !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.15) !important;
+}
+
+[data-theme='dark'] .ant-notification-notice,
+[data-theme='dark'] .ant-message-notice-content {
+  background: rgba(15, 12, 41, 0.92) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* ============================================================
+   Tooltip / Popover — 玻璃提示
+   ============================================================ */
+
+.ant-tooltip .ant-tooltip-inner {
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+  border-radius: 8px !important;
+}
+
+[data-theme='light'] .ant-tooltip .ant-tooltip-inner {
+  background: rgba(15, 12, 41, 0.85) !important;
+}
+
+[data-theme='dark'] .ant-tooltip .ant-tooltip-inner {
+  background: rgba(15, 12, 41, 0.92) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+/* ============================================================
+   Popconfirm / Popover
+   ============================================================ */
+
+.ant-popover-inner {
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+  border-radius: 12px !important;
+}
+
+[data-theme='light'] .ant-popover-inner {
+  background: rgba(255, 255, 255, 0.88) !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.15) !important;
+}
+
+[data-theme='dark'] .ant-popover-inner {
+  background: rgba(15, 12, 41, 0.92) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* ============================================================
+   Slider (播放进度) — 极光色
+   ============================================================ */
+
+.ant-slider-track {
+  background: linear-gradient(90deg, #667eea, #764ba2) !important;
+}
+
+.ant-slider-handle {
+  border-color: #667eea !important;
+  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.2) !important;
+}
+
+.ant-slider-handle:hover,
+.ant-slider-handle:focus {
+  border-color: #764ba2 !important;
+  box-shadow: 0 0 0 6px rgba(102, 126, 234, 0.3) !important;
+}
+
+/* ============================================================
+   Scrollbar — 极光滚动条
+   ============================================================ */
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(102, 126, 234, 0.5), rgba(118, 75, 162, 0.5)) !important;
+  border-radius: 4px !important;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(102, 126, 234, 0.8), rgba(118, 75, 162, 0.8)) !important;
+}
+
+[data-theme='light'] ::-webkit-scrollbar-track {
+  background: rgba(240, 244, 255, 0.5) !important;
+}
+
+[data-theme='dark'] ::-webkit-scrollbar-track {
+  background: rgba(15, 12, 41, 0.4) !important;
+}
+
+/* ============================================================
+   Text Selection — 极光选中色
+   ============================================================ */
+
+::selection {
+  background: rgba(102, 126, 234, 0.35) !important;
+  color: inherit !important;
+}
+
+/* ============================================================
+   Hero Title — Aurora Text Gradient
+   ============================================================ */
+
+.hero-title {
+  background: linear-gradient(135deg, #a8c0ff, #e0aaff, #ffd6ff) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+  text-shadow: none !important;
+  filter: drop-shadow(0 0 20px rgba(168, 192, 255, 0.5));
+}
+
+.hero-subtitle {
+  color: rgba(255, 255, 255, 0.88) !important;
+  text-shadow: 0 1px 8px rgba(102, 126, 234, 0.4) !important;
+}
+
+/* Game 标题 */
+.game-name-cn {
+  background: linear-gradient(135deg, #a8c0ff, #e0aaff) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+  text-shadow: none !important;
+  filter: drop-shadow(0 0 12px rgba(168, 192, 255, 0.4));
+}
+
+/* ============================================================
+   Admin Main Content — 保持玻璃背景
+   ============================================================ */
+
+.admin-main-layout {
+  background: transparent !important;
+}
+
+/* ============================================================
+   Search 主输入框
+   ============================================================ */
+
+.search-submit-btn {
+  background: linear-gradient(135deg, #667eea, #764ba2) !important;
+  border: none !important;
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4) !important;
+  transition: all 0.25s ease !important;
+}
+
+.search-submit-btn:hover {
+  box-shadow: 0 6px 24px rgba(102, 126, 234, 0.55) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* ============================================================
+   Progress Bar
+   ============================================================ */
+
+.ant-progress-bg {
+  background: linear-gradient(90deg, #667eea, #764ba2) !important;
+}
+
+/* ============================================================
+   Switch
+   ============================================================ */
+
+.ant-switch-checked {
+  background: linear-gradient(135deg, #667eea, #764ba2) !important;
+}
+
+/* ============================================================
+   游戏详情页专辑卡片 (dark background)
+   ============================================================ */
+
+.game-detail-layout .album-card {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3) !important;
+}
+
+.game-detail-layout .album-card:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(102, 126, 234, 0.3) !important;
+}
+
+/* ============================================================
+   Spin Loading — 极光
+   ============================================================ */
+
+.ant-spin-dot-item {
+  background-color: #667eea !important;
+}
+
+/* ============================================================
+   Mobile 适配
+   ============================================================ */
+
+@media (max-width: 768px) {
+  :root {
+    --glass-blur: blur(12px) saturate(160%);
+    --glass-blur-heavy: blur(20px) saturate(180%);
+  }
+
+  body::after {
+    opacity: 0.5;
+  }
+}
+
+/* ============================================================
+   减少动效 (prefers-reduced-motion)
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  body::after {
+    animation: none !important;
+  }
+
+  .login-container::before {
+    animation: none !important;
+  }
+}
+

@@ -1,10 +1,19 @@
 /* Admin page specific styles */
 .ant-card {
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-  border-radius: 8px;
+  border-radius: 16px !important;
 }
 
-.ant-table-wrapper {
-  background: white;
+[data-theme='light'] .ant-table-wrapper {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 12px;
+}
+
+[data-theme='dark'] .ant-table-wrapper {
+  background: rgba(15, 12, 41, 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 12px;
 }
 

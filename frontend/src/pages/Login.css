@@ -3,13 +3,26 @@
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background:
+    radial-gradient(ellipse 70% 50% at 20% 10%, rgba(102,126,234,0.55) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 90%, rgba(118,75,162,0.45) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 60% at 60% 50%, rgba(240,147,251,0.2) 0%, transparent 70%),
+    linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%) !important;
+  position: relative;
+  overflow: hidden;
 }
 
 .login-card {
-  width: 400px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  border-radius: 16px;
+  width: 420px;
+  backdrop-filter: blur(28px) saturate(200%);
+  -webkit-backdrop-filter: blur(28px) saturate(200%);
+  background: rgba(255, 255, 255, 0.12) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  box-shadow:
+    0 16px 64px rgba(102, 126, 234, 0.4),
+    0 4px 16px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+  border-radius: 24px !important;
 }
 
 .login-header {
@@ -19,13 +32,17 @@
 
 .login-header h1 {
   font-size: 32px;
-  font-weight: 600;
+  font-weight: 700;
   margin-bottom: 8px;
-  color: #1890ff;
+  background: linear-gradient(135deg, #a8c0ff, #e0aaff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 12px rgba(168, 192, 255, 0.5));
 }
 
 .login-header p {
-  color: #666;
+  color: rgba(255, 255, 255, 0.75);
   font-size: 14px;
 }
 

@@ -21,9 +21,11 @@ import Player from './components/Player';
 import SideNav from './components/SideNav';
 import { usePlayerStore } from './store/playerStore';
 import { useThemeStore } from './store/themeStore';
+import { useAuthStore } from './store/authStore';
 import { darkTheme, lightTheme } from './theme/themeConfig';
 import './theme/theme.css';
 import './theme/publicPages.css';
+import './theme/aurora-glass.css';
 import './App.css';
 
 // 绑定静态实例，使 toast 工具在组件树外也能调用
@@ -33,11 +35,16 @@ notification.config({ placement: 'topRight', top: 64 });
 const App: React.FC = () => {
   const { currentTrack } = usePlayerStore();
   const { mode } = useThemeStore();
+  const { initializeAuth } = useAuthStore();
 
-  // 初始化主题
+  // Initialize authentication and theme on app startup
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', mode);
   }, [mode]);
+
+  useEffect(() => {
+    initializeAuth();
+  }, [initializeAuth]);
 
   return (
     <ConfigProvider theme={mode === 'dark' ? darkTheme : lightTheme}>

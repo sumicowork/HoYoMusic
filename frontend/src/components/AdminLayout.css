@@ -4,18 +4,36 @@
 
 .admin-sidebar {
   background: var(--sidebar-bg, #001529);
-  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  position: relative;
+  overflow: hidden;
+}
+
+.admin-sidebar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg,
+    rgba(102, 126, 234, 0.08) 0%,
+    rgba(118, 75, 162, 0.06) 50%,
+    rgba(240, 147, 251, 0.04) 100%);
+  pointer-events: none;
+  z-index: 0;
 }
 
 /* 深色主题侧边栏 */
 [data-theme='dark'] .admin-sidebar {
-  background: #001529;
+  background: rgba(10, 8, 30, 0.88) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 4px 0 32px rgba(0, 0, 0, 0.5) !important;
 }
 
 /* 浅色主题侧边栏 */
 [data-theme='light'] .admin-sidebar {
-  background: #ffffff;
-  border-right: 1px solid var(--border-secondary);
+  background: rgba(255, 255, 255, 0.78) !important;
+  border-right: 1px solid rgba(102, 126, 234, 0.15) !important;
+  box-shadow: 4px 0 32px rgba(102, 126, 234, 0.1) !important;
 }
 
 .admin-logo {
@@ -97,7 +115,7 @@
 }
 
 .admin-main-layout {
-  background: var(--bg-secondary);
+  background: transparent !important;
 }
 
 .admin-main-content {

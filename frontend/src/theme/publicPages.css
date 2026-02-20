@@ -1,10 +1,11 @@
 /* 前台页面通用主题适配样式 */
 
-/* 布局背景渐变 */
+/* 布局背景 — 透明，由全局 aurora 背景层提供 */
 .albums-layout,
 .artists-layout,
 .tags-layout,
 .library-layout {
+  background: transparent !important;
   transition: background 0.3s ease;
 }
 
@@ -12,14 +13,14 @@
 [data-theme='light'] .artists-layout,
 [data-theme='light'] .tags-layout,
 [data-theme='light'] .library-layout {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: transparent !important;
 }
 
 [data-theme='dark'] .albums-layout,
 [data-theme='dark'] .artists-layout,
 [data-theme='dark'] .tags-layout,
 [data-theme='dark'] .library-layout {
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  background: transparent !important;
 }
 
 /* GameDetail layout 保持自定义游戏背景 */
@@ -32,9 +33,9 @@
 .artists-header,
 .tags-header,
 .library-header {
-  backdrop-filter: blur(10px);
-  box-shadow: var(--shadow-md);
-  border-bottom: 1px solid var(--border-secondary);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  border-bottom: 1px solid var(--glass-border, rgba(255,255,255,0.2));
   transition: all 0.3s ease;
 }
 
@@ -42,14 +43,16 @@
 [data-theme='light'] .artists-header,
 [data-theme='light'] .tags-header,
 [data-theme='light'] .library-header {
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 4px 24px rgba(102, 126, 234, 0.12);
 }
 
 [data-theme='dark'] .albums-header,
 [data-theme='dark'] .artists-header,
 [data-theme='dark'] .tags-header,
 [data-theme='dark'] .library-header {
-  background: rgba(20, 20, 20, 0.95);
+  background: rgba(10, 8, 30, 0.72);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
 }
 
 /* GameDetail header 保持透明，不添加边框 */
@@ -65,48 +68,43 @@
 .artist-card,
 .tag-card,
 .track-card {
-  background: var(--card-bg);
-  backdrop-filter: blur(10px);
-  box-shadow: var(--card-shadow);
-  border: 1px solid var(--border-secondary);
-  transition: all 0.3s ease;
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 [data-theme='light'] .album-card,
 [data-theme='light'] .artist-card,
 [data-theme='light'] .tag-card,
 [data-theme='light'] .track-card {
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 4px 24px rgba(102, 126, 234, 0.12), 0 1px 0 rgba(255,255,255,0.9);
 }
 
 [data-theme='dark'] .album-card,
 [data-theme='dark'] .artist-card,
 [data-theme='dark'] .tag-card,
 [data-theme='dark'] .track-card {
-  background: rgba(31, 31, 31, 0.95);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-}
-
-.album-card:hover,
-.artist-card:hover,
-.tag-card:hover,
-.track-card:hover {
-  box-shadow: var(--card-shadow-hover);
+  background: rgba(20, 18, 50, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 1px 0 rgba(255,255,255,0.04);
 }
 
 [data-theme='light'] .album-card:hover,
 [data-theme='light'] .artist-card:hover,
 [data-theme='light'] .tag-card:hover,
 [data-theme='light'] .track-card:hover {
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 16px 48px rgba(102, 126, 234, 0.25), 0 4px 16px rgba(240,147,251,0.15);
 }
 
 [data-theme='dark'] .album-card:hover,
 [data-theme='dark'] .artist-card:hover,
 [data-theme='dark'] .tag-card:hover,
 [data-theme='dark'] .track-card:hover {
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.6);
+  background: rgba(30, 25, 70, 0.75);
+  box-shadow: 0 16px 48px rgba(102, 126, 234, 0.3), 0 4px 16px rgba(0, 0, 0, 0.5);
 }
 
 /* 详情页Hero区域 */
@@ -114,9 +112,9 @@
 .artist-hero,
 .tag-hero,
 .track-hero {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-secondary);
-  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  border-radius: 20px;
   transition: all 0.3s ease;
 }
 
@@ -124,14 +122,18 @@
 [data-theme='light'] .artist-hero,
 [data-theme='light'] .tag-hero,
 [data-theme='light'] .track-hero {
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 8px 40px rgba(102, 126, 234, 0.15), 0 2px 0 rgba(255,255,255,0.9);
 }
 
 [data-theme='dark'] .album-hero,
 [data-theme='dark'] .artist-hero,
 [data-theme='dark'] .tag-hero,
 [data-theme='dark'] .track-hero {
-  background: rgba(31, 31, 31, 0.95);
+  background: rgba(15, 12, 41, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(255,255,255,0.05);
 }
 
 /* 搜索框 */
