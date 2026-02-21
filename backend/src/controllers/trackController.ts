@@ -55,16 +55,39 @@ export const uploadTracks = async (req: Request, res: Response) => {
     }
 
     const uploadedTracks = [];
+    // auto_credits: 优先从 query string 读（绕开 multipart body 字段顺序问题），兼容 body
+    const autoCreditsRaw = (req.query.auto_credits as string) ?? req.body.auto_credits;
+    const autoCredits = autoCreditsRaw === 'false' ? false : true;
 
-    for (const file of files) {
+    // 元数据覆盖字段（前端在步骤2编辑后传入，每个文件对应的覆盖）
+    // 格式：title_override_<index>、artist_override_<index>、album_override_<index>
+    // 或全局覆盖（单文件上传时）：title_override、artist_override、album_override
+    const getTitleOverride = (idx: number): string | null =>
+      req.body[`title_override_${idx}`] || req.body.title_override || null;
+    const getArtistOverride = (idx: number): string | null =>
+      req.body[`artist_override_${idx}`] || req.body.artist_override || null;
+    const getAlbumOverride = (idx: number): string | null =>
+      req.body[`album_override_${idx}`] || req.body.album_override || null;
+
+    for (let fileIdx = 0; fileIdx < files.length; fileIdx++) {
+      const file = files[fileIdx];
       try {
         // Extract metadata from FLAC file (从Buffer中读取)
         // music-metadata v11: second arg must be IFileInfo object or mime string
         const metadata = await parseBuffer(file.buffer, { mimeType: file.mimetype || 'audio/flac' });
 
-        const title = metadata.common.title || path.basename(file.originalname, '.flac');
-        const artistNames = metadata.common.artists || (metadata.common.artist ? [metadata.common.artist] : ['Unknown Artist']);
-        const albumTitle = metadata.common.album || null;
+        // 优先使用前端传入的覆盖值，回退到 FLAC 内嵌标签，再回退到默认值
+        const titleOverride = getTitleOverride(fileIdx);
+        const artistOverride = getArtistOverride(fileIdx);
+        const albumOverride = getAlbumOverride(fileIdx);
+
+        const title = titleOverride || metadata.common.title || path.basename(file.originalname, '.flac');
+        const artistNames = artistOverride
+          ? artistOverride.split(',').map((s: string) => s.trim()).filter(Boolean)
+          : metadata.common.artists || (metadata.common.artist ? [metadata.common.artist] : ['Unknown Artist']);
+        const albumTitle = albumOverride !== null
+          ? (albumOverride || null)
+          : (metadata.common.album || null);
         const trackNumber = metadata.common.track.no || null;
         const releaseDate = metadata.common.year ? new Date(metadata.common.year, 0, 1) : null;
         const duration = metadata.format.duration ? Math.floor(metadata.format.duration) : null;
@@ -181,6 +204,8 @@ export const uploadTracks = async (req: Request, res: Response) => {
           }
 
           // ── Auto-extract credits from ALL metadata tags ─────────────────
+          // Only if auto_credits is enabled
+          if (autoCredits) {
           // Use a "key|value" set to deduplicate across tag sources
           let creditOrder = 0;
           const insertedPairs = new Set<string>();
@@ -245,6 +270,7 @@ export const uploadTracks = async (req: Request, res: Response) => {
               await insertCredit(field, s);
             }
           }
+          } // end if (autoCredits)
           // ─────────────────────────────────────────────────────────────────
 
           await client.query('COMMIT');
@@ -623,17 +649,22 @@ export const downloadTrack = async (req: Request, res: Response) => {
 export const updateTrack = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { title, artists, album_title } = req.body;
+    const { title, artists, album_title, release_date, track_number } = req.body;
 
     const client = await pool.connect();
 
     try {
       await client.query('BEGIN');
 
-      // Update track title
+      // Update track title and optional fields
       await client.query(
-        'UPDATE tracks SET title = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-        [title, id]
+        `UPDATE tracks SET 
+          title = $1, 
+          release_date = COALESCE($2, release_date),
+          track_number = COALESCE($3, track_number),
+          updated_at = CURRENT_TIMESTAMP 
+        WHERE id = $4`,
+        [title, release_date || null, track_number || null, id]
       );
 
       // Handle album
@@ -759,6 +790,78 @@ export const deleteTrack = async (req: Request, res: Response) => {
   }
 };
 
+// Bulk delete tracks
+export const bulkDeleteTracks = async (req: Request, res: Response) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'INVALID_INPUT', message: '请提供要删除的曲目ID列表' }
+      });
+    }
+
+    // Get file paths before deletion
+    const trackResult = await pool.query(
+      'SELECT id, file_path, cover_path FROM tracks WHERE id = ANY($1)',
+      [ids]
+    );
+
+    // Delete from database (cascade handles track_artists, track_tags, etc.)
+    await pool.query('DELETE FROM tracks WHERE id = ANY($1)', [ids]);
+
+    // Delete files from storage
+    for (const row of trackResult.rows) {
+      try {
+        if (row.file_path) await storageService.deleteFile(row.file_path);
+        if (row.cover_path) await storageService.deleteFile(row.cover_path);
+      } catch (fileError) {
+        console.error('Error deleting file from storage:', fileError);
+      }
+    }
+
+    res.json({
+      success: true,
+      data: { deleted: trackResult.rows.length, message: `成功删除 ${trackResult.rows.length} 首曲目` }
+    });
+  } catch (error) {
+    console.error('Bulk delete tracks error:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'DELETE_ERROR', message: '批量删除失败' }
+    });
+  }
+};
+
+// Bulk move tracks to album
+export const bulkMoveTracksToAlbum = async (req: Request, res: Response) => {
+  try {
+    const { trackIds, albumId } = req.body;
+    if (!Array.isArray(trackIds) || trackIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'INVALID_INPUT', message: '请提供要移动的曲目ID列表' }
+      });
+    }
+
+    await pool.query(
+      'UPDATE tracks SET album_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = ANY($2)',
+      [albumId || null, trackIds]
+    );
+
+    res.json({
+      success: true,
+      data: { moved: trackIds.length, message: `成功移动 ${trackIds.length} 首曲目` }
+    });
+  } catch (error) {
+    console.error('Bulk move tracks error:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'UPDATE_ERROR', message: '批量移动失败' }
+    });
+  }
+};
+
 // Upload cover for track
 export const uploadTrackCover = async (req: Request, res: Response) => {
   try {
@@ -813,3 +916,71 @@ export const uploadTrackCover = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * Preview credits that would be extracted from uploaded FLAC files,
+ * without writing anything to the database.
+ * POST /api/tracks/preview-credits
+ */
+export const previewCredits = async (req: Request, res: Response) => {
+  try {
+    const files = req.files as Express.Multer.File[];
+    if (!files || files.length === 0) {
+      return res.status(400).json({ success: false, error: { code: 'NO_FILES', message: 'No files uploaded' } });
+    }
+
+    // Reuse the same toStringList helper
+    const toStringList = (val: unknown): string[] => {
+      if (val === null || val === undefined) return [];
+      if (typeof val === 'string') return [val];
+      if (typeof val === 'number' || typeof val === 'boolean') return [String(val)];
+      if (val instanceof Uint8Array || Buffer.isBuffer(val)) return [];
+      if (Array.isArray(val)) return val.flatMap(item => toStringList(item));
+      if (typeof val === 'object') {
+        const obj = val as Record<string, unknown>;
+        if (typeof obj['text'] === 'string' && obj['text']) return [obj['text']];
+        if (typeof obj['dB'] === 'number') return [`${obj['dB'].toFixed(2)} dB`];
+        if ('no' in obj && 'of' in obj) return [];
+        return [];
+      }
+      return [];
+    };
+
+    const results = [];
+    for (const file of files) {
+      const metadata = await parseBuffer(file.buffer, { mimeType: file.mimetype || 'audio/flac' });
+      const credits: Array<{ key: string; value: string }> = [];
+      const seen = new Set<string>();
+
+      const addCredit = (key: string, val: unknown) => {
+        const keyLower = key.toLowerCase();
+        if (CREDIT_SKIP_KEYS.has(keyLower)) return;
+        for (const s of toStringList(val)) {
+          const pair = `${keyLower}|${s}`;
+          if (seen.has(pair)) continue;
+          seen.add(pair);
+          credits.push({ key, value: s });
+        }
+      };
+
+      // Walk native tags
+      if (metadata.native) {
+        for (const [, tags] of Object.entries(metadata.native)) {
+          for (const tag of tags) addCredit(tag.id, tag.value);
+        }
+      }
+      // Walk common fields
+      const commonObj = metadata.common as unknown as Record<string, unknown>;
+      for (const [field, value] of Object.entries(commonObj)) addCredit(field, value);
+
+      results.push({
+        filename: file.originalname,
+        credits,
+      });
+    }
+
+    return res.json({ success: true, data: { results } });
+  } catch (error) {
+    console.error('Preview credits error:', error);
+    return res.status(500).json({ success: false, error: { code: 'PREVIEW_ERROR', message: 'Failed to preview credits' } });
+  }
+};

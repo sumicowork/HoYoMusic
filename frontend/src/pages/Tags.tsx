@@ -20,7 +20,7 @@ const Tags: React.FC = () => {
       const data = await getTags();
       setTags(data);
     } catch (error) {
-      console.error('Failed to fetch tags:', error);
+      console.error('获取标签失败:', error);
       message.error('获取标签失败');
     } finally {
       setLoading(false);

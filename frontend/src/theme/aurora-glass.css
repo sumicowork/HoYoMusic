@@ -1170,3 +1170,87 @@ body::after {
   }
 }
 
+/* ============================================================
+   页面切换动画 & 交互微动效
+   ============================================================ */
+
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 所有主要内容页面进入时的淡入动画 */
+.ant-layout-content,
+.albums-content,
+.artists-content,
+.tags-content,
+.library-content,
+.search-content,
+.album-detail-content,
+.track-detail-content {
+  animation: fadeSlideIn 0.3s ease forwards;
+}
+
+/* 专辑卡片 3D hover 效果 */
+.album-card,
+.game-card {
+  transition: transform 0.25s ease, box-shadow 0.25s ease !important;
+  transform-style: preserve-3d;
+}
+
+.album-card:hover,
+.game-card:hover {
+  transform: translateY(-4px) scale(1.015) !important;
+  box-shadow: 0 16px 40px rgba(102, 126, 234, 0.35), 0 4px 16px rgba(0,0,0,0.2) !important;
+}
+
+/* 封面图片 hover 缩放 */
+.album-cover-wrapper img,
+.game-cover-image {
+  transition: transform 0.35s ease;
+}
+
+.album-card:hover .album-cover-wrapper img,
+.game-card:hover .game-cover-image {
+  transform: scale(1.06);
+}
+
+/* 播放按钮弹跳动画 */
+@keyframes buttonPop {
+  0% { transform: scale(1); }
+  40% { transform: scale(0.92); }
+  70% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+.ant-btn-primary:active {
+  animation: buttonPop 0.25s ease forwards;
+}
+
+/* 播放器封面旋转动效（可选） */
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.player-cover-spinning {
+  animation: spinSlow 20s linear infinite;
+}
+
+/* 队列项目进入动画 */
+.queue-item {
+  animation: fadeSlideIn 0.2s ease forwards;
+}
+
+/* Ant Design Skeleton 美化 */
+.ant-skeleton-image {
+  border-radius: 8px !important;
+  overflow: hidden;
+}
+

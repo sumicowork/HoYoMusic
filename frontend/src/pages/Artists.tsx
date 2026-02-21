@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Layout, List, Input, Avatar, Spin, Empty, message } from 'antd';
+import { Layout, List, Input, Avatar, Skeleton, Empty, message, Row, Col, Card } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { SearchOutlined, UserOutlined } from '@ant-design/icons';
 import axios from 'axios';
@@ -36,7 +36,7 @@ const Artists: React.FC = () => {
         setArtists(response.data.data.artists);
       }
     } catch (error: any) {
-      message.error('Failed to load artists');
+      message.error('加载艺术家列表失败');
     } finally {
       setLoading(false);
     }
@@ -68,9 +68,15 @@ const Artists: React.FC = () => {
 
       <Content className="artists-content">
         {loading ? (
-          <div style={{ textAlign: 'center', padding: 100 }}>
-            <Spin size="large" />
-          </div>
+          <Row gutter={[16, 16]}>
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Col key={i} xs={24} sm={12} md={8} lg={6}>
+                <Card>
+                  <Skeleton active avatar={{ size: 80, shape: 'circle' }} paragraph={{ rows: 2 }} />
+                </Card>
+              </Col>
+            ))}
+          </Row>
         ) : artists.length === 0 ? (
           <Empty description="未找到艺术家" />
         ) : (

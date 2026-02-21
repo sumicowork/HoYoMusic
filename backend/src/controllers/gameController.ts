@@ -1,9 +1,16 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
+import { cache } from '../utils/cache';
 
 // 获取所有游戏
 export const getGames = async (req: Request, res: Response) => {
   try {
+    const cacheKey = 'games:all';
+    const cached = cache.get<any[]>(cacheKey);
+    if (cached) {
+      return res.json({ success: true, data: { games: cached } });
+    }
+
     const result = await pool.query(`
       SELECT 
         g.*,
@@ -13,6 +20,8 @@ export const getGames = async (req: Request, res: Response) => {
       GROUP BY g.id
       ORDER BY g.display_order ASC, g.name ASC
     `);
+
+    cache.set(cacheKey, result.rows, 300); // 缓存 5 分钟
 
     res.json({
       success: true,
@@ -24,7 +33,7 @@ export const getGames = async (req: Request, res: Response) => {
     console.error('Get games error:', error);
     res.status(500).json({
       success: false,
-      error: { code: 'FETCH_ERROR', message: 'Failed to fetch games' }
+      error: { code: 'FETCH_ERROR', message: '获取游戏列表失败' }
     });
   }
 };

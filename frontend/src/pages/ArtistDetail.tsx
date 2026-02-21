@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Layout, Table, Button, Space, Tag, Spin, Avatar, Tabs, Card, Row, Col, message } from 'antd';
+import { Layout, Table, Button, Space, Tag, Skeleton, Avatar, Tabs, Card, Row, Col, message } from 'antd';
 import { ArrowLeftOutlined, PlayCircleOutlined, DownloadOutlined, UserOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import { Track } from '../types';
@@ -53,7 +53,7 @@ const ArtistDetail: React.FC = () => {
         setAlbums(response.data.data.albums);
       }
     } catch (error: any) {
-      message.error('Failed to load artist details');
+      message.error('加载艺术家详情失败');
     } finally {
       setLoading(false);
     }
@@ -85,7 +85,7 @@ const ArtistDetail: React.FC = () => {
 
   const trackColumns = [
     {
-      title: 'Title',
+      title: '标题',
       dataIndex: 'title',
       key: 'title',
       render: (title: string, record: Track) => (
@@ -98,20 +98,20 @@ const ArtistDetail: React.FC = () => {
       ),
     },
     {
-      title: 'Album',
+      title: '专辑',
       dataIndex: 'album_title',
       key: 'album',
       render: (album: string) => album || '-',
     },
     {
-      title: 'Duration',
+      title: '时长',
       dataIndex: 'duration',
       key: 'duration',
       width: 100,
       render: formatDuration,
     },
     {
-      title: 'Quality',
+      title: '音质',
       key: 'quality',
       width: 120,
       render: (_: any, record: Track) => (
@@ -126,7 +126,7 @@ const ArtistDetail: React.FC = () => {
       ),
     },
     {
-      title: 'Actions',
+      title: '操作',
       key: 'actions',
       width: 180,
       render: (_: any, record: Track) => (
@@ -137,7 +137,7 @@ const ArtistDetail: React.FC = () => {
             onClick={() => handlePlay(record)}
             size="small"
           >
-            Play
+            播放
           </Button>
           <Button
             icon={<DownloadOutlined />}
@@ -152,8 +152,8 @@ const ArtistDetail: React.FC = () => {
   if (loading) {
     return (
       <Layout style={{ minHeight: '100vh' }}>
-        <Content style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-          <Spin size="large" />
+        <Content style={{ padding: 24 }}>
+          <Skeleton active avatar={{ size: 200, shape: 'circle' }} paragraph={{ rows: 6 }} />
         </Content>
       </Layout>
     );
@@ -176,7 +176,7 @@ const ArtistDetail: React.FC = () => {
     <Layout className="artist-detail-layout">
       <Header className="artist-detail-header">
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/artists')}>
-          Back to Artists
+          返回艺术家列表
         </Button>
       </Header>
 

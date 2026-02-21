@@ -32,19 +32,19 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     {
       key: '/admin',
       icon: <SoundOutlined />,
-      label: 'Track Management',
+      label: '曲目管理',
       onClick: () => navigate('/admin')
     },
     {
       key: '/admin/albums',
       icon: <FolderOutlined />,
-      label: 'Album Management',
+      label: '专辑管理',
       onClick: () => navigate('/admin/albums')
     },
     {
       key: '/admin/tags',
       icon: <TagsOutlined />,
-      label: 'Tag Management',
+      label: '标签管理',
       onClick: () => navigate('/admin/tags')
     },
     {
@@ -53,7 +53,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     {
       key: 'logout',
       icon: <LogoutOutlined />,
-      label: 'Logout',
+      label: '退出登录',
       onClick: handleLogout,
       danger: true
     }

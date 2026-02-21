@@ -30,22 +30,53 @@ export interface TrackSearchParams {
 
 export const trackService = {
   // Admin APIs (需要认证)
-  async uploadTracks(files: File[]): Promise<any> {
+  async uploadTracks(
+    files: File[],
+    options?: {
+      autoCredits?: boolean;
+      // 每个文件对应的元数据覆盖（与 files 数组一一对应）
+      metaOverrides?: Array<{ title?: string; artist?: string; album?: string }>;
+    }
+  ): Promise<any> {
     const formData = new FormData();
     files.forEach((file) => {
       formData.append('tracks', file);
     });
 
-    const response = await api.post<ApiResponse<any>>('/tracks/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    // auto_credits 通过 URL query 参数传递，彻底绕开 multipart body 字段解析顺序问题
+    const autoCreditsVal = options?.autoCredits === false ? 'false' : 'true';
+
+    // 传入每个文件的元数据覆盖（仍走 multipart body，在文件字段之前 append）
+    if (options?.metaOverrides) {
+      options.metaOverrides.forEach((meta, idx) => {
+        if (meta.title)  formData.append(`title_override_${idx}`,  meta.title);
+        if (meta.artist) formData.append(`artist_override_${idx}`, meta.artist);
+        if (meta.album !== undefined) formData.append(`album_override_${idx}`, meta.album);
+      });
+    }
+
+    const response = await api.post<ApiResponse<any>>(
+      `/tracks/upload?auto_credits=${autoCreditsVal}`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
 
     if (response.data.success) {
       return response.data.data;
     }
-    throw new Error(response.data.error?.message || 'Upload failed');
+    throw new Error(response.data.error?.message || '上传失败');
+  },
+
+  async previewCredits(files: File[]): Promise<Array<{ filename: string; credits: Array<{ key: string; value: string }> }>> {
+    const formData = new FormData();
+    files.forEach(f => formData.append('tracks', f));
+    const response = await api.post<ApiResponse<{ results: Array<{ filename: string; credits: Array<{ key: string; value: string }> }> }>>(
+      '/tracks/preview-credits',
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+    if (response.data.success && response.data.data) return response.data.data.results;
+    throw new Error(response.data.error?.message || '预览失败');
   },
 
   async getTracks(page = 1, limit = 20): Promise<{ tracks: Track[]; pagination: any }> {
@@ -55,7 +86,7 @@ export const trackService = {
     if (response.data.success && response.data.data) {
       return response.data.data;
     }
-    throw new Error('Failed to fetch tracks');
+    throw new Error('获取曲目列表失败');
   },
 
   // Public APIs (无需认证)
@@ -66,7 +97,7 @@ export const trackService = {
     if (response.data.success && response.data.data) {
       return response.data.data;
     }
-    throw new Error('Failed to fetch tracks');
+    throw new Error('获取曲目列表失败');
   },
 
   async searchTracksPublic(params: TrackSearchParams): Promise<{ tracks: Track[]; pagination: any }> {
@@ -91,7 +122,7 @@ export const trackService = {
     if (response.data.success && response.data.data) {
       return response.data.data;
     }
-    throw new Error('Failed to fetch tracks');
+    throw new Error('搜索失败');
   },
 
   async getTrackById(id: number): Promise<Track> {
@@ -99,7 +130,7 @@ export const trackService = {
     if (response.data.success && response.data.data) {
       return response.data.data.track;
     }
-    throw new Error('Failed to fetch track');
+    throw new Error('获取曲目详情失败');
   },
 
   async getTrackByIdPublic(id: number): Promise<Track> {
@@ -107,7 +138,7 @@ export const trackService = {
     if (response.data.success && response.data.data) {
       return response.data.data.track;
     }
-    throw new Error('Failed to fetch track');
+    throw new Error('获取曲目详情失败');
   },
 
   getStreamUrl(id: number): string {
@@ -141,10 +172,10 @@ export const trackService = {
   },
 
   // Update track metadata
-  async updateTrack(id: number, data: { title: string; artists: string[]; album_title?: string }): Promise<void> {
+  async updateTrack(id: number, data: { title: string; artists: string[]; album_title?: string; release_date?: string; track_number?: number }): Promise<void> {
     const response = await api.put<ApiResponse<any>>(`/tracks/${id}`, data);
     if (!response.data.success) {
-      throw new Error(response.data.error?.message || 'Update failed');
+      throw new Error(response.data.error?.message || '更新失败');
     }
   },
 
@@ -152,7 +183,23 @@ export const trackService = {
   async deleteTrack(id: number): Promise<void> {
     const response = await api.delete<ApiResponse<any>>(`/tracks/${id}`);
     if (!response.data.success) {
-      throw new Error(response.data.error?.message || 'Delete failed');
+      throw new Error(response.data.error?.message || '删除失败');
+    }
+  },
+
+  // Bulk delete tracks
+  async bulkDeleteTracks(ids: number[]): Promise<void> {
+    const response = await api.delete<ApiResponse<any>>('/tracks/bulk', { data: { ids } });
+    if (!response.data.success) {
+      throw new Error(response.data.error?.message || '批量删除失败');
+    }
+  },
+
+  // Bulk move tracks to album
+  async bulkMoveTracksToAlbum(trackIds: number[], albumId: number | null): Promise<void> {
+    const response = await api.post<ApiResponse<any>>('/tracks/bulk-move', { trackIds, albumId });
+    if (!response.data.success) {
+      throw new Error(response.data.error?.message || '批量移动失败');
     }
   },
 
@@ -174,7 +221,7 @@ export const trackService = {
     if (response.data.success && response.data.data) {
       return response.data.data;
     }
-    throw new Error(response.data.error?.message || 'Failed to upload cover');
+    throw new Error(response.data.error?.message || '上传封面失败');
   },
 };
 

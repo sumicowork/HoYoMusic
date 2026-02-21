@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Layout, Card, Input, Row, Col, Spin, Empty, message } from 'antd';
+import { Layout, Card, Input, Row, Col, Skeleton, Empty, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { SearchOutlined } from '@ant-design/icons';
 import axios from 'axios';
@@ -39,7 +39,7 @@ const Albums: React.FC = () => {
         setAlbums(response.data.data.albums);
       }
     } catch (error: any) {
-      message.error('Failed to load albums');
+      message.error('加载专辑列表失败');
     } finally {
       setLoading(false);
     }
@@ -82,9 +82,16 @@ const Albums: React.FC = () => {
 
       <Content className="albums-content">
         {loading ? (
-          <div style={{ textAlign: 'center', padding: 100 }}>
-            <Spin size="large" />
-          </div>
+          <Row gutter={[24, 24]}>
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Col key={i} xs={24} sm={12} md={8} lg={6} xl={6} xxl={6}>
+                <Card>
+                  <Skeleton.Image active style={{ width: '100%', height: 200 }} />
+                  <Skeleton active title paragraph={{ rows: 1 }} style={{ marginTop: 12 }} />
+                </Card>
+              </Col>
+            ))}
+          </Row>
         ) : albums.length === 0 ? (
           <Empty description="未找到专辑" />
         ) : (

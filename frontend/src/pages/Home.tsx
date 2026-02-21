@@ -102,7 +102,7 @@ const Home: React.FC = () => {
       const response = await axios.get(`${API_BASE_URL}/games`);
       if (response.data.success) setGames(response.data.data.games);
     } catch {
-      message.error('Failed to load games');
+      message.error('加载游戏列表失败');
     } finally {
       setLoading(false);
     }

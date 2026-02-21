@@ -12,7 +12,8 @@ import {
   getTagGroupById,
   createTagGroup,
   updateTagGroup,
-  deleteTagGroup
+  deleteTagGroup,
+  bulkUpdateTrackTags
 } from '../controllers/tagController';
 import { authenticateJWT } from '../middleware/auth';
 
@@ -29,6 +30,7 @@ router.get('/track/:trackId', getTrackTags);            // Get tags for a track
 router.post('/', authenticateJWT, createTag);           // Create new tag
 router.put('/:id', authenticateJWT, updateTag);         // Update tag
 router.delete('/:id', authenticateJWT, deleteTag);      // Delete tag
+router.post('/bulk-update', authenticateJWT, bulkUpdateTrackTags); // Bulk update track tags
 
 // Track-Tag association (require authentication)
 router.post('/track/:trackId', authenticateJWT, addTagToTrack);           // Add tag to track

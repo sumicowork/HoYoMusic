@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Button, message, Space, Image, Tag, Modal, Form, Input, Card } from 'antd';
+import {
+  Table, Button, message, Space, Image, Tag, Modal, Form, Input, Card,
+  DatePicker, InputNumber, Popconfirm
+} from 'antd';
 import {
   UploadOutlined,
   PlayCircleOutlined,
@@ -8,9 +11,12 @@ import {
   DeleteOutlined,
   FileTextOutlined,
   TeamOutlined,
-  TagsOutlined
+  TagsOutlined,
+  AppstoreOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import type { TableRowSelection } from 'antd/es/table/interface';
+import dayjs from 'dayjs';
 import { Track } from '../types';
 import { trackService } from '../services/trackService';
 import { usePlayerStore } from '../store/playerStore';
@@ -18,6 +24,8 @@ import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
 import LyricsEditor from '../components/LyricsEditor';
 import CreditsEditor from '../components/CreditsEditor';
 import TrackTagsManager from '../components/TrackTagsManager';
+import BulkTagModal from '../components/BulkTagModal';
+import BulkMoveAlbumModal from '../components/BulkMoveAlbumModal';
 import AdminLayout from '../components/AdminLayout';
 import UploadModal from '../components/UploadModal';
 import './Admin.css';
@@ -37,6 +45,11 @@ const Admin: React.FC = () => {
   const [currentTrackTitle, setCurrentTrackTitle] = useState<string>('');
   const [form] = Form.useForm();
 
+  // Bulk operations state
+  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+  const [bulkTagModalVisible, setBulkTagModalVisible] = useState(false);
+  const [bulkMoveModalVisible, setBulkMoveModalVisible] = useState(false);
+
   const { playTrackOnly } = usePlayerStore();
 
   const fetchTracks = async (page = 1) => {
@@ -44,13 +57,13 @@ const Admin: React.FC = () => {
     try {
       const data = await trackService.getTracks(page, pagination.pageSize);
       setTracks(data.tracks);
-      setPagination({
-        ...pagination,
+      setPagination(prev => ({
+        ...prev,
         current: data.pagination.page,
         total: data.pagination.total,
-      });
+      }));
     } catch (error: any) {
-      message.error(error.message || 'Failed to fetch tracks');
+      message.error(error.message || '获取曲目列表失败');
     } finally {
       setLoading(false);
     }
@@ -60,9 +73,7 @@ const Admin: React.FC = () => {
     fetchTracks();
   }, []);
 
-
   const handlePlay = (track: Track) => {
-    // Only add this single track to queue
     playTrackOnly(track);
   };
 
@@ -70,13 +81,14 @@ const Admin: React.FC = () => {
     window.open(trackService.getDownloadUrl(track.id), '_blank');
   };
 
-
   const handleEdit = (track: Track) => {
     setEditingTrack(track);
     form.setFieldsValue({
       title: track.title,
       artists: track.artists.map(a => a.name).join(', '),
       album_title: track.album_title,
+      release_date: track.release_date ? dayjs(track.release_date) : null,
+      track_number: (track as any).track_number || null,
     });
     setEditModalVisible(true);
   };
@@ -89,32 +101,46 @@ const Admin: React.FC = () => {
           title: values.title,
           artists: values.artists.split(',').map((a: string) => a.trim()),
           album_title: values.album_title || '',
+          release_date: values.release_date ? values.release_date.format('YYYY-MM-DD') : undefined,
+          track_number: values.track_number || undefined,
         });
-        message.success('Track updated successfully');
+        message.success('曲目信息已更新');
         setEditModalVisible(false);
         fetchTracks();
       }
     } catch (error: any) {
-      message.error(error.message || 'Update failed');
+      message.error(error.message || '更新失败');
     }
   };
 
   const handleDelete = (track: Track) => {
     Modal.confirm({
-      title: 'Delete Track',
-      content: `Are you sure you want to delete "${track.title}"?`,
-      okText: 'Delete',
+      title: '删除曲目',
+      content: `确定要删除「${track.title}」吗？此操作不可撤销。`,
+      okText: '删除',
       okType: 'danger',
+      cancelText: '取消',
       onOk: async () => {
         try {
           await trackService.deleteTrack(track.id);
-          message.success('Track deleted successfully');
+          message.success('曲目已删除');
           fetchTracks();
         } catch (error: any) {
-          message.error(error.message || 'Delete failed');
+          message.error(error.message || '删除失败');
         }
       },
     });
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      await trackService.bulkDeleteTracks(selectedRowKeys as number[]);
+      message.success(`成功删除 ${selectedRowKeys.length} 首曲目`);
+      setSelectedRowKeys([]);
+      fetchTracks();
+    } catch (error: any) {
+      message.error(error.message || '批量删除失败');
+    }
   };
 
   const formatDuration = (seconds: number | null) => {
@@ -130,9 +156,14 @@ const Admin: React.FC = () => {
     return `${mb.toFixed(2)} MB`;
   };
 
+  const rowSelection: TableRowSelection<Track> = {
+    selectedRowKeys,
+    onChange: (keys) => setSelectedRowKeys(keys),
+  };
+
   const columns: ColumnsType<Track> = [
     {
-      title: 'Cover',
+      title: '封面',
       dataIndex: 'cover_path',
       key: 'cover',
       width: 80,
@@ -154,32 +185,32 @@ const Admin: React.FC = () => {
       },
     },
     {
-      title: 'Title',
+      title: '标题',
       dataIndex: 'title',
       key: 'title',
       ellipsis: true,
     },
     {
-      title: 'Artist',
+      title: '艺术家',
       dataIndex: 'artists',
       key: 'artists',
       render: (artists: any[]) => artists.map((a) => a.name).join(', '),
     },
     {
-      title: 'Album',
+      title: '专辑',
       dataIndex: 'album_title',
       key: 'album',
       ellipsis: true,
     },
     {
-      title: 'Duration',
+      title: '时长',
       dataIndex: 'duration',
       key: 'duration',
       width: 100,
       render: formatDuration,
     },
     {
-      title: 'Quality',
+      title: '音质',
       key: 'quality',
       width: 150,
       render: (_, record) => (
@@ -194,14 +225,14 @@ const Admin: React.FC = () => {
       ),
     },
     {
-      title: 'Size',
+      title: '大小',
       dataIndex: 'file_size',
       key: 'size',
       width: 120,
       render: formatFileSize,
     },
     {
-      title: 'Actions',
+      title: '操作',
       key: 'actions',
       width: 280,
       render: (_, record) => (
@@ -212,14 +243,14 @@ const Admin: React.FC = () => {
             onClick={() => handlePlay(record)}
             size="small"
           >
-            Play
+            播放
           </Button>
           <Button
             icon={<EditOutlined />}
             onClick={() => handleEdit(record)}
             size="small"
           >
-            Edit
+            编辑
           </Button>
           <Button
             icon={<FileTextOutlined />}
@@ -229,7 +260,7 @@ const Admin: React.FC = () => {
             }}
             size="small"
           >
-            Lyrics
+            歌词
           </Button>
           <Button
             icon={<TeamOutlined />}
@@ -239,7 +270,7 @@ const Admin: React.FC = () => {
             }}
             size="small"
           >
-            Credits
+            制作人员
           </Button>
           <Button
             icon={<TagsOutlined />}
@@ -250,7 +281,7 @@ const Admin: React.FC = () => {
             }}
             size="small"
           >
-            Tags
+            标签
           </Button>
           <Button
             icon={<DownloadOutlined />}
@@ -268,18 +299,50 @@ const Admin: React.FC = () => {
     },
   ];
 
+  const hasSelection = selectedRowKeys.length > 0;
+
   return (
     <AdminLayout>
       <Card
-        title="Track Management"
+        title="曲目管理"
         extra={
-          <Button
-            type="primary"
-            icon={<UploadOutlined />}
-            onClick={() => setUploadModalVisible(true)}
-          >
-            上传音乐
-          </Button>
+          <Space>
+            {hasSelection && (
+              <>
+                <Button
+                  icon={<TagsOutlined />}
+                  onClick={() => setBulkTagModalVisible(true)}
+                >
+                  批量打标签 ({selectedRowKeys.length})
+                </Button>
+                <Button
+                  icon={<AppstoreOutlined />}
+                  onClick={() => setBulkMoveModalVisible(true)}
+                >
+                  批量移动专辑 ({selectedRowKeys.length})
+                </Button>
+                <Popconfirm
+                  title={`确定删除选中的 ${selectedRowKeys.length} 首曲目吗？`}
+                  description="此操作不可撤销"
+                  onConfirm={handleBulkDelete}
+                  okText="删除"
+                  cancelText="取消"
+                  okType="danger"
+                >
+                  <Button danger>
+                    批量删除 ({selectedRowKeys.length})
+                  </Button>
+                </Popconfirm>
+              </>
+            )}
+            <Button
+              type="primary"
+              icon={<UploadOutlined />}
+              onClick={() => setUploadModalVisible(true)}
+            >
+              上传音乐
+            </Button>
+          </Space>
         }
       >
         <Table
@@ -287,10 +350,11 @@ const Admin: React.FC = () => {
           dataSource={tracks}
           rowKey="id"
           loading={loading}
+          rowSelection={rowSelection}
           pagination={{
             ...pagination,
             showSizeChanger: true,
-            showTotal: (total: number) => `Total ${total} tracks`,
+            showTotal: (total: number) => `共 ${total} 首曲目`,
           }}
           onChange={(newPagination) => {
             fetchTracks(newPagination.current);
@@ -300,21 +364,28 @@ const Admin: React.FC = () => {
 
       {/* Edit Modal */}
       <Modal
-        title="Edit Track"
+        title="编辑曲目信息"
         open={editModalVisible}
         onOk={handleEditSave}
         onCancel={() => setEditModalVisible(false)}
-        okText="Save"
+        okText="保存"
+        cancelText="取消"
       >
         <Form form={form} layout="vertical">
-          <Form.Item name="title" label="Title" rules={[{ required: true }]}>
+          <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入标题' }]}>
             <Input />
           </Form.Item>
-          <Form.Item name="artists" label="Artists" rules={[{ required: true }]}>
-            <Input placeholder="Separate multiple artists with comma" />
+          <Form.Item name="artists" label="艺术家" rules={[{ required: true, message: '请输入艺术家' }]}>
+            <Input placeholder="多个艺术家用逗号分隔" />
           </Form.Item>
-          <Form.Item name="album_title" label="Album">
+          <Form.Item name="album_title" label="专辑">
             <Input />
+          </Form.Item>
+          <Form.Item name="release_date" label="发行日期">
+            <DatePicker style={{ width: '100%' }} placeholder="选择发行日期" />
+          </Form.Item>
+          <Form.Item name="track_number" label="曲目编号">
+            <InputNumber min={1} style={{ width: '100%' }} placeholder="曲目编号" />
           </Form.Item>
         </Form>
       </Modal>
@@ -326,7 +397,7 @@ const Admin: React.FC = () => {
           visible={lyricsEditorVisible}
           onClose={() => setLyricsEditorVisible(false)}
           onSuccess={() => {
-            message.success('Lyrics updated successfully');
+            message.success('歌词已更新');
           }}
         />
       )}
@@ -338,7 +409,7 @@ const Admin: React.FC = () => {
           visible={creditsEditorVisible}
           onClose={() => setCreditsEditorVisible(false)}
           onSuccess={() => {
-            message.success('Credits updated successfully');
+            message.success('制作人员信息已更新');
           }}
         />
       )}
@@ -351,11 +422,12 @@ const Admin: React.FC = () => {
           visible={tagsManagerVisible}
           onClose={() => setTagsManagerVisible(false)}
           onTagsUpdated={() => {
-            message.success('Tags updated successfully');
+            message.success('标签已更新');
             fetchTracks(pagination.current);
           }}
         />
       )}
+
       {/* Upload Modal */}
       <UploadModal
         visible={uploadModalVisible}
@@ -363,6 +435,30 @@ const Admin: React.FC = () => {
         onSuccess={() => {
           setUploadModalVisible(false);
           fetchTracks();
+        }}
+      />
+
+      {/* Bulk Tag Modal */}
+      <BulkTagModal
+        visible={bulkTagModalVisible}
+        trackIds={selectedRowKeys as number[]}
+        onClose={() => setBulkTagModalVisible(false)}
+        onSuccess={() => {
+          message.success('批量标签操作成功');
+          setBulkTagModalVisible(false);
+          fetchTracks(pagination.current);
+        }}
+      />
+
+      {/* Bulk Move Album Modal */}
+      <BulkMoveAlbumModal
+        visible={bulkMoveModalVisible}
+        trackIds={selectedRowKeys as number[]}
+        onClose={() => setBulkMoveModalVisible(false)}
+        onSuccess={() => {
+          message.success('批量移动专辑成功');
+          setBulkMoveModalVisible(false);
+          fetchTracks(pagination.current);
         }}
       />
     </AdminLayout>

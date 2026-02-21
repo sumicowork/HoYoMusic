@@ -33,7 +33,7 @@ const Library: React.FC = () => {
         total: data.pagination.total,
       });
     } catch (error: any) {
-      message.error(error.message || 'Failed to fetch tracks');
+      message.error(error.message || '获取曲目失败');
     } finally {
       setLoading(false);
     }
@@ -43,8 +43,7 @@ const Library: React.FC = () => {
     fetchTracks();
   }, []);
 
-  const handleUpload = async (options: any) => {
-    const { file, onSuccess, onError } = options;
+  const handleUpload = async (_options: any) => {
     return { abort() {} };
   };
 
@@ -54,10 +53,10 @@ const Library: React.FC = () => {
       try {
         const files = info.fileList.map((f: any) => f.originFileObj);
         await trackService.uploadTracks(files);
-        message.success(`${info.fileList.length} track(s) uploaded successfully`);
+        message.success(`成功上传 ${info.fileList.length} 首`);
         fetchTracks();
       } catch (error: any) {
-        message.error(error.message || 'Upload failed');
+        message.error(error.message || '上传失败');
       } finally {
         setUploading(false);
       }
@@ -93,7 +92,7 @@ const Library: React.FC = () => {
 
   const columns: ColumnsType<Track> = [
     {
-      title: 'Cover',
+      title: '封面',
       dataIndex: 'cover_path',
       key: 'cover',
       width: 80,
@@ -115,32 +114,32 @@ const Library: React.FC = () => {
       },
     },
     {
-      title: 'Title',
+      title: '标题',
       dataIndex: 'title',
       key: 'title',
       ellipsis: true,
     },
     {
-      title: 'Artist',
+      title: '艺术家',
       dataIndex: 'artists',
       key: 'artists',
       render: (artists: any[]) => artists.map((a) => a.name).join(', '),
     },
     {
-      title: 'Album',
+      title: '专辑',
       dataIndex: 'album_title',
       key: 'album',
       ellipsis: true,
     },
     {
-      title: 'Duration',
+      title: '时长',
       dataIndex: 'duration',
       key: 'duration',
       width: 100,
       render: formatDuration,
     },
     {
-      title: 'Quality',
+      title: '音质',
       key: 'quality',
       width: 150,
       render: (_, record) => (
@@ -155,14 +154,14 @@ const Library: React.FC = () => {
       ),
     },
     {
-      title: 'Size',
+      title: '大小',
       dataIndex: 'file_size',
       key: 'size',
       width: 120,
       render: formatFileSize,
     },
     {
-      title: 'Actions',
+      title: '操作',
       key: 'actions',
       width: 150,
       render: (_, record) => (
@@ -173,7 +172,7 @@ const Library: React.FC = () => {
             onClick={() => handlePlay(record)}
             size="small"
           >
-            Play
+            播放
           </Button>
           <Button
             icon={<DownloadOutlined />}
@@ -191,7 +190,7 @@ const Library: React.FC = () => {
         <div className="header-content">
           <h1>🎵 HoYoMusic</h1>
           <Space>
-            <span>Welcome, {user?.username}</span>
+            <span>欢迎，{user?.username}</span>
             <Upload
               customRequest={handleUpload}
               onChange={handleUploadChange}
@@ -200,11 +199,11 @@ const Library: React.FC = () => {
               showUploadList={false}
             >
               <Button icon={<UploadOutlined />} loading={uploading} type="primary">
-                Upload FLAC Files
+                上传 FLAC 文件
               </Button>
             </Upload>
             <Button icon={<LogoutOutlined />} onClick={handleLogout}>
-              Logout
+              退出登录
             </Button>
           </Space>
         </div>
@@ -218,7 +217,7 @@ const Library: React.FC = () => {
           pagination={{
             ...pagination,
             showSizeChanger: true,
-            showTotal: (total) => `Total ${total} tracks`,
+            showTotal: (total) => `共 ${total} 首曲目`,
           }}
           onChange={(pagination) => {
             fetchTracks(pagination.current);

@@ -36,7 +36,7 @@ const AlbumManagement: React.FC = () => {
         total: data.pagination.total,
       });
     } catch (error: any) {
-      message.error(error.message || 'Failed to fetch albums');
+      message.error(error.message || '获取专辑列表失败');
     } finally {
       setLoading(false);
     }
@@ -47,7 +47,7 @@ const AlbumManagement: React.FC = () => {
       const data = await gameService.getGames();
       setGames(data);
     } catch (error: any) {
-      message.error(error.message || 'Failed to fetch games');
+      message.error(error.message || '获取游戏列表失败');
     }
   };
 
@@ -109,7 +109,7 @@ const AlbumManagement: React.FC = () => {
 
   const columns: ColumnsType<Album> = [
     {
-      title: 'Cover',
+      title: '封面',
       dataIndex: 'cover_path',
       key: 'cover',
       width: 80,
@@ -123,13 +123,13 @@ const AlbumManagement: React.FC = () => {
       ),
     },
     {
-      title: 'Title',
+      title: '标题',
       dataIndex: 'title',
       key: 'title',
       ellipsis: true,
     },
     {
-      title: 'Game',
+      title: '游戏',
       dataIndex: 'game_id',
       key: 'game_id',
       width: 150,
@@ -139,21 +139,21 @@ const AlbumManagement: React.FC = () => {
       },
     },
     {
-      title: 'Tracks',
+      title: '曲目数',
       dataIndex: 'track_count',
       key: 'track_count',
       width: 100,
       render: (count) => `${count || 0} 首`,
     },
     {
-      title: 'Release Date',
+      title: '发行日期',
       dataIndex: 'release_date',
       key: 'release_date',
       width: 120,
       render: (date) => date ? new Date(date).getFullYear() : '-',
     },
     {
-      title: 'Actions',
+      title: '操作',
       key: 'actions',
       width: 200,
       render: (_, record) => (
@@ -163,20 +163,20 @@ const AlbumManagement: React.FC = () => {
             onClick={() => handleEdit(record)}
             size="small"
           >
-            Edit
+            编辑
           </Button>
           <Button
             icon={<PictureOutlined />}
             onClick={() => handleUploadCover(record)}
             size="small"
           >
-            Cover
+            上传封面
           </Button>
           <Button
             onClick={() => navigate(`/albums/${record.id}`)}
             size="small"
           >
-            View
+            查看
           </Button>
         </Space>
       ),
@@ -185,7 +185,7 @@ const AlbumManagement: React.FC = () => {
 
   return (
     <AdminLayout>
-      <Card title="Album Management">
+      <Card title="专辑管理">
         <Table
           columns={columns}
           dataSource={albums}
@@ -194,7 +194,7 @@ const AlbumManagement: React.FC = () => {
           pagination={{
             ...pagination,
             showSizeChanger: true,
-            showTotal: (total: number) => `Total ${total} albums`,
+            showTotal: (total: number) => `共 ${total} 张专辑`,
           }}
           onChange={(newPagination) => {
             fetchAlbums(newPagination.current);

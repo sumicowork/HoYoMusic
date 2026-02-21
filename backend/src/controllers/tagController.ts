@@ -1,9 +1,16 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
+import { cache } from '../utils/cache';
 
 // Get all tags with group and hierarchy info
 export const getTags = async (req: Request, res: Response) => {
   try {
+    const cacheKey = 'tags:all';
+    const cached = cache.get<any[]>(cacheKey);
+    if (cached) {
+      return res.json({ success: true, data: cached });
+    }
+
     const query = `
       SELECT 
         t.*,
@@ -30,6 +37,7 @@ export const getTags = async (req: Request, res: Response) => {
     `;
 
     const result = await pool.query(query);
+    cache.set(cacheKey, result.rows, 120); // 缓存 2 分钟
 
     res.json({
       success: true,
@@ -39,7 +47,7 @@ export const getTags = async (req: Request, res: Response) => {
     console.error('Get tags error:', error);
     res.status(500).json({
       success: false,
-      error: { code: 'FETCH_ERROR', message: 'Failed to fetch tags' }
+      error: { code: 'FETCH_ERROR', message: '获取标签失败' }
     });
   }
 };
@@ -310,15 +318,16 @@ export const deleteTag = async (req: Request, res: Response) => {
       });
     }
 
+    cache.invalidate('tags:all');
     res.json({
       success: true,
-      message: 'Tag deleted successfully'
+      message: '标签已删除'
     });
   } catch (error) {
     console.error('Delete tag error:', error);
     res.status(500).json({
       success: false,
-      error: { code: 'DELETE_ERROR', message: 'Failed to delete tag' }
+      error: { code: 'DELETE_ERROR', message: '删除标签失败' }
     });
   }
 };
@@ -655,6 +664,60 @@ export const deleteTagGroup = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: { code: 'DELETE_ERROR', message: 'Failed to delete tag group' }
+    });
+  }
+};
+
+// Bulk update tags for multiple tracks
+export const bulkUpdateTrackTags = async (req: Request, res: Response) => {
+  try {
+    const { trackIds, addTagIds, removeTagIds } = req.body;
+    if (!Array.isArray(trackIds) || trackIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'INVALID_INPUT', message: '请提供要操作的曲目ID列表' }
+      });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      if (Array.isArray(addTagIds) && addTagIds.length > 0) {
+        for (const trackId of trackIds) {
+          for (const tagId of addTagIds) {
+            await client.query(
+              'INSERT INTO track_tags (track_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+              [trackId, tagId]
+            );
+          }
+        }
+      }
+
+      if (Array.isArray(removeTagIds) && removeTagIds.length > 0) {
+        await client.query(
+          'DELETE FROM track_tags WHERE track_id = ANY($1) AND tag_id = ANY($2)',
+          [trackIds, removeTagIds]
+        );
+      }
+
+      await client.query('COMMIT');
+
+      res.json({
+        success: true,
+        data: { message: `成功更新 ${trackIds.length} 首曲目的标签` }
+      });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Bulk update track tags error:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'UPDATE_ERROR', message: '批量更新标签失败' }
     });
   }
 };

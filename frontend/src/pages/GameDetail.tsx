@@ -47,7 +47,7 @@ const GameDetail: React.FC = () => {
         setAlbums(response.data.data.albums);
       }
     } catch (error: any) {
-      message.error('Failed to load game details');
+      message.error('加载游戏详情失败');
     } finally {
       setLoading(false);
     }

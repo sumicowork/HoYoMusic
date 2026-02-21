@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Layout, Table, Button, Space, Image, Tag, Spin, Descriptions, message } from 'antd';
+import { Layout, Table, Button, Space, Image, Tag, Skeleton, Descriptions, message } from 'antd';
 import { ArrowLeftOutlined, PlayCircleOutlined, DownloadOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import { Track } from '../types';
@@ -44,7 +44,7 @@ const AlbumDetail: React.FC = () => {
         setTracks(response.data.data.tracks);
       }
     } catch (error: any) {
-      message.error('Failed to load album details');
+      message.error('加载专辑详情失败');
     } finally {
       setLoading(false);
     }
@@ -166,8 +166,8 @@ const AlbumDetail: React.FC = () => {
   if (loading) {
     return (
       <Layout style={{ minHeight: '100vh' }}>
-        <Content style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-          <Spin size="large" />
+        <Content style={{ padding: 24 }}>
+          <Skeleton active avatar={{ size: 250, shape: 'square' }} paragraph={{ rows: 6 }} />
         </Content>
       </Layout>
     );
@@ -239,7 +239,7 @@ const AlbumDetail: React.FC = () => {
         </div>
 
         <div className="album-tracks">
-          <h2>Tracks</h2>
+          <h2>曲目列表</h2>
           <Table
             columns={columns}
             dataSource={tracks}

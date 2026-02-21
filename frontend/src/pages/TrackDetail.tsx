@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Layout, Card, Button, Space, Image, Tag, Spin, Descriptions, message } from 'antd';
+import { Layout, Card, Button, Space, Image, Tag, Skeleton, Descriptions, message } from 'antd';
 import { ArrowLeftOutlined, PlayCircleOutlined, DownloadOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import { Track } from '../types';
@@ -56,7 +56,7 @@ const TrackDetail: React.FC = () => {
       const data = await trackService.getTrackByIdPublic(parseInt(id!));
       setTrack(data);
     } catch (error: any) {
-      message.error('Failed to load track details');
+      message.error('加载曲目详情失败');
     } finally {
       setLoading(false);
     }
@@ -81,7 +81,7 @@ const TrackDetail: React.FC = () => {
         setCredits(response.data.data.credits);
       }
     } catch (error) {
-      console.error('Failed to load credits:', error);
+      console.error('获取制作人员信息失败:', error);
     }
   };
 
@@ -106,8 +106,8 @@ const TrackDetail: React.FC = () => {
   if (loading) {
     return (
       <Layout style={{ minHeight: '100vh' }}>
-        <Content style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-          <Spin size="large" />
+        <Content style={{ padding: 24 }}>
+          <Skeleton active avatar={{ size: 250, shape: 'square' }} paragraph={{ rows: 8 }} />
         </Content>
       </Layout>
     );
@@ -118,8 +118,8 @@ const TrackDetail: React.FC = () => {
       <Layout style={{ minHeight: '100vh' }}>
         <Content style={{ padding: 24 }}>
           <Card>
-            <p>Track not found</p>
-            <Button onClick={() => navigate('/')}>Back to Library</Button>
+            <p>曲目未找到</p>
+            <Button onClick={() => navigate('/')}>返回首页</Button>
           </Card>
         </Content>
       </Layout>
@@ -135,7 +135,7 @@ const TrackDetail: React.FC = () => {
           onClick={() => navigate('/')}
           style={{ color: '#fff' }}
         >
-          Back to Library
+          返回首页
         </Button>
       </Header>
 
@@ -162,7 +162,7 @@ const TrackDetail: React.FC = () => {
             <div className="track-info-details">
               <h1>{track.title}</h1>
               <h3>{track.artists.map(a => a.name).join(', ')}</h3>
-              {track.album_title && <h4>Album: {track.album_title}</h4>}
+              {track.album_title && <h4>专辑：{track.album_title}</h4>}
 
               <Space style={{ marginTop: 16, marginBottom: 24 }} wrap>
                 <Tag color="blue">FLAC</Tag>
@@ -183,18 +183,18 @@ const TrackDetail: React.FC = () => {
 
               <Descriptions column={1} size="small">
                 {track.track_number && (
-                  <Descriptions.Item label="Track Number">
+                  <Descriptions.Item label="曲目编号">
                     {track.track_number}
                   </Descriptions.Item>
                 )}
                 {track.file_size && (
-                  <Descriptions.Item label="File Size">
+                  <Descriptions.Item label="文件大小">
                     {(track.file_size / (1024 * 1024)).toFixed(2)} MB
                   </Descriptions.Item>
                 )}
                 {track.release_date && (
-                  <Descriptions.Item label="Release Date">
-                    {new Date(track.release_date).toLocaleDateString()}
+                  <Descriptions.Item label="发行日期">
+                    {new Date(track.release_date).toLocaleDateString('zh-CN')}
                   </Descriptions.Item>
                 )}
               </Descriptions>
@@ -206,14 +206,14 @@ const TrackDetail: React.FC = () => {
                   size="large"
                   onClick={handlePlay}
                 >
-                  Play
+                  播放
                 </Button>
                 <Button
                   icon={<DownloadOutlined />}
                   size="large"
                   onClick={handleDownload}
                 >
-                  Download
+                  下载
                 </Button>
               </Space>
             </div>

@@ -189,3 +189,17 @@ export const deleteTagGroup = async (id: number): Promise<void> => {
   });
 };
 
+// Bulk update track tags
+export const bulkUpdateTrackTags = async (params: {
+  trackIds: number[];
+  addTagIds?: number[];
+  removeTagIds?: number[];
+}): Promise<void> => {
+  const token = localStorage.getItem('token');
+  await axios.post(`${API_URL}/tags/bulk-update`, params, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+};
+

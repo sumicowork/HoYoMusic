@@ -38,14 +38,8 @@ const CreditsEditor: React.FC<CreditsEditorProps> = ({ trackId, visible, onClose
         setCredits(response.data.data.credits);
       }
     } catch (error) {
-      console.error('Error fetching credits:', error);
+      console.error('获取制作人员信息失败:', error);
     }
-  };
-
-  const handleAdd = () => {
-    setEditingCredit(null);
-    form.resetFields();
-    form.setFieldsValue({ display_order: credits.length });
   };
 
   const handleEdit = (credit: Credit) => {
@@ -62,21 +56,19 @@ const CreditsEditor: React.FC<CreditsEditorProps> = ({ trackId, visible, onClose
       const headers = { Authorization: `Bearer ${token}` };
 
       if (editingCredit) {
-        // Update existing credit
         await axios.put(
           `${API_BASE_URL}/credits/${trackId}/credits/${editingCredit.id}`,
           values,
           { headers }
         );
-        message.success('Credit updated successfully');
+        message.success('制作人员信息已更新');
       } else {
-        // Add new credit
         await axios.post(
           `${API_BASE_URL}/credits/${trackId}/credits`,
           values,
           { headers }
         );
-        message.success('Credit added successfully');
+        message.success('已添加制作人员信息');
       }
 
       form.resetFields();
@@ -84,7 +76,7 @@ const CreditsEditor: React.FC<CreditsEditorProps> = ({ trackId, visible, onClose
       fetchCredits();
       onSuccess();
     } catch (error: any) {
-      message.error(error.response?.data?.error?.message || 'Failed to save credit');
+      message.error(error.response?.data?.error?.message || '保存失败');
     } finally {
       setLoading(false);
     }
@@ -92,10 +84,11 @@ const CreditsEditor: React.FC<CreditsEditorProps> = ({ trackId, visible, onClose
 
   const handleDelete = async (creditId: number) => {
     Modal.confirm({
-      title: 'Delete Credit',
-      content: 'Are you sure you want to delete this credit?',
-      okText: 'Delete',
+      title: '删除制作人员信息',
+      content: '确定要删除此条目吗？',
+      okText: '删除',
       okType: 'danger',
+      cancelText: '取消',
       onOk: async () => {
         try {
           const token = localStorage.getItem('token');
@@ -103,11 +96,11 @@ const CreditsEditor: React.FC<CreditsEditorProps> = ({ trackId, visible, onClose
             `${API_BASE_URL}/credits/${trackId}/credits/${creditId}`,
             { headers: { Authorization: `Bearer ${token}` } }
           );
-          message.success('Credit deleted successfully');
+          message.success('已删除');
           fetchCredits();
           onSuccess();
         } catch (error: any) {
-          message.error(error.response?.data?.error?.message || 'Failed to delete credit');
+          message.error(error.response?.data?.error?.message || '删除失败');
         }
       }
     });
@@ -115,36 +108,36 @@ const CreditsEditor: React.FC<CreditsEditorProps> = ({ trackId, visible, onClose
 
   return (
     <Modal
-      title="Manage Credits"
+      title="管理制作人员"
       open={visible}
       onCancel={onClose}
       width={700}
       footer={[
         <Button key="close" onClick={onClose}>
-          Close
+          关闭
         </Button>,
       ]}
     >
       <Form form={form} layout="vertical" style={{ marginBottom: 16 }}>
         <Form.Item
           name="credit_key"
-          label="Key (e.g., Producer, Composer, Vocal)"
-          rules={[{ required: true, message: 'Please enter credit key' }]}
+          label="键（如：作曲、编曲、演唱）"
+          rules={[{ required: true, message: '请输入键名' }]}
         >
-          <Input placeholder="Enter credit key" />
+          <Input placeholder="输入键名，如：作曲" />
         </Form.Item>
 
         <Form.Item
           name="credit_value"
-          label="Value (e.g., Name, Description)"
-          rules={[{ required: true, message: 'Please enter credit value' }]}
+          label="值（人名或描述）"
+          rules={[{ required: true, message: '请输入值' }]}
         >
-          <Input placeholder="Enter credit value" />
+          <Input placeholder="输入人名或描述" />
         </Form.Item>
 
         <Form.Item
           name="display_order"
-          label="Display Order"
+          label="显示顺序"
           initialValue={0}
         >
           <InputNumber min={0} style={{ width: '100%' }} />
@@ -153,11 +146,11 @@ const CreditsEditor: React.FC<CreditsEditorProps> = ({ trackId, visible, onClose
         <Form.Item>
           <Space>
             <Button type="primary" icon={<PlusOutlined />} onClick={handleSave} loading={loading}>
-              {editingCredit ? 'Update' : 'Add'} Credit
+              {editingCredit ? '更新' : '添加'}
             </Button>
             {editingCredit && (
               <Button onClick={() => { form.resetFields(); setEditingCredit(null); }}>
-                Cancel
+                取消编辑
               </Button>
             )}
           </Space>
@@ -165,7 +158,7 @@ const CreditsEditor: React.FC<CreditsEditorProps> = ({ trackId, visible, onClose
       </Form>
 
       <List
-        header={<div><strong>Existing Credits</strong></div>}
+        header={<div><strong>已有制作人员信息</strong></div>}
         bordered
         dataSource={credits}
         renderItem={(credit) => (

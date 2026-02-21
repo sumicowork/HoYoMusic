@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, Tag, Button, Select, message, Space } from 'antd';
-import { PlusOutlined, CloseOutlined } from '@ant-design/icons';
 import { getTags, getTrackTags, addTagToTrack, removeTagFromTrack, Tag as TagType } from '../services/tagService';
 
 interface TrackTagsManagerProps {

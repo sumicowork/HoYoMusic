@@ -34,7 +34,7 @@ const PublicLibrary: React.FC = () => {
         total: data.pagination.total,
       });
     } catch (error: any) {
-      console.error('Failed to fetch tracks:', error);
+      console.error('获取曲目失败:', error);
     } finally {
       setLoading(false);
     }
