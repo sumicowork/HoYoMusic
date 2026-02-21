@@ -84,6 +84,102 @@
   z-index: 1;
 }
 
+/* 崩坏3背景 */
+.game-detail-layout.honkai3-bg {
+  position: relative;
+  background: #1a1a2e;
+}
+
+.game-detail-layout.honkai3-bg::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image: url('/games/honkai3.png');
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  opacity: 0.18;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.game-detail-layout.honkai3-bg > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* 未定事件簿背景 */
+.game-detail-layout.tears-bg {
+  position: relative;
+  background: #1a1a2e;
+}
+
+.game-detail-layout.tears-bg::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image: url('/games/tears.jpg');
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  opacity: 0.18;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.game-detail-layout.tears-bg > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* 崩坏因缘精灵(nexus)背景 */
+.game-detail-layout.nexus-bg {
+  position: relative;
+  background: #1a1a2e;
+}
+
+.game-detail-layout.nexus-bg::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image: url('/games/nexus.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.18;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.game-detail-layout.nexus-bg > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* 星布谷地(petit)背景 */
+.game-detail-layout.petit-bg {
+  position: relative;
+  background: #1a1a2e;
+}
+
+.game-detail-layout.petit-bg::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image: url('/games/petit.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.18;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.game-detail-layout.petit-bg > * {
+  position: relative;
+  z-index: 1;
+}
+
 .game-detail-header {
   background: transparent;
   border-bottom: none;

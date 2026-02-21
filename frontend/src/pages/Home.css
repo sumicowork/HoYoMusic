@@ -130,13 +130,31 @@
   background: rgba(20, 16, 55, 0.82);
 }
 
+.game-card .ant-card-cover {
+  margin: 0;
+  overflow: hidden;
+  border-radius: 16px 16px 0 0;
+}
+
 .game-cover {
   position: relative;
+  width: 100%;
   height: 300px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   overflow: hidden;
+}
+
+.game-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* overlay、banner 等子层 */
+.game-cover-overlay,
+.game-status-banner {
+  position: absolute;
+  z-index: 2;
 }
 
 .game-cover-overlay {
@@ -195,12 +213,60 @@
     font-size: 16px;
   }
 
-  .game-cover {
-    height: 200px;
-  }
-
   .game-info {
     font-size: 14px;
   }
 }
 
+/* ===== 禁用/置灰游戏卡片 ===== */
+.game-card-disabled {
+  cursor: not-allowed !important;
+  filter: grayscale(100%) brightness(0.65);
+  transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.game-card-disabled:hover {
+  transform: none !important;
+  box-shadow: inherit !important;
+}
+
+[data-theme='light'] .game-card-disabled:hover {
+  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.15), 0 2px 0 rgba(255,255,255,0.9) !important;
+  background: rgba(255, 255, 255, 0.68) !important;
+}
+
+[data-theme='dark'] .game-card-disabled:hover {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(255,255,255,0.06) !important;
+  background: rgba(15, 12, 41, 0.68) !important;
+}
+
+/* ===== 游戏状态横幅 ===== */
+.game-status-banner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80%;
+  text-align: center;
+  padding: 10px 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 6px;
+  color: #fff;
+  border-radius: 6px;
+  pointer-events: none;
+  z-index: 10;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  box-shadow: 0 2px 16px rgba(0,0,0,0.4);
+}
+
+.game-status-maintenance {
+  background: rgba(80, 80, 80, 0.82);
+  border: 1.5px solid rgba(200, 200, 200, 0.35);
+}
+
+.game-status-unreleased {
+  background: rgba(60, 60, 80, 0.85);
+  border: 1.5px solid rgba(180, 180, 220, 0.35);
+}

@@ -87,9 +87,15 @@ const GameDetail: React.FC = () => {
   }
 
   const getGameClass = () => {
-    if (id === '1') return 'genshin-bg';
-    if (id === '2') return 'starrail-bg';
-    if (id === '3') return 'zzz-bg';
+    if (!game) return '';
+    const name = game.name;
+    if (name === '原神') return 'genshin-bg';
+    if (name === '崩坏：星穹铁道') return 'starrail-bg';
+    if (name === '绝区零') return 'zzz-bg';
+    if (name === '崩坏3') return 'honkai3-bg';
+    if (name === '未定事件簿') return 'tears-bg';
+    if (name === '崩坏因缘精灵') return 'nexus-bg';
+    if (name === '星布谷地') return 'petit-bg';
     return '';
   };
 
