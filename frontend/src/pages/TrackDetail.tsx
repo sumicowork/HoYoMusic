@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Layout, Card, Button, Space, Image, Tag, Skeleton, Descriptions, message } from 'antd';
+import { Layout, Card, Button, Space, Image, Tag, Skeleton, Descriptions, message, Tooltip } from 'antd';
 import { ArrowLeftOutlined, PlayCircleOutlined, DownloadOutlined } from '@ant-design/icons';
+import { IS_STATIC } from '../services/api';
+import * as staticData from '../services/staticDataService';
 import axios from 'axios';
 import { Track } from '../types';
-import { trackService } from '../services/trackService';
+import { trackService, DOWNLOAD_ENABLED } from '../services/trackService';
 import { usePlayerStore } from '../store/playerStore';
 import LyricsDisplay from '../components/LyricsDisplay';
 import CreditsDisplay from '../components/CreditsDisplay';
@@ -64,21 +66,30 @@ const TrackDetail: React.FC = () => {
 
   const fetchLyrics = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/lyrics/${id}/lyrics`);
-      if (response.data.success && response.data.data.lyrics) {
-        setLyrics(response.data.data.lyrics);
+      if (IS_STATIC) {
+        const lrc = await staticData.getLyrics(parseInt(id!));
+        setLyrics(lrc);
+      } else {
+        const response = await axios.get(`${API_BASE_URL}/lyrics/${id}/lyrics`);
+        if (response.data.success && response.data.data.lyrics) {
+          setLyrics(response.data.data.lyrics);
+        }
       }
     } catch (error) {
-      // No lyrics available
       setLyrics(null);
     }
   };
 
   const fetchCredits = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/credits/${id}/credits`);
-      if (response.data.success) {
-        setCredits(response.data.data.credits);
+      if (IS_STATIC) {
+        const c = await staticData.getCredits(parseInt(id!));
+        setCredits(c);
+      } else {
+        const response = await axios.get(`${API_BASE_URL}/credits/${id}/credits`);
+        if (response.data.success) {
+          setCredits(response.data.data.credits);
+        }
       }
     } catch (error) {
       console.error('获取制作人员信息失败:', error);
@@ -161,7 +172,6 @@ const TrackDetail: React.FC = () => {
 
             <div className="track-info-details">
               <h1>{track.title}</h1>
-              <h3>{track.artists.map(a => a.name).join(', ')}</h3>
               {track.album_title && <h4>专辑：{track.album_title}</h4>}
 
               <Space style={{ marginTop: 16, marginBottom: 24 }} wrap>
@@ -208,13 +218,16 @@ const TrackDetail: React.FC = () => {
                 >
                   播放
                 </Button>
-                <Button
-                  icon={<DownloadOutlined />}
-                  size="large"
-                  onClick={handleDownload}
-                >
-                  下载
-                </Button>
+                <Tooltip title={!DOWNLOAD_ENABLED ? '服务器维护中，暂时关闭下载' : ''}>
+                  <Button
+                    icon={<DownloadOutlined />}
+                    size="large"
+                    onClick={handleDownload}
+                    disabled={!DOWNLOAD_ENABLED}
+                  >
+                    下载
+                  </Button>
+                </Tooltip>
               </Space>
             </div>
           </div>

@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Layout, Card, Row, Col, Spin, Empty, Button, message } from 'antd';
+import { Layout, Card, Row, Col, Spin, Empty, message, Button } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import { gameService } from '../services/gameService';
 import { getCoverUrl, handleImageError } from '../utils/imageUtils';
 import './GameDetail.css';
 
-const { Header, Content } = Layout;
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const { Content } = Layout;
 
 interface Game {
   id: number;
@@ -41,11 +40,9 @@ const GameDetail: React.FC = () => {
 
   const fetchGameDetails = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/games/${id}`);
-      if (response.data.success) {
-        setGame(response.data.data.game);
-        setAlbums(response.data.data.albums);
-      }
+      const data = await gameService.getGameById(parseInt(id!));
+      setGame(data.game);
+      setAlbums(data.albums);
     } catch (error: any) {
       message.error('加载游戏详情失败');
     } finally {
@@ -101,22 +98,6 @@ const GameDetail: React.FC = () => {
 
   return (
     <Layout className={`game-detail-layout ${getGameClass()}`}>
-      <Header className="game-detail-header" style={{ background: 'transparent' }}>
-        <div className="header-content">
-          <Button
-            type="primary"
-            icon={<ArrowLeftOutlined />}
-            onClick={() => navigate('/')}
-            size="large"
-          >
-            返回主页
-          </Button>
-          <div className="game-title-header">
-            <div className="game-name-cn">{game.name}</div>
-          </div>
-          <div style={{ width: 140 }}></div> {/* Spacer for centering */}
-        </div>
-      </Header>
 
       <Content className="game-detail-content" style={{ background: 'transparent' }}>
 
@@ -140,7 +121,7 @@ const GameDetail: React.FC = () => {
                     <div className="album-cover-wrapper">
                       <img
                         alt={album.title}
-                        src={getCoverUrl(album.cover_path, API_BASE_URL.replace('/api', ''))}
+                        src={getCoverUrl(album.cover_path)}
                         onError={handleImageError}
                       />
                     </div>
@@ -155,7 +136,7 @@ const GameDetail: React.FC = () => {
                           <div>{formatDuration(album.total_duration)}</div>
                         )}
                         {album.release_date && (
-                          <div style={{ fontSize: 12, color: '#999' }}>
+                          <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
                             {new Date(album.release_date).getFullYear()}
                           </div>
                         )}

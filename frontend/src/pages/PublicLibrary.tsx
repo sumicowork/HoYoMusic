@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Layout, Table, Button, Space, Image, Tag, Input } from 'antd';
+import { Layout, Table, Button, Space, Image, Tag, Input, Tooltip } from 'antd';
 import { PlayCircleOutlined, DownloadOutlined, SearchOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { Track } from '../types';
-import { trackService } from '../services/trackService';
+import { trackService, DOWNLOAD_ENABLED } from '../services/trackService';
 import { usePlayerStore } from '../store/playerStore';
 import { useNavigate } from 'react-router-dom';
 import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
@@ -109,12 +109,6 @@ const PublicLibrary: React.FC = () => {
       ),
     },
     {
-      title: '艺术家',
-      dataIndex: 'artists',
-      key: 'artists',
-      render: (artists: any[]) => artists.map((a) => a.name).join(', '),
-    },
-    {
       title: '专辑',
       dataIndex: 'album_title',
       key: 'album',
@@ -135,7 +129,7 @@ const PublicLibrary: React.FC = () => {
         <Space direction="vertical" size={0}>
           <Tag color="blue">FLAC</Tag>
           {record.sample_rate && record.bit_depth && (
-            <span style={{ fontSize: 12, color: '#888' }}>
+            <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
               {(record.sample_rate / 1000).toFixed(1)}kHz / {record.bit_depth}bit
             </span>
           )}
@@ -163,11 +157,14 @@ const PublicLibrary: React.FC = () => {
           >
             播放
           </Button>
-          <Button
-            icon={<DownloadOutlined />}
-            onClick={() => handleDownload(record)}
-            size="small"
-          />
+          <Tooltip title={!DOWNLOAD_ENABLED ? '服务器维护中，暂时关闭下载' : ''}>
+            <Button
+              icon={<DownloadOutlined />}
+              onClick={() => handleDownload(record)}
+              size="small"
+              disabled={!DOWNLOAD_ENABLED}
+            />
+          </Tooltip>
         </Space>
       ),
     },

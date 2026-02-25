@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import {
   Modal, Upload, Button, Progress, List, Tag, Typography, Space,
   Divider, Result, Badge, Steps, Alert, Input, Switch, Tooltip,
-  Row, Col, Card, Spin, Table,
+  Row, Col, Card, Spin,
 } from 'antd';
 import {
   InboxOutlined, DeleteOutlined, CheckCircleOutlined, CloseCircleOutlined,
@@ -97,6 +97,25 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
   const handleUpdateField = (uid: string, field: 'editTitle' | 'editArtist' | 'editAlbum', value: string) =>
     setFileItems(prev => prev.map(f => f.uid === uid ? { ...f, [field]: value } : f));
 
+  const handleUpdateCredit = (uid: string, idx: number, field: 'key' | 'value', val: string) =>
+    setFileItems(prev => prev.map(f => {
+      if (f.uid !== uid || !f.credits) return f;
+      const credits = f.credits.map((c, i) => i === idx ? { ...c, [field]: val } : c);
+      return { ...f, credits };
+    }));
+
+  const handleDeleteCredit = (uid: string, idx: number) =>
+    setFileItems(prev => prev.map(f => {
+      if (f.uid !== uid || !f.credits) return f;
+      return { ...f, credits: f.credits.filter((_, i) => i !== idx) };
+    }));
+
+  const handleAddCredit = (uid: string) =>
+    setFileItems(prev => prev.map(f => {
+      if (f.uid !== uid) return f;
+      return { ...f, credits: [...(f.credits ?? []), { key: '', value: '' }] };
+    }));
+
   // Step 1 → Step 2: scan credits via backend API
   const handleGoToCredits = async () => {
     if (!autoCredits) {
@@ -135,6 +154,8 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
         await trackService.uploadTracks([item.originFileObj], {
           autoCredits: currentAutoCredits,
           metaOverrides: [{ title: item.editTitle || undefined, artist: item.editArtist || undefined, album: item.editAlbum || undefined }],
+          // 传入编辑后的 credits（若已通过预览步骤）
+          creditsOverrides: [item.credits ?? null],
         });
         setFileItems(prev => prev.map(f => f.uid === item.uid ? { ...f, status: 'done' } : f));
         successCount++;
@@ -162,14 +183,6 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
   };
 
   const totalSize = fileItems.reduce((s, f) => s + f.size, 0);
-
-  // credits table columns
-  const creditColumns = [
-    { title: 'Key', dataIndex: 'key', key: 'key', width: 160,
-      render: (k: string) => <Tag color="blue" style={{ fontSize: 11 }}>{k}</Tag> },
-    { title: 'Value', dataIndex: 'value', key: 'value',
-      render: (v: string) => <Text style={{ fontSize: 12 }}>{v}</Text> },
-  ];
 
   return (
     <Modal
@@ -326,7 +339,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
         </>
       )}
 
-      {/* ── Step 2: Credits 预览（仅 autoCredits=true 时经过此步）── */}
+      {/* ── Step 2: Credits 预览 + 编辑 ──────────────────────────── */}
       {currentStep === 2 && (
         <>
           {creditsScanning ? (
@@ -337,10 +350,10 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
           ) : (
             <>
               <Alert
-                message={`已读取 ${fileItems.length} 个文件的 Credits，确认后将全部写入数据库。`}
-                type="success" showIcon style={{ marginBottom: 12 }}
+                message="可在下方直接修改、删除或添加 Credits 键值对，修改结果将在导入时写入数据库。"
+                type="info" showIcon icon={<InfoCircleOutlined />} style={{ marginBottom: 12 }}
               />
-              <div style={{ maxHeight: 420, overflowY: 'auto' }}>
+              <div style={{ maxHeight: 440, overflowY: 'auto' }}>
                 {fileItems.map(item => (
                   <Card
                     key={item.uid} size="small"
@@ -349,30 +362,72 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
                     title={
                       <Space>
                         <SoundOutlined style={{ color: '#667eea' }} />
-                        <Text ellipsis style={{ maxWidth: 400, fontSize: 13 }}>{item.name}</Text>
-                        {item.credits && item.credits.length > 0
-                          ? <Tag color="green">{item.credits.length} 条 Credits</Tag>
-                          : <Tag color="orange">无可识别 Credits</Tag>}
+                        <Text ellipsis style={{ maxWidth: 380, fontSize: 13 }}>{item.name}</Text>
+                        <Tag color={(item.credits?.length ?? 0) > 0 ? 'green' : 'orange'}>
+                          {item.credits?.length ?? 0} 条 Credits
+                        </Tag>
                       </Space>
+                    }
+                    extra={
+                      <Button
+                        type="dashed" size="small"
+                        icon={<span style={{ fontSize: 14, lineHeight: 1 }}>＋</span>}
+                        onClick={() => handleAddCredit(item.uid)}
+                        style={{ color: '#667eea', borderColor: '#667eea' }}
+                      >
+                        添加行
+                      </Button>
                     }
                   >
                     {item.creditsLoading ? (
-                      <Spin size="small" />
-                    ) : item.credits && item.credits.length > 0 ? (
-                      <Table
-                        dataSource={item.credits.map((c, i) => ({ ...c, _key: i }))}
-                        columns={creditColumns}
-                        rowKey="_key"
-                        size="small"
-                        pagination={item.credits.length > 10 ? { pageSize: 10, size: 'small' } : false}
-                        style={{ fontSize: 12 }}
-                      />
+                      <div style={{ textAlign: 'center', padding: 12 }}><Spin size="small" /></div>
+                    ) : (item.credits && item.credits.length > 0) ? (
+                      <div style={{ maxHeight: 240, overflowY: 'auto' }}>
+                        {/* 表头 */}
+                        <Row gutter={6} style={{ marginBottom: 4, padding: '0 4px' }}>
+                          <Col span={8}>
+                            <Text type="secondary" style={{ fontSize: 11 }}>KEY（标签名）</Text>
+                          </Col>
+                          <Col span={14}>
+                            <Text type="secondary" style={{ fontSize: 11 }}>VALUE（内容）</Text>
+                          </Col>
+                        </Row>
+                        {item.credits.map((credit, idx) => (
+                          <Row key={idx} gutter={6} style={{ marginBottom: 4 }} align="middle">
+                            <Col span={8}>
+                              <Input
+                                size="small"
+                                value={credit.key}
+                                onChange={e => handleUpdateCredit(item.uid, idx, 'key', e.target.value)}
+                                placeholder="例: composer"
+                                style={{ fontSize: 12 }}
+                              />
+                            </Col>
+                            <Col span={14}>
+                              <Input
+                                size="small"
+                                value={credit.value}
+                                onChange={e => handleUpdateCredit(item.uid, idx, 'value', e.target.value)}
+                                placeholder="例: 田中智章"
+                                style={{ fontSize: 12 }}
+                              />
+                            </Col>
+                            <Col span={2}>
+                              <Button
+                                type="text" size="small"
+                                icon={<DeleteOutlined />}
+                                danger
+                                onClick={() => handleDeleteCredit(item.uid, idx)}
+                              />
+                            </Col>
+                          </Row>
+                        ))}
+                      </div>
                     ) : (
                       <Alert
-                        type="warning"
-                        showIcon
-                        message="此文件未检测到 Credits 类标签（作曲、编曲、制作人等）"
-                        description="FLAC 文件中没有作曲/编曲/混音等 Credits 标签，或所有标签均为基础元数据（标题/艺术家/专辑等已被过滤）。导入后可手动添加 Credits。"
+                        type="warning" showIcon
+                        message="此文件未检测到 Credits 标签"
+                        description="可点击右上角「添加行」手动添加 Credits。"
                         style={{ fontSize: 12 }}
                       />
                     )}

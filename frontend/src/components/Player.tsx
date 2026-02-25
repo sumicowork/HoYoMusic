@@ -17,6 +17,7 @@ import {
 } from '@ant-design/icons';
 import { usePlayerStore } from '../store/playerStore';
 import { trackService } from '../services/trackService';
+import { IS_STATIC } from '../services/api';
 import { lyricsService } from '../services/lyricsService';
 import PlayQueue from './PlayQueue';
 import './Player.css';
@@ -72,8 +73,7 @@ const Player: React.FC = () => {
   // Dynamic page title
   useEffect(() => {
     if (currentTrack) {
-      const artists = currentTrack.artists.map((a) => a.name).join(', ');
-      document.title = `${isPlaying ? '▶ ' : ''}${currentTrack.title} - ${artists} | HoYoMusic`;
+      document.title = `${isPlaying ? '▶ ' : ''}${currentTrack.title} | HoYoMusic`;
     } else {
       document.title = 'HoYoMusic';
     }
@@ -109,7 +109,6 @@ const Player: React.FC = () => {
   // Media Session API
   useEffect(() => {
     if (!currentTrack || !('mediaSession' in navigator)) return;
-    const artists = currentTrack.artists.map((a) => a.name).join(', ');
     const coverSrc = currentTrack.cover_path
       ? trackService.getCoverUrl(currentTrack.cover_path)
       : (currentTrack as any).album_cover
@@ -117,7 +116,7 @@ const Player: React.FC = () => {
         : null;
     navigator.mediaSession.metadata = new MediaMetadata({
       title: currentTrack.title,
-      artist: artists,
+      artist: '',
       album: currentTrack.album_title || '',
       artwork: coverSrc ? [{ src: coverSrc, sizes: '512x512', type: 'image/jpeg' }] : [],
     });
@@ -175,7 +174,9 @@ const Player: React.FC = () => {
   useEffect(() => {
     if (currentTrack) {
       if (howlRef.current) howlRef.current.unload();
-      const streamUrl = trackService.getStreamUrlPublic(currentTrack.id);
+      const streamUrl = (IS_STATIC && currentTrack.audio_url)
+        ? currentTrack.audio_url
+        : trackService.getStreamUrlPublic(currentTrack.id);
       const newHowl = new Howl({
         src: [streamUrl],
         html5: true,
@@ -279,10 +280,10 @@ const Player: React.FC = () => {
     <div className="player-controls">
       <Space size="large">
         <Tooltip title={`${getPlayModeText()}（按 L 切换）`}>
-          <Button type="text" icon={getPlayModeIcon()} onClick={togglePlayMode} size="large" />
+          <Button type="text" icon={getPlayModeIcon()} onClick={togglePlayMode} size="large" aria-label={getPlayModeText()} />
         </Tooltip>
         <Tooltip title="上一曲（←）">
-          <Button type="text" icon={<StepBackwardOutlined />} onClick={handlePrevious} size="large" />
+          <Button type="text" icon={<StepBackwardOutlined />} onClick={handlePrevious} size="large" aria-label="上一曲" />
         </Tooltip>
         <Tooltip title={isPlaying ? '暂停（空格）' : '播放（空格）'}>
           <Button
@@ -291,10 +292,11 @@ const Player: React.FC = () => {
             icon={isPlaying ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
             onClick={handleTogglePlay}
             size="large"
+            aria-label={isPlaying ? '暂停' : '播放'}
           />
         </Tooltip>
         <Tooltip title="下一曲（→）">
-          <Button type="text" icon={<StepForwardOutlined />} onClick={handleNext} size="large" />
+          <Button type="text" icon={<StepForwardOutlined />} onClick={handleNext} size="large" aria-label="下一曲" />
         </Tooltip>
       </Space>
       <div className="player-progress">
@@ -305,6 +307,7 @@ const Player: React.FC = () => {
           onChange={handleSeek}
           tooltip={{ formatter: (value) => formatTime(value || 0) }}
           className="player-slider"
+          aria-label="播放进度"
         />
         <span className="player-time">{formatTime(duration)}</span>
       </div>
@@ -315,10 +318,19 @@ const Player: React.FC = () => {
   if (expanded) {
     return (
       <div className="player-expanded">
-        {/* blurred bg */}
-        {coverSrc && (
-          <div className="player-expanded-bg" style={{ backgroundImage: `url(${coverSrc})` }} />
-        )}
+        {/* dark gradient bg — click to collapse */}
+        <div
+          className="player-expanded-bg"
+          onClick={() => setExpanded(false)}
+        />
+        {/* top-right close button */}
+        <Button
+          type="text"
+          icon={<CompressOutlined />}
+          onClick={() => setExpanded(false)}
+          className="player-expanded-close"
+          aria-label="收起播放器"
+        />
         {/* top: cover + lyrics */}
         <div className="player-expanded-body">
           {/* Left: cover + track info */}
@@ -331,9 +343,6 @@ const Player: React.FC = () => {
               </div>
             )}
             <div className="player-expanded-title">{currentTrack.title}</div>
-            <div className="player-expanded-artist">
-              {currentTrack.artists.map(a => a.name).join(', ')}
-            </div>
             {currentTrack.album_title && (
               <div className="player-expanded-album">{currentTrack.album_title}</div>
             )}
@@ -385,14 +394,14 @@ const Player: React.FC = () => {
 
             <div className="player-volume">
               <Tooltip title="音量（↑/↓ 调节）"><SoundOutlined /></Tooltip>
-              <Slider value={volume} min={0} max={1} step={0.01} onChange={handleVolumeChange} style={{ width: 100, marginLeft: 12 }} />
+              <Slider value={volume} min={0} max={1} step={0.01} onChange={handleVolumeChange} style={{ width: 100, marginLeft: 12 }} aria-label="音量" />
               <Tooltip title="播放队列">
                 <Badge count={playlist.length} showZero>
-                  <Button type="text" icon={<UnorderedListOutlined />} onClick={() => setQueueVisible(true)} size="large" style={{ marginLeft: 16 }} />
+                  <Button type="text" icon={<UnorderedListOutlined />} onClick={() => setQueueVisible(true)} size="large" style={{ marginLeft: 8 }} aria-label="播放队列" />
                 </Badge>
               </Tooltip>
               <Tooltip title="收起（Esc）">
-                <Button type="text" icon={<CompressOutlined />} onClick={() => setExpanded(false)} size="large" style={{ marginLeft: 8 }} />
+                <Button type="text" icon={<CompressOutlined />} onClick={() => setExpanded(false)} size="large" style={{ marginLeft: 4 }} aria-label="收起播放器" />
               </Tooltip>
             </div>
           </div>
@@ -405,11 +414,15 @@ const Player: React.FC = () => {
 
   // ─── Collapsed mini bar ───────────────────────────────────
   return (
-    <div className="player-container">
+    <div className="player-container" role="region" aria-label="音乐播放器">
       {/* clickable empty area expands */}
       <div
         className="player-expand-hint"
         onClick={() => setExpanded(true)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded(true); } }}
+        tabIndex={0}
+        role="button"
+        aria-label="展开播放器查看歌词"
         title="点击展开查看歌词"
       />
       <div className="player-content">
@@ -419,7 +432,6 @@ const Player: React.FC = () => {
           ) : null}
           <div className="player-text" onClick={() => setExpanded(true)} style={{ cursor: 'pointer' }}>
             <div className="player-title">{currentTrack.title}</div>
-            <div className="player-artist">{currentTrack.artists.map((a) => a.name).join(', ')}</div>
           </div>
         </div>
 
@@ -427,14 +439,14 @@ const Player: React.FC = () => {
 
         <div className="player-volume">
           <Tooltip title="音量（↑/↓ 调节）"><SoundOutlined /></Tooltip>
-          <Slider value={volume} min={0} max={1} step={0.01} onChange={handleVolumeChange} style={{ width: 100, marginLeft: 12 }} />
-          <Tooltip title="展开歌词">
-            <Button type="text" icon={<ExpandOutlined />} onClick={() => setExpanded(true)} size="large" style={{ marginLeft: 8 }} />
-          </Tooltip>
+          <Slider value={volume} min={0} max={1} step={0.01} onChange={handleVolumeChange} style={{ width: 100, marginLeft: 12 }} aria-label="音量" />
           <Tooltip title="播放队列">
             <Badge count={playlist.length} showZero>
-              <Button type="text" icon={<UnorderedListOutlined />} onClick={() => setQueueVisible(true)} size="large" style={{ marginLeft: 4 }} />
+              <Button type="text" icon={<UnorderedListOutlined />} onClick={() => setQueueVisible(true)} size="large" style={{ marginLeft: 8 }} aria-label="播放队列" />
             </Badge>
+          </Tooltip>
+          <Tooltip title="展开歌词">
+            <Button type="text" icon={<ExpandOutlined />} onClick={() => setExpanded(true)} size="large" style={{ marginLeft: 4 }} aria-label="展开歌词" />
           </Tooltip>
         </div>
       </div>

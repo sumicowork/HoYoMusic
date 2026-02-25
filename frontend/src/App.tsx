@@ -7,9 +7,11 @@ import zhCN from 'antd/locale/zh_CN';
 import ProtectedRoute from './components/ProtectedRoute';
 import Player from './components/Player';
 import SideNav from './components/SideNav';
+import MobileTabBar from './components/MobileTabBar';
 import { usePlayerStore } from './store/playerStore';
 import { useThemeStore } from './store/themeStore';
 import { useAuthStore } from './store/authStore';
+import { IS_STATIC } from './services/api';
 import { darkTheme, lightTheme } from './theme/themeConfig';
 import './theme/theme.css';
 import './theme/publicPages.css';
@@ -54,15 +56,16 @@ const App: React.FC = () => {
   }, [mode]);
 
   useEffect(() => {
-    initializeAuth();
+    if (!IS_STATIC) initializeAuth();
   }, [initializeAuth]);
 
   return (
     <ConfigProvider theme={mode === 'dark' ? darkTheme : lightTheme} locale={zhCN}>
       <AntApp>
         <Router>
-          <div className="app">
+          <div className={`app${currentTrack ? ' has-player' : ''}`}>
             <SideNav />
+            <MobileTabBar />
             <Suspense fallback={<PageFallback />}>
               <Routes>
                 {/* 公开路由 - 无需登录 */}
@@ -78,32 +81,36 @@ const App: React.FC = () => {
                 <Route path="/tags/:id" element={<TagDetail />} />
                 <Route path="/search" element={<Search />} />
 
-                {/* 管理后台路由 - 需要登录 */}
-                <Route path="/admin/login" element={<Login />} />
-                <Route
-                  path="/admin"
-                  element={
-                    <ProtectedRoute>
-                      <Admin />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/admin/albums"
-                  element={
-                    <ProtectedRoute>
-                      <AlbumManagement />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/admin/tags"
-                  element={
-                    <ProtectedRoute>
-                      <TagManagement />
-                    </ProtectedRoute>
-                  }
-                />
+                {/* 管理后台路由 - 需要登录（静态模式下不渲染） */}
+                {!IS_STATIC && (
+                  <>
+                    <Route path="/admin/login" element={<Login />} />
+                    <Route
+                      path="/admin"
+                      element={
+                        <ProtectedRoute>
+                          <Admin />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/admin/albums"
+                      element={
+                        <ProtectedRoute>
+                          <AlbumManagement />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/admin/tags"
+                      element={
+                        <ProtectedRoute>
+                          <TagManagement />
+                        </ProtectedRoute>
+                      }
+                    />
+                  </>
+                )}
 
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

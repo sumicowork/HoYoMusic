@@ -1,16 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Layout, Table, Button, Space, Image, Tag, Skeleton, Descriptions, message } from 'antd';
+import { Layout, Table, Button, Space, Image, Tag, Skeleton, Descriptions, message, Tooltip } from 'antd';
 import { ArrowLeftOutlined, PlayCircleOutlined, DownloadOutlined } from '@ant-design/icons';
-import axios from 'axios';
 import { Track } from '../types';
-import { trackService } from '../services/trackService';
+import { trackService, DOWNLOAD_ENABLED } from '../services/trackService';
+import { albumService } from '../services/albumService';
 import { usePlayerStore } from '../store/playerStore';
 import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
 import './AlbumDetail.css';
 
 const { Header, Content } = Layout;
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 interface Album {
   id: number;
@@ -38,11 +37,9 @@ const AlbumDetail: React.FC = () => {
 
   const fetchAlbumDetails = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/albums/${id}`);
-      if (response.data.success) {
-        setAlbum(response.data.data.album);
-        setTracks(response.data.data.tracks);
-      }
+      const data = await albumService.getAlbumById(parseInt(id!));
+      setAlbum(data.album);
+      setTracks(data.tracks);
     } catch (error: any) {
       message.error('加载专辑详情失败');
     } finally {
@@ -68,7 +65,8 @@ const AlbumDetail: React.FC = () => {
   };
 
   const handleDownloadAlbum = () => {
-    window.open(`${API_BASE_URL}/albums/${id}/download`, '_blank');
+    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+    window.open(`${apiBase}/albums/${id}/download`, '_blank');
   };
 
 
@@ -112,12 +110,6 @@ const AlbumDetail: React.FC = () => {
       ),
     },
     {
-      title: '艺术家',
-      dataIndex: 'artists',
-      key: 'artists',
-      render: (artists: any[]) => artists.map((a) => a.name).join(', '),
-    },
-    {
       title: '时长',
       dataIndex: 'duration',
       key: 'duration',
@@ -132,7 +124,7 @@ const AlbumDetail: React.FC = () => {
         <Space direction="vertical" size={0}>
           <Tag color="blue">FLAC</Tag>
           {record.sample_rate && record.bit_depth && (
-            <span style={{ fontSize: 11, color: '#888' }}>
+            <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
               {(record.sample_rate / 1000).toFixed(1)}kHz/{record.bit_depth}bit
             </span>
           )}
@@ -153,11 +145,14 @@ const AlbumDetail: React.FC = () => {
           >
             播放
           </Button>
-          <Button
-            icon={<DownloadOutlined />}
-            onClick={() => handleDownload(record)}
-            size="small"
-          />
+          <Tooltip title={!DOWNLOAD_ENABLED ? '服务器维护中，暂时关闭下载' : ''}>
+            <Button
+              icon={<DownloadOutlined />}
+              onClick={() => handleDownload(record)}
+              size="small"
+              disabled={!DOWNLOAD_ENABLED}
+            />
+          </Tooltip>
         </Space>
       ),
     },
@@ -226,14 +221,16 @@ const AlbumDetail: React.FC = () => {
               >
                 播放全部
               </Button>
-              <Button
-                size="large"
-                icon={<DownloadOutlined />}
-                onClick={handleDownloadAlbum}
-                disabled={tracks.length === 0}
-              >
-                下载专辑
-              </Button>
+              <Tooltip title={!DOWNLOAD_ENABLED ? '服务器维护中，暂时关闭下载' : ''}>
+                <Button
+                  size="large"
+                  icon={<DownloadOutlined />}
+                  onClick={handleDownloadAlbum}
+                  disabled={tracks.length === 0 || !DOWNLOAD_ENABLED}
+                >
+                  下载专辑
+                </Button>
+              </Tooltip>
             </Space>
           </div>
         </div>

@@ -1,4 +1,5 @@
-import api from './api';
+import api, { IS_STATIC } from './api';
+import * as staticData from './staticDataService';
 
 export interface Album {
   id: number;
@@ -21,6 +22,7 @@ export interface ApiResponse<T> {
 
 export const albumService = {
   async getAlbums(page = 1, limit = 20, search = ''): Promise<{ albums: Album[]; pagination: any }> {
+    if (IS_STATIC) return staticData.getAlbums(page, limit, search);
     const response = await api.get<ApiResponse<{ albums: Album[]; pagination: any }>>(
       `/albums?page=${page}&limit=${limit}&search=${search}`
     );
@@ -31,6 +33,7 @@ export const albumService = {
   },
 
   async getAlbumById(id: number): Promise<any> {
+    if (IS_STATIC) return staticData.getAlbumById(id);
     const response = await api.get<ApiResponse<any>>(`/albums/${id}`);
     if (response.data.success && response.data.data) {
       return response.data.data;

@@ -13,7 +13,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import type { ColumnsType } from 'antd/es/table';
 import { Track } from '../types';
-import { trackService, TrackSearchParams } from '../services/trackService';
+import { trackService, TrackSearchParams, DOWNLOAD_ENABLED } from '../services/trackService';
 import { getTags, getTagGroups, Tag as TagType, TagGroup } from '../services/tagService';
 import { usePlayerStore } from '../store/playerStore';
 import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
@@ -242,26 +242,11 @@ const Search: React.FC = () => {
       ),
     },
     {
-      title: '艺术家',
-      dataIndex: 'artists',
-      key: 'artists',
-      ellipsis: true,
-      render: (artists: any[]) =>
-        artists?.map((a, i) => (
-          <React.Fragment key={a.id}>
-            {i > 0 && <span style={{ color: 'var(--text-secondary)' }}>、</span>}
-            <a className="search-artist-link" onClick={() => navigate(`/artists/${a.id}`)}>
-              {a.name}
-            </a>
-          </React.Fragment>
-        )),
-    },
-    {
       title: '专辑',
       dataIndex: 'album_title',
       key: 'album',
       ellipsis: true,
-      render: (t) => t ? <Text type="secondary">{t}</Text> : '—',
+      render: (t: string) => t ? <Text type="secondary">{t}</Text> : '—',
     },
     {
       title: '时长',
@@ -305,11 +290,12 @@ const Search: React.FC = () => {
               onClick={() => { addToPlaylist(record); toast.success('已加入播放队列'); }}
             />
           </Tooltip>
-          <Tooltip title="下载">
+          <Tooltip title="下载" {...(!DOWNLOAD_ENABLED ? { title: '服务器维护中，暂时关闭下载' } : {})}>
             <Button
               size="small" shape="circle"
               icon={<DownloadOutlined />}
-              onClick={() => window.open(trackService.getDownloadUrlPublic(record.id), '_blank')}
+              disabled={!DOWNLOAD_ENABLED}
+              onClick={() => DOWNLOAD_ENABLED && window.open(trackService.getDownloadUrlPublic(record.id), '_blank')}
             />
           </Tooltip>
         </Space>

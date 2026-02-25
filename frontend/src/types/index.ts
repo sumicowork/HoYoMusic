@@ -20,6 +20,14 @@ export interface Track {
   album_title?: string;
   album_cover?: string | null;
   artists: Artist[];
+  /** 静态模式：CDN 音频直链 */
+  audio_url?: string;
+  /** 静态模式：内嵌歌词文本 */
+  lyrics?: string | null;
+  /** 静态模式：内嵌 credits */
+  credits?: Array<{ id: number; credit_key: string; credit_value: string; display_order: number }>;
+  /** 静态模式：内嵌 tags */
+  tags?: Array<{ id: number; name: string; color: string }>;
 }
 
 export interface Artist {

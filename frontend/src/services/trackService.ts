@@ -1,8 +1,16 @@
-import api from './api';
+import api, { IS_STATIC } from './api';
+import * as staticData from './staticDataService';
 import axios from 'axios';
 import { ApiResponse, Track } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+
+/**
+ * 全局下载功能开关
+ * false = 关闭所有下载（服务器维护期间）
+ * true  = 正常开放下载
+ */
+export const DOWNLOAD_ENABLED = false;
 
 // Create a public axios instance without auth interceptors
 const publicApi = axios.create({
@@ -34,8 +42,9 @@ export const trackService = {
     files: File[],
     options?: {
       autoCredits?: boolean;
-      // 每个文件对应的元数据覆盖（与 files 数组一一对应）
       metaOverrides?: Array<{ title?: string; artist?: string; album?: string }>;
+      // 前端编辑后的 credits，与 files 一一对应；若传入则覆盖后端自动解析
+      creditsOverrides?: Array<Array<{ key: string; value: string }> | null>;
     }
   ): Promise<any> {
     const formData = new FormData();
@@ -43,15 +52,23 @@ export const trackService = {
       formData.append('tracks', file);
     });
 
-    // auto_credits 通过 URL query 参数传递，彻底绕开 multipart body 字段解析顺序问题
+    // auto_credits via URL query（绕开 multipart body 字段顺序问题）
     const autoCreditsVal = options?.autoCredits === false ? 'false' : 'true';
 
-    // 传入每个文件的元数据覆盖（仍走 multipart body，在文件字段之前 append）
     if (options?.metaOverrides) {
       options.metaOverrides.forEach((meta, idx) => {
         if (meta.title)  formData.append(`title_override_${idx}`,  meta.title);
         if (meta.artist) formData.append(`artist_override_${idx}`, meta.artist);
         if (meta.album !== undefined) formData.append(`album_override_${idx}`, meta.album);
+      });
+    }
+
+    // 传入编辑后的 credits（JSON 序列化）
+    if (options?.creditsOverrides) {
+      options.creditsOverrides.forEach((credits, idx) => {
+        if (credits && credits.length > 0) {
+          formData.append(`credits_override_${idx}`, JSON.stringify(credits));
+        }
       });
     }
 
@@ -91,6 +108,7 @@ export const trackService = {
 
   // Public APIs (无需认证)
   async getTracksPublic(page = 1, limit = 20, search = ''): Promise<{ tracks: Track[]; pagination: any }> {
+    if (IS_STATIC) return staticData.getTracksPublic(page, limit, search);
     const response = await publicApi.get<ApiResponse<{ tracks: Track[]; pagination: any }>>(
       `/public/tracks?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`
     );
@@ -101,6 +119,7 @@ export const trackService = {
   },
 
   async searchTracksPublic(params: TrackSearchParams): Promise<{ tracks: Track[]; pagination: any }> {
+    if (IS_STATIC) return staticData.searchTracksPublic(params);
     const query = new URLSearchParams();
     if (params.search)                        query.set('search',          params.search);
     if (params.sample_rate_min != null)       query.set('sample_rate_min', String(params.sample_rate_min));
@@ -134,6 +153,7 @@ export const trackService = {
   },
 
   async getTrackByIdPublic(id: number): Promise<Track> {
+    if (IS_STATIC) return staticData.getTrackByIdPublic(id);
     const response = await publicApi.get<ApiResponse<{ track: Track }>>(`/public/tracks/${id}`);
     if (response.data.success && response.data.data) {
       return response.data.data.track;
@@ -146,7 +166,8 @@ export const trackService = {
     return `${API_BASE_URL}/tracks/${id}/stream?token=${token}`;
   },
 
-  getStreamUrlPublic(id: number): string {
+  getStreamUrlPublic(id: number, track?: Track): string {
+    if (IS_STATIC && track?.audio_url) return track.audio_url;
     return `${API_BASE_URL}/public/tracks/${id}/stream`;
   },
 
@@ -155,12 +176,14 @@ export const trackService = {
     return `${API_BASE_URL}/tracks/${id}/download?token=${token}`;
   },
 
-  getDownloadUrlPublic(id: number): string {
+  getDownloadUrlPublic(id: number, track?: Track): string {
+    if (IS_STATIC && track?.audio_url) return track.audio_url;
     return `${API_BASE_URL}/public/tracks/${id}/download`;
   },
 
   getCoverUrl(coverPath: string | null): string {
     if (!coverPath) return '/placeholder-cover.jpg';
+    if (IS_STATIC) return staticData.getCoverUrl(coverPath) || '/placeholder-cover.jpg';
     // WebDAV mode: coverPath is already a full http(s) URL
     if (coverPath.startsWith('http://') || coverPath.startsWith('https://')) {
       return coverPath;

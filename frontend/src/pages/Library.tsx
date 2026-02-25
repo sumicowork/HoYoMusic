@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Layout, Table, Button, Upload, message, Space, Image, Tag } from 'antd';
+import { Layout, Table, Button, Upload, message, Space, Image, Tag, Tooltip } from 'antd';
 import { UploadOutlined, PlayCircleOutlined, DownloadOutlined, LogoutOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { Track } from '../types';
-import { trackService } from '../services/trackService';
+import { trackService, DOWNLOAD_ENABLED } from '../services/trackService';
 import { usePlayerStore } from '../store/playerStore';
 import { useAuthStore } from '../store/authStore';
 import { useNavigate } from 'react-router-dom';
@@ -120,12 +120,6 @@ const Library: React.FC = () => {
       ellipsis: true,
     },
     {
-      title: '艺术家',
-      dataIndex: 'artists',
-      key: 'artists',
-      render: (artists: any[]) => artists.map((a) => a.name).join(', '),
-    },
-    {
       title: '专辑',
       dataIndex: 'album_title',
       key: 'album',
@@ -146,7 +140,7 @@ const Library: React.FC = () => {
         <Space direction="vertical" size={0}>
           <Tag color="blue">FLAC</Tag>
           {record.sample_rate && record.bit_depth && (
-            <span style={{ fontSize: 12, color: '#888' }}>
+            <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
               {(record.sample_rate / 1000).toFixed(1)}kHz / {record.bit_depth}bit
             </span>
           )}
@@ -174,11 +168,14 @@ const Library: React.FC = () => {
           >
             播放
           </Button>
-          <Button
-            icon={<DownloadOutlined />}
-            onClick={() => handleDownload(record)}
-            size="small"
-          />
+          <Tooltip title={!DOWNLOAD_ENABLED ? '服务器维护中，暂时关闭下载' : ''}>
+            <Button
+              icon={<DownloadOutlined />}
+              onClick={() => handleDownload(record)}
+              size="small"
+              disabled={!DOWNLOAD_ENABLED}
+            />
+          </Tooltip>
         </Space>
       ),
     },

@@ -57,7 +57,7 @@ const PlayQueue: React.FC<PlayQueueProps> = ({ visible, onClose }) => {
       placement="right"
       onClose={onClose}
       open={visible}
-      width={400}
+      width={window.innerWidth < 480 ? '100%' : 400}
       className="play-queue-drawer"
       extra={
         playlist.length > 0 && (

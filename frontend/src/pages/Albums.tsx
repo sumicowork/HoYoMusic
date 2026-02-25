@@ -2,14 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { Layout, Card, Input, Row, Col, Skeleton, Empty, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { SearchOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import { albumService } from '../services/albumService';
 import { getCoverUrl, handleImageError } from '../utils/imageUtils';
 import ThemeToggle from '../components/ThemeToggle';
 import './Albums.css';
 
 const { Header, Content } = Layout;
 const { Search } = Input;
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 interface Album {
   id: number;
@@ -32,12 +31,8 @@ const Albums: React.FC = () => {
   const fetchAlbums = async (search = '') => {
     setLoading(true);
     try {
-      const response = await axios.get(`${API_BASE_URL}/albums`, {
-        params: { search, limit: 100 }
-      });
-      if (response.data.success) {
-        setAlbums(response.data.data.albums);
-      }
+      const data = await albumService.getAlbums(1, 100, search);
+      setAlbums(data.albums);
     } catch (error: any) {
       message.error('加载专辑列表失败');
     } finally {
@@ -106,7 +101,7 @@ const Albums: React.FC = () => {
                     <div className="album-cover-wrapper">
                       <img
                         alt={album.title}
-                        src={getCoverUrl(album.cover_path, API_BASE_URL.replace('/api', ''))}
+                        src={getCoverUrl(album.cover_path)}
                         onError={handleImageError}
                       />
                     </div>
@@ -121,7 +116,7 @@ const Albums: React.FC = () => {
                           <div>{formatDuration(album.total_duration)}</div>
                         )}
                         {album.release_date && (
-                          <div style={{ fontSize: 12, color: '#999' }}>
+                          <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
                             {new Date(album.release_date).getFullYear()}
                           </div>
                         )}

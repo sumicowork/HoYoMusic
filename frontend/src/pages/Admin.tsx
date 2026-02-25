@@ -191,12 +191,6 @@ const Admin: React.FC = () => {
       ellipsis: true,
     },
     {
-      title: '艺术家',
-      dataIndex: 'artists',
-      key: 'artists',
-      render: (artists: any[]) => artists.map((a) => a.name).join(', '),
-    },
-    {
       title: '专辑',
       dataIndex: 'album_title',
       key: 'album',
@@ -217,7 +211,7 @@ const Admin: React.FC = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <Tag color="blue">FLAC</Tag>
           {record.sample_rate && record.bit_depth && (
-            <span style={{ fontSize: 12, color: '#888' }}>
+            <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
               {(record.sample_rate / 1000).toFixed(1)}kHz / {record.bit_depth}bit
             </span>
           )}

@@ -19,12 +19,12 @@
   gap: 32px;
   margin-bottom: 48px;
   padding: 32px;
-  background: rgba(255, 255, 255, 0.65);
-  backdrop-filter: blur(18px) saturate(180%);
-  -webkit-backdrop-filter: blur(18px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.8);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
   border-radius: 20px;
-  box-shadow: 0 8px 40px rgba(102, 126, 234, 0.15), 0 2px 0 rgba(255,255,255,0.9);
+  box-shadow: var(--glass-shadow);
 }
 
 .album-hero-info {
@@ -48,13 +48,13 @@
 }
 
 .album-tracks {
-  background: rgba(255, 255, 255, 0.65);
-  backdrop-filter: blur(18px) saturate(180%);
-  -webkit-backdrop-filter: blur(18px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.8);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
   border-radius: 20px;
   padding: 24px;
-  box-shadow: 0 8px 40px rgba(102, 126, 234, 0.12);
+  box-shadow: var(--glass-shadow);
 }
 
 .album-tracks h2 {

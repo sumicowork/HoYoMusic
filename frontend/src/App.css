@@ -17,3 +17,18 @@ body {
   background: transparent;
 }
 
+.app.has-player {
+  padding-bottom: 96px;
+}
+
+/* Mobile: account for MobileTabBar (56px) */
+@media (max-width: 768px) {
+  .app {
+    padding-bottom: 64px;
+  }
+
+  .app.has-player {
+    padding-bottom: 152px; /* 96px player + 56px tab bar */
+  }
+}
+

@@ -203,13 +203,11 @@ export const uploadTracks = async (req: Request, res: Response) => {
             );
           }
 
-          // ── Auto-extract credits from ALL metadata tags ─────────────────
-          // Only if auto_credits is enabled
+          // ── Credits: 优先使用前端传入的 credits_override，否则自动解析 ──
+          const creditsOverrideRaw = req.body[`credits_override_${fileIdx}`];
           if (autoCredits) {
-          // Use a "key|value" set to deduplicate across tag sources
           let creditOrder = 0;
           const insertedPairs = new Set<string>();
-
           const insertCredit = async (key: string, value: string) => {
             const normalized = value.trim();
             if (!normalized) return;
@@ -223,6 +221,18 @@ export const uploadTracks = async (req: Request, res: Response) => {
             );
           };
 
+          if (creditsOverrideRaw) {
+            // 前端已预览并（可能）编辑过 credits，直接使用
+            try {
+              const overrideList: Array<{ key: string; value: string }> = JSON.parse(creditsOverrideRaw);
+              for (const entry of overrideList) {
+                if (entry.key && entry.value) await insertCredit(entry.key, entry.value);
+              }
+            } catch {
+              // JSON 解析失败则回退到自动解析
+              console.warn(`credits_override_${fileIdx} JSON parse failed, falling back to auto`);
+            }
+          } else {
           // Helper: convert any value to a list of strings
           const toStringList = (val: unknown): string[] => {
             if (val === null || val === undefined) return [];
@@ -235,43 +245,35 @@ export const uploadTracks = async (req: Request, res: Response) => {
             // Object – try common text-carrying shapes
             if (typeof val === 'object') {
               const obj = val as Record<string, unknown>;
-              // IComment / ILyricsTag  { text?: string, descriptor?: string }
               if (typeof obj['text'] === 'string' && obj['text']) return [obj['text']];
-              // IRatio { dB: number, ratio: number }
               if (typeof obj['dB'] === 'number') return [`${obj['dB'].toFixed(2)} dB`];
-              // { no, of } track/disk objects – skip
               if ('no' in obj && 'of' in obj) return [];
               return [];
             }
             return [];
           };
 
-          // ── Step 1: Walk ALL native tag sources (vorbis, ID3v2, iTunes…) ──
+          // Walk ALL native tag sources
           if (metadata.native) {
             for (const [, tags] of Object.entries(metadata.native)) {
               for (const tag of tags) {
                 const keyLower = tag.id.toLowerCase();
                 if (CREDIT_SKIP_KEYS.has(keyLower)) continue;
                 const strings = toStringList(tag.value);
-                for (const s of strings) {
-                  await insertCredit(tag.id, s);
-                }
+                for (const s of strings) await insertCredit(tag.id, s);
               }
             }
           }
-
-          // ── Step 2: Walk metadata.common for any fields not in native ────
+          // Walk metadata.common
           const commonObj = metadata.common as unknown as Record<string, unknown>;
           for (const [field, value] of Object.entries(commonObj)) {
             const fieldLower = field.toLowerCase();
             if (CREDIT_SKIP_KEYS.has(fieldLower)) continue;
             const strings = toStringList(value);
-            for (const s of strings) {
-              await insertCredit(field, s);
-            }
+            for (const s of strings) await insertCredit(field, s);
           }
+          } // end else (auto parse)
           } // end if (autoCredits)
-          // ─────────────────────────────────────────────────────────────────
 
           await client.query('COMMIT');
 

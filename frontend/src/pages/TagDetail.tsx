@@ -6,7 +6,8 @@ import {
   Tag as AntTag,
   Table,
   Space,
-  message
+  message,
+  Tooltip
 } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -15,7 +16,7 @@ import {
 } from '@ant-design/icons';
 import { getTagById, Tag } from '../services/tagService';
 import { usePlayerStore } from '../store/playerStore';
-import { trackService } from '../services/trackService';
+import { trackService, DOWNLOAD_ENABLED } from '../services/trackService';
 import './TagDetail.css';
 
 const TagDetail: React.FC = () => {
@@ -115,14 +116,17 @@ const TagDetail: React.FC = () => {
           >
             播放
           </Button>
-          <Button
-            type="link"
-            size="small"
-            icon={<DownloadOutlined />}
-            onClick={() => handleDownload(record.id)}
-          >
-            下载
-          </Button>
+          <Tooltip title={!DOWNLOAD_ENABLED ? '服务器维护中，暂时关闭下载' : ''}>
+            <Button
+              type="link"
+              size="small"
+              icon={<DownloadOutlined />}
+              onClick={() => handleDownload(record.id)}
+              disabled={!DOWNLOAD_ENABLED}
+            >
+              下载
+            </Button>
+          </Tooltip>
         </Space>
       ),
     },

@@ -13,6 +13,7 @@ import {
   SearchOutlined,
 } from '@ant-design/icons';
 import { useThemeStore } from '../store/themeStore';
+import { IS_STATIC } from '../services/api';
 import './SideNav.css';
 
 interface NavItem {
@@ -35,7 +36,7 @@ const SideNav: React.FC = () => {
     { icon: <AppstoreOutlined />, label: '专辑', path: '/albums', color: '#8b5cf6' },
     { icon: <UserOutlined />, label: '艺术家', path: '/artists', color: '#f59e0b' },
     { icon: <TagsOutlined />, label: '标签', path: '/tags', color: '#10b981' },
-    { icon: <LoginOutlined />, label: '管理', path: '/admin/login', color: '#ef4444' },
+    ...(!IS_STATIC ? [{ icon: <LoginOutlined />, label: '管理', path: '/admin/login', color: '#ef4444' } as NavItem] : []),
     {
       icon: mode === 'dark' ? <SunOutlined /> : <MoonOutlined />,
       label: mode === 'dark' ? '浅色' : '深色',
@@ -45,7 +46,7 @@ const SideNav: React.FC = () => {
   ];
 
   return (
-    <nav className="side-nav">
+    <nav className="side-nav" aria-label="主导航">
       {navItems.map((item, idx) => {
         const isActive = item.path && location.pathname === item.path;
         return (
