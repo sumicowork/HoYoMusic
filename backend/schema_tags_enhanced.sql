@@ -34,6 +34,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_tag_group_timestamp ON tag_groups;
 CREATE TRIGGER trigger_update_tag_group_timestamp
 BEFORE UPDATE ON tag_groups
 FOR EACH ROW

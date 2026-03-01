@@ -1,19 +1,18 @@
 ﻿-- Tag System Enhanced Schema
 -- Tag groups and hierarchical structure support
 
--- 1. Tag Groups table (tag鍒嗙粍)
+-- 1. Tag Groups table
 CREATE TABLE IF NOT EXISTS tag_groups (
   id SERIAL PRIMARY KEY,
   name VARCHAR(50) NOT NULL UNIQUE,
   description TEXT,
-  icon VARCHAR(50),  -- 鍥炬爣鍚嶇О
-  display_order INTEGER DEFAULT 0,  -- 鏄剧ず椤哄簭
+  icon VARCHAR(50),
+  display_order INTEGER DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 2. Update tags table to support groups and hierarchy
--- Add new columns to existing tags table
 ALTER TABLE tags
 ADD COLUMN IF NOT EXISTS group_id INTEGER REFERENCES tag_groups(id) ON DELETE SET NULL,
 ADD COLUMN IF NOT EXISTS parent_id INTEGER REFERENCES tags(id) ON DELETE CASCADE,
@@ -34,6 +33,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_tag_group_timestamp ON tag_groups;
 CREATE TRIGGER trigger_update_tag_group_timestamp
 BEFORE UPDATE ON tag_groups
 FOR EACH ROW
@@ -41,12 +41,12 @@ EXECUTE FUNCTION update_tag_group_timestamp();
 
 -- 5. Insert default tag groups
 INSERT INTO tag_groups (name, description, icon, display_order) VALUES
-  ('娓告垙鍒嗙被', '鎸夋父鎴忕郴鍒楀垎绫荤殑鏍囩', 'GamepadOutlined', 1),
-  ('闊充箰椋庢牸', '闊充箰椋庢牸鍜岀被鍨嬫爣绛?, 'SoundOutlined', 2),
-  ('璇█', '姝屾洸璇█鏍囩', 'GlobalOutlined', 3),
-  ('鎯呮劅', '闊充箰鎯呮劅鍜屾皼鍥存爣绛?, 'HeartOutlined', 4),
-  ('鍦烘櫙', '閫傜敤鍦烘櫙鏍囩', 'EnvironmentOutlined', 5),
-  ('鍏朵粬', '鍏朵粬鍒嗙被鏍囩', 'TagsOutlined', 99)
+  ('游戏分类', '按游戏系列分类的标签', 'GamepadOutlined', 1),
+  ('音乐风格', '音乐风格和类型标签', 'SoundOutlined', 2),
+  ('语言', '歌曲语言标签', 'GlobalOutlined', 3),
+  ('情感', '音乐情感和氛围标签', 'HeartOutlined', 4),
+  ('场景', '适用场景标签', 'EnvironmentOutlined', 5),
+  ('其他', '其他分类标签', 'TagsOutlined', 99)
 ON CONFLICT (name) DO NOTHING;
 
 -- 6. Comments
@@ -63,10 +63,10 @@ DECLARE
   path TEXT := '';
   current_id INTEGER := tag_id;
   current_name VARCHAR(50);
-  parent_id INTEGER;
+  parent INTEGER;
 BEGIN
   LOOP
-    SELECT name, tags.parent_id INTO current_name, parent_id
+    SELECT name, tags.parent_id INTO current_name, parent
     FROM tags
     WHERE id = current_id;
 
@@ -80,16 +80,15 @@ BEGIN
       path := current_name || ' > ' || path;
     END IF;
 
-    IF parent_id IS NULL THEN
+    IF parent IS NULL THEN
       EXIT;
     END IF;
 
-    current_id := parent_id;
+    current_id := parent;
   END LOOP;
 
   RETURN path;
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION get_tag_path IS 'Get full hierarchical path of a tag (e.g., "Game > Genshin > Mondstadt")';
-
+COMMENT ON FUNCTION get_tag_path IS 'Get full hierarchical path of a tag';
