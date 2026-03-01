@@ -290,7 +290,7 @@ const Search: React.FC = () => {
               onClick={() => { addToPlaylist(record); toast.success('已加入播放队列'); }}
             />
           </Tooltip>
-          <Tooltip title="下载" {...(!DOWNLOAD_ENABLED ? { title: '服务器维护中，暂时关闭下载' } : {})}>
+          <Tooltip title={!DOWNLOAD_ENABLED ? '服务器维护中，暂时关闭下载' : '下载'}>
             <Button
               size="small" shape="circle"
               icon={<DownloadOutlined />}
