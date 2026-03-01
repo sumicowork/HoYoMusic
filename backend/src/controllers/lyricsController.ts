@@ -1,8 +1,11 @@
 import { Request, Response } from 'express';
 import fs from 'fs/promises';
+import https from 'https';
+import http from 'http';
 import path from 'path';
 import pool from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
+import storageService from '../services/storageService';
 
 const LYRICS_DIR = path.join(process.cwd(), 'uploads', 'lyrics');
 
@@ -78,8 +81,29 @@ export const getLyrics = async (req: Request, res: Response) => {
       });
     }
 
-    const filePath = path.join(process.cwd(), 'uploads', lyrics_path);
-    const lyricsContent = await fs.readFile(filePath, 'utf-8');
+    let lyricsContent: string;
+
+    if (storageService.isOSS() && (lyrics_path.startsWith('http://') || lyrics_path.startsWith('https://'))) {
+      // OSS 模式：用签名 URL 从 OSS 拉取歌词内容
+      const ossService = (await import('../services/ossService')).default;
+      const signedUrl = await ossService.getSignedUrl(lyrics_path, 300);
+      lyricsContent = await new Promise<string>((resolve, reject) => {
+        const client = signedUrl.startsWith('https') ? https : http;
+        client.get(signedUrl, (ossRes) => {
+          if (ossRes.statusCode !== 200) {
+            return reject(new Error(`OSS returned ${ossRes.statusCode}`));
+          }
+          const chunks: Buffer[] = [];
+          ossRes.on('data', (chunk: Buffer) => chunks.push(chunk));
+          ossRes.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
+          ossRes.on('error', reject);
+        }).on('error', reject);
+      });
+    } else {
+      // 本地存储模式：读取本地文件
+      const filePath = path.join(process.cwd(), 'uploads', lyrics_path);
+      lyricsContent = await fs.readFile(filePath, 'utf-8');
+    }
 
     res.json({
       success: true,

@@ -558,13 +558,15 @@ export const streamTrack = async (req: Request, res: Response) => {
       // WebDAV模式：重定向到WebDAV URL
       return res.redirect(filePath);
     } else if (storageService.isOSS()) {
-      // OSS 模式：服务器中转，从 OSS 拉流后转发给客户端（节省 OSS 外网流量费）
+      // OSS 模式：服务器中转，用签名 URL 拉流后转发给客户端（解决私有 bucket 403，同时节省 OSS 外网流量费）
+      const ossService = (await import('../services/ossService')).default;
+      const signedUrl = await ossService.getSignedUrl(filePath, 300); // 5 分钟有效
       const range = req.headers.range;
       const requestHeaders: Record<string, string> = {};
       if (range) requestHeaders['Range'] = range;
 
-      const ossRequest = (filePath.startsWith('https') ? https : http).get(
-        filePath,
+      const ossRequest = (signedUrl.startsWith('https') ? https : http).get(
+        signedUrl,
         { headers: requestHeaders },
         (ossRes) => {
           const statusCode = ossRes.statusCode || 200;
@@ -659,9 +661,11 @@ export const downloadTrack = async (req: Request, res: Response) => {
       res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(title)}.flac"`);
       return res.redirect(file_path);
     } else if (storageService.isOSS()) {
-      // OSS 模式：服务器中转下载，客户端流量走服务器
+      // OSS 模式：服务器中转下载，用签名 URL 拉流
+      const ossService = (await import('../services/ossService')).default;
+      const signedUrl = await ossService.getSignedUrl(file_path, 300);
       res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(title)}.flac"`);
-      const ossRequest = (file_path.startsWith('https') ? https : http).get(file_path, (ossRes) => {
+      const ossRequest = (signedUrl.startsWith('https') ? https : http).get(signedUrl, (ossRes) => {
         const forwardHeaders: Record<string, string> = {
           'Content-Type': (ossRes.headers['content-type'] as string) || 'audio/flac',
         };
