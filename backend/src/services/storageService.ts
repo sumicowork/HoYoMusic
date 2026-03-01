@@ -2,25 +2,28 @@ import fs from 'fs/promises';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import webdavService from './webdavService';
+import ossService from './ossService';
 
 const STORAGE_MODE = process.env.STORAGE_MODE || 'local';
 const UPLOAD_DIR = path.join(process.cwd(), process.env.UPLOAD_DIR || 'uploads');
 
-// 确保上传目录存在
+// 确保上传目录存在（仅本地模式）
 const ensureDirectories = async () => {
-  const dirs = ['tracks', 'covers', 'lyrics'];
-  for (const dir of dirs) {
-    await fs.mkdir(path.join(UPLOAD_DIR, dir), { recursive: true });
+  if (STORAGE_MODE === 'local') {
+    const dirs = ['tracks', 'covers', 'lyrics'];
+    for (const dir of dirs) {
+      await fs.mkdir(path.join(UPLOAD_DIR, dir), { recursive: true });
+    }
   }
 };
 
 ensureDirectories().catch(console.error);
 
 class StorageService {
-  private mode: 'local' | 'webdav';
+  private mode: 'local' | 'webdav' | 'oss';
 
   constructor() {
-    this.mode = (STORAGE_MODE as 'local' | 'webdav') || 'local';
+    this.mode = (STORAGE_MODE as 'local' | 'webdav' | 'oss') || 'local';
     console.log(`Storage mode: ${this.mode}`);
   }
 
@@ -38,7 +41,11 @@ class StorageService {
     type: 'tracks' | 'covers' | 'lyrics',
     mimetype?: string
   ): Promise<string> {
-    if (this.mode === 'webdav') {
+    if (this.mode === 'oss') {
+      // 阿里云 OSS 模式
+      const objectKey = ossService.generateObjectKey(filename, type);
+      return await ossService.uploadBuffer(buffer, objectKey, mimetype);
+    } else if (this.mode === 'webdav') {
       // WebDAV模式
       const remotePath = webdavService.generateRemotePath(filename, type);
       return await webdavService.uploadFile(buffer, remotePath, mimetype);
@@ -61,7 +68,10 @@ class StorageService {
    * @param filePath 文件路径
    */
   async deleteFile(filePath: string): Promise<void> {
-    if (this.mode === 'webdav') {
+    if (this.mode === 'oss') {
+      // 阿里云 OSS 模式
+      await ossService.deleteFile(filePath);
+    } else if (this.mode === 'webdav') {
       // WebDAV模式
       const relativePath = webdavService.extractRelativePath(filePath);
       await webdavService.deleteFile(relativePath);
@@ -82,8 +92,8 @@ class StorageService {
    * @returns 完整路径
    */
   getFullPath(relativePath: string): string {
-    if (this.mode === 'webdav') {
-      return relativePath; // WebDAV模式返回URL
+    if (this.mode === 'webdav' || this.mode === 'oss') {
+      return relativePath; // 远程模式返回URL
     }
     // 本地存储：去掉前缀 /uploads/ 后拼接实际磁盘路径
     const stripped = relativePath.startsWith('/uploads/')
@@ -98,8 +108,8 @@ class StorageService {
    * @returns 文件URL或路径
    */
   getFileUrl(filePath: string): string {
-    if (this.mode === 'webdav') {
-      return filePath; // WebDAV已经是完整URL
+    if (this.mode === 'webdav' || this.mode === 'oss') {
+      return filePath; // 远程模式已经是完整URL
     }
     // 本地存储返回API路径
     return filePath;
@@ -113,10 +123,24 @@ class StorageService {
   }
 
   /**
+   * 检查是否为OSS模式
+   */
+  isOSS(): boolean {
+    return this.mode === 'oss';
+  }
+
+  /**
    * 检查是否为本地存储模式
    */
   isLocal(): boolean {
     return this.mode === 'local';
+  }
+
+  /**
+   * 检查是否为远程存储模式（WebDAV 或 OSS）
+   */
+  isRemote(): boolean {
+    return this.mode === 'webdav' || this.mode === 'oss';
   }
 }
 

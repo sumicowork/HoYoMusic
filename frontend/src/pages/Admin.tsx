@@ -23,6 +23,7 @@ import { usePlayerStore } from '../store/playerStore';
 import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
 import LyricsEditor from '../components/LyricsEditor';
 import CreditsEditor from '../components/CreditsEditor';
+import CreditsImportModal from '../components/CreditsImportModal';
 import TrackTagsManager from '../components/TrackTagsManager';
 import BulkTagModal from '../components/BulkTagModal';
 import BulkMoveAlbumModal from '../components/BulkMoveAlbumModal';
@@ -49,6 +50,7 @@ const Admin: React.FC = () => {
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [bulkTagModalVisible, setBulkTagModalVisible] = useState(false);
   const [bulkMoveModalVisible, setBulkMoveModalVisible] = useState(false);
+  const [creditsImportModalVisible, setCreditsImportModalVisible] = useState(false);
 
   const { playTrackOnly } = usePlayerStore();
 
@@ -336,6 +338,12 @@ const Admin: React.FC = () => {
             >
               上传音乐
             </Button>
+            <Button
+              icon={<TeamOutlined />}
+              onClick={() => setCreditsImportModalVisible(true)}
+            >
+              批量导入 Credits
+            </Button>
           </Space>
         }
       >
@@ -429,6 +437,16 @@ const Admin: React.FC = () => {
         onSuccess={() => {
           setUploadModalVisible(false);
           fetchTracks();
+        }}
+      />
+
+      {/* Credits Import Modal */}
+      <CreditsImportModal
+        visible={creditsImportModalVisible}
+        onClose={() => setCreditsImportModalVisible(false)}
+        onSuccess={() => {
+          message.success('Credits 导入成功');
+          fetchTracks(pagination.current);
         }}
       />
 

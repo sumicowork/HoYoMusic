@@ -2,15 +2,20 @@
  * export-static.ts
  *
  * 从 PostgreSQL 导出全量数据为静态 JSON 文件，
- * 同时复制封面图片到前端 public/data/covers/，
+ * 同时处理封面图片（本地复制 或 从 OSS/远程 URL 下载），
  * 供 Vite 静态构建使用。
  *
- * 用法:
+ * 用法（本地存储模式）:
  *   CDN_BASE_URL=https://cdn.example.com/tracks npx ts-node scripts/export-static.ts
  *
+ * 用法（OSS 模式）:
+ *   STORAGE_MODE=oss npx ts-node scripts/export-static.ts
+ *   （OSS URL 已内嵌在数据库，无需 CDN_BASE_URL）
+ *
  * 环境变量:
- *   CDN_BASE_URL  — FLAC 音频文件的 CDN 前缀（必需）
- *   COVER_MODE    — inline（默认，复制到 public/data/covers/）| cdn（写 CDN URL）
+ *   STORAGE_MODE  — local（默认）| oss | webdav
+ *   CDN_BASE_URL  — 本地模式下 FLAC 文件的 CDN 前缀（本地模式必需，OSS/WebDAV 模式可留空）
+ *   COVER_MODE    — inline（默认，复制/下载封面到 public/data/covers/）| cdn（直接写远程 URL）
  */
 
 import { Pool } from 'pg';
@@ -18,10 +23,13 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import fsp from 'fs/promises';
 import path from 'path';
+import https from 'https';
+import http from 'http';
 
 dotenv.config();
 
 // ── 配置 ────────────────────────────────────────────────────
+const STORAGE_MODE = process.env.STORAGE_MODE || 'local';
 const CDN_BASE_URL = process.env.CDN_BASE_URL || '';
 const COVER_MODE = process.env.COVER_MODE || 'inline'; // inline | cdn
 const COVER_CDN_URL = process.env.COVER_CDN_URL || CDN_BASE_URL;
@@ -29,9 +37,12 @@ const COVER_CDN_URL = process.env.COVER_CDN_URL || CDN_BASE_URL;
 const FRONTEND_DATA_DIR = path.resolve(__dirname, '../../frontend/public/data');
 const UPLOADS_DIR = path.resolve(__dirname, '../uploads');
 
-if (!CDN_BASE_URL) {
-  console.error('❌ 请设置 CDN_BASE_URL 环境变量，例如:');
+// 本地模式下必须提供 CDN_BASE_URL（FLAC 文件不内嵌）
+if (STORAGE_MODE === 'local' && !CDN_BASE_URL) {
+  console.error('❌ 本地存储模式下请设置 CDN_BASE_URL 环境变量，例如:');
   console.error('   CDN_BASE_URL=https://cdn.example.com/tracks npx ts-node scripts/export-static.ts');
+  console.error('');
+  console.error('💡 如果你使用 OSS 存储模式，请设置 STORAGE_MODE=oss（无需 CDN_BASE_URL）');
   process.exit(1);
 }
 
@@ -53,41 +64,90 @@ async function writeJSON(filePath: string, data: any) {
   await fsp.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8');
 }
 
-/** 将数据库中的 file_path 转为 CDN URL */
+/** 从 HTTP/HTTPS URL 下载文件内容为 Buffer */
+function downloadBuffer(url: string): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const client = url.startsWith('https://') ? https : http;
+    client.get(url, (res) => {
+      if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        // 处理重定向
+        downloadBuffer(res.headers.location).then(resolve).catch(reject);
+        return;
+      }
+      if (res.statusCode !== 200) {
+        reject(new Error(`HTTP ${res.statusCode} downloading ${url}`));
+        return;
+      }
+      const chunks: Buffer[] = [];
+      res.on('data', (chunk) => chunks.push(chunk));
+      res.on('end', () => resolve(Buffer.concat(chunks)));
+      res.on('error', reject);
+    }).on('error', reject);
+  });
+}
+
+/** 从 HTTP/HTTPS URL 下载文本内容 */
+async function downloadText(url: string): Promise<string> {
+  const buf = await downloadBuffer(url);
+  return buf.toString('utf-8');
+}
+
+/** 将数据库中的 file_path 转为音频访问 URL */
 function toAudioUrl(filePath: string): string {
-  // file_path 格式: /uploads/tracks/xxx.flac
+  // OSS / WebDAV 模式：file_path 已经是完整 URL，直接返回
+  if (filePath && (filePath.startsWith('http://') || filePath.startsWith('https://'))) {
+    return filePath;
+  }
+  // 本地模式：取文件名拼 CDN_BASE_URL
   const filename = path.basename(filePath);
   return `${CDN_BASE_URL.replace(/\/$/, '')}/${filename}`;
 }
 
-/** 将数据库中的 cover_path 转为静态路径 */
+/** 将数据库中的 cover_path 转为静态路径或 URL */
 function toCoverPath(coverPath: string | null): string | null {
   if (!coverPath) return null;
-  if (coverPath.startsWith('http://') || coverPath.startsWith('https://')) return coverPath;
-
+  // 远程 URL（OSS / WebDAV）
+  if (coverPath.startsWith('http://') || coverPath.startsWith('https://')) {
+    if (COVER_MODE === 'cdn') return coverPath;
+    // inline 模式：前端将从 /data/covers/<filename> 访问（会由 copyCover 下载）
+    const filename = path.basename(new URL(coverPath).pathname);
+    return `/data/covers/${filename}`;
+  }
+  // 本地路径
   const filename = path.basename(coverPath);
   if (COVER_MODE === 'cdn') {
     return `${COVER_CDN_URL.replace(/\/$/, '')}/${filename}`;
   }
-  // inline mode: /data/covers/filename
   return `/data/covers/${filename}`;
 }
 
-/** 复制封面文件到 public/data/covers/ */
-async function copyCover(coverPath: string | null) {
-  if (!coverPath || COVER_MODE === 'cdn') return;
-  if (coverPath.startsWith('http://') || coverPath.startsWith('https://')) return;
-
-  const filename = path.basename(coverPath);
-  // coverPath 可能是 /uploads/covers/xxx.jpg 或 covers/xxx.jpg
-  const possibleSources = [
-    path.join(UPLOADS_DIR, 'covers', filename),
-    path.join(UPLOADS_DIR, coverPath.replace(/^\/uploads\//, '')),
-  ];
+/** 复制/下载封面文件到 public/data/covers/ */
+async function copyCover(originalCoverPath: string | null) {
+  if (!originalCoverPath || COVER_MODE === 'cdn') return;
 
   const destDir = path.join(FRONTEND_DATA_DIR, 'covers');
   await ensureDir(destDir);
 
+  // 远程 URL（OSS / WebDAV）— 下载到本地
+  if (originalCoverPath.startsWith('http://') || originalCoverPath.startsWith('https://')) {
+    const filename = path.basename(new URL(originalCoverPath).pathname);
+    const destPath = path.join(destDir, filename);
+    if (fs.existsSync(destPath)) return; // 已存在则跳过
+    try {
+      const buf = await downloadBuffer(originalCoverPath);
+      await fsp.writeFile(destPath, buf);
+    } catch (err: any) {
+      console.warn(`   ⚠️  封面下载失败: ${originalCoverPath} — ${err.message}`);
+    }
+    return;
+  }
+
+  // 本地路径
+  const filename = path.basename(originalCoverPath);
+  const possibleSources = [
+    path.join(UPLOADS_DIR, 'covers', filename),
+    path.join(UPLOADS_DIR, originalCoverPath.replace(/^\/uploads\//, '')),
+  ];
   for (const src of possibleSources) {
     if (fs.existsSync(src)) {
       await fsp.copyFile(src, path.join(destDir, filename));
@@ -99,7 +159,12 @@ async function copyCover(coverPath: string | null) {
 // ── 导出逻辑 ──────────────────────────────────────────────────
 async function exportAll() {
   console.log('🚀 开始静态数据导出...');
-  console.log(`   CDN_BASE_URL = ${CDN_BASE_URL}`);
+  console.log(`   STORAGE_MODE = ${STORAGE_MODE}`);
+  if (STORAGE_MODE === 'local') {
+    console.log(`   CDN_BASE_URL = ${CDN_BASE_URL}`);
+  } else {
+    console.log(`   音频 URL 直接从数据库读取（${STORAGE_MODE} 模式）`);
+  }
   console.log(`   COVER_MODE   = ${COVER_MODE}`);
   console.log(`   输出目录      = ${FRONTEND_DATA_DIR}`);
   console.log('');
@@ -125,8 +190,11 @@ async function exportAll() {
   }));
   await writeJSON(path.join(FRONTEND_DATA_DIR, 'games.json'), games);
 
-  for (const game of games) {
-    await copyCover(game.cover_path);
+  for (let i = 0; i < gamesResult.rows.length; i++) {
+    const rawGame = gamesResult.rows[i];
+    const game = games[i];
+    // 用原始数据库路径/URL 复制或下载封面
+    await copyCover(rawGame.cover_path);
 
     const albumsResult = await pool.query(`
       SELECT a.*, COUNT(DISTINCT t.id)::int as track_count, COALESCE(SUM(t.duration), 0)::int as total_duration
@@ -137,10 +205,13 @@ async function exportAll() {
       ORDER BY a.release_date DESC, a.title ASC
     `, [game.id]);
 
-    const albums = albumsResult.rows.map((a: any) => ({
-      ...a,
-      cover_path: toCoverPath(a.cover_path),
-    }));
+    const albums = albumsResult.rows.map((a: any) => {
+      copyCover(a.cover_path); // 异步不等待，减少等待时间（封面下载在后台进行）
+      return {
+        ...a,
+        cover_path: toCoverPath(a.cover_path),
+      };
+    });
 
     await writeJSON(path.join(FRONTEND_DATA_DIR, 'games', `${game.id}.json`), {
       game,
@@ -164,8 +235,11 @@ async function exportAll() {
   }));
   await writeJSON(path.join(FRONTEND_DATA_DIR, 'albums.json'), allAlbums);
 
-  for (const album of allAlbums) {
-    await copyCover(album.cover_path);
+  for (let i = 0; i < allAlbumsResult.rows.length; i++) {
+    const rawAlbum = allAlbumsResult.rows[i];
+    const album = allAlbums[i];
+    // 用原始数据库路径/URL 复制或下载封面
+    await copyCover(rawAlbum.cover_path);
 
     const tracksResult = await pool.query(`
       SELECT t.*, a.title as album_title, a.cover_path as album_cover,
@@ -227,10 +301,13 @@ async function exportAll() {
     cover_path: toCoverPath(t.cover_path),
     album_cover: toCoverPath(t.album_cover),
     tags: trackTagsMap[t.id] || [],
+    // 保留原始路径供后续下载使用
+    _raw_cover_path: t.cover_path,
+    _raw_album_cover: t.album_cover,
   }));
 
-  // 全量列表（不含 lyrics/credits，体积较小）
-  await writeJSON(path.join(FRONTEND_DATA_DIR, 'tracks.json'), allTracks);
+  // 全量列表（不含 lyrics/credits，体积较小，去掉内部临时字段）
+  await writeJSON(path.join(FRONTEND_DATA_DIR, 'tracks.json'), allTracks.map(({ _raw_cover_path, _raw_album_cover, ...t }) => t));
 
   // 单曲详情（含 lyrics + credits）
   const creditsResult = await pool.query(`
@@ -250,19 +327,34 @@ async function exportAll() {
   }
 
   for (const track of allTracks) {
-    await copyCover(track.cover_path);
+    // 用原始数据库路径/URL 复制或下载封面
+    await copyCover(track._raw_cover_path);
+    if (track._raw_album_cover && track._raw_album_cover !== track._raw_cover_path) {
+      await copyCover(track._raw_album_cover);
+    }
 
     // 读取歌词文件
     let lyrics: string | null = null;
     if (track.lyrics_path) {
-      const lyricsFile = path.join(UPLOADS_DIR, track.lyrics_path.replace(/^\//, ''));
-      if (fs.existsSync(lyricsFile)) {
-        lyrics = await fsp.readFile(lyricsFile, 'utf-8');
+      // 远程 URL（OSS / WebDAV）
+      if (track.lyrics_path.startsWith('http://') || track.lyrics_path.startsWith('https://')) {
+        try {
+          lyrics = await downloadText(track.lyrics_path);
+        } catch (err: any) {
+          console.warn(`   ⚠️  歌词下载失败: ${track.lyrics_path} — ${err.message}`);
+        }
+      } else {
+        // 本地路径
+        const lyricsFile = path.join(UPLOADS_DIR, track.lyrics_path.replace(/^\//, ''));
+        if (fs.existsSync(lyricsFile)) {
+          lyrics = await fsp.readFile(lyricsFile, 'utf-8');
+        }
       }
     }
 
+    const { _raw_cover_path, _raw_album_cover, ...trackData } = track;
     await writeJSON(path.join(FRONTEND_DATA_DIR, 'tracks', `${track.id}.json`), {
-      ...track,
+      ...trackData,
       lyrics,
       credits: creditsMap[track.id] || [],
     });

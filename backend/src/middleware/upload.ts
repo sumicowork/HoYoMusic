@@ -69,5 +69,25 @@ export const lyricsUpload = multer({
   },
 });
 
+// JSON import file upload configuration (credits import etc.)
+const jsonStorage = multer.memoryStorage();
+
+const jsonFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (ext === '.json' || file.mimetype === 'application/json') {
+    cb(null, true);
+  } else {
+    cb(new Error('Only JSON files are allowed'));
+  }
+};
+
+export const jsonUpload = multer({
+  storage: jsonStorage,
+  fileFilter: jsonFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB for import files
+  },
+});
+
 export default upload;
 

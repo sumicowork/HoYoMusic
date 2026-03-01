@@ -20,6 +20,7 @@
   "license": "ISC",
   "dependencies": {
     "@types/archiver": "^7.0.0",
+    "ali-oss": "^6.23.0",
     "archiver": "^7.0.1",
     "axios": "^1.13.5",
     "bcrypt": "^6.0.0",
@@ -38,6 +39,7 @@
     "webdav": "^5.9.0"
   },
   "devDependencies": {
+    "@types/ali-oss": "^6.23.3",
     "@types/bcrypt": "^6.0.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",

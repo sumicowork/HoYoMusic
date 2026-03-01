@@ -4,6 +4,7 @@ import path from 'path';
 import dotenv from 'dotenv';
 import passport from './config/passport';
 import { initWebDAVDirectories, testWebDAVConnection } from './config/webdav';
+import { testOSSConnection, initOSSDirectories } from './config/oss';
 import authRoutes from './routes/authRoutes';
 import trackRoutes from './routes/trackRoutes';
 import publicRoutes from './routes/publicRoutes';
@@ -26,9 +27,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(passport.initialize());
 
-// 本地存储模式下，提供静态文件访问（WebDAV模式下文件直接从WebDAV URL获取）
+// 本地存储模式下，提供静态文件访问（远程存储模式下文件直接从远程 URL 获取）
 const STATIC_STORAGE_MODE = process.env.STORAGE_MODE || 'local';
-if (STATIC_STORAGE_MODE !== 'webdav') {
+if (STATIC_STORAGE_MODE === 'local') {
   const uploadDir = path.join(process.cwd(), process.env.UPLOAD_DIR || 'uploads');
   app.use('/uploads', express.static(uploadDir));
 }
@@ -57,7 +58,20 @@ const startServer = async () => {
   try {
     const STORAGE_MODE = process.env.STORAGE_MODE || 'local';
 
-    if (STORAGE_MODE === 'webdav') {
+    if (STORAGE_MODE === 'oss') {
+      // 阿里云 OSS 模式
+      console.log('🔗 Testing Aliyun OSS connection...');
+      const connected = await testOSSConnection();
+
+      if (!connected) {
+        console.error('❌ OSS connection failed. Please check your configuration.');
+        console.error('Set OSS_REGION, OSS_ACCESS_KEY_ID, OSS_ACCESS_KEY_SECRET, OSS_BUCKET in .env file');
+        process.exit(1);
+      }
+
+      console.log('📁 Initializing OSS storage structure...');
+      await initOSSDirectories();
+    } else if (STORAGE_MODE === 'webdav') {
       // WebDAV模式：测试连接并初始化目录
       console.log('🔗 Testing WebDAV connection...');
       const connected = await testWebDAVConnection();
@@ -71,7 +85,7 @@ const startServer = async () => {
       console.log('📁 Initializing WebDAV directories...');
       await initWebDAVDirectories();
     } else {
-      // 本地存储模式：跳过WebDAV初始化
+      // 本地存储模式：跳过远程初始化
       console.log('💾 Using local storage mode');
       console.log('📁 Files will be stored in ./uploads directory');
     }
@@ -81,7 +95,9 @@ const startServer = async () => {
       console.log(`🎵 HoYoMusic Backend Server running on port ${PORT}`);
       console.log(`🌐 API URL: http://localhost:${PORT}`);
       console.log(`📖 Public access enabled at /api/public`);
-      if (STORAGE_MODE === 'webdav') {
+      if (STORAGE_MODE === 'oss') {
+        console.log(`☁️  Aliyun OSS storage configured and ready`);
+      } else if (STORAGE_MODE === 'webdav') {
         console.log(`☁️  WebDAV storage configured and ready`);
       } else {
         console.log(`💾 Local storage mode active`);
