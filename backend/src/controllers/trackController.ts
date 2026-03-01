@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { parseBuffer } from 'music-metadata';
 import path from 'path';
+import https from 'https';
+import http from 'http';
 import pool from '../config/database';
 import { TrackWithDetails } from '../types';
 import storageService from '../services/storageService';
@@ -555,6 +557,39 @@ export const streamTrack = async (req: Request, res: Response) => {
     if (storageService.isWebDAV()) {
       // WebDAV模式：重定向到WebDAV URL
       return res.redirect(filePath);
+    } else if (storageService.isOSS()) {
+      // OSS 模式：服务器中转，从 OSS 拉流后转发给客户端（节省 OSS 外网流量费）
+      const range = req.headers.range;
+      const requestHeaders: Record<string, string> = {};
+      if (range) requestHeaders['Range'] = range;
+
+      const ossRequest = (filePath.startsWith('https') ? https : http).get(
+        filePath,
+        { headers: requestHeaders },
+        (ossRes) => {
+          const statusCode = ossRes.statusCode || 200;
+          // 透传关键响应头
+          const forwardHeaders: Record<string, string | string[]> = {
+            'Content-Type': (ossRes.headers['content-type'] as string) || 'audio/flac',
+            'Accept-Ranges': 'bytes',
+          };
+          if (ossRes.headers['content-length']) {
+            forwardHeaders['Content-Length'] = ossRes.headers['content-length'] as string;
+          }
+          if (ossRes.headers['content-range']) {
+            forwardHeaders['Content-Range'] = ossRes.headers['content-range'] as string;
+          }
+          res.writeHead(statusCode, forwardHeaders);
+          ossRes.pipe(res);
+        }
+      );
+      ossRequest.on('error', (err) => {
+        console.error('OSS proxy stream error:', err);
+        if (!res.headersSent) {
+          res.status(500).json({ success: false, error: { code: 'STREAM_ERROR', message: 'Failed to proxy stream from OSS' } });
+        }
+      });
+      return;
     } else {
       // 本地存储模式：流式传输文件
       const fs = require('fs');
@@ -623,6 +658,26 @@ export const downloadTrack = async (req: Request, res: Response) => {
       // WebDAV模式：重定向到WebDAV URL
       res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(title)}.flac"`);
       return res.redirect(file_path);
+    } else if (storageService.isOSS()) {
+      // OSS 模式：服务器中转下载，客户端流量走服务器
+      res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(title)}.flac"`);
+      const ossRequest = (file_path.startsWith('https') ? https : http).get(file_path, (ossRes) => {
+        const forwardHeaders: Record<string, string> = {
+          'Content-Type': (ossRes.headers['content-type'] as string) || 'audio/flac',
+        };
+        if (ossRes.headers['content-length']) {
+          forwardHeaders['Content-Length'] = ossRes.headers['content-length'] as string;
+        }
+        res.writeHead(ossRes.statusCode || 200, forwardHeaders);
+        ossRes.pipe(res);
+      });
+      ossRequest.on('error', (err) => {
+        console.error('OSS proxy download error:', err);
+        if (!res.headersSent) {
+          res.status(500).json({ success: false, error: { code: 'DOWNLOAD_ERROR', message: 'Failed to proxy download from OSS' } });
+        }
+      });
+      return;
     } else {
       // 本地存储模式：使用res.download
       const fullPath = storageService.getFullPath(file_path);
