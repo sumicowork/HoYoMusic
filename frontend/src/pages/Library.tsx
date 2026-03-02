@@ -123,13 +123,14 @@ const Library: React.FC = () => {
       title: '时长',
       dataIndex: 'duration',
       key: 'duration',
-      width: 100,
+      width: 70,
+      responsive: ['sm'],
       render: formatDuration,
     },
     {
       title: '操作',
       key: 'actions',
-      width: 150,
+      width: 120,
       render: (_, record) => (
         <Space>
           <Button

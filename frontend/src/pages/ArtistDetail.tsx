@@ -207,9 +207,9 @@ const ArtistDetail: React.FC = () => {
             <Table columns={trackColumns} dataSource={tracks} rowKey="id" pagination={{ pageSize: 20 }} />
           </TabPane>
           <TabPane tab={`专辑 (${albums.length})`} key="albums">
-            <Row gutter={[16, 16]}>
+            <Row gutter={[16, 24]}>
               {albums.map((album) => (
-                <Col key={album.id} xs={24} sm={12} md={8} lg={6}>
+                <Col key={album.id} xs={12} sm={12} md={8} lg={6}>
                   <Card
                     hoverable className="album-card"
                     onClick={() => navigate(`/albums/${album.id}`)}

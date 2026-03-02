@@ -191,12 +191,14 @@ const Admin: React.FC = () => {
       dataIndex: 'album_title',
       key: 'album',
       ellipsis: true,
+      responsive: ['sm'],
     },
     {
       title: '时长',
       dataIndex: 'duration',
       key: 'duration',
-      width: 100,
+      width: 70,
+      responsive: ['sm'],
       render: formatDuration,
     },
     {

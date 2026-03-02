@@ -77,9 +77,9 @@ const Albums: React.FC = () => {
 
       <Content className="albums-content">
         {loading ? (
-          <Row gutter={[24, 24]}>
+          <Row gutter={[16, 20]}>
             {Array.from({ length: 8 }).map((_, i) => (
-              <Col key={i} xs={24} sm={12} md={8} lg={6} xl={6} xxl={6}>
+              <Col key={i} xs={12} sm={12} md={8} lg={6} xl={6} xxl={6}>
                 <Card>
                   <Skeleton.Image active style={{ width: '100%', height: 200 }} />
                   <Skeleton active title paragraph={{ rows: 1 }} style={{ marginTop: 12 }} />
@@ -90,9 +90,9 @@ const Albums: React.FC = () => {
         ) : albums.length === 0 ? (
           <Empty description="未找到专辑" />
         ) : (
-          <Row gutter={[24, 24]}>
+          <Row gutter={[16, 24]}>
             {albums.map((album) => (
-              <Col key={album.id} xs={24} sm={12} md={8} lg={6} xl={6} xxl={6}>
+              <Col key={album.id} xs={12} sm={12} md={8} lg={6} xl={6} xxl={6}>
                 <Card
                   hoverable
                   className="album-card"

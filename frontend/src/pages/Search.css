@@ -289,4 +289,13 @@
   .search-hero-title { font-size: 26px; }
   .search-main-bar { flex-direction: column; }
   .search-main-input { max-width: 100%; width: 100%; }
+  .search-content { padding: 20px 10px 60px; }
+}
+
+@media (max-width: 576px) {
+  /* 手机端操作按钮只保留图标 */
+  .search-result-table .ant-btn-sm > span:not(.anticon),
+  .search-result-table .ant-btn-sm .anticon + span {
+    display: none;
+  }
 }

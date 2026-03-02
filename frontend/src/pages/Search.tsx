@@ -219,16 +219,23 @@ const Search: React.FC = () => {
       title: '',
       dataIndex: 'cover_path',
       key: 'cover',
-      width: 60,
-      render: (p) => (
-        <Image
-          width={44} height={44}
-          src={trackService.getCoverUrl(p)}
-          fallback={MUSIC_ICON_PLACEHOLDER}
-          style={{ borderRadius: 6, objectFit: 'cover' }}
-          preview={false}
-        />
-      ),
+      width: 56,
+      render: (coverPath, record) => {
+        const src = coverPath
+          ? trackService.getCoverUrl(coverPath)
+          : (record as any).album_cover
+            ? trackService.getCoverUrl((record as any).album_cover)
+            : undefined;
+        return (
+          <Image
+            width={44} height={44}
+            src={src}
+            fallback={MUSIC_ICON_PLACEHOLDER}
+            style={{ borderRadius: 6, objectFit: 'cover' }}
+            preview={false}
+          />
+        );
+      },
     },
     {
       title: '标题',
@@ -246,34 +253,21 @@ const Search: React.FC = () => {
       dataIndex: 'album_title',
       key: 'album',
       ellipsis: true,
+      responsive: ['sm'],
       render: (t: string) => t ? <Text type="secondary">{t}</Text> : '—',
     },
     {
       title: '时长',
       dataIndex: 'duration',
       key: 'duration',
-      width: 80,
+      width: 70,
+      responsive: ['sm'],
       render: formatDuration,
-    },
-    {
-      title: '音质',
-      key: 'quality',
-      width: 140,
-      render: (_, r) => (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Tag color="blue" style={{ width: 'fit-content' }}>FLAC</Tag>
-          {r.sample_rate && r.bit_depth && (
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              {(r.sample_rate / 1000).toFixed(1)}kHz / {r.bit_depth}bit
-            </Text>
-          )}
-        </div>
-      ),
     },
     {
       title: '操作',
       key: 'actions',
-      width: 110,
+      width: 100,
       render: (_, record) => (
         <Space size={4}>
           <Tooltip title="播放">

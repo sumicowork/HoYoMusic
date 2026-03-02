@@ -130,7 +130,7 @@
 
 @media (max-width: 768px) {
   .albums-content {
-    padding: 16px;
+    padding: 12px 10px;
   }
 
   .header-content h1 {
@@ -145,6 +145,20 @@
 
   .header-actions .ant-input-search {
     width: 200px !important;
+  }
+
+  /* 手机端两列时卡片内容紧凑 */
+  .album-card .ant-card-body {
+    padding: 10px 8px;
+  }
+
+  .album-card .ant-card-meta-title {
+    font-size: 13px;
+    -webkit-line-clamp: 2;
+  }
+
+  .album-info {
+    font-size: 11px;
   }
 }
 
