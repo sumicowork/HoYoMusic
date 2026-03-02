@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   Modal, Upload, Button, Progress, List, Tag, Typography, Space,
   Divider, Result, Badge, Steps, Alert, Input, Switch, Tooltip,
@@ -7,8 +7,8 @@ import {
 import {
   InboxOutlined, DeleteOutlined, CheckCircleOutlined, CloseCircleOutlined,
   SoundOutlined, LoadingOutlined, CloudUploadOutlined, FileSearchOutlined,
-  UploadOutlined as UploadIcon, EditOutlined, InfoCircleOutlined,
-  FileTextOutlined, TagOutlined,
+  UploadOutlined as UploadIcon, InfoCircleOutlined,
+  FileTextOutlined, TagOutlined, FolderOpenOutlined,
 } from '@ant-design/icons';
 import { trackService } from '../services/trackService';
 import { toast } from '../utils/toast';
@@ -60,42 +60,54 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
   const [uploadResults, setUploadResults] = useState<{ success: number; fail: number }>({ success: 0, fail: 0 });
   const [autoCredits, setAutoCredits] = useState(true);
   const [creditsScanning, setCreditsScanning] = useState(false);
+  const folderInputRef = useRef<HTMLInputElement>(null);
 
+  // Steps: 选择文件(0) → Credits预览(1) → 导入(2) → 完成(3)
   const steps = [
-    { title: '选择文件',   icon: <FileSearchOutlined /> },
-    { title: '编辑元数据', icon: <EditOutlined /> },
+    { title: '选择文件',     icon: <FileSearchOutlined /> },
     { title: 'Credits 预览', icon: <TagOutlined /> },
-    { title: '导入',       icon: <UploadIcon /> },
-    { title: '完成',       icon: <CheckCircleOutlined /> },
+    { title: '导入',         icon: <UploadIcon /> },
+    { title: '完成',         icon: <CheckCircleOutlined /> },
   ];
 
   const formatSize = (b: number) =>
     b < 1024 * 1024 ? `${(b / 1024).toFixed(1)} KB` : `${(b / (1024 * 1024)).toFixed(2)} MB`;
 
-  const handleBeforeUpload = useCallback((file: File) => {
-    const ok = file.name.toLowerCase().endsWith('.flac') ||
-               file.type === 'audio/flac' || file.type === 'audio/x-flac';
-    if (!ok) { toast.error(`${file.name} 不是 FLAC 格式，已跳过`); return Upload.LIST_IGNORE; }
-    const { title, artist, album } = parseFilename(file.name);
-    const item: FileItem = {
-      uid: `${Date.now()}-${Math.random()}`,
-      name: file.name, originFileObj: file, size: file.size,
-      status: 'pending',
-      detectedTitle: title, detectedArtist: artist, detectedAlbum: album,
-      editTitle: title,     editArtist: artist,     editAlbum: album,
-    };
+  const addFiles = useCallback((files: File[]) => {
     setFileItems(prev => {
-      if (prev.some(f => f.name === file.name && f.size === file.size)) return prev;
-      return [...prev, item];
+      const next = [...prev];
+      for (const file of files) {
+        const ok = file.name.toLowerCase().endsWith('.flac') ||
+                   file.type === 'audio/flac' || file.type === 'audio/x-flac';
+        if (!ok) { toast.error(`${file.name} 不是 FLAC 格式，已跳过`); continue; }
+        if (next.some(f => f.name === file.name && f.size === file.size)) continue;
+        const { title, artist, album } = parseFilename(file.name);
+        next.push({
+          uid: `${Date.now()}-${Math.random()}`,
+          name: file.name, originFileObj: file, size: file.size,
+          status: 'pending',
+          detectedTitle: title, detectedArtist: artist, detectedAlbum: album,
+          editTitle: title,     editArtist: artist,     editAlbum: album,
+        });
+      }
+      return next;
     });
-    return false;
   }, []);
+
+  const handleBeforeUpload = useCallback((file: File) => {
+    addFiles([file]);
+    return false;
+  }, [addFiles]);
+
+  const handleFolderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    addFiles(files);
+    // reset so same folder can be selected again
+    e.target.value = '';
+  };
 
   const handleRemoveFile = (uid: string) =>
     setFileItems(prev => prev.filter(f => f.uid !== uid));
-
-  const handleUpdateField = (uid: string, field: 'editTitle' | 'editArtist' | 'editAlbum', value: string) =>
-    setFileItems(prev => prev.map(f => f.uid === uid ? { ...f, [field]: value } : f));
 
   const handleUpdateCredit = (uid: string, idx: number, field: 'key' | 'value', val: string) =>
     setFileItems(prev => prev.map(f => {
@@ -116,15 +128,14 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
       return { ...f, credits: [...(f.credits ?? []), { key: '', value: '' }] };
     }));
 
-  // Step 1 → Step 2: scan credits via backend API
+  // Step 0 → Step 1: scan credits via backend API (or skip to step 2)
   const handleGoToCredits = async () => {
     if (!autoCredits) {
-      setCurrentStep(3); // skip credits preview, go straight to import
+      setCurrentStep(2); // skip credits preview, go straight to import
       return;
     }
-    setCurrentStep(2);
+    setCurrentStep(1);
     setCreditsScanning(true);
-    // mark all as loading
     setFileItems(prev => prev.map(f => ({ ...f, creditsLoading: true, credits: undefined })));
     try {
       // 后端一次性解析所有文件，返回 [{filename, credits}]
@@ -169,7 +180,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
     }
 
     setUploading(false);
-    setCurrentStep(4);
+    setCurrentStep(3);
     setUploadResults({ success: successCount, fail: failCount });
     if (successCount > 0) { toast.success(`成功导入 ${successCount} 首`); onSuccess(); }
     if (failCount > 0) toast.error(`${failCount} 首导入失败`);
@@ -190,7 +201,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
         <Space>
           <CloudUploadOutlined style={{ color: '#667eea' }} />
           <span>高级导入向导</span>
-          {fileItems.length > 0 && currentStep < 4 && <Badge count={fileItems.length} color="#667eea" />}
+          {fileItems.length > 0 && currentStep < 3 && <Badge count={fileItems.length} color="#667eea" />}
         </Space>
       }
       open={visible} onCancel={handleClose}
@@ -202,14 +213,40 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
       {/* ── Step 0: 选择文件 ──────────────────────────────────────── */}
       {currentStep === 0 && (
         <>
+          {/* Hidden folder input */}
+          <input
+            ref={folderInputRef}
+            type="file"
+            // @ts-ignore – webkitdirectory is non-standard but widely supported
+            webkitdirectory=""
+            multiple
+            accept=".flac"
+            style={{ display: 'none' }}
+            onChange={handleFolderChange}
+          />
+
           <Dragger multiple accept=".flac" beforeUpload={handleBeforeUpload}
             showUploadList={false} className="upload-dragger">
             <p className="ant-upload-drag-icon">
               <InboxOutlined style={{ color: '#667eea', fontSize: 48 }} />
             </p>
             <p className="ant-upload-text">点击或拖拽 FLAC 文件到此区域</p>
-            <p className="ant-upload-hint">支持批量选择，仅支持 .flac 格式</p>
+            <p className="ant-upload-hint">支持批量选择，仅支持 .flac 格式 · 默认以文件名作为歌曲标题</p>
           </Dragger>
+
+          <div style={{ textAlign: 'center', marginTop: 10, marginBottom: 4 }}>
+            <Button
+              icon={<FolderOpenOutlined />}
+              onClick={() => folderInputRef.current?.click()}
+              style={{ borderColor: '#667eea', color: '#667eea' }}
+            >
+              选择文件夹上传
+            </Button>
+            <Text type="secondary" style={{ display: 'block', fontSize: 11, marginTop: 4 }}>
+              选择文件夹后将自动扫描其中所有 .flac 文件（含子文件夹）
+            </Text>
+          </div>
+
           {fileItems.length > 0 && (
             <>
               <Divider style={{ margin: '16px 0 8px' }} />
@@ -239,73 +276,8 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
               />
             </>
           )}
-          <div className="upload-footer">
-            <Button onClick={handleClose}>取消</Button>
-            <Button type="primary" icon={<EditOutlined />}
-              disabled={fileItems.length === 0} onClick={() => setCurrentStep(1)}>
-              下一步：编辑元数据 ({fileItems.length})
-            </Button>
-          </div>
-        </>
-      )}
 
-      {/* ── Step 1: 编辑元数据 + Credits 决策 ────────────────────── */}
-      {currentStep === 1 && (
-        <>
-          <Alert
-            message="可修改每首曲目的标题、艺术家、专辑（留空则从文件内嵌标签读取）。并请在下方选择是否自动读取 Credits。"
-            type="info" showIcon icon={<InfoCircleOutlined />} style={{ marginBottom: 12 }}
-          />
-          <List
-            className="upload-file-list upload-file-list--meta"
-            size="small" dataSource={fileItems}
-            style={{ maxHeight: 340, overflowY: 'auto' }}
-            renderItem={item => (
-              <List.Item
-                className={`upload-file-item upload-file-item--${item.status}`}
-                style={{ flexDirection: 'column', alignItems: 'stretch', padding: '10px 12px' }}
-              >
-                <div className="upload-meta-row">
-                  <SoundOutlined style={{ color: '#667eea', fontSize: 15, marginRight: 8, flexShrink: 0, marginTop: 3 }} />
-                  <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Text ellipsis style={{ maxWidth: 440, fontSize: 13, fontWeight: 500 }} title={item.name}>{item.name}</Text>
-                    <Space size={4}>
-                      <Text type="secondary" style={{ fontSize: 11 }}>{formatSize(item.size)}</Text>
-                      <Button type="text" size="small" icon={<DeleteOutlined />} danger
-                        onClick={() => handleRemoveFile(item.uid)} />
-                    </Space>
-                  </div>
-                </div>
-                <div className="upload-meta-edit">
-                  <Row gutter={[8, 6]}>
-                    <Col span={8}>
-                      <Input size="small"
-                        addonBefore={<span style={{ fontSize: 11, minWidth: 28 }}>标题</span>}
-                        value={item.editTitle}
-                        onChange={e => handleUpdateField(item.uid, 'editTitle', e.target.value)}
-                        placeholder={item.detectedTitle || '从 FLAC 标签读取'} />
-                    </Col>
-                    <Col span={8}>
-                      <Input size="small"
-                        addonBefore={<span style={{ fontSize: 11, minWidth: 40 }}>艺术家</span>}
-                        value={item.editArtist}
-                        onChange={e => handleUpdateField(item.uid, 'editArtist', e.target.value)}
-                        placeholder="从 FLAC 标签读取" />
-                    </Col>
-                    <Col span={8}>
-                      <Input size="small"
-                        addonBefore={<span style={{ fontSize: 11, minWidth: 28 }}>专辑</span>}
-                        value={item.editAlbum}
-                        onChange={e => handleUpdateField(item.uid, 'editAlbum', e.target.value)}
-                        placeholder="从 FLAC 标签读取" />
-                    </Col>
-                  </Row>
-                </div>
-              </List.Item>
-            )}
-          />
-
-          {/* Credits 决策卡片 */}
+          {/* Credits 决策区 */}
           <Card size="small" className="upload-option-card" style={{ marginTop: 16 }}
             title={<Space><TagOutlined style={{ color: '#667eea' }} /><span>是否自动读取 Credits？</span></Space>}
           >
@@ -330,17 +302,17 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
           </Card>
 
           <div className="upload-footer">
-            <Button onClick={() => setCurrentStep(0)}>上一步</Button>
+            <Button onClick={handleClose}>取消</Button>
             <Button type="primary" icon={autoCredits ? <TagOutlined /> : <UploadIcon />}
-              onClick={handleGoToCredits}>
-              {autoCredits ? '下一步：读取 Credits' : '跳过，直接导入'}
+              disabled={fileItems.length === 0} onClick={handleGoToCredits}>
+              {autoCredits ? `下一步：读取 Credits (${fileItems.length})` : `跳过，直接导入 (${fileItems.length})`}
             </Button>
           </div>
         </>
       )}
 
-      {/* ── Step 2: Credits 预览 + 编辑 ──────────────────────────── */}
-      {currentStep === 2 && (
+      {/* ── Step 1: Credits 预览 + 编辑 ──────────────────────────── */}
+      {currentStep === 1 && (
         <>
           {creditsScanning ? (
             <div style={{ textAlign: 'center', padding: '40px 0' }}>
@@ -437,17 +409,17 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
             </>
           )}
           <div className="upload-footer">
-            <Button onClick={() => setCurrentStep(1)} disabled={creditsScanning}>上一步</Button>
+            <Button onClick={() => setCurrentStep(0)} disabled={creditsScanning}>上一步</Button>
             <Button type="primary" icon={<UploadIcon />}
-              disabled={creditsScanning} onClick={() => setCurrentStep(3)}>
+              disabled={creditsScanning} onClick={() => setCurrentStep(2)}>
               确认，开始导入 ({fileItems.length} 首)
             </Button>
           </div>
         </>
       )}
 
-      {/* ── Step 3: 导入进度 ──────────────────────────────────────── */}
-      {currentStep === 3 && (
+      {/* ── Step 2: 导入进度 ──────────────────────────────────────── */}
+      {currentStep === 2 && (
         <>
           <Card size="small" className="upload-option-card" style={{ marginBottom: 16 }}
             title={<Space><FileTextOutlined style={{ color: '#667eea' }} /><span>导入摘要</span></Space>}
@@ -490,9 +462,9 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
                   <List.Item
                     className={`upload-file-item upload-file-item--${item.status}`}
                     actions={[
-                      item.status === 'done'     ? <CheckCircleOutlined style={{ color: '#52c41a' }} /> : null,
-                      item.status === 'error'    ? <Tooltip title={item.error}><CloseCircleOutlined style={{ color: '#ff4d4f' }} /></Tooltip> : null,
-                      item.status === 'uploading'? <LoadingOutlined style={{ color: '#667eea' }} /> : null,
+                      item.status === 'done'      ? <CheckCircleOutlined style={{ color: '#52c41a' }} /> : null,
+                      item.status === 'error'     ? <Tooltip title={item.error}><CloseCircleOutlined style={{ color: '#ff4d4f' }} /></Tooltip> : null,
+                      item.status === 'uploading' ? <LoadingOutlined style={{ color: '#667eea' }} /> : null,
                     ].filter(Boolean)}
                   >
                     <Text ellipsis style={{ maxWidth: 560, fontSize: 12 }} title={item.name}>{item.name}</Text>
@@ -503,7 +475,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
           )}
 
           <div className="upload-footer">
-            <Button onClick={() => setCurrentStep(autoCredits ? 2 : 1)} disabled={uploading}>上一步</Button>
+            <Button onClick={() => setCurrentStep(autoCredits ? 1 : 0)} disabled={uploading}>上一步</Button>
             <Button type="primary" icon={<UploadIcon />} loading={uploading} disabled={uploading}
               onClick={handleStartUpload}>
               {uploading
@@ -514,8 +486,8 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
         </>
       )}
 
-      {/* ── Step 4: 完成 ──────────────────────────────────────────── */}
-      {currentStep === 4 && (
+      {/* ── Step 3: 完成 ──────────────────────────────────────────── */}
+      {currentStep === 3 && (
         <Result
           status={uploadResults.fail === 0 ? 'success' : 'warning'}
           title={uploadResults.fail === 0 ? '全部导入成功！' : '导入完成，部分失败'}
@@ -531,7 +503,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
               {uploadResults.fail > 0 && (
                 <Button onClick={() => {
                   setFileItems(prev => prev.filter(f => f.status === 'error').map(f => ({ ...f, status: 'pending' as const })));
-                  setCurrentStep(3);
+                  setCurrentStep(2);
                 }}>重试失败项</Button>
               )}
               <Button type="primary" onClick={handleClose}>完成</Button>
@@ -544,5 +516,4 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
 };
 
 export default UploadModal;
-
 
