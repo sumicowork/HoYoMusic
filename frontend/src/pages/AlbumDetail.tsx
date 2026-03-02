@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Layout, Table, Button, Space, Image, Tag, Skeleton, Descriptions, message, Tooltip } from 'antd';
+import { Layout, Table, Button, Space, Image, Skeleton, Descriptions, message, Tooltip } from 'antd';
 import { ArrowLeftOutlined, PlayCircleOutlined, DownloadOutlined } from '@ant-design/icons';
 import { Track } from '../types';
 import { trackService, DOWNLOAD_ENABLED } from '../services/trackService';
@@ -115,21 +115,6 @@ const AlbumDetail: React.FC = () => {
       key: 'duration',
       width: 100,
       render: formatDuration,
-    },
-    {
-      title: '品质',
-      key: 'quality',
-      width: 120,
-      render: (_: any, record: Track) => (
-        <Space direction="vertical" size={0}>
-          <Tag color="blue">FLAC</Tag>
-          {record.sample_rate && record.bit_depth && (
-            <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
-              {(record.sample_rate / 1000).toFixed(1)}kHz/{record.bit_depth}bit
-            </span>
-          )}
-        </Space>
-      ),
     },
     {
       title: '操作',

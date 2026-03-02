@@ -140,9 +140,6 @@ const PlayQueue: React.FC<PlayQueueProps> = ({ visible, onClose }) => {
                   }
                   description={
                     <div className="queue-item-info">
-                      <Text type="secondary">
-                        {track.artists?.map((a) => a.name).join(', ') || 'Unknown Artist'}
-                      </Text>
                       <Text type="secondary" className="queue-item-duration">
                         {formatDuration(track.duration)}
                       </Text>

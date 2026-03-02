@@ -5,7 +5,8 @@ import {
   FolderOutlined,
   TagsOutlined,
   LogoutOutlined,
-  UserOutlined
+  UserOutlined,
+  AppstoreOutlined
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
@@ -48,6 +49,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       onClick: () => navigate('/admin/tags')
     },
     {
+      key: '/admin/games',
+      icon: <AppstoreOutlined />,
+      label: '游戏管理',
+      onClick: () => navigate('/admin/games')
+    },
+    {
       type: 'divider' as const
     },
     {
@@ -63,6 +70,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const getSelectedKey = () => {
     if (location.pathname === '/admin/albums') return '/admin/albums';
     if (location.pathname === '/admin/tags') return '/admin/tags';
+    if (location.pathname === '/admin/games') return '/admin/games';
     return '/admin';
   };
 

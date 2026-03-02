@@ -87,7 +87,6 @@ const Admin: React.FC = () => {
     setEditingTrack(track);
     form.setFieldsValue({
       title: track.title,
-      artists: track.artists.map(a => a.name).join(', '),
       album_title: track.album_title,
       release_date: track.release_date ? dayjs(track.release_date) : null,
       track_number: (track as any).track_number || null,
@@ -101,7 +100,8 @@ const Admin: React.FC = () => {
       if (editingTrack) {
         await trackService.updateTrack(editingTrack.id, {
           title: values.title,
-          artists: values.artists.split(',').map((a: string) => a.trim()),
+          // 艺术家不在前端展示/编辑，保持原有值
+          artists: editingTrack.artists.map(a => a.name),
           album_title: values.album_title || '',
           release_date: values.release_date ? values.release_date.format('YYYY-MM-DD') : undefined,
           track_number: values.track_number || undefined,
@@ -204,28 +204,6 @@ const Admin: React.FC = () => {
       key: 'duration',
       width: 100,
       render: formatDuration,
-    },
-    {
-      title: '音质',
-      key: 'quality',
-      width: 150,
-      render: (_, record) => (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Tag color="blue">FLAC</Tag>
-          {record.sample_rate && record.bit_depth && (
-            <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
-              {(record.sample_rate / 1000).toFixed(1)}kHz / {record.bit_depth}bit
-            </span>
-          )}
-        </div>
-      ),
-    },
-    {
-      title: '大小',
-      dataIndex: 'file_size',
-      key: 'size',
-      width: 120,
-      render: formatFileSize,
     },
     {
       title: '操作',
@@ -376,9 +354,6 @@ const Admin: React.FC = () => {
         <Form form={form} layout="vertical">
           <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入标题' }]}>
             <Input />
-          </Form.Item>
-          <Form.Item name="artists" label="艺术家" rules={[{ required: true, message: '请输入艺术家' }]}>
-            <Input placeholder="多个艺术家用逗号分隔" />
           </Form.Item>
           <Form.Item name="album_title" label="专辑">
             <Input />

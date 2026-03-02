@@ -96,15 +96,17 @@ export const getGameById = async (req: Request, res: Response) => {
 export const updateGame = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, name_en, description, display_order } = req.body;
+    const { name, name_en, description, display_order, status } = req.body;
 
     const result = await pool.query(
       `UPDATE games 
-       SET name = $1, name_en = $2, description = $3, display_order = $4, updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $5 
+       SET name = $1, name_en = $2, description = $3, display_order = $4,
+           status = COALESCE($5, status), updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $6 
        RETURNING *`,
-      [name, name_en, description, display_order, id]
+      [name, name_en, description, display_order, status ?? null, id]
     );
+    cache.invalidate('games:all');
 
     if (result.rows.length === 0) {
       return res.status(404).json({

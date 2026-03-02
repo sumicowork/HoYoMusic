@@ -386,7 +386,6 @@ const Player: React.FC = () => {
               )}
               <div className="player-text">
                 <div className="player-title">{currentTrack.title}</div>
-                <div className="player-artist">{currentTrack.artists.map(a => a.name).join(', ')}</div>
               </div>
             </div>
 

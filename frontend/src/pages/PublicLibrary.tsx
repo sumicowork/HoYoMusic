@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Layout, Table, Button, Space, Image, Tag, Input, Tooltip } from 'antd';
+import { Layout, Table, Button, Space, Image, Input, Tooltip } from 'antd';
 import { PlayCircleOutlined, DownloadOutlined, SearchOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { Track } from '../types';
@@ -120,28 +120,6 @@ const PublicLibrary: React.FC = () => {
       key: 'duration',
       width: 100,
       render: formatDuration,
-    },
-    {
-      title: '品质',
-      key: 'quality',
-      width: 150,
-      render: (_, record) => (
-        <Space direction="vertical" size={0}>
-          <Tag color="blue">FLAC</Tag>
-          {record.sample_rate && record.bit_depth && (
-            <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
-              {(record.sample_rate / 1000).toFixed(1)}kHz / {record.bit_depth}bit
-            </span>
-          )}
-        </Space>
-      ),
-    },
-    {
-      title: '大小',
-      dataIndex: 'file_size',
-      key: 'size',
-      width: 120,
-      render: formatFileSize,
     },
     {
       title: '操作',

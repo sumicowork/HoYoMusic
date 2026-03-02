@@ -33,6 +33,7 @@ const TagDetail = lazy(() => import('./pages/TagDetail'));
 const Admin = lazy(() => import('./pages/Admin'));
 const AlbumManagement = lazy(() => import('./pages/AlbumManagement'));
 const TagManagement = lazy(() => import('./pages/TagManagement'));
+const GameManagement = lazy(() => import('./pages/GameManagement'));
 const Search = lazy(() => import('./pages/Search'));
 
 // 绑定静态实例，使 toast 工具在组件树外也能调用
@@ -106,6 +107,14 @@ const App: React.FC = () => {
                       element={
                         <ProtectedRoute>
                           <TagManagement />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/admin/games"
+                      element={
+                        <ProtectedRoute>
+                          <GameManagement />
                         </ProtectedRoute>
                       }
                     />

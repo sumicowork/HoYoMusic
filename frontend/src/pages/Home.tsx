@@ -8,9 +8,6 @@ import './Home.css';
 
 const { Header, Content } = Layout;
 
-const MAINTENANCE_GAMES = ['原神', '崩坏：星穹铁道', '崩坏3', '未定事件簿'];
-const UNRELEASED_GAMES = ['崩坏因缘精灵', '星布谷地'];
-
 interface Game {
   id: number;
   name: string;
@@ -19,6 +16,7 @@ interface Game {
   cover_path: string;
   album_count: number;
   display_order: number;
+  status: 'active' | 'maintenance' | 'unreleased';
 }
 
 // 单个游戏卡片，内部用 ResizeObserver 保持封面正方形
@@ -96,10 +94,8 @@ const Home: React.FC = () => {
     }
   };
 
-  const getGameStatus = (name: string): 'maintenance' | 'unreleased' | 'active' => {
-    if (MAINTENANCE_GAMES.includes(name)) return 'maintenance';
-    if (UNRELEASED_GAMES.includes(name)) return 'unreleased';
-    return 'active';
+  const getGameStatus = (game: Game): 'maintenance' | 'unreleased' | 'active' => {
+    return game.status || 'active';
   };
 
   return (
@@ -118,7 +114,7 @@ const Home: React.FC = () => {
         ) : (
           <Row gutter={[32, 32]} justify="center">
             {games.map((game) => {
-              const status = getGameStatus(game.name);
+              const status = getGameStatus(game);
               return (
                 <Col key={game.id} xs={24} sm={24} md={12} lg={8}>
                   <GameCard
