@@ -2,22 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Layout, Card, Row, Col, Spin, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { PlayCircleOutlined, AppstoreOutlined } from '@ant-design/icons';
-import { gameService } from '../services/gameService';
+import { gameService, Game } from '../services/gameService';
 import ThemeToggle from '../components/ThemeToggle';
 import './Home.css';
 
 const { Header, Content } = Layout;
-
-interface Game {
-  id: number;
-  name: string;
-  name_en: string;
-  description: string;
-  cover_path: string;
-  album_count: number;
-  display_order: number;
-  status: 'active' | 'maintenance' | 'unreleased';
-}
 
 // 单个游戏卡片，内部用 ResizeObserver 保持封面正方形
 const GameCard: React.FC<{

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Layout, Table, Button, Upload, message, Image, Tooltip } from 'antd';
+import { Layout, Table, Button, Upload, message, Space, Image, Tooltip } from 'antd';
 import { UploadOutlined, PlayCircleOutlined, DownloadOutlined, LogoutOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { Track } from '../types';
@@ -82,12 +82,6 @@ const Library: React.FC = () => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const formatFileSize = (bytes: number | null) => {
-    if (!bytes) return '--';
-    const mb = bytes / (1024 * 1024);
-    return `${mb.toFixed(2)} MB`;
   };
 
   const columns: ColumnsType<Track> = [

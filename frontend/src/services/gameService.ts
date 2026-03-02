@@ -9,6 +9,7 @@ export interface Game {
   cover_path: string;
   display_order: number;
   album_count: number;
+  status: 'active' | 'maintenance' | 'unreleased';
 }
 
 export interface ApiResponse<T> {

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Table, Button, message, Space, Image, Tag, Modal, Form, Input, Card,
+  Table, Button, message, Space, Image, Modal, Form, Input, Card,
   DatePicker, InputNumber, Popconfirm
 } from 'antd';
 import {
@@ -150,12 +150,6 @@ const Admin: React.FC = () => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const formatFileSize = (bytes: number | null) => {
-    if (!bytes) return '--';
-    const mb = bytes / (1024 * 1024);
-    return `${mb.toFixed(2)} MB`;
   };
 
   const rowSelection: TableRowSelection<Track> = {

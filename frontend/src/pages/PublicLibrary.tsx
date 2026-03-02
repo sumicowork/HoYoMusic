@@ -65,12 +65,6 @@ const PublicLibrary: React.FC = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const formatFileSize = (bytes: number | null) => {
-    if (!bytes) return '--';
-    const mb = bytes / (1024 * 1024);
-    return `${mb.toFixed(2)} MB`;
-  };
-
   const columns: ColumnsType<Track> = [
     {
       title: '封面',
