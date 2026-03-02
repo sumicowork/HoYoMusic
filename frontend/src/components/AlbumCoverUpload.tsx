@@ -34,12 +34,6 @@ const AlbumCoverUpload: React.FC<AlbumCoverUploadProps> = ({
       return false;
     }
 
-    const isLt5M = file.size / 1024 / 1024 < 5;
-    if (!isLt5M) {
-      message.error('图片大小不能超过 5MB！');
-      return false;
-    }
-
     // Preview image
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -122,7 +116,7 @@ const AlbumCoverUpload: React.FC<AlbumCoverUploadProps> = ({
     >
       <div style={{ marginBottom: 16 }}>
         <p style={{ color: '#666', marginBottom: 8 }}>
-          支持 JPG、PNG、GIF 等图片格式，建议尺寸 1000x1000 像素，大小不超过 5MB
+          支持 JPG、PNG、GIF 等图片格式，建议尺寸 1000x1000 像素
         </p>
       </div>
 

@@ -330,7 +330,7 @@ const CreditsImportModal: React.FC<CreditsImportModalProps> = ({ visible, onClos
               <FileTextOutlined style={{ fontSize: 48, color: '#667eea' }} />
             </p>
             <p className="ant-upload-text">拖拽 JSON 文件到此处，或点击选择</p>
-            <p className="ant-upload-hint">仅支持 .json 格式，文件大小不超过 5MB</p>
+                <p className="ant-upload-hint">仅支持 .json 格式</p>
           </Dragger>
         </div>
       )}

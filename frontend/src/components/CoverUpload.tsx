@@ -22,11 +22,6 @@ const CoverUpload: React.FC<CoverUploadProps> = ({ type, id, currentCover, onSuc
       message.error('只能上传图片文件！');
       return false;
     }
-    const isLt10M = file.size / 1024 / 1024 < 10;
-    if (!isLt10M) {
-      message.error('图片大小不能超过 10MB！');
-      return false;
-    }
     return true;
   };
 
