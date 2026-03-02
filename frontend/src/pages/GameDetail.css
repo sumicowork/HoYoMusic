@@ -11,7 +11,7 @@
 
 .game-detail-layout.genshin-bg::before {
   content: '';
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   right: 0;
@@ -38,7 +38,7 @@
 
 .game-detail-layout.starrail-bg::before {
   content: '';
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   right: 0;
@@ -65,7 +65,7 @@
 
 .game-detail-layout.zzz-bg::before {
   content: '';
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   right: 0;
@@ -92,7 +92,7 @@
 
 .game-detail-layout.honkai3-bg::before {
   content: '';
-  position: absolute;
+  position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
   background-image: url('/games/honkai3.png');
   background-size: cover;
@@ -116,7 +116,7 @@
 
 .game-detail-layout.tears-bg::before {
   content: '';
-  position: absolute;
+  position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
   background-image: url('/games/tears.jpg');
   background-size: cover;
@@ -140,7 +140,7 @@
 
 .game-detail-layout.nexus-bg::before {
   content: '';
-  position: absolute;
+  position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
   background-image: url('/games/nexus.jpg');
   background-size: cover;
@@ -164,7 +164,7 @@
 
 .game-detail-layout.petit-bg::before {
   content: '';
-  position: absolute;
+  position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
   background-image: url('/games/petit.jpg');
   background-size: cover;
@@ -343,4 +343,3 @@
     order: -1;
   }
 }
-
