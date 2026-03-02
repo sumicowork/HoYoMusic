@@ -65,7 +65,7 @@ const AlbumDetail: React.FC = () => {
   };
 
   const handleDownloadAlbum = () => {
-    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+    const apiBase = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
     window.open(`${apiBase}/albums/${id}/download`, '_blank');
   };
 

@@ -3,7 +3,7 @@ import axios from 'axios';
 /** 静态模式标志 — 由 .env.static 中 VITE_STATIC_MODE=true 控制 */
 export const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
 
 const api = axios.create({
   baseURL: API_BASE_URL,

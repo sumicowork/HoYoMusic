@@ -2,7 +2,7 @@ import axios from 'axios';
 import { IS_STATIC } from './api';
 import * as staticData from './staticDataService';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const API_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
 
 export interface Tag {
   id: number;
