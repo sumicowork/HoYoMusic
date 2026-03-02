@@ -9,14 +9,17 @@ export const MUSIC_ICON_PLACEHOLDER = 'data:image/svg+xml;charset=utf-8,%3Csvg x
 const defaultApiBase = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000';
 
 // 获取封面 URL，如果没有则返回占位符
+// OSS 模式下封面 URL 为完整 http(s) 地址，需要通过服务器代理中转（与 FLAC 流式传输保持一致）
 export const getCoverUrl = (coverPath: string | null, apiBaseUrl?: string): string => {
   if (!coverPath) return MUSIC_ICON_PLACEHOLDER;
-  // WebDAV mode / CDN: already a full URL
-  if (coverPath.startsWith('http://') || coverPath.startsWith('https://')) return coverPath;
   // 静态模式: /data/covers/... 相对路径，直接返回
   if (IS_STATIC) return coverPath || MUSIC_ICON_PLACEHOLDER;
-  // 动态模式: /uploads/... (new) or covers/... (legacy)
   const base = apiBaseUrl || defaultApiBase;
+  // OSS / WebDAV 模式：cover_path 是完整 URL，通过服务器代理中转，避免前端直连 OSS
+  if (coverPath.startsWith('http://') || coverPath.startsWith('https://')) {
+    return `${base}/api/public/covers/proxy?path=${encodeURIComponent(coverPath)}`;
+  }
+  // 动态模式: /uploads/... (new) or covers/... (legacy)
   const normalized = coverPath.startsWith('/') ? coverPath : `/uploads/${coverPath}`;
   return `${base}${normalized}`;
 };

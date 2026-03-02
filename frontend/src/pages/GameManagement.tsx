@@ -3,6 +3,7 @@ import { Table, Select, message, Card, Image } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import axios from 'axios';
 import AdminLayout from '../components/AdminLayout';
+import { getCoverUrl } from '../utils/imageUtils';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
@@ -66,7 +67,7 @@ const GameManagement: React.FC = () => {
       key: 'cover',
       width: 70,
       render: (cover) => cover
-        ? <Image width={50} height={50} src={cover} style={{ borderRadius: 4, objectFit: 'cover' }} />
+        ? <Image width={50} height={50} src={getCoverUrl(cover)} style={{ borderRadius: 4, objectFit: 'cover' }} />
         : <div style={{ width: 50, height: 50, background: '#667eea', borderRadius: 4 }} />,
     },
     {

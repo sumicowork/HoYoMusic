@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import AlbumCoverUpload from '../components/AlbumCoverUpload';
 import AdminLayout from '../components/AdminLayout';
+import { getCoverUrl } from '../utils/imageUtils';
 
 const AlbumManagement: React.FC = () => {
   const [albums, setAlbums] = useState<Album[]>([]);
@@ -100,12 +101,6 @@ const AlbumManagement: React.FC = () => {
     fetchAlbums();
   };
 
-  const getCoverUrl = (coverPath: string) => {
-    if (!coverPath) return '';
-    if (coverPath.startsWith('http')) return coverPath;
-    const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000';
-    return `${baseUrl}${coverPath}`;
-  };
 
   const columns: ColumnsType<Album> = [
     {

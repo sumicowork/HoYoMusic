@@ -184,12 +184,12 @@ export const trackService = {
   getCoverUrl(coverPath: string | null): string {
     if (!coverPath) return '/placeholder-cover.jpg';
     if (IS_STATIC) return staticData.getCoverUrl(coverPath) || '/placeholder-cover.jpg';
-    // WebDAV mode: coverPath is already a full http(s) URL
+    const backendOrigin = API_BASE_URL.replace('/api', '');
+    // OSS / WebDAV 模式：cover_path 是完整 URL，通过服务器代理中转，避免前端直连 OSS
     if (coverPath.startsWith('http://') || coverPath.startsWith('https://')) {
-      return coverPath;
+      return `${backendOrigin}/api/public/covers/proxy?path=${encodeURIComponent(coverPath)}`;
     }
     // Local mode: coverPath is like /uploads/covers/xxx.jpg (new) or covers/xxx.jpg (legacy)
-    const backendOrigin = API_BASE_URL.replace('/api', '');
     const normalized = coverPath.startsWith('/') ? coverPath : `/uploads/${coverPath}`;
     return `${backendOrigin}${normalized}`;
   },

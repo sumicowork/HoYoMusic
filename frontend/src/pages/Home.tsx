@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { PlayCircleOutlined, AppstoreOutlined } from '@ant-design/icons';
 import { gameService, Game } from '../services/gameService';
 import ThemeToggle from '../components/ThemeToggle';
+import { getCoverUrl } from '../utils/imageUtils';
 import './Home.css';
 
 const { Header, Content } = Layout;
@@ -23,7 +24,7 @@ const GameCard: React.FC<{
       cover={
         <div className="game-cover">
           {game.cover_path ? (
-            <img src={game.cover_path} alt={game.name} />
+            <img src={getCoverUrl(game.cover_path)} alt={game.name} />
           ) : (
             <div style={{
               position: 'absolute', inset: 0,

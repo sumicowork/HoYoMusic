@@ -3,8 +3,10 @@ import { Modal, Upload, message, Button } from 'antd';
 import { UploadOutlined, PictureOutlined } from '@ant-design/icons';
 import type { UploadFile, RcFile } from 'antd/es/upload/interface';
 import axios from 'axios';
+import { getCoverUrl } from '../utils/imageUtils';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const API_BASE = API_URL.replace('/api', '');
 
 interface AlbumCoverUploadProps {
   visible: boolean;
@@ -128,7 +130,7 @@ const AlbumCoverUpload: React.FC<AlbumCoverUploadProps> = ({
         <div style={{ marginBottom: 16 }}>
           <p style={{ marginBottom: 8, fontWeight: 500 }}>当前封面：</p>
           <img
-            src={`http://localhost:3000${currentCover}`}
+            src={getCoverUrl(currentCover, API_BASE)}
             alt="Current cover"
             style={{
               width: 200,
