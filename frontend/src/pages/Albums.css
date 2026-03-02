@@ -59,7 +59,6 @@
   border-radius: 12px;
   overflow: hidden;
   transition: all 0.3s ease;
-  min-width: 200px;
   width: 100%;
 }
 

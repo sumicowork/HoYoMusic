@@ -77,7 +77,7 @@ const Albums: React.FC = () => {
 
       <Content className="albums-content">
         {loading ? (
-          <Row gutter={[16, 20]}>
+          <Row gutter={[28, 36]}>
             {Array.from({ length: 8 }).map((_, i) => (
               <Col key={i} xs={12} sm={12} md={8} lg={6} xl={6} xxl={6}>
                 <Card>
@@ -90,7 +90,7 @@ const Albums: React.FC = () => {
         ) : albums.length === 0 ? (
           <Empty description="未找到专辑" />
         ) : (
-          <Row gutter={[16, 24]}>
+          <Row gutter={[28, 36]}>
             {albums.map((album) => (
               <Col key={album.id} xs={12} sm={12} md={8} lg={6} xl={6} xxl={6}>
                 <Card

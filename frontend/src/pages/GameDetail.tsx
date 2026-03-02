@@ -110,7 +110,7 @@ const GameDetail: React.FC = () => {
             }
           />
         ) : (
-          <Row gutter={[16, 24]}>
+          <Row gutter={[28, 36]}>
             {albums.map((album) => (
               <Col key={album.id} xs={12} sm={12} md={8} lg={6} xl={6} xxl={6}>
                 <Card
