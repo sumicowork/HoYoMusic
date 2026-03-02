@@ -185,11 +185,15 @@ export const trackService = {
     if (!coverPath) return '/placeholder-cover.jpg';
     if (IS_STATIC) return staticData.getCoverUrl(coverPath) || '/placeholder-cover.jpg';
     const backendOrigin = API_BASE_URL.replace('/api', '');
-    // OSS / WebDAV 模式：cover_path 是完整 URL，通过服务器代理中转，避免前端直连 OSS
+    // OSS / 外部存储：cover_path 是完整 http(s) URL，通过服务器代理中转，避免前端直连 OSS
     if (coverPath.startsWith('http://') || coverPath.startsWith('https://')) {
       return `${backendOrigin}/api/public/covers/proxy?path=${encodeURIComponent(coverPath)}`;
     }
-    // Local mode: coverPath is like /uploads/covers/xxx.jpg (new) or covers/xxx.jpg (legacy)
+    // 前端 public 目录下的静态资源（如游戏封面 /games/xxx.png），直接使用相对路径
+    if (coverPath.startsWith('/') && !coverPath.startsWith('/uploads/')) {
+      return coverPath;
+    }
+    // 后端本地上传文件: /uploads/... (new) or covers/... (legacy)
     const normalized = coverPath.startsWith('/') ? coverPath : `/uploads/${coverPath}`;
     return `${backendOrigin}${normalized}`;
   },

@@ -15,11 +15,15 @@ export const getCoverUrl = (coverPath: string | null, apiBaseUrl?: string): stri
   // 静态模式: /data/covers/... 相对路径，直接返回
   if (IS_STATIC) return coverPath || MUSIC_ICON_PLACEHOLDER;
   const base = apiBaseUrl || defaultApiBase;
-  // OSS / WebDAV 模式：cover_path 是完整 URL，通过服务器代理中转，避免前端直连 OSS
+  // OSS / 外部存储：cover_path 是完整 http(s) URL，通过服务器代理中转，避免前端直连 OSS
   if (coverPath.startsWith('http://') || coverPath.startsWith('https://')) {
     return `${base}/api/public/covers/proxy?path=${encodeURIComponent(coverPath)}`;
   }
-  // 动态模式: /uploads/... (new) or covers/... (legacy)
+  // 前端 public 目录下的静态资源（如游戏封面 /games/xxx.png），直接使用相对路径
+  if (coverPath.startsWith('/') && !coverPath.startsWith('/uploads/')) {
+    return coverPath;
+  }
+  // 后端本地上传文件: /uploads/... (new) or covers/... (legacy)
   const normalized = coverPath.startsWith('/') ? coverPath : `/uploads/${coverPath}`;
   return `${base}${normalized}`;
 };

@@ -101,7 +101,6 @@ const AlbumManagement: React.FC = () => {
     fetchAlbums();
   };
 
-
   const columns: ColumnsType<Album> = [
     {
       title: '封面',
