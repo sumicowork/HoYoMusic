@@ -44,12 +44,9 @@ interface UploadModalProps {
 }
 
 function parseFilename(name: string): { title: string; artist: string; album: string } {
-  const base = name.replace(/\.flac$/i, '');
-  let title = base; let artist = ''; const album = '';
-  const m = base.match(/^(?:\d+\.\s*)?(.+?)\s*[-–]\s*(.+)$/);
-  if (m) { artist = m[1].trim(); title = m[2].trim(); }
-  else { title = base.replace(/^\d+\.\s*/, '').trim(); }
-  return { title, artist, album };
+  // 文件名去掉扩展名即为标题，不做任何分割解析
+  const title = name.replace(/\.flac$/i, '');
+  return { title, artist: '', album: '' };
 }
 
 const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }) => {
@@ -516,4 +513,5 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
 };
 
 export default UploadModal;
+
 
