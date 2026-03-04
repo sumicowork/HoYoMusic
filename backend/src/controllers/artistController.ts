@@ -56,7 +56,25 @@ export const getArtistById = async (req: Request, res: Response) => {
   try {
     const name = decodeURIComponent(String(req.params.id || ''));
 
-    // Tracks featuring this person in credits
+    // Check if this name is an alias → resolve to canonical name
+    const aliasCheck = await pool.query(
+      'SELECT canonical_name FROM artist_aliases WHERE LOWER(alias_name) = LOWER($1) LIMIT 1',
+      [name]
+    );
+    const resolvedName = aliasCheck.rows.length > 0 ? aliasCheck.rows[0].canonical_name : name;
+
+    // Get all names to search: canonical + all aliases
+    const aliasResult = await pool.query(
+      'SELECT alias_name FROM artist_aliases WHERE LOWER(canonical_name) = LOWER($1)',
+      [resolvedName]
+    );
+    const allNames = [resolvedName, ...aliasResult.rows.map((r: any) => r.alias_name)];
+    const aliasNames = aliasResult.rows.map((r: any) => r.alias_name);
+
+    // Build parameterized query for all names
+    const nameParams = allNames.map((_, i) => `LOWER($${i + 1})`).join(', ');
+
+    // Tracks featuring this person in credits (match all names)
     const tracksQuery = `
       SELECT
         t.*,
@@ -67,14 +85,14 @@ export const getArtistById = async (req: Request, res: Response) => {
       FROM track_credits tc
       JOIN tracks t         ON tc.track_id  = t.id
       LEFT JOIN albums a    ON t.album_id   = a.id
-      LEFT JOIN track_credits tc2 ON tc2.track_id = t.id AND LOWER(tc2.credit_value) = LOWER($1)
+      LEFT JOIN track_credits tc2 ON tc2.track_id = t.id AND LOWER(tc2.credit_value) IN (${nameParams})
       LEFT JOIN track_artists ta  ON t.id = ta.track_id
       LEFT JOIN artists ar        ON ta.artist_id = ar.id
-      WHERE LOWER(tc.credit_value) = LOWER($1)
+      WHERE LOWER(tc.credit_value) IN (${nameParams})
       GROUP BY t.id, a.title, a.cover_path
       ORDER BY t.created_at DESC
     `;
-    const tracksResult = await pool.query(tracksQuery, [name]);
+    const tracksResult = await pool.query(tracksQuery, allNames);
     const tracks = tracksResult.rows.map(row => ({
       ...row,
       artists: row.artists.filter((a: any) => a.id !== null),
@@ -89,11 +107,23 @@ export const getArtistById = async (req: Request, res: Response) => {
       JOIN tracks t   ON tc.track_id = t.id
       JOIN albums a   ON t.album_id  = a.id
       LEFT JOIN tracks t2 ON a.id = t2.album_id
-      WHERE LOWER(tc.credit_value) = LOWER($1)
+      WHERE LOWER(tc.credit_value) IN (${nameParams})
       GROUP BY a.id
       ORDER BY a.release_date DESC, a.title ASC
     `;
-    const albumsResult = await pool.query(albumsQuery, [name]);
+    const albumsResult = await pool.query(albumsQuery, allNames);
+
+    // Games (via albums)
+    const gamesQuery = `
+      SELECT DISTINCT g.id, g.name, g.name_en, g.cover_path
+      FROM track_credits tc
+      JOIN tracks t ON tc.track_id = t.id
+      JOIN albums a ON t.album_id = a.id
+      JOIN games g ON a.game_id = g.id
+      WHERE LOWER(tc.credit_value) IN (${nameParams})
+      ORDER BY g.name
+    `;
+    const gamesResult = await pool.query(gamesQuery, allNames);
 
     // Summary stats + roles
     const statsQuery = `
@@ -103,9 +133,9 @@ export const getArtistById = async (req: Request, res: Response) => {
         array_agg(DISTINCT tc.credit_key) AS roles
       FROM track_credits tc
       LEFT JOIN tracks t ON tc.track_id = t.id
-      WHERE LOWER(tc.credit_value) = LOWER($1)
+      WHERE LOWER(tc.credit_value) IN (${nameParams})
     `;
-    const statsResult = await pool.query(statsQuery, [name]);
+    const statsResult = await pool.query(statsQuery, allNames);
     const stats = statsResult.rows[0];
 
     if (parseInt(stats.track_count) === 0) {
@@ -116,14 +146,16 @@ export const getArtistById = async (req: Request, res: Response) => {
       success: true,
       data: {
         artist: {
-          id: null,           // credits-based artists have no integer id
-          name,
+          id: null,
+          name: resolvedName,
           track_count: stats.track_count,
           album_count: stats.album_count,
           roles: stats.roles.filter(Boolean),
+          aliases: aliasNames,
         },
         tracks,
         albums: albumsResult.rows,
+        games: gamesResult.rows,
       },
     });
   } catch (error) {
@@ -135,5 +167,80 @@ export const getArtistById = async (req: Request, res: Response) => {
 // Update artist (keep for backward compat, now a no-op stub)
 export const updateArtist = async (req: Request, res: Response) => {
   res.status(410).json({ success: false, error: { code: 'GONE', message: 'Artist editing is no longer supported' } });
+};
+
+// Merge artists: create alias relationships
+export const mergeArtists = async (req: Request, res: Response) => {
+  try {
+    const { canonicalName, aliasNames } = req.body;
+    if (!canonicalName || !Array.isArray(aliasNames) || aliasNames.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'INVALID_INPUT', message: '请提供主名称和别名列表' }
+      });
+    }
+
+    let created = 0;
+    for (const alias of aliasNames) {
+      const trimmed = alias.trim();
+      if (!trimmed || trimmed.toLowerCase() === canonicalName.toLowerCase()) continue;
+      try {
+        await pool.query(
+          `INSERT INTO artist_aliases (canonical_name, alias_name)
+           VALUES ($1, $2)
+           ON CONFLICT (canonical_name, alias_name) DO NOTHING`,
+          [canonicalName.trim(), trimmed]
+        );
+        created++;
+      } catch (e) {
+        console.error('Insert alias error:', e);
+      }
+    }
+
+    res.json({
+      success: true,
+      data: { created, message: `成功添加 ${created} 条别名` }
+    });
+  } catch (error) {
+    console.error('Merge artists error:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'MERGE_ERROR', message: '合并艺术家失败' }
+    });
+  }
+};
+
+// Get all aliases
+export const getAliases = async (req: Request, res: Response) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM artist_aliases ORDER BY canonical_name, alias_name'
+    );
+    res.json({
+      success: true,
+      data: { aliases: result.rows }
+    });
+  } catch (error) {
+    console.error('Get aliases error:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'FETCH_ERROR', message: '获取别名列表失败' }
+    });
+  }
+};
+
+// Delete alias
+export const deleteAlias = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM artist_aliases WHERE id = $1', [id]);
+    res.json({ success: true, data: { message: '别名已删除' } });
+  } catch (error) {
+    console.error('Delete alias error:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'DELETE_ERROR', message: '删除别名失败' }
+    });
+  }
 };
 

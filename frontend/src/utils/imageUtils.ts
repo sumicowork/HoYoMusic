@@ -11,14 +11,16 @@ const defaultApiBase = import.meta.env.VITE_API_URL?.replace('/api', '') || wind
 
 // 获取封面 URL，如果没有则返回占位符
 // OSS 模式下封面 URL 为完整 http(s) 地址，需要通过服务器代理中转（与 FLAC 流式传输保持一致）
-export const getCoverUrl = (coverPath: string | null, apiBaseUrl?: string): string => {
+// thumb: true → 返回缩略图 URL (200x200 webp)
+export const getCoverUrl = (coverPath: string | null, apiBaseUrl?: string, thumb?: boolean): string => {
   if (!coverPath) return MUSIC_ICON_PLACEHOLDER;
   // 静态模式: /data/covers/... 相对路径，直接返回
   if (IS_STATIC) return coverPath || MUSIC_ICON_PLACEHOLDER;
   const base = apiBaseUrl || defaultApiBase;
+  const sizeParam = thumb ? '&size=thumb' : '';
   // OSS / 外部存储：cover_path 是完整 http(s) URL，通过服务器代理中转，避免前端直连 OSS
   if (coverPath.startsWith('http://') || coverPath.startsWith('https://')) {
-    return `${base}/api/public/covers/proxy?path=${encodeURIComponent(coverPath)}`;
+    return `${base}/api/public/covers/proxy?path=${encodeURIComponent(coverPath)}${sizeParam}`;
   }
   // 前端 public 目录下的静态资源（如游戏封面 /games/xxx.png），直接使用相对路径
   if (coverPath.startsWith('/') && !coverPath.startsWith('/uploads/')) {
@@ -26,6 +28,9 @@ export const getCoverUrl = (coverPath: string | null, apiBaseUrl?: string): stri
   }
   // 后端本地上传文件: /uploads/... (new) or covers/... (legacy)
   const normalized = coverPath.startsWith('/') ? coverPath : `/uploads/${coverPath}`;
+  if (thumb) {
+    return `${base}/api/public/covers/proxy?path=${encodeURIComponent(normalized)}${sizeParam}`;
+  }
   return `${base}${normalized}`;
 };
 

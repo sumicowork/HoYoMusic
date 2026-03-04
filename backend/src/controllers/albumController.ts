@@ -3,6 +3,9 @@ import pool from '../config/database';
 import archiver from 'archiver';
 import path from 'path';
 import fs from 'fs';
+import https from 'https';
+import http from 'http';
+import { parseBuffer } from 'music-metadata';
 import storageService from '../services/storageService';
 
 // Get all albums with track count
@@ -312,3 +315,139 @@ export const uploadCover = async (req: Request, res: Response) => {
   }
 };
 
+// Bulk update game for albums
+export const bulkUpdateGame = async (req: Request, res: Response) => {
+  try {
+    const { albumIds, gameId } = req.body;
+    if (!Array.isArray(albumIds) || albumIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'INVALID_INPUT', message: '请提供专辑ID列表' }
+      });
+    }
+
+    await pool.query(
+      'UPDATE albums SET game_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = ANY($2)',
+      [gameId || null, albumIds]
+    );
+
+    res.json({
+      success: true,
+      data: { updated: albumIds.length, message: `成功设置 ${albumIds.length} 张专辑的游戏` }
+    });
+  } catch (error) {
+    console.error('Bulk update game error:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'UPDATE_ERROR', message: '批量设置游戏失败' }
+    });
+  }
+};
+
+// Rescan release dates from FLAC metadata for all tracks in an album
+export const rescanDates = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const tracksResult = await pool.query(
+      'SELECT id, file_path FROM tracks WHERE album_id = $1',
+      [id]
+    );
+
+    if (tracksResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'NO_TRACKS', message: '该专辑没有曲目' }
+      });
+    }
+
+    let updated = 0;
+    let albumDate: string | null = null;
+
+    for (const track of tracksResult.rows) {
+      try {
+        let buffer: Buffer;
+
+        if (storageService.isOSS()) {
+          const ossService = (await import('../services/ossService')).default;
+          const signedUrl = await ossService.getSignedUrl(track.file_path, 300);
+          buffer = await new Promise<Buffer>((resolve, reject) => {
+            const proto = signedUrl.startsWith('https') ? https : http;
+            proto.get(signedUrl, { headers: { 'Range': 'bytes=0-262143' } }, (res) => {
+              const chunks: Buffer[] = [];
+              res.on('data', (chunk: Buffer) => chunks.push(chunk));
+              res.on('end', () => resolve(Buffer.concat(chunks)));
+              res.on('error', reject);
+            }).on('error', reject);
+          });
+        } else if (storageService.isWebDAV()) {
+          continue;
+        } else {
+          const fullPath = storageService.getFullPath(track.file_path);
+          if (!fs.existsSync(fullPath)) continue;
+          const fd = fs.openSync(fullPath, 'r');
+          buffer = Buffer.alloc(262144);
+          const bytesRead = fs.readSync(fd, buffer, 0, 262144, 0);
+          fs.closeSync(fd);
+          buffer = buffer.slice(0, bytesRead);
+        }
+
+        const metadata = await parseBuffer(buffer, { mimeType: 'audio/flac' });
+
+        let releaseDate: Date | null = null;
+        const dateStr = (metadata.common as any).date;
+        if (dateStr && typeof dateStr === 'string') {
+          const parsed = new Date(dateStr);
+          if (!isNaN(parsed.getTime())) releaseDate = parsed;
+        }
+        if (!releaseDate && metadata.native) {
+          for (const [, tags] of Object.entries(metadata.native)) {
+            for (const tag of tags) {
+              const tagId = tag.id.toLowerCase();
+              if (tagId === 'date' || tagId === 'tdrc' || tagId === 'originaldate') {
+                const val = typeof tag.value === 'string' ? tag.value : '';
+                if (val && val.length >= 10) {
+                  const parsed = new Date(val);
+                  if (!isNaN(parsed.getTime())) { releaseDate = parsed; break; }
+                }
+              }
+            }
+            if (releaseDate) break;
+          }
+        }
+        if (!releaseDate && metadata.common.year) {
+          releaseDate = new Date(metadata.common.year, 0, 1);
+        }
+
+        if (releaseDate) {
+          await pool.query(
+            'UPDATE tracks SET release_date = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+            [releaseDate, track.id]
+          );
+          updated++;
+          if (!albumDate) albumDate = releaseDate.toISOString();
+        }
+      } catch (err) {
+        console.error(`Error rescanning date for track ${track.id}:`, err);
+      }
+    }
+
+    if (albumDate) {
+      await pool.query(
+        'UPDATE albums SET release_date = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+        [albumDate, id]
+      );
+    }
+
+    res.json({
+      success: true,
+      data: { updated, message: `成功更新 ${updated} 首曲目的发行日期` }
+    });
+  } catch (error) {
+    console.error('Rescan dates error:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'RESCAN_ERROR', message: '重新读取日期失败' }
+    });
+  }
+};

@@ -12,7 +12,8 @@ import {
   FileTextOutlined,
   TeamOutlined,
   TagsOutlined,
-  AppstoreOutlined
+  AppstoreOutlined,
+  SearchOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { TableRowSelection } from 'antd/es/table/interface';
@@ -52,12 +53,16 @@ const Admin: React.FC = () => {
   const [bulkMoveModalVisible, setBulkMoveModalVisible] = useState(false);
   const [creditsImportModalVisible, setCreditsImportModalVisible] = useState(false);
 
+  // Search state
+  const [searchText, setSearchText] = useState('');
+
   const { playTrackOnly } = usePlayerStore();
 
-  const fetchTracks = async (page = 1) => {
+  const fetchTracks = async (page = 1, search?: string) => {
+    const searchVal = search !== undefined ? search : searchText;
     setLoading(true);
     try {
-      const data = await trackService.getTracks(page, pagination.pageSize);
+      const data = await trackService.getTracks(page, pagination.pageSize, searchVal);
       setTracks(data.tracks);
       setPagination(prev => ({
         ...prev,
@@ -108,7 +113,7 @@ const Admin: React.FC = () => {
         });
         message.success('曲目信息已更新');
         setEditModalVisible(false);
-        fetchTracks();
+        fetchTracks(pagination.current);
       }
     } catch (error: any) {
       message.error(error.message || '更新失败');
@@ -126,7 +131,7 @@ const Admin: React.FC = () => {
         try {
           await trackService.deleteTrack(track.id);
           message.success('曲目已删除');
-          fetchTracks();
+          fetchTracks(pagination.current);
         } catch (error: any) {
           message.error(error.message || '删除失败');
         }
@@ -139,7 +144,7 @@ const Admin: React.FC = () => {
       await trackService.bulkDeleteTracks(selectedRowKeys as number[]);
       message.success(`成功删除 ${selectedRowKeys.length} 首曲目`);
       setSelectedRowKeys([]);
-      fetchTracks();
+      fetchTracks(pagination.current);
     } catch (error: any) {
       message.error(error.message || '批量删除失败');
     }
@@ -164,18 +169,21 @@ const Admin: React.FC = () => {
       key: 'cover',
       width: 80,
       render: (coverPath, record) => {
-        const src = coverPath
-          ? trackService.getCoverUrl(coverPath)
-          : record.album_cover
-            ? trackService.getCoverUrl(record.album_cover)
-            : undefined;
+        const coverSrc = coverPath || record.album_cover;
+        const thumbSrc = coverSrc
+          ? trackService.getCoverUrl(coverSrc, true)
+          : undefined;
+        const fullSrc = coverSrc
+          ? trackService.getCoverUrl(coverSrc)
+          : undefined;
         return (
           <Image
             width={50}
             height={50}
-            src={src}
+            src={thumbSrc}
             fallback={MUSIC_ICON_PLACEHOLDER}
             style={{ borderRadius: 4, objectFit: 'cover' }}
+            preview={fullSrc ? { src: fullSrc } : false}
           />
         );
       },
@@ -277,6 +285,15 @@ const Admin: React.FC = () => {
         title="曲目管理"
         extra={
           <Space>
+            <Input.Search
+              placeholder="搜索曲名/专辑/艺术家..."
+              allowClear
+              style={{ width: 240 }}
+              value={searchText}
+              onChange={e => setSearchText(e.target.value)}
+              onSearch={(val) => { setSearchText(val); fetchTracks(1, val); }}
+              enterButton={<SearchOutlined />}
+            />
             {hasSelection && (
               <>
                 <Button
@@ -407,7 +424,7 @@ const Admin: React.FC = () => {
         onClose={() => setUploadModalVisible(false)}
         onSuccess={() => {
           setUploadModalVisible(false);
-          fetchTracks();
+          fetchTracks(pagination.current);
         }}
       />
 

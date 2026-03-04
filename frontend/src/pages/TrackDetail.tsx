@@ -154,18 +154,21 @@ const TrackDetail: React.FC = () => {
         <Card className="track-info-card">
           <div className="track-info-container">
             {(() => {
-              const coverSrc = track.cover_path
-                ? trackService.getCoverUrl(track.cover_path)
-                : track.album_cover
-                  ? trackService.getCoverUrl(track.album_cover)
-                  : null;
+              const coverSrc = track.cover_path || track.album_cover;
+              const thumbSrc = coverSrc
+                ? trackService.getCoverUrl(coverSrc, true)
+                : null;
+              const fullSrc = coverSrc
+                ? trackService.getCoverUrl(coverSrc)
+                : null;
               return (
                 <Image
                   width={250}
                   height={250}
-                  src={coverSrc || MUSIC_ICON_PLACEHOLDER}
+                  src={thumbSrc || MUSIC_ICON_PLACEHOLDER}
                   fallback={MUSIC_ICON_PLACEHOLDER}
                   style={{ borderRadius: 8 }}
+                  preview={fullSrc ? { src: fullSrc } : false}
                 />
               );
             })()}

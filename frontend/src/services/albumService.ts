@@ -49,6 +49,21 @@ export const albumService = {
     throw new Error(response.data.error?.message || 'Failed to update album');
   },
 
+  async bulkSetGame(albumIds: number[], gameId: number | null): Promise<void> {
+    const response = await api.put<ApiResponse<any>>('/albums/bulk-game', { albumIds, gameId });
+    if (!response.data.success) {
+      throw new Error(response.data.error?.message || '批量设置游戏失败');
+    }
+  },
+
+  async rescanDates(albumId: number): Promise<{ updated: number }> {
+    const response = await api.post<ApiResponse<{ updated: number }>>(`/albums/${albumId}/rescan-dates`);
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data.error?.message || '重新读取日期失败');
+  },
+
   async uploadCover(id: number, file: File): Promise<{ album: Album; cover_path: string }> {
     const formData = new FormData();
     formData.append('cover', file);
@@ -69,4 +84,3 @@ export const albumService = {
     throw new Error(response.data.error?.message || 'Failed to upload cover');
   }
 };
-

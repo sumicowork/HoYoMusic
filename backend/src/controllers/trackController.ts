@@ -91,7 +91,37 @@ export const uploadTracks = async (req: Request, res: Response) => {
           ? (albumOverride || null)
           : (metadata.common.album || null);
         const trackNumber = metadata.common.track.no || null;
-        const releaseDate = metadata.common.year ? new Date(metadata.common.year, 0, 1) : null;
+
+        // Parse release date: prefer full date string from native tags, fallback to year-only
+        let releaseDate: Date | null = null;
+        // Try metadata.common.date first (full date string like "2022-03-15")
+        const commonDate = (metadata.common as any).date;
+        if (commonDate && typeof commonDate === 'string') {
+          const parsed = new Date(commonDate);
+          if (!isNaN(parsed.getTime())) releaseDate = parsed;
+        }
+        // Try native tags for full date (DATE, TDRC, ORIGINALDATE)
+        if (!releaseDate && metadata.native) {
+          for (const [, tags] of Object.entries(metadata.native)) {
+            for (const tag of tags) {
+              const tagId = tag.id.toLowerCase();
+              if (tagId === 'date' || tagId === 'tdrc' || tagId === 'originaldate') {
+                const val = typeof tag.value === 'string' ? tag.value : '';
+                // Accept date strings like "2022-03-15" or "2022-03-15T00:00:00"
+                if (val && val.length >= 10) {
+                  const parsed = new Date(val);
+                  if (!isNaN(parsed.getTime())) { releaseDate = parsed; break; }
+                }
+              }
+            }
+            if (releaseDate) break;
+          }
+        }
+        // Fallback to year-only
+        if (!releaseDate && metadata.common.year) {
+          releaseDate = new Date(metadata.common.year, 0, 1);
+        }
+
         const duration = metadata.format.duration ? Math.floor(metadata.format.duration) : null;
         const sampleRate = metadata.format.sampleRate || null;
         const bitsPerSample = metadata.format.bitsPerSample || null;
@@ -345,6 +375,14 @@ export const getTracks = async (req: Request, res: Response) => {
       : [];
     const tagLogic = (req.query.tag_logic as string)?.toUpperCase() === 'OR' ? 'OR' : 'AND';
 
+    // game_ids: 逗号分隔的 game id 列表
+    const gameIdsRaw = req.query.game_ids as string || '';
+    const gameIds = gameIdsRaw
+      ? gameIdsRaw.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n))
+      : [];
+    // artist: 艺术家名称模糊匹配
+    const artistFilter = (req.query.artist as string || '').trim();
+
     const sortBy  = (req.query.sort_by as string) || 'created_at';
     const sortDir = (req.query.sort_dir as string)?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
@@ -433,6 +471,22 @@ export const getTracks = async (req: Request, res: Response) => {
           pIdx++;
         }
       }
+    }
+
+    // 游戏筛选
+    if (gameIds.length > 0) {
+      conditions.push(`a.game_id = ANY($${pIdx++})`);
+      queryParams.push(gameIds);
+    }
+
+    // 艺术家筛选
+    if (artistFilter) {
+      conditions.push(`EXISTS (
+        SELECT 1 FROM track_credits tc_af
+        WHERE tc_af.track_id = t.id
+        AND LOWER(tc_af.credit_value) LIKE LOWER($${pIdx++})
+      )`);
+      queryParams.push(`%${artistFilter}%`);
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';

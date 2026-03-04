@@ -3,8 +3,11 @@ import { Table, Button, message, Space, Image, Modal, Form, Input, Select, DateP
 import {
   EditOutlined,
   PictureOutlined,
+  AppstoreOutlined,
+  CalendarOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import type { TableRowSelection } from 'antd/es/table/interface';
 import { albumService, Album } from '../services/albumService';
 import { gameService, Game } from '../services/gameService';
 import { useNavigate } from 'react-router-dom';
@@ -24,6 +27,11 @@ const AlbumManagement: React.FC = () => {
   const [selectedAlbumForCover, setSelectedAlbumForCover] = useState<Album | null>(null);
   const [form] = Form.useForm();
   const navigate = useNavigate();
+
+  // Bulk game assignment
+  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+  const [bulkGameModalVisible, setBulkGameModalVisible] = useState(false);
+  const [bulkGameId, setBulkGameId] = useState<number | null>(null);
 
 
   const fetchAlbums = async (page = 1) => {
@@ -82,7 +90,7 @@ const AlbumManagement: React.FC = () => {
         await albumService.updateAlbum(editingAlbum.id, updateData);
         message.success('专辑更新成功！');
         setEditModalVisible(false);
-        fetchAlbums();
+        fetchAlbums(pagination.current);
       }
     } catch (error: any) {
       console.error('Update error:', error);
@@ -98,7 +106,17 @@ const AlbumManagement: React.FC = () => {
   const handleCoverUploadSuccess = () => {
     message.success('封面更新成功！');
     setCoverUploadVisible(false);
-    fetchAlbums();
+    fetchAlbums(pagination.current);
+  };
+
+  const handleRescanDates = async (album: Album) => {
+    try {
+      const result = await albumService.rescanDates(album.id);
+      message.success(result.message || `成功更新发行日期`);
+      fetchAlbums(pagination.current);
+    } catch (error: any) {
+      message.error(error.message || '重新读取日期失败');
+    }
   };
 
   const columns: ColumnsType<Album> = [
@@ -111,8 +129,9 @@ const AlbumManagement: React.FC = () => {
         <Image
           width={50}
           height={50}
-          src={getCoverUrl(coverPath)}
+          src={getCoverUrl(coverPath, undefined, true)}
           style={{ borderRadius: 4, objectFit: 'cover' }}
+          preview={coverPath ? { src: getCoverUrl(coverPath) } : false}
         />
       ),
     },
@@ -149,9 +168,9 @@ const AlbumManagement: React.FC = () => {
     {
       title: '操作',
       key: 'actions',
-      width: 200,
+      width: 280,
       render: (_, record) => (
-        <Space>
+        <Space wrap>
           <Button
             icon={<EditOutlined />}
             onClick={() => handleEdit(record)}
@@ -167,6 +186,13 @@ const AlbumManagement: React.FC = () => {
             上传封面
           </Button>
           <Button
+            icon={<CalendarOutlined />}
+            onClick={() => handleRescanDates(record)}
+            size="small"
+          >
+            重读日期
+          </Button>
+          <Button
             onClick={() => navigate(`/albums/${record.id}`)}
             size="small"
           >
@@ -177,14 +203,49 @@ const AlbumManagement: React.FC = () => {
     },
   ];
 
+  const rowSelection: TableRowSelection<Album> = {
+    selectedRowKeys,
+    onChange: (keys) => setSelectedRowKeys(keys),
+  };
+
+  const handleBulkSetGame = async () => {
+    try {
+      await albumService.bulkSetGame(selectedRowKeys as number[], bulkGameId);
+      message.success(`成功设置 ${selectedRowKeys.length} 张专辑的游戏`);
+      setBulkGameModalVisible(false);
+      setSelectedRowKeys([]);
+      setBulkGameId(null);
+      fetchAlbums(pagination.current);
+    } catch (error: any) {
+      message.error(error.message || '批量设置游戏失败');
+    }
+  };
+
+  const hasSelection = selectedRowKeys.length > 0;
+
   return (
     <AdminLayout>
-      <Card title="专辑管理">
+      <Card
+        title="专辑管理"
+        extra={
+          <Space>
+            {hasSelection && (
+              <Button
+                icon={<AppstoreOutlined />}
+                onClick={() => setBulkGameModalVisible(true)}
+              >
+                批量设置游戏 ({selectedRowKeys.length})
+              </Button>
+            )}
+          </Space>
+        }
+      >
         <Table
           columns={columns}
           dataSource={albums}
           rowKey="id"
           loading={loading}
+          rowSelection={rowSelection}
           pagination={{
             ...pagination,
             showSizeChanger: true,
@@ -237,6 +298,30 @@ const AlbumManagement: React.FC = () => {
           onSuccess={handleCoverUploadSuccess}
         />
       )}
+
+      {/* Bulk Set Game Modal */}
+      <Modal
+        title={`批量设置游戏 (${selectedRowKeys.length} 张专辑)`}
+        open={bulkGameModalVisible}
+        onOk={handleBulkSetGame}
+        onCancel={() => { setBulkGameModalVisible(false); setBulkGameId(null); }}
+        okText="确定"
+        cancelText="取消"
+      >
+        <Select
+          allowClear
+          placeholder="选择游戏（清空则取消关联）"
+          style={{ width: '100%' }}
+          value={bulkGameId}
+          onChange={setBulkGameId}
+        >
+          {games.map(game => (
+            <Select.Option key={game.id} value={game.id}>
+              {game.name}
+            </Select.Option>
+          ))}
+        </Select>
+      </Modal>
     </AdminLayout>
   );
 };

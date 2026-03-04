@@ -21,6 +21,7 @@ interface Artist {
   track_count: number;
   album_count: number;
   roles: string[];
+  aliases?: string[];
 }
 
 interface Album {
@@ -31,12 +32,20 @@ interface Album {
   track_count: number;
 }
 
+interface GameInfo {
+  id: number;
+  name: string;
+  name_en: string;
+  cover_path: string;
+}
+
 const ArtistDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();  // actually the person's name (encoded)
   const navigate = useNavigate();
   const [artist, setArtist] = useState<Artist | null>(null);
   const [tracks, setTracks] = useState<Track[]>([]);
   const [albums, setAlbums] = useState<Album[]>([]);
+  const [games, setGames] = useState<GameInfo[]>([]);
   const [loading, setLoading] = useState(true);
 
   const { play, setPlaylist, playTrackOnly } = usePlayerStore();
@@ -52,12 +61,14 @@ const ArtistDetail: React.FC = () => {
         setArtist(data.artist);
         setTracks(data.tracks);
         setAlbums(data.albums);
+        if (data.games) setGames(data.games);
       } else {
         const response = await axios.get(`${API_BASE_URL}/artists/${id}`);
         if (response.data.success) {
           setArtist(response.data.data.artist);
           setTracks(response.data.data.tracks);
           setAlbums(response.data.data.albums);
+          if (response.data.data.games) setGames(response.data.data.games);
         }
       }
     } catch (error: any) {
@@ -118,21 +129,6 @@ const ArtistDetail: React.FC = () => {
       render: formatDuration,
     },
     {
-      title: '音质',
-      key: 'quality',
-      width: 110,
-      render: (_: any, record: Track) => (
-        <Space direction="vertical" size={0}>
-          <Tag color="blue">FLAC</Tag>
-          {record.sample_rate && record.bit_depth && (
-            <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
-              {(record.sample_rate / 1000).toFixed(1)}kHz/{record.bit_depth}bit
-            </span>
-          )}
-        </Space>
-      ),
-    },
-    {
       title: '操作',
       key: 'actions',
       width: 160,
@@ -183,10 +179,46 @@ const ArtistDetail: React.FC = () => {
           <Avatar size={200} icon={<UserOutlined />} style={{ backgroundColor: '#667eea', fontSize: 80 }} />
           <div className="artist-hero-info">
             <h1>{artist.name}</h1>
+            {artist.aliases && artist.aliases.length > 0 && (
+              <div style={{ marginBottom: 8, color: 'var(--text-tertiary)', fontSize: 13 }}>
+                别名：{artist.aliases.join('、')}
+              </div>
+            )}
             <div className="artist-stats">
               <Tag color="blue">{artist.track_count || 0} 首歌曲</Tag>
               <Tag color="green">{artist.album_count || 0} 张专辑</Tag>
             </div>
+            {games.length > 0 && (
+              <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+                <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>参与游戏：</span>
+                {games.map(game => (
+                  <div
+                    key={game.id}
+                    onClick={() => navigate(`/games/${game.id}`)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      cursor: 'pointer', padding: '4px 10px', borderRadius: 6,
+                      background: 'var(--bg-secondary, rgba(0,0,0,0.04))',
+                      transition: 'background 0.2s',
+                    }}
+                  >
+                    {game.cover_path ? (
+                      <img
+                        src={getCoverUrl(game.cover_path)}
+                        alt={game.name}
+                        onError={handleImageError}
+                        style={{ width: 22, height: 22, borderRadius: 4, objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <Avatar size={22} style={{ fontSize: 12, backgroundColor: '#667eea' }}>
+                        {game.name.charAt(0)}
+                      </Avatar>
+                    )}
+                    <span style={{ fontSize: 13 }}>{game.name}</span>
+                  </div>
+                ))}
+              </div>
+            )}
             {artist.roles && artist.roles.length > 0 && (
               <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {artist.roles.filter(Boolean).map(r => (

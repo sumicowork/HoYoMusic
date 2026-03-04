@@ -15,6 +15,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { Track } from '../types';
 import { trackService, TrackSearchParams, DOWNLOAD_ENABLED } from '../services/trackService';
 import { getTags, getTagGroups, Tag as TagType, TagGroup } from '../services/tagService';
+import { gameService, Game } from '../services/gameService';
 import { usePlayerStore } from '../store/playerStore';
 import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
 import { toast } from '../utils/toast';
@@ -25,28 +26,10 @@ const { Header, Content } = Layout;
 const { Text } = Typography;
 const { Panel } = Collapse;
 
-const SAMPLE_RATE_OPTIONS = [
-  { label: '不限', value: '' },
-  { label: '≥ 44.1 kHz (CD)', value: '44100' },
-  { label: '≥ 48 kHz', value: '48000' },
-  { label: '≥ 88.2 kHz (Hi-Res)', value: '88200' },
-  { label: '≥ 96 kHz', value: '96000' },
-  { label: '≥ 176.4 kHz', value: '176400' },
-  { label: '≥ 192 kHz', value: '192000' },
-];
-
-const BIT_DEPTH_OPTIONS = [
-  { label: '不限', value: '' },
-  { label: '16 bit', value: '16' },
-  { label: '24 bit', value: '24' },
-  { label: '32 bit', value: '32' },
-];
-
 const SORT_OPTIONS = [
   { label: '最新添加', value: 'created_at' },
   { label: '标题 A-Z', value: 'title' },
   { label: '时长', value: 'duration' },
-  { label: '采样率', value: 'sample_rate' },
   { label: '发行年份', value: 'release_date' },
 ];
 
@@ -99,9 +82,13 @@ const Search: React.FC = () => {
   const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
   const [tagLogic, setTagLogic] = useState<'AND' | 'OR'>('AND');
 
+  // 游戏数据
+  const [games, setGames] = useState<Game[]>([]);
+
   useEffect(() => {
     getTags().then(setAllTags).catch(() => {});
     getTagGroups().then(setTagGroups).catch(() => {});
+    gameService.getGames().then(setGames).catch(() => {});
   }, []);
 
   const { grouped, childMap } = organizeTagsByGroup(allTags, tagGroups);
@@ -144,9 +131,12 @@ const Search: React.FC = () => {
     const keyword = (values.keyword || '').trim();
     if (keyword) params.search = keyword;
 
-    // 音质筛选（空字符串 = 不限）
-    if (values.sample_rate_min) params.sample_rate_min = parseInt(values.sample_rate_min);
-    if (values.bit_depth)       params.bit_depth       = parseInt(values.bit_depth);
+    // 游戏筛选
+    if (values.game_ids?.length > 0) params.game_ids = values.game_ids;
+
+    // 艺术家筛选
+    const artistKeyword = (values.artist || '').trim();
+    if (artistKeyword) params.artist = artistKeyword;
 
     // 年份（只有启用时才传）
     if (yearFilterEnabled) {
@@ -172,8 +162,8 @@ const Search: React.FC = () => {
   const countActive = () => {
     const values = form.getFieldsValue();
     let c = 0;
-    if (values.sample_rate_min) c++;
-    if (values.bit_depth) c++;
+    if (values.game_ids?.length > 0) c++;
+    if ((values.artist || '').trim()) c++;
     if (yearFilterEnabled) c++;
     if (durationFilterEnabled) c++;
     if (selectedTagIds.length > 0) c++;
@@ -221,15 +211,14 @@ const Search: React.FC = () => {
       key: 'cover',
       width: 56,
       render: (coverPath, record) => {
-        const src = coverPath
-          ? trackService.getCoverUrl(coverPath)
-          : (record as any).album_cover
-            ? trackService.getCoverUrl((record as any).album_cover)
-            : undefined;
+        const coverSrc = coverPath || (record as any).album_cover;
+        const thumbSrc = coverSrc
+          ? trackService.getCoverUrl(coverSrc, true)
+          : undefined;
         return (
           <Image
             width={44} height={44}
-            src={src}
+            src={thumbSrc}
             fallback={MUSIC_ICON_PLACEHOLDER}
             style={{ borderRadius: 6, objectFit: 'cover' }}
             preview={false}
@@ -299,9 +288,8 @@ const Search: React.FC = () => {
 
   // 快捷搜索标签
   const quickTags = [
-    { label: 'Hi-Res 96kHz+', extra: { sample_rate_min: 96000 } },
-    { label: '24bit 无损', extra: { bit_depth: 24 } },
     { label: '近 5 年', extra: { year_from: currentYear - 5, year_to: currentYear } },
+    { label: '近 1 年', extra: { year_from: currentYear - 1, year_to: currentYear } },
     { label: '短曲 (<2分钟)', extra: { duration_max: 120 } },
     { label: '长曲 (>5分钟)', extra: { duration_min: 300 } },
   ];
@@ -492,7 +480,7 @@ const Search: React.FC = () => {
             size="small"
             icon={<CloseOutlined />}
             onClick={() => {
-              form.resetFields(['sample_rate_min', 'bit_depth']);
+              form.resetFields(['game_ids', 'artist']);
               setYearFilterEnabled(false);
               setDurationFilterEnabled(false);
               setSelectedTagIds([]);
@@ -519,15 +507,23 @@ const Search: React.FC = () => {
       >
         <Form form={form} layout="vertical">
 
-          {/* ── 音质 ── */}
-          <Divider plain style={{ margin: '4px 0 12px' }}>音质</Divider>
+          {/* ── 游戏 ── */}
+          <Divider plain style={{ margin: '4px 0 12px' }}>游戏</Divider>
 
-          <Form.Item name="sample_rate_min" label="最低采样率" initialValue="">
-            <Select options={SAMPLE_RATE_OPTIONS} />
+          <Form.Item name="game_ids" label="选择游戏">
+            <Select
+              mode="multiple"
+              allowClear
+              placeholder="选择游戏筛选"
+              options={games.map(g => ({ label: g.name, value: g.id }))}
+            />
           </Form.Item>
 
-          <Form.Item name="bit_depth" label="位深度" initialValue="">
-            <Select options={BIT_DEPTH_OPTIONS} />
+          {/* ── 艺术家 ── */}
+          <Divider plain style={{ margin: '4px 0 12px' }}>艺术家</Divider>
+
+          <Form.Item name="artist" label="艺术家名称">
+            <Input allowClear placeholder="输入艺术家名称" />
           </Form.Item>
 
           {/* ── 发行年份 ── */}

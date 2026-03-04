@@ -22,15 +22,15 @@ const publicApi = axios.create({
 
 export interface TrackSearchParams {
   search?: string;
-  sample_rate_min?: number;
-  bit_depth?: number;
+  game_ids?: number[];
+  artist?: string;
   year_from?: number;
   year_to?: number;
   duration_min?: number;  // seconds
   duration_max?: number;  // seconds
   tag_ids?: number[];     // 多 tag 筛选
   tag_logic?: 'AND' | 'OR'; // 多 tag 逻辑（默认 AND）
-  sort_by?: 'created_at' | 'title' | 'duration' | 'sample_rate' | 'release_date';
+  sort_by?: 'created_at' | 'title' | 'duration' | 'release_date';
   sort_dir?: 'ASC' | 'DESC';
   page?: number;
   limit?: number;
@@ -96,9 +96,9 @@ export const trackService = {
     throw new Error(response.data.error?.message || '预览失败');
   },
 
-  async getTracks(page = 1, limit = 20): Promise<{ tracks: Track[]; pagination: any }> {
+  async getTracks(page = 1, limit = 20, search = ''): Promise<{ tracks: Track[]; pagination: any }> {
     const response = await api.get<ApiResponse<{ tracks: Track[]; pagination: any }>>(
-      `/tracks?page=${page}&limit=${limit}`
+      `/tracks?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`
     );
     if (response.data.success && response.data.data) {
       return response.data.data;
@@ -122,8 +122,8 @@ export const trackService = {
     if (IS_STATIC) return staticData.searchTracksPublic(params);
     const query = new URLSearchParams();
     if (params.search)                        query.set('search',          params.search);
-    if (params.sample_rate_min != null)       query.set('sample_rate_min', String(params.sample_rate_min));
-    if (params.bit_depth       != null)       query.set('bit_depth',       String(params.bit_depth));
+    if (params.game_ids?.length)              query.set('game_ids',        params.game_ids.join(','));
+    if (params.artist)                        query.set('artist',          params.artist);
     if (params.year_from       != null)       query.set('year_from',        String(params.year_from));
     if (params.year_to         != null)       query.set('year_to',          String(params.year_to));
     if (params.duration_min    != null)       query.set('duration_min',     String(params.duration_min));
@@ -181,13 +181,14 @@ export const trackService = {
     return `${API_BASE_URL}/public/tracks/${id}/download`;
   },
 
-  getCoverUrl(coverPath: string | null): string {
+  getCoverUrl(coverPath: string | null, thumb?: boolean): string {
     if (!coverPath) return '/placeholder-cover.jpg';
     if (IS_STATIC) return staticData.getCoverUrl(coverPath) || '/placeholder-cover.jpg';
     const backendOrigin = API_BASE_URL.replace('/api', '');
+    const sizeParam = thumb ? '&size=thumb' : '';
     // OSS / 外部存储：cover_path 是完整 http(s) URL，通过服务器代理中转，避免前端直连 OSS
     if (coverPath.startsWith('http://') || coverPath.startsWith('https://')) {
-      return `${backendOrigin}/api/public/covers/proxy?path=${encodeURIComponent(coverPath)}`;
+      return `${backendOrigin}/api/public/covers/proxy?path=${encodeURIComponent(coverPath)}${sizeParam}`;
     }
     // 前端 public 目录下的静态资源（如游戏封面 /games/xxx.png），直接使用相对路径
     if (coverPath.startsWith('/') && !coverPath.startsWith('/uploads/')) {
@@ -195,6 +196,9 @@ export const trackService = {
     }
     // 后端本地上传文件: /uploads/... (new) or covers/... (legacy)
     const normalized = coverPath.startsWith('/') ? coverPath : `/uploads/${coverPath}`;
+    if (thumb) {
+      return `${backendOrigin}/api/public/covers/proxy?path=${encodeURIComponent(normalized)}${sizeParam}`;
+    }
     return `${backendOrigin}${normalized}`;
   },
 

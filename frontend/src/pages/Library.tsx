@@ -91,18 +91,21 @@ const Library: React.FC = () => {
       key: 'cover',
       width: 80,
       render: (coverPath, record) => {
-        const src = coverPath
-          ? trackService.getCoverUrl(coverPath)
-          : record.album_cover
-            ? trackService.getCoverUrl(record.album_cover)
-            : undefined;
+        const coverSrc = coverPath || record.album_cover;
+        const thumbSrc = coverSrc
+          ? trackService.getCoverUrl(coverSrc, true)
+          : undefined;
+        const fullSrc = coverSrc
+          ? trackService.getCoverUrl(coverSrc)
+          : undefined;
         return (
           <Image
             width={50}
             height={50}
-            src={src}
+            src={thumbSrc}
             fallback={MUSIC_ICON_PLACEHOLDER}
             style={{ borderRadius: 4, objectFit: 'cover' }}
+            preview={fullSrc ? { src: fullSrc } : false}
           />
         );
       },

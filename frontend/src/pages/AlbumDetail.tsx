@@ -179,9 +179,10 @@ const AlbumDetail: React.FC = () => {
           <Image
             width={250}
             height={250}
-            src={trackService.getCoverUrl(album.cover_path)}
+            src={trackService.getCoverUrl(album.cover_path, true)}
             fallback={MUSIC_ICON_PLACEHOLDER}
             style={{ borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.3)' }}
+            preview={album.cover_path ? { src: trackService.getCoverUrl(album.cover_path) } : false}
           />
           <div className="album-hero-info">
             <h1>{album.title}</h1>
