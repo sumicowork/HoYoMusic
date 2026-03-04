@@ -3,6 +3,7 @@ import cors from 'cors';
 import path from 'path';
 import dotenv from 'dotenv';
 import passport from './config/passport';
+import pool from './config/database';
 import { initWebDAVDirectories, testWebDAVConnection } from './config/webdav';
 import { testOSSConnection, initOSSDirectories } from './config/oss';
 import authRoutes from './routes/authRoutes';
@@ -54,6 +55,31 @@ app.get('/api/health', (req, res) => {
 app.use(errorHandler);
 
 // Initialize storage and start server
+const runMigrations = async () => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS artist_aliases (
+        id SERIAL PRIMARY KEY,
+        canonical_name VARCHAR(500) NOT NULL,
+        alias_name VARCHAR(500) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(canonical_name, alias_name)
+      )
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_artist_aliases_alias
+      ON artist_aliases (LOWER(alias_name))
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_artist_aliases_canonical
+      ON artist_aliases (LOWER(canonical_name))
+    `);
+    console.log('✅ DB migrations up to date (artist_aliases)');
+  } catch (err) {
+    console.error('⚠️  Migration warning (non-fatal):', err);
+  }
+};
+
 const startServer = async () => {
   try {
     const STORAGE_MODE = process.env.STORAGE_MODE || 'local';
@@ -89,6 +115,9 @@ const startServer = async () => {
       console.log('💾 Using local storage mode');
       console.log('📁 Files will be stored in ./uploads directory');
     }
+
+    // Run DB migrations
+    await runMigrations();
 
     // Start server
     app.listen(PORT, () => {

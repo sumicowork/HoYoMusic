@@ -57,19 +57,25 @@ export const getArtistById = async (req: Request, res: Response) => {
     const name = decodeURIComponent(String(req.params.id || ''));
 
     // Check if this name is an alias → resolve to canonical name
-    const aliasCheck = await pool.query(
-      'SELECT canonical_name FROM artist_aliases WHERE LOWER(alias_name) = LOWER($1) LIMIT 1',
-      [name]
-    );
-    const resolvedName = aliasCheck.rows.length > 0 ? aliasCheck.rows[0].canonical_name : name;
+    let resolvedName = name;
+    let aliasNames: string[] = [];
+    try {
+      const aliasCheck = await pool.query(
+        'SELECT canonical_name FROM artist_aliases WHERE LOWER(alias_name) = LOWER($1) LIMIT 1',
+        [name]
+      );
+      if (aliasCheck.rows.length > 0) resolvedName = aliasCheck.rows[0].canonical_name;
 
-    // Get all names to search: canonical + all aliases
-    const aliasResult = await pool.query(
-      'SELECT alias_name FROM artist_aliases WHERE LOWER(canonical_name) = LOWER($1)',
-      [resolvedName]
-    );
-    const allNames = [resolvedName, ...aliasResult.rows.map((r: any) => r.alias_name)];
-    const aliasNames = aliasResult.rows.map((r: any) => r.alias_name);
+      const aliasResult = await pool.query(
+        'SELECT alias_name FROM artist_aliases WHERE LOWER(canonical_name) = LOWER($1)',
+        [resolvedName]
+      );
+      aliasNames = aliasResult.rows.map((r: any) => r.alias_name);
+    } catch {
+      // artist_aliases table may not exist yet — degrade gracefully
+    }
+
+    const allNames = [resolvedName, ...aliasNames];
 
     // Build parameterized query for all names
     const nameParams = allNames.map((_, i) => `LOWER($${i + 1})`).join(', ');
@@ -169,9 +175,23 @@ export const updateArtist = async (req: Request, res: Response) => {
   res.status(410).json({ success: false, error: { code: 'GONE', message: 'Artist editing is no longer supported' } });
 };
 
+// Helper: ensure artist_aliases table exists
+const ensureAliasTable = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS artist_aliases (
+      id SERIAL PRIMARY KEY,
+      canonical_name VARCHAR(500) NOT NULL,
+      alias_name VARCHAR(500) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(canonical_name, alias_name)
+    )
+  `);
+};
+
 // Merge artists: create alias relationships
 export const mergeArtists = async (req: Request, res: Response) => {
   try {
+    await ensureAliasTable();
     const { canonicalName, aliasNames } = req.body;
     if (!canonicalName || !Array.isArray(aliasNames) || aliasNames.length === 0) {
       return res.status(400).json({
@@ -213,6 +233,7 @@ export const mergeArtists = async (req: Request, res: Response) => {
 // Get all aliases
 export const getAliases = async (req: Request, res: Response) => {
   try {
+    await ensureAliasTable();
     const result = await pool.query(
       'SELECT * FROM artist_aliases ORDER BY canonical_name, alias_name'
     );
@@ -232,6 +253,7 @@ export const getAliases = async (req: Request, res: Response) => {
 // Delete alias
 export const deleteAlias = async (req: Request, res: Response) => {
   try {
+    await ensureAliasTable();
     const { id } = req.params;
     await pool.query('DELETE FROM artist_aliases WHERE id = $1', [id]);
     res.json({ success: true, data: { message: '别名已删除' } });
