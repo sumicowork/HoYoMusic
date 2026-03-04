@@ -56,7 +56,7 @@ export const albumService = {
     }
   },
 
-  async rescanDates(albumId: number): Promise<{ updated: number }> {
+  async rescanDates(albumId: number): Promise<{ updated: number; message?: string }> {
     const response = await api.post<ApiResponse<{ updated: number }>>(`/albums/${albumId}/rescan-dates`);
     if (response.data.success && response.data.data) {
       return response.data.data;
