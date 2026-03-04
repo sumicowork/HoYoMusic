@@ -9,34 +9,66 @@ export const getArtists = async (req: Request, res: Response) => {
     const offset = (page - 1) * limit;
     const search = (req.query.search as string || '').trim();
 
-    const searchCond = search ? `AND LOWER(tc.credit_value) LIKE LOWER($3)` : '';
-    const params: any[] = [limit, offset];
-    if (search) params.push(`%${search}%`);
+    // Use separate param lists for count vs list queries to avoid index confusion
+    if (search) {
+      const searchPattern = `%${search}%`;
 
-    const countQuery = `
-      SELECT COUNT(DISTINCT tc.credit_value)
-      FROM track_credits tc
-      WHERE tc.credit_value IS NOT NULL AND tc.credit_value <> ''
-      ${searchCond}
-    `;
-    const countResult = await pool.query(countQuery, search ? [params[2]] : []);
+      const countResult = await pool.query(
+        `SELECT COUNT(DISTINCT tc.credit_value)
+         FROM track_credits tc
+         WHERE tc.credit_value IS NOT NULL AND tc.credit_value <> ''
+           AND LOWER(tc.credit_value) LIKE LOWER($1)`,
+        [searchPattern]
+      );
+      const total = parseInt(countResult.rows[0].count);
+
+      const artistsResult = await pool.query(
+        `SELECT
+           tc.credit_value                         AS name,
+           COUNT(DISTINCT tc.track_id)             AS track_count,
+           COUNT(DISTINCT t.album_id)              AS album_count,
+           array_agg(DISTINCT tc.credit_key)       AS roles
+         FROM track_credits tc
+         LEFT JOIN tracks t ON tc.track_id = t.id
+         WHERE tc.credit_value IS NOT NULL AND tc.credit_value <> ''
+           AND LOWER(tc.credit_value) LIKE LOWER($3)
+         GROUP BY tc.credit_value
+         ORDER BY COUNT(DISTINCT tc.track_id) DESC, tc.credit_value ASC
+         LIMIT $1 OFFSET $2`,
+        [limit, offset, searchPattern]
+      );
+
+      return res.json({
+        success: true,
+        data: {
+          artists: artistsResult.rows,
+          pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+        },
+      });
+    }
+
+    // No search
+    const countResult = await pool.query(
+      `SELECT COUNT(DISTINCT tc.credit_value)
+       FROM track_credits tc
+       WHERE tc.credit_value IS NOT NULL AND tc.credit_value <> ''`
+    );
     const total = parseInt(countResult.rows[0].count);
 
-    const artistsQuery = `
-      SELECT
-        tc.credit_value                         AS name,
-        COUNT(DISTINCT tc.track_id)             AS track_count,
-        COUNT(DISTINCT t.album_id)              AS album_count,
-        array_agg(DISTINCT tc.credit_key)       AS roles
-      FROM track_credits tc
-      LEFT JOIN tracks t ON tc.track_id = t.id
-      WHERE tc.credit_value IS NOT NULL AND tc.credit_value <> ''
-      ${searchCond}
-      GROUP BY tc.credit_value
-      ORDER BY COUNT(DISTINCT tc.track_id) DESC, tc.credit_value ASC
-      LIMIT $1 OFFSET $2
-    `;
-    const artistsResult = await pool.query(artistsQuery, params);
+    const artistsResult = await pool.query(
+      `SELECT
+         tc.credit_value                         AS name,
+         COUNT(DISTINCT tc.track_id)             AS track_count,
+         COUNT(DISTINCT t.album_id)              AS album_count,
+         array_agg(DISTINCT tc.credit_key)       AS roles
+       FROM track_credits tc
+       LEFT JOIN tracks t ON tc.track_id = t.id
+       WHERE tc.credit_value IS NOT NULL AND tc.credit_value <> ''
+       GROUP BY tc.credit_value
+       ORDER BY COUNT(DISTINCT tc.track_id) DESC, tc.credit_value ASC
+       LIMIT $1 OFFSET $2`,
+      [limit, offset]
+    );
 
     res.json({
       success: true,
@@ -45,9 +77,15 @@ export const getArtists = async (req: Request, res: Response) => {
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Get artists error:', error);
-    res.status(500).json({ success: false, error: { code: 'FETCH_ERROR', message: 'Failed to fetch artists' } });
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'FETCH_ERROR',
+        message: error?.message || 'Failed to fetch artists',
+      },
+    });
   }
 };
 
