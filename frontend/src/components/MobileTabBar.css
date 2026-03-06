@@ -30,7 +30,8 @@
 }
 
 .mobile-tab-bar.with-player {
-  bottom: 88px;
+  /* Player now sits above the tab bar on mobile — no offset needed */
+  bottom: 0;
 }
 
 .mobile-tab-item {

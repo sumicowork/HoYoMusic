@@ -372,7 +372,11 @@
 
 /* ── Mobile responsive ─────────────────────────── */
 @media (max-width: 768px) {
-  .player-content {
+  /* Player sits above the tab bar */
+  .player-container {
+    bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--border-secondary);
+  }
     padding: 10px 12px;
     gap: 8px;
   }

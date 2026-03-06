@@ -23,12 +23,14 @@ body {
 
 /* Mobile: account for MobileTabBar (56px) */
 @media (max-width: 768px) {
+  /* No player: just tab bar */
   .app {
-    padding-bottom: 64px;
+    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
   }
 
+  /* With player: player(~72px) sits above tab bar(56px) */
   .app.has-player {
-    padding-bottom: 152px; /* 96px player + 56px tab bar */
+    padding-bottom: calc(72px + 56px + env(safe-area-inset-bottom, 0px));
   }
 
   /* Mobile table improvements */
