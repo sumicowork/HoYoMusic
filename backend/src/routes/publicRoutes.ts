@@ -5,6 +5,7 @@ import sharp from 'sharp';
 import fs from 'fs';
 import path from 'path';
 import { getTracks, getTrackById, streamTrack, downloadTrack } from '../controllers/trackController';
+import pool from '../config/database';
 import storageService from '../services/storageService';
 
 const router = Router();
@@ -139,6 +140,54 @@ router.get('/covers/proxy', async (req: Request, res: Response) => {
   }
 });
 // ──────────────────────────────────────────────────────────────────
+
+// ── Random Albums — 随机专辑推荐 ──────────────────────────────────
+router.get('/albums/random', async (req: Request, res: Response) => {
+  try {
+    const count = Math.min(parseInt(req.query.count as string) || 6, 20);
+    const result = await pool.query(`
+      SELECT a.*, COUNT(DISTINCT t.id)::int AS track_count,
+             COALESCE(SUM(t.duration), 0)::int AS total_duration,
+             g.name AS game_name
+      FROM albums a
+      LEFT JOIN tracks t ON a.id = t.album_id
+      LEFT JOIN games g ON a.game_id = g.id
+      GROUP BY a.id, g.name
+      HAVING COUNT(DISTINCT t.id) > 0
+      ORDER BY RANDOM()
+      LIMIT $1
+    `, [count]);
+    res.json({ success: true, data: { albums: result.rows } });
+  } catch (error) {
+    console.error('[RandomAlbums] Error:', error);
+    res.status(500).json({ success: false, error: { code: 'FETCH_ERROR', message: 'Failed to fetch random albums' } });
+  }
+});
+
+// ── Random Tracks — 随机曲目推荐 ─────────────────────────────────
+router.get('/tracks/random', async (req: Request, res: Response) => {
+  try {
+    const count = Math.min(parseInt(req.query.count as string) || 10, 30);
+    const result = await pool.query(`
+      SELECT t.*, a.title AS album_title, a.cover_path AS album_cover,
+             COALESCE(
+               json_agg(json_build_object('id', ar.id, 'name', ar.name))
+               FILTER (WHERE ar.id IS NOT NULL), '[]'
+             ) AS artists
+      FROM tracks t
+      LEFT JOIN albums a ON t.album_id = a.id
+      LEFT JOIN track_artists ta ON t.id = ta.track_id
+      LEFT JOIN artists ar ON ta.artist_id = ar.id
+      GROUP BY t.id, a.title, a.cover_path
+      ORDER BY RANDOM()
+      LIMIT $1
+    `, [count]);
+    res.json({ success: true, data: { tracks: result.rows } });
+  } catch (error) {
+    console.error('[RandomTracks] Error:', error);
+    res.status(500).json({ success: false, error: { code: 'FETCH_ERROR', message: 'Failed to fetch random tracks' } });
+  }
+});
 
 // Public routes - 无需认证
 router.get('/tracks', getTracks);

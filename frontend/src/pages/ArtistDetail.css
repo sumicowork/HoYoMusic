@@ -37,8 +37,10 @@
 }
 
 .artist-hero-info h1 {
+  font-family: var(--font-display, 'Noto Serif SC', serif);
   font-size: 36px;
-  font-weight: 700;
+  font-weight: 900;
+  letter-spacing: -0.03em;
   margin-bottom: 16px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 60%, #f093fb 100%);
   -webkit-background-clip: text;

@@ -42,6 +42,13 @@
   --aurora-animate-2: rgba(240, 147, 251, 0.25);
   --aurora-animate-3: rgba(67, 233, 123, 0.15);
   --aurora-animate-4: rgba(79, 172, 254, 0.2);
+
+  /* Warm accent for vibrancy */
+  --aurora-warm: #FFB347;
+  --aurora-rose: #fa709a;
+
+  /* Grain overlay for depth */
+  --grain-opacity: 0.03;
 }
 
 /* ── 暗色模式 Token 覆盖 ── */
@@ -1233,19 +1240,91 @@ body::after {
   animation: buttonPop 0.25s ease forwards;
 }
 
-/* 播放器封面旋转动效（可选） */
-@keyframes spinSlow {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.player-cover-spinning {
-  animation: spinSlow 20s linear infinite;
-}
+/* 播放器封面旋转动效已移至 Player.css */
 
 /* 队列项目进入动画 */
 .queue-item {
   animation: fadeSlideIn 0.2s ease forwards;
+}
+
+/* ============================================================
+   Staggered Card Entrance Animation
+   ============================================================ */
+
+@keyframes cardEntrance {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.card-stagger-enter {
+  opacity: 0;
+  animation: cardEntrance 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  animation-delay: calc(var(--i, 0) * 0.06s);
+}
+
+/* ============================================================
+   Grain Texture Overlay — subtle film grain for depth
+   ============================================================ */
+
+body::before {
+  background-image:
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+}
+
+/* ============================================================
+   Press/Tap Feedback for all interactive elements
+   ============================================================ */
+
+.ant-btn:active,
+.album-card:active,
+.game-card:active,
+.artist-card:active,
+.tag-card:active,
+.side-nav-item:active {
+  transform: scale(0.97) !important;
+  transition: transform 0.1s ease !important;
+}
+
+/* ============================================================
+   Section Header Typography
+   ============================================================ */
+
+.section-title {
+  font-family: var(--font-display, 'Noto Serif SC', serif);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, var(--aurora-1) 0%, var(--aurora-2) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ============================================================
+   Player gradient accent line
+   ============================================================ */
+
+.player-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--aurora-1), var(--aurora-3), var(--aurora-4), var(--aurora-2));
+  background-size: 300% 100%;
+  animation: gradientSlide 4s ease-in-out infinite;
+  z-index: 10;
+}
+
+@keyframes gradientSlide {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
 }
 
 /* Ant Design Skeleton 美化 */

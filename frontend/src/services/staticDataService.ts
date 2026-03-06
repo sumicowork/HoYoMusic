@@ -249,6 +249,28 @@ export async function getCredits(trackId: number) {
 }
 
 // ────────────────────────────────────────────────────────────
+// Random Recommendations (static mode: shuffle from cached data)
+// ────────────────────────────────────────────────────────────
+function shuffleArray<T>(arr: T[]): T[] {
+  const shuffled = [...arr];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+export async function getRandomAlbums(count = 6): Promise<any[]> {
+  const all = await fetchJSON<any[]>('/data/albums.json');
+  return shuffleArray(all).slice(0, count);
+}
+
+export async function getRandomTracks(count = 10): Promise<Track[]> {
+  const all = await loadAllTracks();
+  return shuffleArray(all).slice(0, count);
+}
+
+// ────────────────────────────────────────────────────────────
 // Cover URL (静态模式下已是相对路径)
 // ────────────────────────────────────────────────────────────
 export function getCoverUrl(coverPath: string | null): string {

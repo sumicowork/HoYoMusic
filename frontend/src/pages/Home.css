@@ -1,22 +1,17 @@
+/* ============================================================
+   Home Page — Two-Column Layout + Aurora Glass Design
+   ============================================================ */
+
 .home-layout {
   min-height: 100vh;
   background: transparent !important;
-  transition: background 0.3s ease;
 }
 
-/* 浅色主题渐变背景 */
-[data-theme='light'] .home-layout {
-  background: transparent !important;
-}
-
-/* 深色主题渐变背景 */
-[data-theme='dark'] .home-layout {
-  background: transparent !important;
-}
-
+/* ── Header ── */
 .home-header {
   background: var(--bg-primary);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
   box-shadow: var(--shadow-md);
   padding: 0 24px;
   position: sticky;
@@ -35,49 +30,77 @@
 }
 
 .header-content {
-  max-width: 1400px;
+  max-width: 1600px;
   margin: 0 auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.header-content h1 {
+.home-logo {
   margin: 0;
-  font-size: 24px;
-  font-weight: 700;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  font-family: var(--font-display, 'Noto Serif SC', serif);
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-/* Navigation tag hover effects */
-.header-content .ant-tag {
-  transition: all 0.3s ease;
-  border: none;
-}
-
-.header-content .ant-tag:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
 .home-content {
-  max-width: 1400px;
+  max-width: 1600px;
   margin: 0 auto;
-  padding: 40px 24px;
+  padding: 32px 24px;
 }
 
-/* Override Ant Design Content default white background */
 .home-layout .ant-layout-content {
   background: transparent;
 }
 
+/* ── Section Title ── */
+.home-section-title {
+  font-family: var(--font-display, 'Noto Serif SC', serif);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
+/* ============================================================
+   Desktop Two-Column Grid
+   ============================================================ */
+
+.home-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  gap: 32px;
+  align-items: start;
+}
+
+/* ── Left: Games ── */
+.home-games {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.games-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+/* ── Game Card ── */
 .game-card {
   border-radius: 16px;
   overflow: hidden;
+  cursor: pointer;
+  position: relative;
   transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
   backdrop-filter: blur(18px) saturate(180%);
   -webkit-backdrop-filter: blur(18px) saturate(180%);
@@ -97,7 +120,7 @@
 }
 
 .game-card:hover {
-  transform: translateY(-14px) scale(1.01);
+  transform: translateY(-10px) scale(1.02);
 }
 
 [data-theme='light'] .game-card:hover {
@@ -108,12 +131,6 @@
 [data-theme='dark'] .game-card:hover {
   box-shadow: 0 24px 60px rgba(102, 126, 234, 0.35), 0 8px 24px rgba(0,0,0,0.6);
   background: rgba(20, 16, 55, 0.82);
-}
-
-.game-card .ant-card-cover {
-  margin: 0;
-  overflow: hidden;
-  border-radius: 16px 16px 0 0;
 }
 
 .game-cover {
@@ -127,27 +144,35 @@
   aspect-ratio: 1 / 1;
   object-fit: cover;
   display: block;
+  transition: transform 0.4s ease;
 }
 
-/* overlay、banner 等子层 */
-.game-cover-overlay,
-.game-status-banner {
-  position: absolute;
-  z-index: 2;
+.game-card:hover .game-cover img {
+  transform: scale(1.06);
+}
+
+.game-cover-placeholder {
+  aspect-ratio: 1 / 1;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 20px;
+  font-weight: 700;
+  font-family: var(--font-display, 'Noto Serif SC', serif);
 }
 
 .game-cover-overlay {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  top: 0; left: 0; right: 0; bottom: 0;
   background: var(--album-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
   transition: opacity 0.3s ease;
+  z-index: 2;
 }
 
 .game-card:hover .game-cover-overlay {
@@ -155,80 +180,49 @@
 }
 
 .play-icon {
-  font-size: 80px;
+  font-size: 56px;
   color: #fff;
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
 }
 
-.game-info {
-  font-size: 16px;
-  color: var(--text-secondary);
+.game-card-label {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 32px 14px 12px;
+  background: linear-gradient(0deg, rgba(0,0,0,0.75) 0%, transparent 100%);
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 3;
+}
+
+.game-card-name {
+  font-family: var(--font-display, 'Noto Serif SC', serif);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+}
+
+.game-card-count {
+  color: rgba(255,255,255,0.8);
+  font-size: 12px;
   font-weight: 500;
-  transition: color 0.3s ease;
 }
 
-.game-card .ant-card-body {
-  display: none;
-}
-
-.game-card .ant-card-meta-description {
-  margin-top: 0;
-}
-
-@media (max-width: 768px) {
-  .home-content {
-    padding: 40px 16px;
-  }
-
-  .hero-title {
-    font-size: 32px;
-  }
-
-  .hero-subtitle {
-    font-size: 16px;
-  }
-
-  .game-info {
-    font-size: 14px;
-  }
-}
-
-/* ===== 禁用/置灰游戏卡片 ===== */
-.game-card-disabled {
-  cursor: not-allowed !important;
-  filter: grayscale(100%) brightness(0.65);
-  transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.game-card-disabled:hover {
-  transform: none !important;
-  box-shadow: inherit !important;
-}
-
-[data-theme='light'] .game-card-disabled:hover {
-  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.15), 0 2px 0 rgba(255,255,255,0.9) !important;
-  background: rgba(255, 255, 255, 0.68) !important;
-}
-
-[data-theme='dark'] .game-card-disabled:hover {
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(255,255,255,0.06) !important;
-  background: rgba(15, 12, 41, 0.68) !important;
-}
-
-/* ===== 游戏状态横幅 ===== */
+/* Status banners */
 .game-status-banner {
   position: absolute;
-  top: 50%;
-  left: 50%;
+  top: 50%; left: 50%;
   transform: translate(-50%, -50%);
   width: 80%;
   text-align: center;
   padding: 10px 0;
-  font-size: 22px;
+  font-family: var(--font-display, 'Noto Serif SC', serif);
+  font-size: 20px;
   font-weight: 700;
   letter-spacing: 6px;
   color: #fff;
@@ -236,7 +230,6 @@
   pointer-events: none;
   z-index: 10;
   backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
   box-shadow: 0 2px 16px rgba(0,0,0,0.4);
 }
 
@@ -248,4 +241,373 @@
 .game-status-unreleased {
   background: rgba(60, 60, 80, 0.85);
   border: 1.5px solid rgba(180, 180, 220, 0.35);
+}
+
+/* Disabled */
+.game-card-disabled {
+  cursor: not-allowed !important;
+  filter: grayscale(100%) brightness(0.65);
+}
+
+.game-card-disabled:hover {
+  transform: none !important;
+}
+
+/* ============================================================
+   Right: Recommendations
+   ============================================================ */
+
+.home-recommendations {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.rec-section {
+  border-radius: 20px;
+  padding: 20px;
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  transition: all 0.3s ease;
+}
+
+[data-theme='light'] .rec-section {
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: 0 8px 40px rgba(102, 126, 234, 0.12);
+}
+
+[data-theme='dark'] .rec-section {
+  background: rgba(15, 12, 41, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+}
+
+.rec-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.rec-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rec-nav-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  transition: all 0.2s ease;
+}
+
+[data-theme='light'] .rec-nav-btn {
+  background: rgba(102, 126, 234, 0.1);
+  color: var(--aurora-1);
+}
+
+[data-theme='light'] .rec-nav-btn:hover {
+  background: rgba(102, 126, 234, 0.2);
+  transform: scale(1.1);
+}
+
+[data-theme='dark'] .rec-nav-btn {
+  background: rgba(102, 126, 234, 0.2);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme='dark'] .rec-nav-btn:hover {
+  background: rgba(102, 126, 234, 0.35);
+  transform: scale(1.1);
+}
+
+.rec-nav-indicator {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-weight: 600;
+  min-width: 30px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Album Carousel ── */
+.carousel-albums-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  animation: carouselFade 0.35s ease;
+}
+
+@keyframes carouselFade {
+  from { opacity: 0; transform: translateX(12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.carousel-album-card {
+  border-radius: 14px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+}
+
+[data-theme='light'] .carousel-album-card {
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.1);
+}
+
+[data-theme='dark'] .carousel-album-card {
+  background: rgba(20, 18, 50, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.carousel-album-card:hover {
+  transform: translateY(-6px) scale(1.02);
+}
+
+[data-theme='light'] .carousel-album-card:hover {
+  box-shadow: 0 12px 36px rgba(102, 126, 234, 0.25);
+}
+
+[data-theme='dark'] .carousel-album-card:hover {
+  box-shadow: 0 12px 36px rgba(102, 126, 234, 0.2);
+}
+
+.carousel-album-cover {
+  position: relative;
+  padding-top: 100%;
+  overflow: hidden;
+  background: var(--bg-tertiary);
+}
+
+.carousel-album-cover img {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.carousel-album-card:hover .carousel-album-cover img {
+  transform: scale(1.08);
+}
+
+.carousel-album-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.carousel-album-card:hover .carousel-album-overlay {
+  opacity: 1;
+}
+
+.carousel-album-info {
+  padding: 10px 12px;
+}
+
+.carousel-album-title {
+  font-family: var(--font-body, 'Plus Jakarta Sans', sans-serif);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.4;
+}
+
+.carousel-album-meta {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Track Recommendation List ── */
+.rec-tracks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: carouselFade 0.35s ease;
+}
+
+.rec-track-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+[data-theme='light'] .rec-track-item:hover {
+  background: rgba(102, 126, 234, 0.08);
+}
+
+[data-theme='dark'] .rec-track-item:hover {
+  background: rgba(102, 126, 234, 0.12);
+}
+
+.rec-track-index {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  min-width: 24px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-body, 'Plus Jakarta Sans', sans-serif);
+}
+
+.rec-track-cover {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.rec-track-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.rec-track-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rec-track-artist {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
+.rec-track-duration {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.rec-track-play {
+  font-size: 20px;
+  color: var(--aurora-1);
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.rec-track-item:hover .rec-track-play {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.rec-track-item:hover .rec-track-duration {
+  display: none;
+}
+
+/* ============================================================
+   Mobile Layout (< 1024px)
+   ============================================================ */
+
+@media (max-width: 1024px) {
+  .home-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .games-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .carousel-albums-row {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+}
+
+@media (max-width: 768px) {
+  .home-content {
+    padding: 16px 12px;
+  }
+
+  .games-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .carousel-albums-row {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .home-section-title {
+    font-size: 17px;
+  }
+
+  .rec-section {
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .play-icon {
+    font-size: 40px;
+  }
+
+  .game-card-name {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .games-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .carousel-albums-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .rec-track-cover {
+    width: 36px;
+    height: 36px;
+  }
+
+  .rec-track-title {
+    font-size: 13px;
+  }
 }

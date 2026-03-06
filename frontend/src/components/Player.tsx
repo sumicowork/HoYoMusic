@@ -427,7 +427,7 @@ const Player: React.FC = () => {
       <div className="player-content">
         <div className="player-track-info">
           {coverSrc ? (
-            <img src={coverSrc} alt={currentTrack.title} className="player-cover" onClick={() => setExpanded(true)} style={{ cursor: 'pointer' }} />
+            <img src={coverSrc} alt={currentTrack.title} className={`player-cover${isPlaying ? ' player-cover-spinning' : ''}`} onClick={() => setExpanded(true)} style={{ cursor: 'pointer' }} />
           ) : null}
           <div className="player-text" onClick={() => setExpanded(true)} style={{ cursor: 'pointer' }}>
             <div className="player-title">{currentTrack.title}</div>

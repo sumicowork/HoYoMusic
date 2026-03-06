@@ -25,8 +25,10 @@
 
 .header-content h1 {
   margin: 0;
+  font-family: var(--font-display, 'Noto Serif SC', serif);
   font-size: 24px;
-  font-weight: 700;
+  font-weight: 900;
+  letter-spacing: -0.03em;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -56,9 +58,9 @@
 }
 
 .album-card {
-  border-radius: 12px;
+  border-radius: 14px;
   overflow: hidden;
-  transition: all 0.3s ease;
+  transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
   width: 100%;
 }
 
@@ -106,8 +108,10 @@
 }
 
 .album-card .ant-card-meta-title {
+  font-family: var(--font-body, 'Plus Jakarta Sans', sans-serif);
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   margin-bottom: 8px !important;
   color: var(--text-primary);
   /* 允许标题换行，不截断 */

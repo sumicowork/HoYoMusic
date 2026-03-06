@@ -31,8 +31,10 @@
 }
 
 .login-header h1 {
+  font-family: var(--font-display, 'Noto Serif SC', serif);
   font-size: 32px;
-  font-weight: 700;
+  font-weight: 900;
+  letter-spacing: -0.03em;
   margin-bottom: 8px;
   background: linear-gradient(135deg, #a8c0ff, #e0aaff);
   -webkit-background-clip: text;

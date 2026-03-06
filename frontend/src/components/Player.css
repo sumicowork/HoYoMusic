@@ -49,7 +49,17 @@
     0 0 0 2px rgba(102, 126, 234, 0.4),
     0 4px 20px rgba(102, 126, 234, 0.3),
     0 0 40px rgba(240, 147, 251, 0.15);
-  transition: box-shadow 0.4s ease;
+  transition: box-shadow 0.4s ease, border-radius 0.4s ease;
+}
+
+.player-cover.player-cover-spinning {
+  border-radius: 50%;
+  animation: spinSlow 20s linear infinite;
+}
+
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .player-cover:hover {
@@ -242,8 +252,10 @@
 }
 
 .player-expanded-title {
+  font-family: var(--font-display, 'Noto Serif SC', serif);
   font-size: 22px;
-  font-weight: 700;
+  font-weight: 900;
+  letter-spacing: -0.02em;
   color: var(--text-primary);
   text-align: center;
   margin-bottom: 8px;

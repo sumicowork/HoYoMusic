@@ -34,8 +34,10 @@
 }
 
 .album-hero-info h1 {
+  font-family: var(--font-display, 'Noto Serif SC', serif);
   font-size: 36px;
-  font-weight: 700;
+  font-weight: 900;
+  letter-spacing: -0.03em;
   margin-bottom: 16px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   -webkit-background-clip: text;
@@ -58,8 +60,10 @@
 }
 
 .album-tracks h2 {
+  font-family: var(--font-display, 'Noto Serif SC', serif);
   font-size: 24px;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   margin-bottom: 16px;
   color: var(--text-primary);
   transition: color 0.3s ease;

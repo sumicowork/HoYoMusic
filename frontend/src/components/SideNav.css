@@ -65,8 +65,9 @@
 /* 文字标签 */
 .side-nav-label {
   color: #fff;
+  font-family: var(--font-body, 'Plus Jakarta Sans', sans-serif);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.02em;
   padding-right: 12px;
   opacity: 0;

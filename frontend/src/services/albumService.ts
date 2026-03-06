@@ -1,5 +1,12 @@
 import api, { IS_STATIC } from './api';
 import * as staticData from './staticDataService';
+import axios from 'axios';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
+const publicApi = axios.create({
+  baseURL: API_BASE_URL,
+  headers: { 'Content-Type': 'application/json' },
+});
 
 export interface Album {
   id: number;
@@ -21,6 +28,17 @@ export interface ApiResponse<T> {
 }
 
 export const albumService = {
+  async getRandomAlbums(count = 6): Promise<Album[]> {
+    if (IS_STATIC) return staticData.getRandomAlbums(count);
+    const response = await publicApi.get<ApiResponse<{ albums: Album[] }>>(
+      `/public/albums/random?count=${count}`
+    );
+    if (response.data.success && response.data.data) {
+      return response.data.data.albums;
+    }
+    throw new Error('Failed to fetch random albums');
+  },
+
   async getAlbums(page = 1, limit = 20, search = ''): Promise<{ albums: Album[]; pagination: any }> {
     if (IS_STATIC) return staticData.getAlbums(page, limit, search);
     const response = await api.get<ApiResponse<{ albums: Album[]; pagination: any }>>(

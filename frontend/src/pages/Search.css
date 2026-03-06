@@ -24,8 +24,10 @@
 
 .search-header-content h1 {
   margin: 0;
+  font-family: var(--font-display, 'Noto Serif SC', serif);
   font-size: 22px;
-  font-weight: 700;
+  font-weight: 900;
+  letter-spacing: -0.03em;
   background: linear-gradient(135deg, #667eea, #764ba2);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -45,8 +47,10 @@
 }
 
 .search-hero-title {
+  font-family: var(--font-display, 'Noto Serif SC', serif);
   font-size: 36px;
-  font-weight: 800;
+  font-weight: 900;
+  letter-spacing: -0.03em;
   background: linear-gradient(135deg, #667eea, #764ba2);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;

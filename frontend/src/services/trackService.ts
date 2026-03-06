@@ -37,6 +37,18 @@ export interface TrackSearchParams {
 }
 
 export const trackService = {
+  // Random tracks for homepage recommendations
+  async getRandomTracks(count = 10): Promise<Track[]> {
+    if (IS_STATIC) return staticData.getRandomTracks(count);
+    const response = await publicApi.get<ApiResponse<{ tracks: Track[] }>>(
+      `/public/tracks/random?count=${count}`
+    );
+    if (response.data.success && response.data.data) {
+      return response.data.data.tracks;
+    }
+    throw new Error('Failed to fetch random tracks');
+  },
+
   // Admin APIs (需要认证)
   async uploadTracks(
     files: File[],

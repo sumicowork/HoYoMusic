@@ -57,7 +57,8 @@
 }
 
 .mobile-tab-label {
-  font-weight: 500;
+  font-family: var(--font-body, 'Plus Jakarta Sans', sans-serif);
+  font-weight: 600;
   line-height: 1;
 }
 

@@ -3,7 +3,8 @@ import { ThemeConfig } from 'antd';
 // 深色主题配置
 export const darkTheme: ThemeConfig = {
   token: {
-    colorPrimary: '#1890ff',
+    colorPrimary: '#667eea',
+    fontFamily: "'Plus Jakarta Sans', 'Noto Serif SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     colorBgBase: '#141414',
     colorBgContainer: '#1f1f1f',
     colorBgElevated: '#262626',
@@ -27,7 +28,8 @@ export const darkTheme: ThemeConfig = {
 // 浅色主题配置
 export const lightTheme: ThemeConfig = {
   token: {
-    colorPrimary: '#1890ff',
+    colorPrimary: '#667eea',
+    fontFamily: "'Plus Jakarta Sans', 'Noto Serif SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     colorBgBase: '#ffffff',
     colorBgContainer: '#ffffff',
     colorBgElevated: '#ffffff',
