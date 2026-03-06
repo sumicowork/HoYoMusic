@@ -71,7 +71,7 @@ const AlbumCarouselCard: React.FC<{ album: Album; onClick: () => void }> = ({ al
   <div className="carousel-album-card" onClick={onClick}>
     <div className="carousel-album-cover">
       <img
-        src={getCoverUrl(album.cover_path)}
+        src={getCoverUrl(album.cover_path, undefined, true)}
         alt={album.title}
         onError={handleImageError}
       />
@@ -102,7 +102,7 @@ const TrackItem: React.FC<{ track: Track; index: number; onPlay: () => void }> =
       <span className="rec-track-index">{String(index + 1).padStart(2, '0')}</span>
       <img
         className="rec-track-cover"
-        src={getCoverUrl(track.cover_path || track.album_cover || null)}
+        src={getCoverUrl(track.cover_path || track.album_cover || null, undefined, true)}
         alt={track.title}
         onError={handleImageError}
       />

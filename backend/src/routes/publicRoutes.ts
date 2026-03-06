@@ -33,8 +33,8 @@ router.get('/covers/proxy', async (req: Request, res: Response) => {
     const sendThumbnail = async (imageBuffer: Buffer) => {
       try {
         const thumbBuffer = await sharp(imageBuffer)
-          .resize(200, 200, { fit: 'cover' })
-          .webp({ quality: 75 })
+          .resize(400, 400, { fit: 'cover' })
+          .webp({ quality: 85 })
           .toBuffer();
         res.setHeader('Content-Type', 'image/webp');
         res.setHeader('Content-Length', thumbBuffer.length);

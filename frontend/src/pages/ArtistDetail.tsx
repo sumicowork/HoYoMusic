@@ -247,7 +247,7 @@ const ArtistDetail: React.FC = () => {
                     onClick={() => navigate(`/albums/${album.id}`)}
                     cover={
                       <div className="album-cover-wrapper">
-                        <img alt={album.title} src={getCoverUrl(album.cover_path)} onError={handleImageError} />
+                        <img alt={album.title} src={getCoverUrl(album.cover_path, undefined, true)} onError={handleImageError} />
                       </div>
                     }
                   >

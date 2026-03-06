@@ -124,7 +124,7 @@ const AlbumCoverUpload: React.FC<AlbumCoverUploadProps> = ({
         <div style={{ marginBottom: 16 }}>
           <p style={{ marginBottom: 8, fontWeight: 500 }}>当前封面：</p>
           <img
-            src={getCoverUrl(currentCover, API_BASE)}
+            src={getCoverUrl(currentCover, API_BASE, true)}
             alt="Current cover"
             style={{
               width: 200,

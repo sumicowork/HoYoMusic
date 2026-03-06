@@ -269,10 +269,16 @@ const Player: React.FC = () => {
 
   if (!currentTrack) return null;
 
+  // 缩略图用于底部栏小封面（56px），原图用于全屏展开大封面（260px）
   const coverSrc = currentTrack.cover_path
     ? trackService.getCoverUrl(currentTrack.cover_path)
     : (currentTrack as any).album_cover
       ? trackService.getCoverUrl((currentTrack as any).album_cover)
+      : null;
+  const coverThumbSrc = currentTrack.cover_path
+    ? trackService.getCoverUrl(currentTrack.cover_path, true)
+    : (currentTrack as any).album_cover
+      ? trackService.getCoverUrl((currentTrack as any).album_cover, true)
       : null;
 
   // ─── Controls bar (shared between collapsed & expanded) ───
@@ -381,8 +387,8 @@ const Player: React.FC = () => {
           <div className="player-expanded-controls-inner">
             {/* mini track info */}
             <div className="player-track-info" style={{ flex: 1, minWidth: 0 }}>
-              {coverSrc && (
-                <img src={coverSrc} alt={currentTrack.title} className="player-cover" style={{ width: 44, height: 44 }} />
+              {coverThumbSrc && (
+                <img src={coverThumbSrc} alt={currentTrack.title} className="player-cover" style={{ width: 44, height: 44 }} />
               )}
               <div className="player-text">
                 <div className="player-title">{currentTrack.title}</div>
@@ -426,8 +432,8 @@ const Player: React.FC = () => {
       />
       <div className="player-content">
         <div className="player-track-info">
-          {coverSrc ? (
-            <img src={coverSrc} alt={currentTrack.title} className={`player-cover${isPlaying ? ' player-cover-spinning' : ''}`} onClick={() => setExpanded(true)} style={{ cursor: 'pointer' }} />
+          {coverThumbSrc ? (
+            <img src={coverThumbSrc} alt={currentTrack.title} className={`player-cover${isPlaying ? ' player-cover-spinning' : ''}`} onClick={() => setExpanded(true)} style={{ cursor: 'pointer' }} />
           ) : null}
           <div className="player-text" onClick={() => setExpanded(true)} style={{ cursor: 'pointer' }}>
             <div className="player-title">{currentTrack.title}</div>
