@@ -1,6 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { Layout, Spin, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
+
+// Detect mobile viewport
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handler, { passive: true });
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return isMobile;
+};
 import {
   PlayCircleOutlined,
   AppstoreOutlined,
@@ -117,6 +128,7 @@ const TrackItem: React.FC<{ track: Track; onPlay: () => void }> = ({ track, onPl
 const Home: React.FC = () => {
   const navigate = useNavigate();
   const { playTrackOnly } = usePlayerStore();
+  const isMobile = useIsMobile();
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [albums, setAlbums] = useState<Album[]>([]);
@@ -181,7 +193,6 @@ const Home: React.FC = () => {
 
             {/* ─── 右侧 ─── */}
             <aside className="home-recommendations">
-              {/* 随机专辑推荐 — 连续滚动 */}
               {albums.length > 0 && (
                 <section className="rec-section rec-albums">
                   <h2 className="section-title home-section-title">
@@ -196,8 +207,8 @@ const Home: React.FC = () => {
                           onClick={() => navigate(`/albums/${album.id}`)}
                         />
                       ))}
-                      {/* Duplicate for seamless loop */}
-                      {albums.map((album) => (
+                      {/* Duplicate for seamless loop — desktop only */}
+                      {!isMobile && albums.map((album) => (
                         <AlbumCarouselCard
                           key={`dup-${album.id}`}
                           album={album}
@@ -224,8 +235,8 @@ const Home: React.FC = () => {
                           onPlay={() => playTrackOnly(track)}
                         />
                       ))}
-                      {/* Duplicate for seamless loop */}
-                      {tracks.map((track) => (
+                      {/* Duplicate for seamless loop — desktop only */}
+                      {!isMobile && tracks.map((track) => (
                         <TrackItem
                           key={`dup-${track.id}`}
                           track={track}
