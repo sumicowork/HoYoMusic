@@ -449,10 +449,12 @@ export const getTagGroups = async (req: Request, res: Response) => {
     const query = `
       SELECT 
         tg.*,
+        pg.name as parent_group_name,
         COUNT(DISTINCT t.id) as tag_count
       FROM tag_groups tg
       LEFT JOIN tags t ON tg.id = t.group_id
-      GROUP BY tg.id
+      LEFT JOIN tag_groups pg ON tg.parent_group_id = pg.id
+      GROUP BY tg.id, pg.name
       ORDER BY tg.display_order ASC, tg.name ASC
     `;
 
@@ -528,7 +530,7 @@ export const getTagGroupById = async (req: Request, res: Response) => {
 // Create tag group
 export const createTagGroup = async (req: Request, res: Response) => {
   try {
-    const { name, description, icon, display_order } = req.body;
+    const { name, description, icon, display_order, parent_group_id } = req.body;
 
     if (!name || name.trim() === '') {
       return res.status(400).json({
@@ -537,9 +539,20 @@ export const createTagGroup = async (req: Request, res: Response) => {
       });
     }
 
+    // Prevent circular reference: parent must not be a descendant
+    if (parent_group_id) {
+      const parentResult = await pool.query('SELECT id FROM tag_groups WHERE id = $1', [parent_group_id]);
+      if (parentResult.rows.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Parent group not found' }
+        });
+      }
+    }
+
     const query = `
-      INSERT INTO tag_groups (name, description, icon, display_order)
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO tag_groups (name, description, icon, display_order, parent_group_id)
+      VALUES ($1, $2, $3, $4, $5)
       RETURNING *
     `;
 
@@ -547,7 +560,8 @@ export const createTagGroup = async (req: Request, res: Response) => {
       name.trim(),
       description || null,
       icon || null,
-      display_order || 0
+      display_order || 0,
+      parent_group_id || null
     ]);
 
     res.status(201).json({
@@ -575,7 +589,7 @@ export const createTagGroup = async (req: Request, res: Response) => {
 export const updateTagGroup = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, description, icon, display_order } = req.body;
+    const { name, description, icon, display_order, parent_group_id } = req.body;
 
     if (!name || name.trim() === '') {
       return res.status(400).json({
@@ -584,10 +598,18 @@ export const updateTagGroup = async (req: Request, res: Response) => {
       });
     }
 
+    // Prevent self-reference
+    if (parent_group_id && parseInt(id as string) === parent_group_id) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'A group cannot be its own parent' }
+      });
+    }
+
     const query = `
       UPDATE tag_groups
-      SET name = $1, description = $2, icon = $3, display_order = $4
-      WHERE id = $5
+      SET name = $1, description = $2, icon = $3, display_order = $4, parent_group_id = $5
+      WHERE id = $6
       RETURNING *
     `;
 
@@ -596,6 +618,7 @@ export const updateTagGroup = async (req: Request, res: Response) => {
       description || null,
       icon || null,
       display_order !== undefined ? display_order : 0,
+      parent_group_id || null,
       id
     ]);
 

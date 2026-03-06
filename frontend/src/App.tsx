@@ -6,7 +6,7 @@ import zhCN from 'antd/locale/zh_CN';
 // Eager load essential components
 import ProtectedRoute from './components/ProtectedRoute';
 import Player from './components/Player';
-import SideNav from './components/SideNav';
+import PageHeader from './components/PageHeader';
 import MobileTabBar from './components/MobileTabBar';
 import { usePlayerStore } from './store/playerStore';
 import { useThemeStore } from './store/themeStore';
@@ -66,7 +66,7 @@ const App: React.FC = () => {
       <AntApp>
         <Router>
           <div className={`app${currentTrack ? ' has-player' : ''}`}>
-            <SideNav />
+            <PageHeader />
             <MobileTabBar />
             <Suspense fallback={<PageFallback />}>
               <Routes>

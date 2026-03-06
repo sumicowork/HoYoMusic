@@ -11,7 +11,7 @@ import { usePlayerStore } from '../store/playerStore';
 import { getCoverUrl, handleImageError } from '../utils/imageUtils';
 import './ArtistDetail.css';
 
-const { Header, Content } = Layout;
+const { Content } = Layout;
 const { TabPane } = Tabs;
 const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
 
@@ -168,13 +168,12 @@ const ArtistDetail: React.FC = () => {
 
   return (
     <Layout className="artist-detail-layout">
-      <Header className="artist-detail-header">
-        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/artists')}>
-          返回创作者列表
-        </Button>
-      </Header>
-
       <Content className="artist-detail-content">
+        <div style={{ marginBottom: 16 }}>
+          <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/artists')}>
+            返回创作者列表
+          </Button>
+        </div>
         <div className="artist-hero">
           <Avatar size={200} icon={<UserOutlined />} style={{ backgroundColor: '#667eea', fontSize: 80 }} />
           <div className="artist-hero-info">

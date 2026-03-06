@@ -1,15 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Table, Button, message, Space, Tag, Card, Modal, Input, Select, List, Popconfirm
+  Table, Button, message, Space, Tag, Card, Modal, Input, Select, List, Popconfirm, Upload, Avatar
 } from 'antd';
 import {
   MergeCellsOutlined,
   DeleteOutlined,
   SearchOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { TableRowSelection } from 'antd/es/table/interface';
 import api from '../services/api';
+import { trackService } from '../services/trackService';
 import AdminLayout from '../components/AdminLayout';
 
 interface ArtistItem {
@@ -41,6 +43,9 @@ const ArtistManagement: React.FC = () => {
   const [aliases, setAliases] = useState<AliasItem[]>([]);
   const [aliasesModalVisible, setAliasesModalVisible] = useState(false);
 
+  // Avatars
+  const [avatars, setAvatars] = useState<Record<string, string>>({});
+
   const fetchArtists = async (page = 1, search = '') => {
     setLoading(true);
     try {
@@ -71,9 +76,36 @@ const ArtistManagement: React.FC = () => {
     }
   };
 
+  const fetchAvatars = async () => {
+    try {
+      const response = await api.get('/artists/avatars');
+      if (response.data.success) {
+        setAvatars(response.data.data.avatars);
+      }
+    } catch { /* ignore */ }
+  };
+
+  const handleAvatarUpload = async (file: File, artistName: string) => {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await api.post(`/artists/avatar/${encodeURIComponent(artistName)}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${token}` }
+      });
+      if (response.data.success) {
+        message.success('头像上传成功');
+        setAvatars(prev => ({ ...prev, [artistName]: response.data.data.avatar_path }));
+      }
+    } catch (error: any) {
+      message.error('头像上传失败');
+    }
+  };
+
   useEffect(() => {
     fetchArtists();
     fetchAliases();
+    fetchAvatars();
   }, []);
 
   const handleMerge = async () => {
@@ -119,6 +151,38 @@ const ArtistManagement: React.FC = () => {
   };
 
   const columns: ColumnsType<ArtistItem> = [
+    {
+      title: '头像',
+      key: 'avatar',
+      width: 80,
+      render: (_, record) => {
+        const avatarPath = avatars[record.name];
+        return (
+          <Upload
+            showUploadList={false}
+            accept="image/*"
+            beforeUpload={(file) => {
+              handleAvatarUpload(file, record.name);
+              return false;
+            }}
+          >
+            {avatarPath ? (
+              <Avatar
+                size={48}
+                src={trackService.getCoverUrl(avatarPath, true)}
+                style={{ cursor: 'pointer' }}
+              />
+            ) : (
+              <Avatar
+                size={48}
+                icon={<UserOutlined />}
+                style={{ cursor: 'pointer', backgroundColor: '#667eea' }}
+              />
+            )}
+          </Upload>
+        );
+      },
+    },
     {
       title: '名称',
       dataIndex: 'name',

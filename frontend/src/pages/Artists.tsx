@@ -5,10 +5,9 @@ import { SearchOutlined, UserOutlined } from '@ant-design/icons';
 import { IS_STATIC } from '../services/api';
 import * as staticData from '../services/staticDataService';
 import axios from 'axios';
-import ThemeToggle from '../components/ThemeToggle';
 import './Artists.css';
 
-const { Header, Content } = Layout;
+const { Content } = Layout;
 const { Search } = Input;
 const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
 
@@ -84,25 +83,16 @@ const Artists: React.FC = () => {
 
   return (
     <Layout className="artists-layout">
-      <Header className="artists-header">
-        <div className="header-content">
-          <h1 onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
-            🎵 HoYoMusic
-          </h1>
-          <div className="header-actions">
-            <ThemeToggle />
-            <Search
-              placeholder="搜索创作者..."
-              allowClear
-              enterButton={<SearchOutlined />}
-              onSearch={handleSearch}
-              style={{ width: 300, marginLeft: 16, marginRight: 16 }}
-            />
-          </div>
-        </div>
-      </Header>
-
       <Content className="artists-content">
+        <div className="artists-toolbar">
+          <Search
+            placeholder="搜索创作者..."
+            allowClear
+            enterButton={<SearchOutlined />}
+            onSearch={handleSearch}
+            style={{ maxWidth: 400 }}
+          />
+        </div>
         {loading ? (
           <Row gutter={[16, 16]}>
             {Array.from({ length: 8 }).map((_, i) => (

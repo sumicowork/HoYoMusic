@@ -18,7 +18,7 @@ const downloadDisabled = (_req: Request, res: Response) =>
 
 // ── 封面图片代理（OSS 模式下中转，避免前端直连 OSS）─────────────────
 // GET /api/public/covers/proxy?path=<cover_path_or_url>&size=thumb
-// size=thumb → 缩略图（200x200 webp），否则原图
+// size=thumb → 缩略图（1000x1000 webp），否则原图
 router.get('/covers/proxy', async (req: Request, res: Response) => {
   try {
     const coverPath = req.query.path as string;
@@ -33,7 +33,7 @@ router.get('/covers/proxy', async (req: Request, res: Response) => {
     const sendThumbnail = async (imageBuffer: Buffer) => {
       try {
         const thumbBuffer = await sharp(imageBuffer)
-          .resize(400, 400, { fit: 'cover' })
+          .resize(1000, 1000, { fit: 'cover' })
           .webp({ quality: 85 })
           .toBuffer();
         res.setHeader('Content-Type', 'image/webp');

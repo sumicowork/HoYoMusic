@@ -9,7 +9,7 @@ import { usePlayerStore } from '../store/playerStore';
 import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
 import './AlbumDetail.css';
 
-const { Header, Content } = Layout;
+const { Content } = Layout;
 
 interface Album {
   id: number;
@@ -168,13 +168,12 @@ const AlbumDetail: React.FC = () => {
 
   return (
     <Layout className="album-detail-layout">
-      <Header className="album-detail-header">
-        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/albums')}>
-          返回专辑列表
-        </Button>
-      </Header>
-
       <Content className="album-detail-content">
+        <div style={{ marginBottom: 16 }}>
+          <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/albums')}>
+            返回专辑列表
+          </Button>
+        </div>
         <div className="album-hero">
           <Image
             width={250}

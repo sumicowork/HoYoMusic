@@ -31,8 +31,11 @@ export interface TagGroup {
   description: string | null;
   icon: string | null;
   display_order: number;
+  parent_group_id?: number | null;
+  parent_group_name?: string | null;
   tag_count?: number;
   tags?: Tag[];
+  children?: TagGroup[];
   created_at: string;
   updated_at: string;
 }
@@ -62,6 +65,7 @@ export interface CreateTagGroupDTO {
   description?: string;
   icon?: string;
   display_order?: number;
+  parent_group_id?: number | null;
 }
 
 export interface UpdateTagGroupDTO {
@@ -69,6 +73,7 @@ export interface UpdateTagGroupDTO {
   description?: string;
   icon?: string;
   display_order?: number;
+  parent_group_id?: number | null;
 }
 
 // Get all tags
@@ -208,4 +213,3 @@ export const bulkUpdateTrackTags = async (params: {
     }
   });
 };
-

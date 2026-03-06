@@ -3,73 +3,18 @@
   background: transparent !important;
 }
 
-.library-header {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(18px) saturate(180%);
-  -webkit-backdrop-filter: blur(18px) saturate(180%);
-  box-shadow: 0 4px 24px rgba(102, 126, 234, 0.12);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.7);
-  padding: 0 24px;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-
-.header-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-.header-content h1 {
-  margin: 0;
-  font-family: var(--font-display, 'Noto Serif SC', serif);
-  font-size: 24px;
-  font-weight: 900;
-  letter-spacing: -0.03em;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  cursor: pointer;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-}
-
-/* Navigation tag hover effects */
-.header-actions .ant-tag {
-  transition: all 0.3s ease;
-  border: none;
-}
-
-.header-actions .ant-tag:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
 .library-content {
-  padding: 24px;
-  max-width: 1400px;
+  max-width: 1600px;
   margin: 0 auto;
-  width: 100%;
+  padding: 32px 24px;
 }
 
-@media (max-width: 576px) {
+.library-toolbar {
+  margin-bottom: 24px;
+}
+
+@media (max-width: 768px) {
   .library-content {
-    padding: 12px 8px;
-  }
-
-  /* 手机端操作按钮只保留图标 */
-  .library-content .ant-btn-sm > span:not(.anticon) {
-    display: none;
-  }
-
-  .library-content .ant-btn-sm .anticon + span {
-    display: none;
+    padding: 16px 12px;
   }
 }

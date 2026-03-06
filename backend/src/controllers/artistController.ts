@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
+import storageService from '../services/storageService';
 
 // Get all "artists" from track_credits (unique credit_value, with track count)
 export const getArtists = async (req: Request, res: Response) => {
@@ -300,6 +301,113 @@ export const deleteAlias = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: { code: 'DELETE_ERROR', message: '删除别名失败' }
+    });
+  }
+};
+
+// ============ Artist Avatars ============
+
+// Helper: ensure artist_avatars table exists
+const ensureAvatarTable = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS artist_avatars (
+      id SERIAL PRIMARY KEY,
+      artist_name VARCHAR(500) NOT NULL UNIQUE,
+      avatar_path VARCHAR(500) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+};
+
+// Upload artist avatar
+export const uploadArtistAvatar = async (req: Request, res: Response) => {
+  try {
+    await ensureAvatarTable();
+    const artistName = decodeURIComponent(req.params.name as string);
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'NO_FILE', message: 'No avatar file uploaded' }
+      });
+    }
+
+    // Upload to storage
+    const avatarUrl = await storageService.uploadFile(
+      req.file.buffer,
+      `avatar_${artistName}_${Date.now()}.${req.file.originalname.split('.').pop()}`,
+      'covers',
+      req.file.mimetype
+    );
+
+    // Upsert into artist_avatars
+    await pool.query(
+      `INSERT INTO artist_avatars (artist_name, avatar_path)
+       VALUES ($1, $2)
+       ON CONFLICT (artist_name)
+       DO UPDATE SET avatar_path = $2, updated_at = CURRENT_TIMESTAMP`,
+      [artistName, avatarUrl]
+    );
+
+    res.json({
+      success: true,
+      data: { artist_name: artistName, avatar_path: avatarUrl }
+    });
+  } catch (error) {
+    console.error('Upload artist avatar error:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'UPLOAD_ERROR', message: 'Failed to upload artist avatar' }
+    });
+  }
+};
+
+// Get artist avatar
+export const getArtistAvatar = async (req: Request, res: Response) => {
+  try {
+    await ensureAvatarTable();
+    const artistName = decodeURIComponent(req.params.name as string);
+    const result = await pool.query(
+      'SELECT avatar_path FROM artist_avatars WHERE artist_name = $1',
+      [artistName]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'No avatar found for this artist' }
+      });
+    }
+
+    res.json({
+      success: true,
+      data: { avatar_path: result.rows[0].avatar_path }
+    });
+  } catch (error) {
+    console.error('Get artist avatar error:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'FETCH_ERROR', message: 'Failed to get artist avatar' }
+    });
+  }
+};
+
+// Get all artist avatars (batch)
+export const getAllArtistAvatars = async (req: Request, res: Response) => {
+  try {
+    await ensureAvatarTable();
+    const result = await pool.query('SELECT artist_name, avatar_path FROM artist_avatars ORDER BY artist_name');
+    const map: Record<string, string> = {};
+    for (const row of result.rows) {
+      map[row.artist_name] = row.avatar_path;
+    }
+    res.json({ success: true, data: { avatars: map } });
+  } catch (error) {
+    console.error('Get all artist avatars error:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'FETCH_ERROR', message: 'Failed to get artist avatars' }
     });
   }
 };

@@ -3,58 +3,14 @@
   background: transparent !important;
 }
 
-.albums-header {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(18px) saturate(180%);
-  -webkit-backdrop-filter: blur(18px) saturate(180%);
-  box-shadow: 0 4px 24px rgba(102, 126, 234, 0.12);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.7);
-  padding: 0 24px;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-
-.header-content {
-  max-width: 1600px;
-  margin: 0 auto;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.header-content h1 {
-  margin: 0;
-  font-family: var(--font-display, 'Noto Serif SC', serif);
-  font-size: 24px;
-  font-weight: 900;
-  letter-spacing: -0.03em;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-}
-
-/* Navigation tag hover effects */
-.header-actions .ant-tag {
-  transition: all 0.3s ease;
-  border: none;
-}
-
-.header-actions .ant-tag:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
 .albums-content {
   max-width: 1600px;
   margin: 0 auto;
   padding: 32px 24px;
+}
+
+.albums-toolbar {
+  margin-bottom: 24px;
 }
 
 .album-card {
@@ -86,12 +42,10 @@
   transition: transform 0.3s ease;
 }
 
-/* 确保占位符 SVG 正确显示 */
 .album-cover-wrapper img[src^="data:"] {
   object-fit: contain !important;
   padding: 5% !important;
   background: var(--bg-tertiary);
-  transition: background 0.3s ease;
 }
 
 .album-card:hover .album-cover-wrapper img {
@@ -104,7 +58,6 @@
   gap: 4px;
   font-size: 13px;
   color: var(--text-secondary);
-  transition: color 0.3s ease;
 }
 
 .album-card .ant-card-meta-title {
@@ -114,17 +67,13 @@
   letter-spacing: -0.01em;
   margin-bottom: 8px !important;
   color: var(--text-primary);
-  /* 允许标题换行，不截断 */
   white-space: normal;
   word-wrap: break-word;
-  overflow-wrap: break-word;
   line-height: 1.4;
-  /* 限制最多显示 3 行，超出才截断 */
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  transition: color 0.3s ease;
 }
 
 .album-card .ant-card-body {
@@ -136,21 +85,6 @@
     padding: 12px 10px;
   }
 
-  .header-content h1 {
-    font-size: 20px;
-  }
-
-  .header-actions {
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 8px;
-  }
-
-  .header-actions .ant-input-search {
-    width: 200px !important;
-  }
-
-  /* 手机端两列时卡片内容紧凑 */
   .album-card .ant-card-body {
     padding: 10px 8px;
   }
@@ -164,4 +98,3 @@
     font-size: 11px;
   }
 }
-

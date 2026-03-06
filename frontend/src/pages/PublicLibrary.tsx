@@ -7,10 +7,9 @@ import { trackService, DOWNLOAD_ENABLED } from '../services/trackService';
 import { usePlayerStore } from '../store/playerStore';
 import { useNavigate } from 'react-router-dom';
 import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
-import ThemeToggle from '../components/ThemeToggle';
 import './PublicLibrary.css';
 
-const { Header, Content } = Layout;
+const { Content } = Layout;
 const { Search } = Input;
 
 const PublicLibrary: React.FC = () => {
@@ -149,22 +148,16 @@ const PublicLibrary: React.FC = () => {
 
   return (
     <Layout className="library-layout">
-      <Header className="library-header">
-        <div className="header-content">
-          <h1 onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>🎵 HoYoMusic</h1>
-          <div className="header-actions">
-            <ThemeToggle />
-            <Search
-              placeholder="搜索音乐..."
-              allowClear
-              enterButton={<SearchOutlined />}
-              onSearch={handleSearch}
-              style={{ width: 300, marginRight: 16, marginLeft: 16 }}
-            />
-          </div>
-        </div>
-      </Header>
       <Content className="library-content">
+        <div className="library-toolbar">
+          <Search
+            placeholder="搜索音乐..."
+            allowClear
+            enterButton={<SearchOutlined />}
+            onSearch={handleSearch}
+            style={{ maxWidth: 400 }}
+          />
+        </div>
         <Table
           columns={columns}
           dataSource={tracks}

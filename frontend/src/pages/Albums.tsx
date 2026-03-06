@@ -4,10 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import { SearchOutlined } from '@ant-design/icons';
 import { albumService } from '../services/albumService';
 import { getCoverUrl, handleImageError } from '../utils/imageUtils';
-import ThemeToggle from '../components/ThemeToggle';
 import './Albums.css';
 
-const { Header, Content } = Layout;
+const { Content } = Layout;
 const { Search } = Input;
 
 interface Album {
@@ -57,25 +56,16 @@ const Albums: React.FC = () => {
 
   return (
     <Layout className="albums-layout">
-      <Header className="albums-header">
-        <div className="header-content">
-          <h1 onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
-            🎵 HoYoMusic
-          </h1>
-          <div className="header-actions">
-            <ThemeToggle />
-            <Search
-              placeholder="搜索专辑..."
-              allowClear
-              enterButton={<SearchOutlined />}
-              onSearch={handleSearch}
-              style={{ width: 300, marginRight: 16, marginLeft: 16 }}
-            />
-          </div>
-        </div>
-      </Header>
-
       <Content className="albums-content">
+        <div className="albums-toolbar">
+          <Search
+            placeholder="搜索专辑..."
+            allowClear
+            enterButton={<SearchOutlined />}
+            onSearch={handleSearch}
+            style={{ maxWidth: 400 }}
+          />
+        </div>
         {loading ? (
           <Row gutter={[28, 36]}>
             {Array.from({ length: 8 }).map((_, i) => (

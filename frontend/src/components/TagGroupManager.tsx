@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Form, Input, Button, List, message, Space, Popconfirm, InputNumber } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, AppstoreOutlined } from '@ant-design/icons';
+import { Modal, Form, Input, Button, List, message, Space, Popconfirm, InputNumber, Select, Tag } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, AppstoreOutlined, ApartmentOutlined } from '@ant-design/icons';
 import {
   TagGroup,
   getTagGroups,
@@ -21,10 +21,22 @@ const GROUP_NAME_MAP: { [key: string]: string } = {
   'Others': '其他'
 };
 
-// 获取显示名称（中文优先）
-const getDisplayName = (name: string): string => {
-  return GROUP_NAME_MAP[name] || name;
-};
+const getDisplayName = (name: string): string => GROUP_NAME_MAP[name] || name;
+
+// Build tree from flat list
+function buildGroupTree(groups: TagGroup[]): TagGroup[] {
+  const map: Record<number, TagGroup> = {};
+  const roots: TagGroup[] = [];
+  groups.forEach(g => { map[g.id] = { ...g, children: [] }; });
+  groups.forEach(g => {
+    if (g.parent_group_id && map[g.parent_group_id]) {
+      map[g.parent_group_id].children!.push(map[g.id]);
+    } else {
+      roots.push(map[g.id]);
+    }
+  });
+  return roots;
+}
 
 interface TagGroupManagerProps {
   visible: boolean;
@@ -40,9 +52,7 @@ const TagGroupManager: React.FC<TagGroupManagerProps> = ({ visible, onClose, onG
   const [form] = Form.useForm();
 
   useEffect(() => {
-    if (visible) {
-      fetchGroups();
-    }
+    if (visible) fetchGroups();
   }, [visible]);
 
   const fetchGroups = async () => {
@@ -50,18 +60,17 @@ const TagGroupManager: React.FC<TagGroupManagerProps> = ({ visible, onClose, onG
     try {
       const data = await getTagGroups();
       setGroups(data);
-    } catch (error) {
-      console.error('Failed to fetch tag groups:', error);
+    } catch {
       message.error('获取标签分组失败');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAdd = () => {
+  const handleAdd = (parentId?: number) => {
     setEditingGroup(null);
     form.resetFields();
-    form.setFieldsValue({ display_order: groups.length });
+    form.setFieldsValue({ display_order: groups.length, parent_group_id: parentId ?? null });
     setModalVisible(true);
   };
 
@@ -71,7 +80,8 @@ const TagGroupManager: React.FC<TagGroupManagerProps> = ({ visible, onClose, onG
       name: group.name,
       description: group.description,
       icon: group.icon,
-      display_order: group.display_order
+      display_order: group.display_order,
+      parent_group_id: group.parent_group_id ?? null,
     });
     setModalVisible(true);
   };
@@ -94,139 +104,127 @@ const TagGroupManager: React.FC<TagGroupManagerProps> = ({ visible, onClose, onG
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
-
+      const payload = { ...values, parent_group_id: values.parent_group_id || null };
       if (editingGroup) {
-        await updateTagGroup(editingGroup.id, values);
+        await updateTagGroup(editingGroup.id, payload);
         message.success('更新成功');
       } else {
-        await createTagGroup(values);
+        await createTagGroup(payload);
         message.success('创建成功');
       }
-
       setModalVisible(false);
       form.resetFields();
       fetchGroups();
       onGroupsChanged?.();
-    } catch (error) {
+    } catch {
       message.error('操作失败');
     }
   };
 
+  // Recursive render for tree
+  const renderGroupItem = (group: TagGroup, depth = 0) => (
+    <React.Fragment key={group.id}>
+      <List.Item
+        style={{ paddingLeft: depth * 24 }}
+        actions={[
+          <Button
+            type="text"
+            size="small"
+            icon={<ApartmentOutlined />}
+            onClick={() => handleAdd(group.id)}
+            title="添加子分组"
+          />,
+          <Button type="text" icon={<EditOutlined />} onClick={() => handleEdit(group)} />,
+          <Popconfirm
+            title="删除分组"
+            description="确定要删除此分组吗？如果分组下有标签将无法删除。"
+            onConfirm={() => handleDelete(group.id)}
+            okText="确定"
+            cancelText="取消"
+          >
+            <Button type="text" danger icon={<DeleteOutlined />} />
+          </Popconfirm>
+        ]}
+      >
+        <List.Item.Meta
+          avatar={
+            <div style={{
+              width: 36, height: 36, borderRadius: 8,
+              background: depth > 0
+                ? 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)'
+                : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'white', fontSize: 16
+            }}>
+              {group.icon || (depth > 0 ? '📂' : '📁')}
+            </div>
+          }
+          title={
+            <Space>
+              {depth > 0 && <Tag color="purple" style={{ fontSize: 10 }}>子分组</Tag>}
+              <strong>{getDisplayName(group.name)}</strong>
+              <span style={{ color: '#999', fontSize: 12 }}>{group.tag_count || 0} 个标签</span>
+            </Space>
+          }
+          description={group.description || '暂无描述'}
+        />
+      </List.Item>
+      {(group.children || []).map(child => renderGroupItem(child, depth + 1))}
+    </React.Fragment>
+  );
+
+  const tree = buildGroupTree(groups);
+  // Flat options for parent selector (exclude self when editing)
+  const parentOptions = groups
+    .filter(g => !editingGroup || g.id !== editingGroup.id)
+    .map(g => ({ value: g.id, label: `${g.icon || '📁'} ${getDisplayName(g.name)}` }));
+
   return (
     <>
       <Modal
-        title={
-          <Space>
-            <AppstoreOutlined />
-            <span>标签分组管理</span>
-          </Space>
-        }
+        title={<Space><AppstoreOutlined /><span>标签分组管理</span></Space>}
         open={visible}
         onCancel={onClose}
         width={700}
         footer={[
-          <Button key="add" type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-            新建分组
+          <Button key="add" type="primary" icon={<PlusOutlined />} onClick={() => handleAdd()}>
+            新建顶级分组
           </Button>,
-          <Button key="close" onClick={onClose}>
-            关闭
-          </Button>
+          <Button key="close" onClick={onClose}>关闭</Button>
         ]}
       >
         <List
           loading={loading}
-          dataSource={groups}
-          renderItem={(group) => (
-            <List.Item
-              actions={[
-                <Button
-                  type="text"
-                  icon={<EditOutlined />}
-                  onClick={() => handleEdit(group)}
-                />,
-                <Popconfirm
-                  title="删除分组"
-                  description="确定要删除此分组吗？如果分组下有标签将无法删除。"
-                  onConfirm={() => handleDelete(group.id)}
-                  okText="确定"
-                  cancelText="取消"
-                >
-                  <Button type="text" danger icon={<DeleteOutlined />} />
-                </Popconfirm>
-              ]}
-            >
-              <List.Item.Meta
-                avatar={
-                  <div style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 8,
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'white',
-                    fontSize: 18
-                  }}>
-                    {group.icon || '📁'}
-                  </div>
-                }
-                title={
-                  <Space>
-                    <strong>{getDisplayName(group.name)}</strong>
-                    <span style={{ color: '#999', fontSize: 12 }}>
-                      {group.tag_count || 0} 个标签
-                    </span>
-                  </Space>
-                }
-                description={group.description || '暂无描述'}
-              />
-            </List.Item>
-          )}
+          dataSource={tree}
+          renderItem={(group) => renderGroupItem(group, 0)}
         />
       </Modal>
 
       <Modal
         title={editingGroup ? '编辑分组' : '新建分组'}
         open={modalVisible}
-        onCancel={() => {
-          setModalVisible(false);
-          form.resetFields();
-        }}
+        onCancel={() => { setModalVisible(false); form.resetFields(); }}
         onOk={handleSubmit}
         okText={editingGroup ? '更新' : '创建'}
       >
         <Form form={form} layout="vertical">
-          <Form.Item
-            name="name"
-            label="分组名称"
-            rules={[{ required: true, message: '请输入分组名称' }]}
-          >
+          <Form.Item name="name" label="分组名称" rules={[{ required: true, message: '请输入分组名称' }]}>
             <Input placeholder="如：游戏分类、音乐风格" maxLength={50} />
           </Form.Item>
-
-          <Form.Item name="description" label="描述">
-            <TextArea
-              placeholder="分组��简要说明（可选）"
-              rows={3}
-              maxLength={200}
-              showCount
+          <Form.Item name="parent_group_id" label="父分组" extra="留空则为顶级分组">
+            <Select
+              allowClear
+              placeholder="选择父分组（可选）"
+              options={[{ value: null, label: '无（顶级分组）' }, ...parentOptions]}
             />
           </Form.Item>
-
-          <Form.Item
-            name="icon"
-            label="图标"
-            extra="可以使用Emoji或Ant Design图��名称，如：GamepadOutlined"
-          >
-            <Input placeholder="如：🎮 或 GamepadOutlined" maxLength={50} />
+          <Form.Item name="description" label="描述">
+            <TextArea placeholder="分组的简要说明（可选）" rows={3} maxLength={200} showCount />
           </Form.Item>
-
-          <Form.Item
-            name="display_order"
-            label="显示顺序"
-            extra="数字越小越靠前"
-          >
+          <Form.Item name="icon" label="图标" extra="可以使用Emoji，如：🎮 🎵 🌍">
+            <Input placeholder="如：🎮 或 🎵" maxLength={50} />
+          </Form.Item>
+          <Form.Item name="display_order" label="显示顺序" extra="数字越小越靠前">
             <InputNumber min={0} style={{ width: '100%' }} />
           </Form.Item>
         </Form>
@@ -236,5 +234,4 @@ const TagGroupManager: React.FC<TagGroupManagerProps> = ({ visible, onClose, onG
 };
 
 export default TagGroupManager;
-
 

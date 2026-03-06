@@ -3,58 +3,19 @@
   background: transparent !important;
 }
 
-.artists-header {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(18px) saturate(180%);
-  -webkit-backdrop-filter: blur(18px) saturate(180%);
-  box-shadow: 0 4px 24px rgba(102, 126, 234, 0.12);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.7);
-  padding: 0 24px;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-
-.header-content {
-  max-width: 1600px;
-  margin: 0 auto;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.header-content h1 {
-  margin: 0;
-  font-family: var(--font-display, 'Noto Serif SC', serif);
-  font-size: 24px;
-  font-weight: 900;
-  letter-spacing: -0.03em;
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-}
-
-/* Navigation tag hover effects */
-.header-actions .ant-tag {
-  transition: all 0.3s ease;
-  border: none;
-}
-
-.header-actions .ant-tag:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
 .artists-content {
   max-width: 1600px;
   margin: 0 auto;
   padding: 32px 24px;
+}
+
+.artists-toolbar {
+  margin-bottom: 24px;
+}
+
+[data-theme='dark'] .artists-list-container {
+  background: rgba(15, 12, 41, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .artists-list-container {
@@ -84,11 +45,19 @@
   width: 100%;
 }
 
+[data-theme='dark'] .artist-card {
+  background: rgba(20, 18, 50, 0.6);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
 .artist-card:hover {
   transform: translateY(-8px);
   background: rgba(255, 255, 255, 0.82);
   box-shadow: 0 12px 40px rgba(102, 126, 234, 0.25), 0 4px 16px rgba(240, 147, 251, 0.15);
-  border-color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme='dark'] .artist-card:hover {
+  background: rgba(30, 26, 70, 0.85);
 }
 
 .artist-info {
@@ -113,25 +82,10 @@
 
 @media (max-width: 768px) {
   .artists-content {
-    padding: 16px;
-  }
-
-  .header-content h1 {
-    font-size: 20px;
-  }
-
-  .header-actions {
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 8px;
-  }
-
-  .header-actions .ant-input-search {
-    width: 200px !important;
+    padding: 16px 12px;
   }
 
   .artists-list-container {
     padding: 16px;
   }
 }
-

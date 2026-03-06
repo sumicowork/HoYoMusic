@@ -11,7 +11,7 @@ const defaultApiBase = import.meta.env.VITE_API_URL?.replace('/api', '') || wind
 
 // 获取封面 URL，如果没有则返回占位符
 // OSS 模式下封面 URL 为完整 http(s) 地址，需要通过服务器代理中转（与 FLAC 流式传输保持一致）
-// thumb: true → 返回缩略图 URL (200x200 webp)
+// thumb: true → 返回缩略图 URL (1000x1000 webp)
 export const getCoverUrl = (coverPath: string | null, apiBaseUrl?: string, thumb?: boolean): string => {
   if (!coverPath) return MUSIC_ICON_PLACEHOLDER;
   // 静态模式: /data/covers/... 相对路径，直接返回

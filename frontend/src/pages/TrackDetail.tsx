@@ -14,7 +14,7 @@ import { getTrackTags, Tag as TagType } from '../services/tagService';
 import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
 import './TrackDetail.css';
 
-const { Header, Content } = Layout;
+const { Content } = Layout;
 const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
 
 interface Credit {
@@ -139,18 +139,15 @@ const TrackDetail: React.FC = () => {
 
   return (
     <Layout className="track-detail-layout">
-      <Header className="track-detail-header">
-        <Button
-          type="text"
-          icon={<ArrowLeftOutlined />}
-          onClick={() => navigate('/')}
-          style={{ color: '#fff' }}
-        >
-          返回首页
-        </Button>
-      </Header>
-
       <Content className="track-detail-content">
+        <div style={{ marginBottom: 16 }}>
+          <Button
+            icon={<ArrowLeftOutlined />}
+            onClick={() => navigate('/')}
+          >
+            返回首页
+          </Button>
+        </div>
         <Card className="track-info-card">
           <div className="track-info-container">
             {(() => {

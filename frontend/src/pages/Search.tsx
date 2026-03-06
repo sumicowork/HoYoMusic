@@ -19,10 +19,9 @@ import { gameService, Game } from '../services/gameService';
 import { usePlayerStore } from '../store/playerStore';
 import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
 import { toast } from '../utils/toast';
-import ThemeToggle from '../components/ThemeToggle';
 import './Search.css';
 
-const { Header, Content } = Layout;
+const { Content } = Layout;
 const { Text } = Typography;
 const { Panel } = Collapse;
 
@@ -296,14 +295,6 @@ const Search: React.FC = () => {
 
   return (
     <Layout className="search-layout">
-      <Header className="search-header">
-        <div className="search-header-content">
-          <h1 onClick={() => navigate('/')} style={{ cursor: 'pointer', margin: 0 }}>
-            🎵 HoYoMusic
-          </h1>
-          <ThemeToggle />
-        </div>
-      </Header>
 
       <Content className="search-content">
         {/* Hero 搜索区 */}

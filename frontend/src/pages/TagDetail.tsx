@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
+  Layout,
   Button,
   Empty,
   Tag as AntTag,
@@ -18,6 +19,8 @@ import { getTagById, Tag } from '../services/tagService';
 import { usePlayerStore } from '../store/playerStore';
 import { trackService, DOWNLOAD_ENABLED } from '../services/trackService';
 import './TagDetail.css';
+
+const { Content } = Layout;
 
 const TagDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -134,31 +137,29 @@ const TagDetail: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="tag-detail-container">
-        <div className="loading-container">
-          <p>加载中...</p>
-        </div>
-      </div>
+      <Layout className="tag-detail-layout">
+        <Content className="tag-detail-content">
+          <div className="loading-container"><p>加载中...</p></div>
+        </Content>
+      </Layout>
     );
   }
 
   if (!tag) {
     return (
-      <div className="tag-detail-container">
-        <Empty description="标签不存在" />
-      </div>
+      <Layout className="tag-detail-layout">
+        <Content className="tag-detail-content">
+          <Empty description="标签不存在" />
+        </Content>
+      </Layout>
     );
   }
 
   return (
-    <div className="tag-detail-container">
-      <div className="tag-detail-header">
-        <Button
-          icon={<ArrowLeftOutlined />}
-          onClick={() => navigate('/tags')}
-          style={{ marginBottom: 24 }}
-        >
-          返回
+    <Layout className="tag-detail-layout">
+      <Content className="tag-detail-content">
+        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/tags')} style={{ marginBottom: 24 }}>
+          返回标签列表
         </Button>
 
         <div className="tag-detail-info">
@@ -171,12 +172,8 @@ const TagDetail: React.FC = () => {
               标签
             </AntTag>
             <h1>{tag.name}</h1>
-            {tag.description && (
-              <p className="tag-description">{tag.description}</p>
-            )}
-            <div className="tag-stats">
-              <span>{tag.track_count || 0} 首歌曲</span>
-            </div>
+            {tag.description && <p className="tag-description">{tag.description}</p>}
+            <div className="tag-stats"><span>{tag.track_count || 0} 首歌曲</span></div>
 
             <Space style={{ marginTop: 24 }}>
               <Button
@@ -191,25 +188,16 @@ const TagDetail: React.FC = () => {
             </Space>
           </div>
         </div>
-      </div>
 
-      <div className="tag-detail-tracks">
-        {!tag.tracks || tag.tracks.length === 0 ? (
-          <Empty
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description="此标签下还没有歌曲"
-            style={{ marginTop: 60 }}
-          />
-        ) : (
-          <Table
-            columns={columns}
-            dataSource={tag.tracks}
-            rowKey="id"
-            pagination={false}
-          />
-        )}
-      </div>
-    </div>
+        <div className="tag-detail-tracks">
+          {!tag.tracks || tag.tracks.length === 0 ? (
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="此标签下还没有歌曲" style={{ marginTop: 60 }} />
+          ) : (
+            <Table columns={columns} dataSource={tag.tracks} rowKey="id" pagination={false} />
+          )}
+        </div>
+      </Content>
+    </Layout>
   );
 };
 
