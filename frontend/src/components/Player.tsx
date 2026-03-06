@@ -57,6 +57,15 @@ const Player: React.FC = () => {
 
   const [queueVisible, setQueueVisible] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [collapsing, setCollapsing] = useState(false);
+
+  const handleCollapse = () => {
+    setCollapsing(true);
+    setTimeout(() => {
+      setExpanded(false);
+      setCollapsing(false);
+    }, 320);
+  };
 
   // Lyrics state
   const [lyricsContent, setLyricsContent] = useState<string | null>(null);
@@ -163,7 +172,7 @@ const Player: React.FC = () => {
           togglePlayMode();
           break;
         case 'Escape':
-          if (expanded) setExpanded(false);
+          if (expanded) handleCollapse();
           break;
       }
     };
@@ -323,17 +332,17 @@ const Player: React.FC = () => {
   // ─── Expanded fullscreen view ─────────────────────────────
   if (expanded) {
     return (
-      <div className="player-expanded">
+      <div className={`player-expanded${collapsing ? ' player-collapsing' : ''}`}>
         {/* dark gradient bg — click to collapse */}
         <div
           className="player-expanded-bg"
-          onClick={() => setExpanded(false)}
+          onClick={handleCollapse}
         />
         {/* top-right close button */}
         <Button
           type="text"
           icon={<CompressOutlined />}
-          onClick={() => setExpanded(false)}
+          onClick={handleCollapse}
           className="player-expanded-close"
           aria-label="收起播放器"
         />
@@ -406,7 +415,7 @@ const Player: React.FC = () => {
                 </Badge>
               </Tooltip>
               <Tooltip title="收起（Esc）">
-                <Button type="text" icon={<CompressOutlined />} onClick={() => setExpanded(false)} size="large" style={{ marginLeft: 4 }} aria-label="收起播放器" />
+                <Button type="text" icon={<CompressOutlined />} onClick={handleCollapse} size="large" style={{ marginLeft: 4 }} aria-label="收起播放器" />
               </Tooltip>
             </div>
           </div>

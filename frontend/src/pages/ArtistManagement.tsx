@@ -46,16 +46,18 @@ const ArtistManagement: React.FC = () => {
   // Avatars
   const [avatars, setAvatars] = useState<Record<string, string>>({});
 
-  const fetchArtists = async (page = 1, search = '') => {
+  const fetchArtists = async (page = 1, search = '', pageSize?: number) => {
+    const size = pageSize ?? pagination.pageSize;
     setLoading(true);
     try {
-      const response = await api.get(`/artists?page=${page}&limit=${pagination.pageSize}&search=${encodeURIComponent(search)}`);
+      const response = await api.get(`/artists?page=${page}&limit=${size}&search=${encodeURIComponent(search)}`);
       if (response.data.success) {
         setArtists(response.data.data.artists);
         setPagination(prev => ({
           ...prev,
           current: response.data.data.pagination.page,
           total: response.data.data.pagination.total,
+          pageSize: size,
         }));
       }
     } catch (error: any) {
@@ -267,10 +269,13 @@ const ArtistManagement: React.FC = () => {
           pagination={{
             ...pagination,
             showSizeChanger: true,
+            pageSizeOptions: ['20', '50', '100'],
             showTotal: (total: number) => `共 ${total} 位艺术家`,
           }}
           onChange={(newPagination) => {
-            fetchArtists(newPagination.current, searchText);
+            const newSize = newPagination.pageSize || pagination.pageSize;
+            const newPage = newPagination.pageSize !== pagination.pageSize ? 1 : (newPagination.current || 1);
+            fetchArtists(newPage, searchText, newSize);
           }}
         />
       </Card>

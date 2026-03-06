@@ -21,17 +21,18 @@ const PublicLibrary: React.FC = () => {
   const { playTrackOnly } = usePlayerStore();
   const navigate = useNavigate();
 
-  const fetchTracks = async (page = 1, search = '') => {
+  const fetchTracks = async (page = 1, search = '', pageSize?: number) => {
+    const size = pageSize ?? pagination.pageSize;
     setLoading(true);
     try {
-      // 调用公开 API（无需认证）
-      const data = await trackService.getTracksPublic(page, pagination.pageSize, search);
+      const data = await trackService.getTracksPublic(page, size, search);
       setTracks(data.tracks);
-      setPagination({
-        ...pagination,
+      setPagination(prev => ({
+        ...prev,
         current: data.pagination.page,
         total: data.pagination.total,
-      });
+        pageSize: size,
+      }));
     } catch (error: any) {
       console.error('获取曲目失败:', error);
     } finally {
@@ -166,10 +167,13 @@ const PublicLibrary: React.FC = () => {
           pagination={{
             ...pagination,
             showSizeChanger: true,
-            showTotal: (total: number) => `Total ${total} tracks`,
+            pageSizeOptions: ['10', '20', '50', '100'],
+            showTotal: (total: number) => `共 ${total} 首曲目`,
           }}
           onChange={(newPagination) => {
-            fetchTracks(newPagination.current, searchText);
+            const newSize = newPagination.pageSize || pagination.pageSize;
+            const newPage = newPagination.pageSize !== pagination.pageSize ? 1 : (newPagination.current || 1);
+            fetchTracks(newPage, searchText, newSize);
           }}
         />
       </Content>

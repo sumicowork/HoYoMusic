@@ -29,5 +29,40 @@ body {
   .app.has-player {
     padding-bottom: 152px; /* 96px player + 56px tab bar */
   }
+
+  /* Mobile table improvements */
+  .ant-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ant-table {
+    min-width: 520px;
+  }
+
+  /* Compact pagination on mobile */
+  .ant-pagination {
+    flex-wrap: wrap;
+    justify-content: center !important;
+    gap: 4px;
+  }
+
+  .ant-pagination-options {
+    margin-inline-start: 0 !important;
+  }
+
+  /* Smaller cards on mobile */
+  .ant-card-body {
+    padding: 12px !important;
+  }
+
+  .ant-card-head {
+    padding: 0 12px !important;
+    min-height: 40px !important;
+  }
+
+  .ant-card-head-title {
+    font-size: 15px !important;
+  }
 }
 

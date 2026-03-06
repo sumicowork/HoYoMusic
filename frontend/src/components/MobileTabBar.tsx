@@ -5,7 +5,7 @@ import {
   SearchOutlined,
   UnorderedListOutlined,
   AppstoreOutlined,
-  TagsOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import { usePlayerStore } from '../store/playerStore';
 import './MobileTabBar.css';
@@ -15,7 +15,7 @@ const tabs = [
   { icon: <SearchOutlined />, label: '搜索', path: '/search' },
   { icon: <UnorderedListOutlined />, label: '曲库', path: '/library' },
   { icon: <AppstoreOutlined />, label: '专辑', path: '/albums' },
-  { icon: <TagsOutlined />, label: '标签', path: '/tags' },
+  { icon: <UserOutlined />, label: '创作者', path: '/artists' },
 ];
 
 const MobileTabBar: React.FC = () => {
@@ -30,7 +30,9 @@ const MobileTabBar: React.FC = () => {
       aria-label="移动端导航"
     >
       {tabs.map((tab) => {
-        const isActive = location.pathname === tab.path;
+        const isActive = tab.path === '/'
+          ? location.pathname === '/'
+          : location.pathname.startsWith(tab.path);
         return (
           <button
             key={tab.path}

@@ -147,16 +147,32 @@
   flex-direction: column;
   overflow: hidden;
   animation: playerSlideUp 0.35s cubic-bezier(0.32, 0.72, 0, 1) both;
+  transform-origin: bottom center;
+}
+
+.player-expanded.player-collapsing {
+  animation: playerSlideDown 0.32s cubic-bezier(0.4, 0, 0.6, 1) both;
 }
 
 @keyframes playerSlideUp {
   from {
-    transform: translateY(100%);
-    opacity: 0.5;
+    clip-path: inset(100% 0 0 0);
+    opacity: 0.6;
   }
   to {
-    transform: translateY(0);
+    clip-path: inset(0 0 0 0);
     opacity: 1;
+  }
+}
+
+@keyframes playerSlideDown {
+  from {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+  to {
+    clip-path: inset(100% 0 0 0);
+    opacity: 0.6;
   }
 }
 
@@ -357,31 +373,53 @@
 /* ── Mobile responsive ─────────────────────────── */
 @media (max-width: 768px) {
   .player-content {
-    padding: 12px 16px;
+    padding: 10px 12px;
     gap: 8px;
   }
 
   .player-track-info {
-    flex: 0 1 auto;
-    max-width: 120px;
+    flex: 0 0 auto;
+    max-width: 100px;
+    gap: 8px;
   }
 
   .player-cover {
     width: 40px;
     height: 40px;
+    border-radius: 6px;
+  }
+
+  .player-title {
+    font-size: 12px;
   }
 
   .player-controls {
     flex: 1;
-    gap: 4px;
+    gap: 2px;
   }
 
   .player-controls .ant-space {
-    gap: 4px !important;
+    gap: 0 !important;
+  }
+
+  .player-controls .ant-btn-lg {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 16px !important;
+  }
+
+  .player-progress {
+    gap: 6px;
+  }
+
+  .player-time {
+    font-size: 10px;
+    min-width: 30px;
   }
 
   .player-volume {
     min-width: auto;
+    gap: 0;
   }
 
   .player-volume .ant-slider {
@@ -408,8 +446,8 @@
   }
 
   .player-expanded-cover {
-    width: 180px;
-    height: 180px;
+    width: 200px;
+    height: 200px;
     margin-bottom: 16px;
   }
 
@@ -422,10 +460,19 @@
     min-height: 200px;
   }
 
+  .player-lyric-line {
+    font-size: 15px;
+    line-height: 1.8;
+  }
+
+  .player-lyric-line.active {
+    font-size: 18px;
+  }
+
   .player-expanded-controls-inner {
-    padding: 12px 16px;
+    padding: 10px 12px;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 4px;
   }
 
   .player-expanded-controls-inner .player-track-info {
@@ -438,5 +485,15 @@
 
   .player-expanded-controls-inner .player-volume .anticon-sound {
     display: none;
+  }
+
+  .player-expanded-controls-inner .player-controls .ant-btn-lg {
+    width: 36px !important;
+    height: 36px !important;
+  }
+
+  .player-expanded-close {
+    top: 10px;
+    right: 10px;
   }
 }

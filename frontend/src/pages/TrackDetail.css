@@ -83,6 +83,19 @@
 @media (max-width: 768px) {
   .track-info-container {
     flex-direction: column;
+    gap: 16px;
+  }
+
+  .track-detail-content {
+    padding: 16px 12px;
+  }
+
+  .track-info-details h1 {
+    font-size: 22px;
+  }
+
+  .track-info-details h3 {
+    font-size: 16px;
   }
 }
 

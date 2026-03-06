@@ -84,23 +84,24 @@
 }
 
 @media (max-width: 768px) {
-  .tag-detail-container {
-    padding: 16px;
+  .tag-detail-content {
+    padding: 16px 12px;
   }
 
   .tag-detail-info {
     flex-direction: column;
     align-items: center;
     text-align: center;
+    gap: 20px;
   }
 
   .tag-detail-icon {
-    width: 150px;
-    height: 150px;
+    width: 120px;
+    height: 120px;
   }
 
   .tag-detail-meta h1 {
-    font-size: 32px;
+    font-size: 24px;
   }
 }
 

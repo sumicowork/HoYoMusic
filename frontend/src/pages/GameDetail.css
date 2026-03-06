@@ -315,28 +315,28 @@
 
 @media (max-width: 768px) {
   .game-detail-content {
-    padding: 24px 16px;
+    padding: 16px 12px;
   }
 
   .albums-header h1 {
-    font-size: 28px;
+    font-size: 22px;
   }
 
   .albums-header p {
-    font-size: 16px;
+    font-size: 14px;
   }
 
   .game-name-cn {
-    font-size: 20px;
+    font-size: 18px;
   }
 
   .game-name-en {
-    font-size: 14px;
+    font-size: 13px;
   }
 
   .game-detail-header .header-content {
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 8px;
   }
 
   .game-title-header {

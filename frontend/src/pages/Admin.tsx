@@ -58,16 +58,18 @@ const Admin: React.FC = () => {
 
   const { playTrackOnly } = usePlayerStore();
 
-  const fetchTracks = async (page = 1, search?: string) => {
+  const fetchTracks = async (page = 1, search?: string, pageSize?: number) => {
     const searchVal = search !== undefined ? search : searchText;
+    const size = pageSize ?? pagination.pageSize;
     setLoading(true);
     try {
-      const data = await trackService.getTracks(page, pagination.pageSize, searchVal);
+      const data = await trackService.getTracks(page, size, searchVal);
       setTracks(data.tracks);
       setPagination(prev => ({
         ...prev,
         current: data.pagination.page,
         total: data.pagination.total,
+        pageSize: size,
       }));
     } catch (error: any) {
       message.error(error.message || '获取曲目列表失败');
@@ -347,10 +349,13 @@ const Admin: React.FC = () => {
           pagination={{
             ...pagination,
             showSizeChanger: true,
+            pageSizeOptions: ['10', '20', '50', '100'],
             showTotal: (total: number) => `共 ${total} 首曲目`,
           }}
           onChange={(newPagination) => {
-            fetchTracks(newPagination.current);
+            const newSize = newPagination.pageSize || pagination.pageSize;
+            const newPage = newPagination.pageSize !== pagination.pageSize ? 1 : (newPagination.current || 1);
+            fetchTracks(newPage, undefined, newSize);
           }}
         />
       </Card>
