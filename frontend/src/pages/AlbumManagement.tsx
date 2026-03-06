@@ -34,16 +34,18 @@ const AlbumManagement: React.FC = () => {
   const [bulkGameId, setBulkGameId] = useState<number | null>(null);
 
 
-  const fetchAlbums = async (page = 1) => {
+  const fetchAlbums = async (page = 1, pageSize?: number) => {
+    const size = pageSize ?? pagination.pageSize;
     setLoading(true);
     try {
-      const data = await albumService.getAlbums(page, pagination.pageSize);
+      const data = await albumService.getAlbums(page, size);
       setAlbums(data.albums);
-      setPagination({
-        ...pagination,
+      setPagination(prev => ({
+        ...prev,
         current: data.pagination.page,
         total: data.pagination.total,
-      });
+        pageSize: size,
+      }));
     } catch (error: any) {
       message.error(error.message || '获取专辑列表失败');
     } finally {
@@ -249,10 +251,13 @@ const AlbumManagement: React.FC = () => {
           pagination={{
             ...pagination,
             showSizeChanger: true,
+            pageSizeOptions: ['10', '20', '50', '100'],
             showTotal: (total: number) => `共 ${total} 张专辑`,
           }}
           onChange={(newPagination) => {
-            fetchAlbums(newPagination.current);
+            const newSize = newPagination.pageSize || pagination.pageSize;
+            const newPage = newPagination.pageSize !== pagination.pageSize ? 1 : (newPagination.current || 1);
+            fetchAlbums(newPage, newSize);
           }}
         />
       </Card>

@@ -44,7 +44,7 @@ export const getAlbums = async (req: Request, res: Response) => {
       LEFT JOIN tracks t ON a.id = t.album_id
       ${searchCondition}
       GROUP BY a.id
-      ORDER BY a.created_at DESC
+      ORDER BY COALESCE(a.release_date, a.created_at) DESC, a.title ASC
       LIMIT $1 OFFSET $2
     `;
 

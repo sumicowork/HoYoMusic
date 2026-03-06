@@ -110,7 +110,7 @@ export const trackService = {
 
   async getTracks(page = 1, limit = 20, search = ''): Promise<{ tracks: Track[]; pagination: any }> {
     const response = await api.get<ApiResponse<{ tracks: Track[]; pagination: any }>>(
-      `/tracks?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`
+      `/tracks?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}&sort_by=release_date&sort_dir=DESC`
     );
     if (response.data.success && response.data.data) {
       return response.data.data;
@@ -122,7 +122,7 @@ export const trackService = {
   async getTracksPublic(page = 1, limit = 20, search = ''): Promise<{ tracks: Track[]; pagination: any }> {
     if (IS_STATIC) return staticData.getTracksPublic(page, limit, search);
     const response = await publicApi.get<ApiResponse<{ tracks: Track[]; pagination: any }>>(
-      `/public/tracks?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`
+      `/public/tracks?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}&sort_by=release_date&sort_dir=DESC`
     );
     if (response.data.success && response.data.data) {
       return response.data.data;

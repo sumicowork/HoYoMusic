@@ -383,7 +383,7 @@ export const getTracks = async (req: Request, res: Response) => {
     // artist: 艺术家名称模糊匹配
     const artistFilter = (req.query.artist as string || '').trim();
 
-    const sortBy  = (req.query.sort_by as string) || 'created_at';
+    const sortBy  = (req.query.sort_by as string) || 'release_date';
     const sortDir = (req.query.sort_dir as string)?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
     const allowedSort: Record<string, string> = {
@@ -391,9 +391,9 @@ export const getTracks = async (req: Request, res: Response) => {
       title:        't.title',
       duration:     't.duration',
       sample_rate:  't.sample_rate',
-      release_date: 't.release_date',
+      release_date: 'COALESCE(t.release_date, a.release_date)',
     };
-    const orderBy = allowedSort[sortBy] || 't.created_at';
+    const orderBy = allowedSort[sortBy] || 'COALESCE(t.release_date, a.release_date)';
 
     // Build WHERE clauses
     const conditions: string[] = [];
@@ -517,7 +517,7 @@ export const getTracks = async (req: Request, res: Response) => {
       LEFT JOIN artists ar ON ta.artist_id = ar.id
       ${whereClause}
       GROUP BY t.id, a.title, a.cover_path
-      ORDER BY ${orderBy} ${sortDir}
+      ORDER BY ${orderBy} ${sortDir}, COALESCE(a.release_date, a.created_at) ${sortDir}, t.track_number ASC NULLS LAST, t.title ASC
       LIMIT $${limitParam} OFFSET $${offsetParam}
     `;
 
