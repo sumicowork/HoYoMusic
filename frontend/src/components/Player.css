@@ -127,6 +127,11 @@
   min-width: 150px;
 }
 
+/* ── Mobile-only progress row (hidden on desktop) ── */
+.player-mini-progress {
+  display: none;
+}
+
 /* ── Clickable expand hint overlay ─────────────────── */
 .player-expand-hint {
   position: absolute;
@@ -379,7 +384,7 @@
   }
 
   .player-content {
-    padding: 8px 12px;
+    padding: 8px 12px 4px;
     gap: 0;
     /* 3-column: [left info] [centre controls] [right actions] */
     display: grid;
@@ -387,13 +392,28 @@
     align-items: center;
   }
 
-  /* Left: cover + title — left-aligned */
+  /* Left: cover + title — left-aligned, must not grow into centre */
   .player-track-info {
     flex: unset;
     max-width: unset;
     gap: 8px;
     min-width: 0;
+    overflow: hidden;
     justify-self: start;
+    width: 100%;
+  }
+
+  /* Ensure title truncates properly in grid cell */
+  .player-track-info .player-text {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .player-track-info .player-title {
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .player-cover {
@@ -403,15 +423,16 @@
     flex-shrink: 0;
   }
 
-  .player-title {
-    font-size: 12px;
-  }
-
-  /* Centre: controls — truly centred */
+  /* Centre: controls — truly centred, hide progress (shown separately below) */
   .player-controls {
     flex: unset;
     gap: 2px;
     justify-self: center;
+  }
+
+  /* Hide the progress bar that's inside controlsBar — use .player-mini-progress instead */
+  .player-content .player-controls .player-progress {
+    display: none;
   }
 
   .player-controls .ant-space {
@@ -424,12 +445,7 @@
     font-size: 16px !important;
   }
 
-  /* Hide progress bar in mini player on mobile */
-  .player-controls .player-progress {
-    display: none;
-  }
-
-  /* Right: only queue + expand buttons — right-aligned, same width as left */
+  /* Right: only queue + expand buttons — right-aligned */
   .player-volume {
     min-width: unset;
     gap: 0;
@@ -445,6 +461,27 @@
 
   .player-volume > .anticon-sound {
     display: none;
+  }
+
+  /* Mobile-only full-width progress row */
+  .player-mini-progress {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 12px 6px;
+  }
+
+  .player-mini-progress .player-slider {
+    flex: 1;
+    margin: 0 !important;
+  }
+
+  .player-mini-progress .player-time {
+    font-size: 10px;
+    color: var(--text-secondary);
+    min-width: 28px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
   }
 
   .player-progress {

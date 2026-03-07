@@ -465,6 +465,20 @@ const Player: React.FC = () => {
         </div>
       </div>
 
+      {/* Mobile-only progress row — sits below the 3-column control row */}
+      <div className="player-mini-progress">
+        <span className="player-time">{formatTime(progress)}</span>
+        <Slider
+          value={progress}
+          max={duration}
+          onChange={handleSeek}
+          tooltip={{ formatter: (value) => formatTime(value || 0) }}
+          className="player-slider"
+          aria-label="播放进度"
+        />
+        <span className="player-time">{formatTime(duration)}</span>
+      </div>
+
       <PlayQueue visible={queueVisible} onClose={() => setQueueVisible(false)} />
     </div>
   );
