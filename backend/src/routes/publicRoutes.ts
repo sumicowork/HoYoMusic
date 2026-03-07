@@ -29,14 +29,31 @@ router.get('/covers/proxy', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: { code: 'MISSING_PARAM', message: 'Missing path parameter' } });
     }
 
-    // Helper: pipe image buffer through sharp for thumbnail
+    // Helper: pipe image buffer through sharp for thumbnail (resize only, preserve format & quality)
     const sendThumbnail = async (imageBuffer: Buffer) => {
       try {
-        const thumbBuffer = await sharp(imageBuffer)
-          .resize(1000, 1000, { fit: 'cover' })
-          .webp({ quality: 85 })
-          .toBuffer();
-        res.setHeader('Content-Type', 'image/webp');
+        // Detect original format
+        const meta = await sharp(imageBuffer).metadata();
+        const fmt = meta.format; // 'jpeg' | 'png' | 'webp' | 'flac' etc.
+
+        let pipeline = sharp(imageBuffer)
+          .resize(1000, 1000, { fit: 'cover', withoutEnlargement: true });
+
+        let contentType = 'image/jpeg';
+        if (fmt === 'png') {
+          pipeline = pipeline.png();
+          contentType = 'image/png';
+        } else if (fmt === 'webp') {
+          pipeline = pipeline.webp();
+          contentType = 'image/webp';
+        } else {
+          // default: jpeg, no quality override → preserves encoder default
+          pipeline = pipeline.jpeg();
+          contentType = 'image/jpeg';
+        }
+
+        const thumbBuffer = await pipeline.toBuffer();
+        res.setHeader('Content-Type', contentType);
         res.setHeader('Content-Length', thumbBuffer.length);
         res.setHeader('Cache-Control', 'public, max-age=604800'); // 7 days
         return res.send(thumbBuffer);
