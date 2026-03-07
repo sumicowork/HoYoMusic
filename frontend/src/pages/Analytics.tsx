@@ -215,7 +215,7 @@ const Analytics: React.FC = () => {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
-                <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={v => v?.slice(5) ?? ''} />
+                <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(v: string) => v?.slice(5) ?? ''} />
                 <YAxis yAxisId="l" tick={{ fontSize: 11 }} />
                 <YAxis yAxisId="r" orientation="right" tick={{ fontSize: 11 }} />
                 <RechartTooltip />
@@ -286,7 +286,7 @@ const Analytics: React.FC = () => {
                     <YAxis
                       type="category" dataKey="country"
                       tick={{ fontSize: 12 }} width={55}
-                      tickFormatter={v => `${flag(v)} ${v}`}
+                      tickFormatter={(v: string) => `${flag(v)} ${v}`}
                     />
                     <RechartTooltip />
                     <Legend />
@@ -409,6 +409,8 @@ const Analytics: React.FC = () => {
 };
 
 export default Analytics;
+
+
 
 
 
