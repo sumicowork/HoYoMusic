@@ -45,7 +45,7 @@ const GameCard: React.FC<{
     >
       <div className="game-cover">
         {game.cover_path ? (
-          <img src={getCoverUrl(game.cover_path)} alt={game.name} onError={handleImageError} />
+          <img src={getCoverUrl(game.cover_path)} alt={game.name} loading="lazy" onError={handleImageError} />
         ) : (
           <div className="game-cover-placeholder">{game.name}</div>
         )}
@@ -81,6 +81,7 @@ const AlbumCarouselCard: React.FC<{ album: Album; onClick: () => void }> = ({ al
       <img
         src={getCoverUrl(album.cover_path, undefined, true)}
         alt={album.title}
+        loading="lazy"
         onError={handleImageError}
       />
       <div className="carousel-album-overlay">
@@ -111,6 +112,7 @@ const TrackItem: React.FC<{ track: Track; onPlay: () => void }> = ({ track, onPl
         className="rec-track-cover"
         src={getCoverUrl(track.cover_path || track.album_cover || null, undefined, true)}
         alt={track.title}
+        loading="lazy"
         onError={handleImageError}
       />
       <div className="rec-track-info">

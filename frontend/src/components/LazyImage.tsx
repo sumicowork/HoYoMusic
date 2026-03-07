@@ -10,6 +10,8 @@ interface LazyImageProps {
   fallback?: string;
   borderRadius?: number | string;
   objectFit?: 'cover' | 'contain' | 'fill';
+  onClick?: React.MouseEventHandler<HTMLDivElement>;
+  onError?: React.ReactEventHandler<HTMLImageElement>;
 }
 
 const LazyImage: React.FC<LazyImageProps> = ({
@@ -22,11 +24,18 @@ const LazyImage: React.FC<LazyImageProps> = ({
   fallback,
   borderRadius,
   objectFit = 'cover',
+  onClick,
+  onError,
 }) => {
   const imgRef = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
+
+  useEffect(() => {
+    setLoaded(false);
+    setError(false);
+  }, [src]);
 
   useEffect(() => {
     if (!imgRef.current) return;
@@ -38,7 +47,7 @@ const LazyImage: React.FC<LazyImageProps> = ({
           observer.disconnect();
         }
       },
-      { rootMargin: '200px' } // preload 200px before visible
+      { rootMargin: '300px' } // preload 300px before visible
     );
 
     observer.observe(imgRef.current);
@@ -53,6 +62,7 @@ const LazyImage: React.FC<LazyImageProps> = ({
     display: 'inline-block',
     position: 'relative',
     backgroundColor: 'rgba(128,128,128,0.1)',
+    cursor: onClick ? 'pointer' : undefined,
     ...style,
   };
 
@@ -79,7 +89,7 @@ const LazyImage: React.FC<LazyImageProps> = ({
   const displaySrc = error ? fallback : src;
 
   return (
-    <div ref={imgRef} style={containerStyle} className={className}>
+    <div ref={imgRef} style={containerStyle} className={className} onClick={onClick}>
       <div style={placeholderStyle}>
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(128,128,128,0.4)" strokeWidth="1.5">
           <path d="M9 18V5l12-2v13" />
@@ -91,9 +101,11 @@ const LazyImage: React.FC<LazyImageProps> = ({
         <img
           src={displaySrc}
           alt={alt}
+          loading="lazy"
+          decoding="async"
           style={imgStyle}
           onLoad={() => setLoaded(true)}
-          onError={() => { setError(true); setLoaded(true); }}
+          onError={(e) => { setError(true); setLoaded(true); onError?.(e); }}
         />
       )}
     </div>
