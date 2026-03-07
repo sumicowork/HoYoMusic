@@ -29,6 +29,7 @@
     "howler": "^2.2.4",
     "react-beautiful-dnd": "^13.1.1",
     "react-router-dom": "^7.13.0",
+    "recharts": "^3.8.0",
     "zustand": "^5.0.11"
   }
 }

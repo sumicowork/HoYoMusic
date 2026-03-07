@@ -15,6 +15,8 @@ import albumRoutes from './routes/albumRoutes';
 import artistRoutes from './routes/artistRoutes';
 import gameRoutes from './routes/gameRoutes';
 import tagRoutes from './routes/tagRoutes';
+import analyticsRoutes from './routes/analyticsRoutes';
+import { visitLogger } from './middleware/visitLogger';
 import { errorHandler } from './middleware/errorHandler';
 
 dotenv.config();
@@ -27,6 +29,9 @@ app.use(cors());
 app.use(express.json({ limit: '2gb' }));
 app.use(express.urlencoded({ extended: true, limit: '2gb' }));
 app.use(passport.initialize());
+
+// Visit logger — records every request for analytics (before routes)
+app.use(visitLogger);
 
 // 本地存储模式下，提供静态文件访问（远程存储模式下文件直接从远程 URL 获取）
 const STATIC_STORAGE_MODE = process.env.STORAGE_MODE || 'local';
@@ -43,8 +48,9 @@ app.use('/api/credits', creditsRoutes); // Credits routes
 app.use('/api/albums', albumRoutes); // Album routes
 app.use('/api/artists', artistRoutes); // Artist routes
 app.use('/api/games', gameRoutes); // Game routes
-app.use('/api/tags', tagRoutes); // Tag routes
-app.use('/api/public', publicRoutes); // Public routes (无需认证)
+app.use('/api/tags', tagRoutes);         // Tag routes
+app.use('/api/analytics', analyticsRoutes); // Analytics (authenticated)
+app.use('/api/public', publicRoutes);    // Public routes (无需认证)
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -77,6 +83,38 @@ const runMigrations = async () => {
     console.log('✅ DB migrations up to date (artist_aliases)');
   } catch (err) {
     console.error('⚠️  Migration warning (non-fatal):', err);
+  }
+
+  // visit_logs for analytics
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS visit_logs (
+        id          BIGSERIAL PRIMARY KEY,
+        ts          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        ip          VARCHAR(64),
+        country     VARCHAR(4),
+        region      VARCHAR(128),
+        city        VARCHAR(128),
+        latitude    NUMERIC(9,6),
+        longitude   NUMERIC(9,6),
+        method      VARCHAR(10),
+        path        VARCHAR(1024),
+        status      SMALLINT,
+        duration_ms INTEGER,
+        user_agent  TEXT,
+        ua_browser  VARCHAR(128),
+        ua_os       VARCHAR(128),
+        ua_device   VARCHAR(64),
+        referer     VARCHAR(1024),
+        bytes_sent  INTEGER
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_visit_logs_ts      ON visit_logs (ts DESC)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_visit_logs_country ON visit_logs (country)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_visit_logs_path    ON visit_logs (path text_pattern_ops)`);
+    console.log('✅ DB migrations up to date (visit_logs)');
+  } catch (err) {
+    console.error('⚠️  visit_logs migration warning:', err);
   }
 };
 
