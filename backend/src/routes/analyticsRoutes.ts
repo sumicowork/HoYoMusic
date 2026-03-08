@@ -14,9 +14,9 @@ router.get('/overview', async (_req: Request, res: Response) => {
   try {
     const [total, today, unique7d, errors, avgMs] = await Promise.all([
       pool.query(`SELECT COUNT(*)::int AS v FROM visit_logs`),
-      pool.query(`SELECT COUNT(*)::int AS v FROM visit_logs WHERE ts >= CURRENT_DATE`),
+      pool.query(`SELECT COUNT(*)::int AS v FROM visit_logs WHERE ts >= (NOW() AT TIME ZONE 'Asia/Shanghai')::date::timestamptz AT TIME ZONE 'Asia/Shanghai'`),
       pool.query(`SELECT COUNT(DISTINCT ip)::int AS v FROM visit_logs WHERE ts >= NOW() - INTERVAL '7 days'`),
-      pool.query(`SELECT COUNT(*)::int AS v FROM visit_logs WHERE status >= 400 AND ts >= CURRENT_DATE`),
+      pool.query(`SELECT COUNT(*)::int AS v FROM visit_logs WHERE status >= 400 AND ts >= (NOW() AT TIME ZONE 'Asia/Shanghai')::date::timestamptz AT TIME ZONE 'Asia/Shanghai'`),
       pool.query(`SELECT ROUND(AVG(duration_ms))::int AS v FROM visit_logs WHERE ts >= NOW() - INTERVAL '24 hours'`),
     ]);
     res.json({ success: true, data: {
@@ -35,7 +35,7 @@ router.get('/trend', async (req: Request, res: Response) => {
     const d = clampDays(req.query.days);
     const result = await pool.query(`
       SELECT
-        DATE_TRUNC('day', ts AT TIME ZONE 'UTC+8')::date AS date,
+        DATE_TRUNC('day', ts AT TIME ZONE 'Asia/Shanghai')::date AS date,
         COUNT(*)::int               AS requests,
         COUNT(DISTINCT ip)::int     AS visitors
       FROM visit_logs
@@ -51,11 +51,11 @@ router.get('/hourly', async (_req: Request, res: Response) => {
   try {
     const result = await pool.query(`
       SELECT
-        EXTRACT(HOUR FROM ts AT TIME ZONE 'UTC+8')::int AS hour,
+        EXTRACT(HOUR FROM ts AT TIME ZONE 'Asia/Shanghai')::int AS hour,
         COUNT(*)::int AS requests,
         COUNT(DISTINCT ip)::int AS visitors
       FROM visit_logs
-      WHERE ts >= CURRENT_DATE
+      WHERE ts >= (NOW() AT TIME ZONE 'Asia/Shanghai')::date::timestamptz AT TIME ZONE 'Asia/Shanghai'
       GROUP BY 1 ORDER BY 1
     `);
     res.json({ success: true, data: result.rows });
