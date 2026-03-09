@@ -36,3 +36,15 @@ coverage/
 *.tmp
 .cache/
 
+# Build / compiler output logs
+build_out.txt
+tsc_err.txt
+
+# One-off analysis outputs
+*_result.txt
+*_result.json
+ip_geo_cache.json
+
+# Obsidian workspace
+.obsidian/
+
