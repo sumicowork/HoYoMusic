@@ -3,9 +3,15 @@ import { Readable } from 'stream';
 import path from 'path';
 
 export class WebDAVService {
-  private client = getWebDAVClient();
-  private basePath = webdavConfig.basePath;
-  private publicUrl = webdavConfig.publicUrl;
+  private get client() {
+    return getWebDAVClient();
+  }
+  private get basePath() {
+    return webdavConfig.basePath;
+  }
+  private get publicUrl() {
+    return webdavConfig.publicUrl;
+  }
 
   /**
    * 上传文件到WebDAV

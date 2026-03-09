@@ -20,6 +20,9 @@ const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCa
 const upload = multer({
   storage,
   fileFilter,
+  limits: {
+    fileSize: 500 * 1024 * 1024, // 500MB max per FLAC file
+  },
 });
 
 // Cover image upload configuration (也使用内存存储)
@@ -41,6 +44,9 @@ const imageFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterC
 export const coverUpload = multer({
   storage: coverStorage,
   fileFilter: imageFilter,
+  limits: {
+    fileSize: 20 * 1024 * 1024, // 20MB max per cover image
+  },
 });
 
 // Lyrics upload configuration (也使用内存存储)
@@ -58,6 +64,9 @@ const lyricsFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilter
 export const lyricsUpload = multer({
   storage: lyricsStorage,
   fileFilter: lyricsFilter,
+  limits: {
+    fileSize: 1 * 1024 * 1024, // 1MB max per LRC file
+  },
 });
 
 // JSON import file upload configuration (credits import etc.)
@@ -75,6 +84,9 @@ const jsonFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCa
 export const jsonUpload = multer({
   storage: jsonStorage,
   fileFilter: jsonFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB max per JSON file
+  },
 });
 
 export default upload;

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { parseBuffer } from 'music-metadata';
 import path from 'path';
+import fs from 'fs';
 import https from 'https';
 import http from 'http';
 import pool from '../config/database';
@@ -649,7 +650,6 @@ export const streamTrack = async (req: Request, res: Response) => {
       return;
     } else {
       // 本地存储模式：流式传输文件
-      const fs = require('fs');
       const fullPath = storageService.getFullPath(filePath);
 
       if (!fs.existsSync(fullPath)) {

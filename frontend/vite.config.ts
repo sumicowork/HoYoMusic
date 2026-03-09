@@ -12,11 +12,10 @@ export default defineConfig({
         manualChunks: {
           // Core vendor chunks
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-antd': ['antd'],
+          'vendor-antd-core': ['antd'],
+          'vendor-antd-icons': ['@ant-design/icons'],
           'vendor-utils': ['axios', 'zustand', 'howler'],
-          // Font packages — separate chunk so they're cached independently
-          'fonts-jakarta': ['@fontsource/plus-jakarta-sans'],
-          'fonts-noto': ['@fontsource/noto-serif-sc'],
+          'vendor-recharts': ['recharts'],
         },
         // Put font files in a dedicated /fonts/ directory
         assetFileNames: (assetInfo) => {

@@ -10,8 +10,8 @@ import storageService from '../services/storageService';
 
 const router = Router();
 
-// ── 全局下载开关（与 trackRoutes 保持一致）────────────────────────
-const DOWNLOAD_ENABLED = false;
+// ── 全局下载开关（通过环境变量 DOWNLOAD_ENABLED 控制）────────────
+const DOWNLOAD_ENABLED = process.env.DOWNLOAD_ENABLED === 'true';
 const downloadDisabled = (_req: Request, res: Response) =>
   res.status(503).json({ success: false, error: { code: 'DOWNLOAD_DISABLED', message: '下载功能暂时关闭，服务器维护中。' } });
 // ──────────────────────────────────────────────────────────────────

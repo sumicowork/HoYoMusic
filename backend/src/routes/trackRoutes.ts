@@ -6,8 +6,8 @@ import upload, { coverUpload } from '../middleware/upload';
 
 const router = Router();
 
-// ── 全局下载开关（服务器维护期间关闭）────────────────────────────
-const DOWNLOAD_ENABLED = false;
+// ── 全局下载开关（通过环境变量 DOWNLOAD_ENABLED 控制）────────────
+const DOWNLOAD_ENABLED = process.env.DOWNLOAD_ENABLED === 'true';
 const downloadDisabled = (_req: Request, res: Response) =>
   res.status(503).json({ success: false, error: { code: 'DOWNLOAD_DISABLED', message: '下载功能暂时关闭，服务器维护中。' } });
 // ──────────────────────────────────────────────────────────────────

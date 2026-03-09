@@ -6,14 +6,16 @@
 
 *A premium lossless music library platform for HoYoverse game soundtracks*
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript)](https://www.typescriptlang.org/)
-[![React](https://img.shields.io/badge/React-18.x-61DAFB?logo=react)](https://react.dev/)
-[![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=nodedotjs)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-19.x-61DAFB?logo=react)](https://react.dev/)
+[![Node.js](https://img.shields.io/badge/Node.js-20+-339933?logo=nodedotjs)](https://nodejs.org/)
+[![Express](https://img.shields.io/badge/Express-5.x-000000?logo=express)](https://expressjs.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-4169E1?logo=postgresql)](https://www.postgresql.org/)
-[![Vite](https://img.shields.io/badge/Vite-5.x-646CFF?logo=vite)](https://vitejs.dev/)
-[![Ant Design](https://img.shields.io/badge/Ant%20Design-5.x-0170FE?logo=antdesign)](https://ant.design/)
+[![Vite](https://img.shields.io/badge/Vite-7.x-646CFF?logo=vite)](https://vitejs.dev/)
+[![Ant Design](https://img.shields.io/badge/Ant%20Design-6.x-0170FE?logo=antdesign)](https://ant.design/)
+[![License](https://img.shields.io/badge/License-Private-red)](#-许可证)
 
-[功能特性](#-功能特性) · [快速开始](#-快速开始) · [架构设计](#-架构设计) · [API 文档](#-api-文档) · [部署指南](#-部署指南) · [开发指南](#-开发指南)
+[功能特性](#-功能特性) · [快速开始](#-快速开始) · [架构设计](#-架构设计) · [API 文档](#-api-文档) · [部署指南](#-部署指南) · [路线图](#-路线图)
 
 </div>
 
@@ -29,8 +31,9 @@ HoYoMusic 是一个专为**米哈游（miHoYo / HoYoverse）**游戏玩家打造
 
 - 🎮 **以游戏为单位组织音乐**：按游戏 → 专辑 → 曲目的层级结构，符合玩家的思维习惯
 - 🎵 **无损品质优先**：仅支持 FLAC 格式，保存原始采样率（常见 44.1kHz/48kHz/96kHz）和位深（16/24bit）
-- 🔒 **私有化部署**：所有数据存储在自己的服务器，支持本地磁盘和 WebDAV 两种存储后端
+- 🔒 **私有化部署**：所有数据存储在自己的服务器，支持本地磁盘、WebDAV、阿里云 OSS 三种存储后端
 - 🎨 **深浅色主题**：完整的深色/浅色主题系统，自动跟随系统偏好
+- 🛡️ **安全优先**：Helmet 安全头、请求频率限制、JWT 认证、文件大小/类型双重校验
 
 ---
 
@@ -115,7 +118,8 @@ Step 4  完成           统计结果，失败项可重试
 | 模式 | 说明 | 适用场景 |
 |------|------|---------|
 | 本地存储（默认）| 文件存储在 `backend/uploads/` 目录 | 开发、小规模部署 |
-| WebDAV 模式 | 文件存储在 WebDAV 服务器（Nginx/Nextcloud 等）| 生产、大容量部署 |
+| WebDAV 模式 | 文件存储在 WebDAV 服务器（Nginx/Nextcloud 等）| NAS、家庭服务器 |
+| 阿里云 OSS 模式 | 文件存储在阿里云对象存储（支持 CDN 加速）| 生产、大容量部署 |
 
 ---
 
@@ -125,32 +129,42 @@ Step 4  完成           统计结果，失败项可重试
 
 | 技术 | 版本 | 用途 |
 |------|------|------|
-| React | 18.x | UI 框架 |
-| TypeScript | 5.x | 类型安全 |
-| Vite | 5.x | 构建工具，HMR 开发服务器 |
-| Ant Design | 5.x | UI 组件库 |
-| React Router | 6.x | 客户端路由 |
-| Zustand | 4.x | 轻量级状态管理（播放器/认证） |
+| React | 19.x | UI 框架 |
+| TypeScript | 5.9 | 类型安全 |
+| Vite | 7.x | 构建工具，HMR 开发服务器 |
+| Ant Design | 6.x | UI 组件库 |
+| React Router | 7.x | 客户端路由 |
+| Zustand | 5.x | 轻量级状态管理（播放器/认证/主题） |
 | Howler.js | 2.x | 音频引擎（Web Audio API 封装） |
 | Axios | 1.x | HTTP 客户端 |
+| Recharts | 3.x | 数据可视化图表 |
+| Fuse.js | 7.x | 模糊搜索 |
 | CSS Variables | — | 主题系统 |
 
 ### 后端
 
 | 技术 | 版本 | 用途 |
 |------|------|------|
-| Node.js | 18+ | 运行时 |
-| Express | 4.x | HTTP 框架 |
-| TypeScript | 5.x | 类型安全 |
+| Node.js | 20+ | 运行时 |
+| Express | 5.x | HTTP 框架 |
+| TypeScript | 5.9 | 类型安全 |
 | PostgreSQL | 14+ | 主数据库 |
 | `pg` (node-postgres) | 8.x | 数据库驱动 |
-| `music-metadata` | 10.x | FLAC 元数据解析（Node.js） |
-| Multer | 1.x | 文件上传处理（memoryStorage） |
+| `music-metadata` | 11.x | FLAC 元数据解析（Node.js） |
+| Multer | 2.x | 文件上传处理（memoryStorage） |
 | Passport.js | 0.7.x | 认证中间件 |
 | `passport-jwt` | 4.x | JWT 策略 |
-| `bcryptjs` | 2.x | 密码哈希 |
+| `bcrypt` | 6.x | 密码哈希 |
 | `jsonwebtoken` | 9.x | JWT 生成与验证 |
+| `sharp` | 0.34 | 图像处理（缩略图生成） |
+| `ali-oss` | 6.x | 阿里云 OSS 客户端（可选存储后端） |
 | `webdav` | 5.x | WebDAV 客户端（可选存储后端） |
+| `helmet` | 8.x | HTTP 安全头 |
+| `compression` | 1.x | 响应 gzip 压缩 |
+| `express-rate-limit` | 7.x | 请求频率限制 |
+| `geoip-lite` | 1.x | IP 地理位置 |
+| `ua-parser-js` | 2.x | User-Agent 解析 |
+| `archiver` | 7.x | ZIP 打包 |
 | `dotenv` | — | 环境变量管理 |
 | `ts-node` | — | TypeScript 直接执行 |
 | `nodemon` | — | 开发热重载 |
@@ -411,15 +425,19 @@ DB_PORT=5432
 DB_NAME=hoyomusic
 DB_USER=hoyomusic_user
 DB_PASSWORD=your_password
+DB_POOL_MAX=20
 
 # ── JWT 认证 ─────────────────────────────────────────
 JWT_SECRET=your_very_long_and_random_secret_key_here
 JWT_EXPIRES_IN=7d
 
 # ── 存储模式 ─────────────────────────────────────────
-# 选项: local（默认）或 webdav
+# 选项: local（默认）、webdav 或 oss
 STORAGE_MODE=local
 UPLOAD_DIR=uploads
+
+# ── 下载功能 ─────────────────────────────────────────
+DOWNLOAD_ENABLED=false
 
 # ── WebDAV 配置（仅 STORAGE_MODE=webdav 时需要）───────
 WEBDAV_URL=http://your-webdav-server/webdav
@@ -427,6 +445,15 @@ WEBDAV_USERNAME=admin
 WEBDAV_PASSWORD=your_webdav_password
 WEBDAV_BASE_PATH=/hoyomusic
 WEBDAV_PUBLIC_URL=http://your-webdav-server/webdav/hoyomusic
+
+# ── 阿里云 OSS 配置（仅 STORAGE_MODE=oss 时需要）─────
+OSS_REGION=oss-cn-hangzhou
+OSS_ACCESS_KEY_ID=your_access_key_id
+OSS_ACCESS_KEY_SECRET=your_access_key_secret
+OSS_BUCKET=your_bucket_name
+OSS_BASE_PATH=hoyomusic
+OSS_CDN_DOMAIN=
+OSS_SECURE=true
 ```
 
 ### 第四步：创建管理员账户
@@ -1186,6 +1213,10 @@ SELECT * FROM tracks ORDER BY created_at DESC LIMIT 5;
 ---
 
 ## 🗺️ 路线图
+
+> 详细路线图请查看 **[ROADMAP.md](ROADMAP.md)**（含 5 个阶段、50+ 项功能规划）
+> 
+> 优化报告请查看 **[OPTIMIZATION_REPORT.md](OPTIMIZATION_REPORT.md)**
 
 ### 已完成 ✅
 

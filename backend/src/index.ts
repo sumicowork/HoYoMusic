@@ -1,5 +1,8 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import compression from 'compression';
+import rateLimit from 'express-rate-limit';
 import path from 'path';
 import dotenv from 'dotenv';
 import passport from './config/passport';
@@ -24,10 +27,44 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
+// ── Security Middleware ─────────────────────────────────────────
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  contentSecurityPolicy: false, // Managed by Nginx in production
+}));
+
+// ── Response Compression ────────────────────────────────────────
+app.use(compression({
+  filter: (req, res) => {
+    // Don't compress audio streams
+    if (req.path.includes('/stream')) return false;
+    return compression.filter(req, res);
+  },
+}));
+
+// ── Rate Limiting ───────────────────────────────────────────────
+const globalLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 300,                  // 300 requests per minute
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: { code: 'RATE_LIMIT', message: 'Too many requests, please try again later.' } },
+});
+app.use('/api/', globalLimiter);
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,                    // 10 login attempts per 15 minutes
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: { code: 'RATE_LIMIT', message: 'Too many login attempts, please try again later.' } },
+});
+app.use('/api/auth/login', authLimiter);
+
+// ── Core Middleware ─────────────────────────────────────────────
 app.use(cors());
-app.use(express.json({ limit: '2gb' }));
-app.use(express.urlencoded({ extended: true, limit: '2gb' }));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(passport.initialize());
 
 // Visit logger — records every request for analytics (before routes)
@@ -52,9 +89,27 @@ app.use('/api/tags', tagRoutes);         // Tag routes
 app.use('/api/analytics', analyticsRoutes); // Analytics (authenticated)
 app.use('/api/public', publicRoutes);    // Public routes (无需认证)
 
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ success: true, message: 'HoYoMusic API is running' });
+// Health check (with database connectivity test)
+app.get('/api/health', async (req, res) => {
+  try {
+    const dbResult = await pool.query('SELECT 1 AS ok');
+    const dbOk = dbResult.rows.length > 0;
+    res.json({
+      success: true,
+      message: 'HoYoMusic API is running',
+      database: dbOk ? 'connected' : 'error',
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    res.status(503).json({
+      success: false,
+      message: 'HoYoMusic API is running but database is unreachable',
+      database: 'disconnected',
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+    });
+  }
 });
 
 // Error handler (should be last)
