@@ -7,6 +7,8 @@ import https from 'https';
 import http from 'http';
 import { parseBuffer } from 'music-metadata';
 import storageService from '../services/storageService';
+import { generateThumbnails, deriveThumbnailPath } from '../utils/thumbnails';
+import { cache } from '../utils/cache';
 
 // Get all albums with track count
 export const getAlbums = async (req: Request, res: Response) => {
@@ -15,6 +17,13 @@ export const getAlbums = async (req: Request, res: Response) => {
     const limit = parseInt(req.query.limit as string) || 20;
     const offset = (page - 1) * limit;
     const search = req.query.search as string || '';
+
+    // Cache non-search paginated results
+    const cacheKey = search ? null : `albums:p${page}:l${limit}`;
+    if (cacheKey) {
+      const cached = cache.get<any>(cacheKey);
+      if (cached) return res.json(cached);
+    }
 
     let searchCondition = '';
     const queryParams: any[] = [limit, offset];
@@ -50,7 +59,7 @@ export const getAlbums = async (req: Request, res: Response) => {
 
     const albumsResult = await pool.query(albumsQuery, queryParams);
 
-    res.json({
+    const response = {
       success: true,
       data: {
         albums: albumsResult.rows,
@@ -61,7 +70,9 @@ export const getAlbums = async (req: Request, res: Response) => {
           totalPages: Math.ceil(total / limit),
         },
       },
-    });
+    };
+    if (cacheKey) cache.set(cacheKey, response, 300); // 5 min
+    res.json(response);
   } catch (error) {
     console.error('Get albums error:', error);
     res.status(500).json({
@@ -154,6 +165,7 @@ export const updateAlbum = async (req: Request, res: Response) => {
       });
     }
 
+    cache.invalidatePattern('albums');
     res.json({
       success: true,
       data: { album: result.rows[0] },
@@ -281,6 +293,17 @@ export const uploadCover = async (req: Request, res: Response) => {
       req.file.mimetype
     );
 
+    // Generate and upload thumbnails (non-blocking, failures don't break the upload)
+    try {
+      const thumbnails = await generateThumbnails(req.file.buffer);
+      for (const thumb of thumbnails) {
+        const thumbPath = deriveThumbnailPath(req.file.originalname, thumb.suffix);
+        await storageService.uploadFile(thumb.buffer, thumbPath, 'covers', 'image/jpeg');
+      }
+    } catch (thumbErr) {
+      console.warn('Thumbnail generation failed (non-fatal):', thumbErr);
+    }
+
     // Update album cover
     const result = await pool.query(
       'UPDATE albums SET cover_path = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
@@ -297,6 +320,7 @@ export const uploadCover = async (req: Request, res: Response) => {
       });
     }
 
+    cache.invalidatePattern('albums');
     res.json({
       success: true,
       data: {
@@ -331,6 +355,7 @@ export const bulkUpdateGame = async (req: Request, res: Response) => {
       [gameId || null, albumIds]
     );
 
+    cache.invalidatePattern('albums');
     res.json({
       success: true,
       data: { updated: albumIds.length, message: `成功设置 ${albumIds.length} 张专辑的游戏` }

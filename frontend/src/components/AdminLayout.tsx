@@ -9,6 +9,7 @@ import {
   AppstoreOutlined,
   TeamOutlined,
   BarChartOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
@@ -69,6 +70,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       onClick: () => navigate('/admin/analytics')
     },
     {
+      key: '/admin/settings',
+      icon: <SettingOutlined />,
+      label: '系统设置',
+      onClick: () => navigate('/admin/settings')
+    },
+    {
       type: 'divider' as const
     },
     {
@@ -87,6 +94,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     if (location.pathname === '/admin/games') return '/admin/games';
     if (location.pathname === '/admin/artists') return '/admin/artists';
     if (location.pathname === '/admin/analytics') return '/admin/analytics';
+    if (location.pathname === '/admin/settings') return '/admin/settings';
     return '/admin';
   };
 

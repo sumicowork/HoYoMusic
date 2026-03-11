@@ -1,0 +1,110 @@
+import { z } from 'zod';
+
+// ── Auth ──────────────────────────────────────────────────────────
+export const loginSchema = z.object({
+  username: z.string().min(1, 'Username is required').max(100),
+  password: z.string().min(1, 'Password is required').max(200),
+});
+
+// ── Album ─────────────────────────────────────────────────────────
+export const updateAlbumSchema = z.object({
+  title: z.string().min(1, 'Title is required').max(500),
+  release_date: z.string().nullable().optional(),
+  game_id: z.union([z.number().int().positive(), z.null()]).optional(),
+});
+
+export const bulkUpdateGameSchema = z.object({
+  albumIds: z.array(z.number().int().positive()).min(1, 'albumIds is required'),
+  gameId: z.union([z.number().int().positive(), z.null()]).optional(),
+});
+
+// ── Track ─────────────────────────────────────────────────────────
+export const updateTrackSchema = z.object({
+  title: z.string().min(1, 'Title is required').max(500),
+  artists: z.array(z.string().min(1)).optional(),
+  album_title: z.string().max(500).optional().nullable(),
+  release_date: z.string().nullable().optional(),
+  track_number: z.number().int().nullable().optional(),
+});
+
+export const bulkDeleteTracksSchema = z.object({
+  ids: z.array(z.number().int().positive()).min(1, 'ids is required'),
+});
+
+export const bulkMoveTracksSchema = z.object({
+  trackIds: z.array(z.number().int().positive()).min(1, 'trackIds is required'),
+  albumId: z.union([z.number().int().positive(), z.null()]).optional(),
+});
+
+// ── Game ──────────────────────────────────────────────────────────
+export const createGameSchema = z.object({
+  name: z.string().min(1, 'Game name is required').max(200),
+  name_en: z.string().max(200).nullable().optional(),
+  description: z.string().max(2000).nullable().optional(),
+  display_order: z.number().int().default(0).optional(),
+  status: z.enum(['active', 'inactive']).default('active').optional(),
+  cover_path: z.string().max(500).nullable().optional(),
+});
+
+export const updateGameSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  name_en: z.string().max(200).nullable().optional(),
+  description: z.string().max(2000).nullable().optional(),
+  display_order: z.number().int().optional(),
+  status: z.enum(['active', 'inactive']).optional(),
+  cover_path: z.string().max(500).nullable().optional(),
+});
+
+// ── Credits ───────────────────────────────────────────────────────
+export const addCreditSchema = z.object({
+  credit_key: z.string().min(1, 'credit_key is required').max(200),
+  credit_value: z.string().min(1, 'credit_value is required').max(1000),
+  display_order: z.number().int().default(0).optional(),
+});
+
+export const updateCreditSchema = z.object({
+  credit_key: z.string().min(1).max(200),
+  credit_value: z.string().min(1).max(1000),
+  display_order: z.number().int().optional(),
+});
+
+// ── Tags ──────────────────────────────────────────────────────────
+export const createTagSchema = z.object({
+  name: z.string().min(1, 'Tag name is required').max(100),
+  color: z.string().max(20).default('#1890ff').optional(),
+  description: z.string().max(500).nullable().optional(),
+  group_id: z.number().int().positive().nullable().optional(),
+  parent_id: z.number().int().positive().nullable().optional(),
+  icon: z.string().max(50).nullable().optional(),
+  display_order: z.number().int().default(0).optional(),
+});
+
+export const updateTagSchema = createTagSchema;
+
+export const addTagToTrackSchema = z.object({
+  tagId: z.number().int().positive('tagId is required'),
+});
+
+export const bulkUpdateTrackTagsSchema = z.object({
+  trackIds: z.array(z.number().int().positive()).min(1, 'trackIds is required'),
+  addTagIds: z.array(z.number().int().positive()).optional(),
+  removeTagIds: z.array(z.number().int().positive()).optional(),
+});
+
+// ── Tag Groups ────────────────────────────────────────────────────
+export const createTagGroupSchema = z.object({
+  name: z.string().min(1, 'Group name is required').max(100),
+  description: z.string().max(500).nullable().optional(),
+  icon: z.string().max(50).nullable().optional(),
+  display_order: z.number().int().default(0).optional(),
+  parent_group_id: z.number().int().positive().nullable().optional(),
+});
+
+export const updateTagGroupSchema = createTagGroupSchema;
+
+// ── Artist ────────────────────────────────────────────────────────
+export const mergeArtistsSchema = z.object({
+  canonicalName: z.string().min(1, 'canonicalName is required').max(500),
+  aliasNames: z.array(z.string().min(1).max(500)).min(1, 'aliasNames is required'),
+});
+

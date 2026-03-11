@@ -212,5 +212,39 @@ router.get('/tracks/:id', getTrackById);
 router.get('/tracks/:id/stream', streamTrack);
 router.get('/tracks/:id/download', DOWNLOAD_ENABLED ? downloadTrack : downloadDisabled);
 
+// Increment play count
+router.post('/tracks/:id/play', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    await pool.query('UPDATE tracks SET play_count = COALESCE(play_count, 0) + 1 WHERE id = $1', [id]);
+    res.json({ success: true });
+  } catch {
+    res.status(500).json({ success: false });
+  }
+});
+
+// Top played tracks
+router.get('/top-tracks', async (req: Request, res: Response) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+    const result = await pool.query(`
+      SELECT t.id, t.title, t.duration, t.play_count, t.cover_path,
+             a.title AS album_title, a.cover_path AS album_cover,
+             array_agg(json_build_object('id', ar.id, 'name', ar.name)) FILTER (WHERE ar.id IS NOT NULL) AS artists
+      FROM tracks t
+      LEFT JOIN albums a ON t.album_id = a.id
+      LEFT JOIN track_artists ta ON t.id = ta.track_id
+      LEFT JOIN artists ar ON ta.artist_id = ar.id
+      WHERE t.play_count > 0
+      GROUP BY t.id, a.title, a.cover_path
+      ORDER BY t.play_count DESC NULLS LAST
+      LIMIT $1
+    `, [limit]);
+    res.json({ success: true, data: { tracks: result.rows } });
+  } catch {
+    res.status(500).json({ success: false, error: { code: 'FETCH_ERROR', message: 'Failed to fetch top tracks' } });
+  }
+});
+
 export default router;
 

@@ -50,17 +50,44 @@ export const lightTheme: ThemeConfig = {
   algorithm: undefined,
 };
 
-export type ThemeMode = 'light' | 'dark';
+export type ThemeMode = 'light' | 'dark' | 'oled';
+
+// OLED pure black theme
+export const oledTheme: ThemeConfig = {
+  token: {
+    colorPrimary: '#667eea',
+    fontFamily: "'Plus Jakarta Sans', 'Noto Serif SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    colorBgBase: '#000000',
+    colorBgContainer: '#0a0a0a',
+    colorBgElevated: '#111111',
+    colorBorder: '#222222',
+    colorBorderSecondary: '#1a1a1a',
+    colorText: 'rgba(255, 255, 255, 0.90)',
+    colorTextSecondary: 'rgba(255, 255, 255, 0.65)',
+    colorTextTertiary: 'rgba(255, 255, 255, 0.45)',
+    colorTextQuaternary: 'rgba(255, 255, 255, 0.25)',
+    colorFill: 'rgba(255, 255, 255, 0.12)',
+    colorFillSecondary: 'rgba(255, 255, 255, 0.08)',
+    colorFillTertiary: 'rgba(255, 255, 255, 0.05)',
+    colorFillQuaternary: 'rgba(255, 255, 255, 0.02)',
+    colorBgLayout: '#000000',
+    colorBgSpotlight: '#1a1a1a',
+    colorSplit: 'rgba(255, 255, 255, 0.08)',
+  },
+  algorithm: undefined,
+};
 
 // 主题对应的CSS类名
 export const themeClassNames = {
   light: 'theme-light',
   dark: 'theme-dark',
+  oled: 'theme-oled',
 };
 
 // 主题对应的背景色
 export const themeBackgrounds = {
   light: '#f5f5f5',
   dark: '#141414',
+  oled: '#000000',
 };
 

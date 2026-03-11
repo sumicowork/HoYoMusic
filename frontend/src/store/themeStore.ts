@@ -21,7 +21,8 @@ export const useThemeStore = create<ThemeState>()(
 
       toggleTheme: () => {
         const state = get();
-        const newMode = state.mode === 'light' ? 'dark' : 'light';
+        const cycle: Record<string, ThemeMode> = { light: 'dark', dark: 'oled', oled: 'light' };
+        const newMode = cycle[state.mode] || 'dark';
         state.setTheme(newMode);
       },
     }),

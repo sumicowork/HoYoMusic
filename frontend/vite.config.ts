@@ -1,9 +1,19 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { visualizer } from 'rollup-plugin-visualizer';
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    // Generate bundle analysis report (only when ANALYZE=true)
+    ...(process.env.ANALYZE ? [visualizer({
+      filename: 'dist/bundle-report.html',
+      open: true,
+      gzipSize: true,
+      brotliSize: true,
+    })] : []),
+  ],
   build: {
     chunkSizeWarningLimit: 600,
     assetsInlineLimit: 4096, // inline assets < 4KB as base64

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Layout, Spin, message } from 'antd';
+import { Layout, message, Skeleton } from 'antd';
 import { useNavigate } from 'react-router-dom';
 
 // Detect mobile viewport
@@ -17,6 +17,7 @@ import {
   AppstoreOutlined,
   CustomerServiceOutlined,
   ClockCircleOutlined,
+  FireOutlined,
 } from '@ant-design/icons';
 import { gameService, Game } from '../services/gameService';
 import { albumService, Album } from '../services/albumService';
@@ -91,7 +92,7 @@ const AlbumCarouselCard: React.FC<{ album: Album; onClick: () => void }> = ({ al
     <div className="carousel-album-info">
       <div className="carousel-album-title">{album.title}</div>
       <div className="carousel-album-meta">
-        {album.track_count || 0} 首 · {(album as any).game_name || ''}
+        {album.track_count || 0} 首 · {album.game_name || ''}
       </div>
     </div>
   </div>
@@ -135,6 +136,7 @@ const Home: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [albums, setAlbums] = useState<Album[]>([]);
   const [tracks, setTracks] = useState<Track[]>([]);
+  const [topTracks, setTopTracks] = useState<Track[]>([]);
 
   useEffect(() => {
     fetchData();
@@ -142,14 +144,16 @@ const Home: React.FC = () => {
 
   const fetchData = async () => {
     try {
-      const [gamesData, albumsData, tracksData] = await Promise.all([
+      const [gamesData, albumsData, tracksData, topData] = await Promise.all([
         gameService.getGames(),
         albumService.getRandomAlbums(12).catch(() => []),
         trackService.getRandomTracks(20).catch(() => []),
+        trackService.getTopTracks(10).catch(() => []),
       ]);
       setGames(gamesData);
       setAlbums(albumsData);
       setTracks(tracksData);
+      setTopTracks(topData);
     } catch {
       message.error('加载数据失败');
     } finally {
@@ -165,8 +169,19 @@ const Home: React.FC = () => {
     <Layout className="home-layout">
       <Content className="home-content" style={{ background: 'transparent' }}>
         {loading ? (
-          <div style={{ textAlign: 'center', padding: 100 }}>
-            <Spin size="large" />
+          <div className="home-grid">
+            <section className="home-games">
+              <Skeleton active paragraph={{ rows: 0 }} style={{ marginBottom: 16 }} />
+              <div className="games-grid">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton.Node key={i} active style={{ width: '100%', height: 180, borderRadius: 12 }} />
+                ))}
+              </div>
+            </section>
+            <aside className="home-recommendations">
+              <Skeleton active paragraph={{ rows: 4 }} />
+              <Skeleton active paragraph={{ rows: 4 }} />
+            </aside>
           </div>
         ) : (
           <div className="home-grid">
@@ -246,6 +261,24 @@ const Home: React.FC = () => {
                         />
                       ))}
                     </div>
+                  </div>
+                </section>
+              )}
+
+              {/* 热门曲目 */}
+              {topTracks.length > 0 && (
+                <section className="rec-section rec-tracks">
+                  <h2 className="section-title home-section-title">
+                    <FireOutlined /> 热门曲目
+                  </h2>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {topTracks.map((track) => (
+                      <TrackItem
+                        key={`top-${track.id}`}
+                        track={track}
+                        onPlay={() => playTrackOnly(track)}
+                      />
+                    ))}
                   </div>
                 </section>
               )}

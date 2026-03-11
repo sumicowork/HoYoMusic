@@ -51,6 +51,81 @@ const DEVICE_ICON: Record<string, React.ReactNode> = {
   desktop: <DesktopOutlined />,
 };
 
+// ── Storage analytics sub-component ──────────────────────────────
+const StorageAnalytics: React.FC = () => {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.get('/analytics/storage')
+      .then(r => setData(r.data.data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading || !data) return null;
+
+  const fmtBytes = (b: number) => {
+    if (b >= 1073741824) return `${(b / 1073741824).toFixed(1)} GB`;
+    if (b >= 1048576) return `${(b / 1048576).toFixed(1)} MB`;
+    return `${(b / 1024).toFixed(0)} KB`;
+  };
+
+  return (
+    <Card title="💾 存储分析" className="analytics-card" style={{ marginTop: 16 }}>
+      <Row gutter={16} style={{ marginBottom: 16 }}>
+        <Col span={6}><Statistic title="总曲目" value={data.summary?.total_tracks || 0} /></Col>
+        <Col span={6}><Statistic title="总存储" value={fmtBytes(Number(data.summary?.total_bytes || 0))} /></Col>
+        <Col span={6}><Statistic title="平均大小" value={fmtBytes(Number(data.summary?.avg_file_size || 0))} /></Col>
+        <Col span={6}><Statistic title="总时长(小时)" value={((data.summary?.total_duration || 0) / 3600).toFixed(1)} /></Col>
+      </Row>
+      <Row gutter={16}>
+        <Col span={12}>
+          <Title level={5}>按游戏分布</Title>
+          <ResponsiveContainer width="100%" height={250}>
+            <PieChart>
+              <Pie data={(data.byGame || []).map((g: any) => ({ name: g.game_name, value: Number(g.total_bytes) }))}
+                dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={(e: any) => e.name}>
+                {(data.byGame || []).map((_: any, i: number) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+              </Pie>
+              <RechartTooltip formatter={(v: any) => fmtBytes(Number(v))} />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        </Col>
+        <Col span={12}>
+          <Title level={5}>按专辑 Top 10</Title>
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={(data.byAlbum || []).slice(0, 10).map((a: any) => ({ name: a.album_title?.substring(0, 15) || '?', bytes: Number(a.total_bytes) }))}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" angle={-30} textAnchor="end" height={60} fontSize={11} />
+              <YAxis tickFormatter={(v: number) => fmtBytes(v)} fontSize={11} />
+              <RechartTooltip formatter={(v: any) => fmtBytes(Number(v))} />
+              <Bar dataKey="bytes" fill="#667eea" />
+            </BarChart>
+          </ResponsiveContainer>
+        </Col>
+      </Row>
+      {data.qualityDistribution?.length > 0 && (
+        <div style={{ marginTop: 16 }}>
+          <Title level={5}>音频质量分布</Title>
+          <Table
+            dataSource={data.qualityDistribution}
+            rowKey={(r: any) => `${r.sample_rate}-${r.bit_depth}`}
+            size="small"
+            pagination={false}
+            columns={[
+              { title: '采样率', dataIndex: 'sample_rate', render: (v: number) => v ? `${(v/1000).toFixed(1)} kHz` : '未知' },
+              { title: '位深', dataIndex: 'bit_depth', render: (v: number) => v ? `${v} bit` : '未知' },
+              { title: '曲目数', dataIndex: 'count' },
+            ]}
+          />
+        </div>
+      )}
+    </Card>
+  );
+};
+
 // ── component ────────────────────────────────────────────────────
 const Analytics: React.FC = () => {
   const [days, setDays] = useState(30);
@@ -401,6 +476,9 @@ const Analytics: React.FC = () => {
               rowClassName={r => r.status >= 500 ? 'analytics-row-error' : r.status >= 400 ? 'analytics-row-warn' : ''}
             />
           </Card>
+
+          {/* ── Storage Analytics ── */}
+          <StorageAnalytics />
 
         </Spin>
       </div>

@@ -1,0 +1,61 @@
+.equalizer-modal .ant-modal-body {
+  padding: 16px 24px;
+}
+
+.eq-preset-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.eq-sliders {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 4px;
+  height: 200px;
+  padding: 0 8px;
+}
+
+.eq-band {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  height: 100%;
+}
+
+.eq-band-value {
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+  font-variant-numeric: tabular-nums;
+  min-width: 28px;
+  text-align: center;
+}
+
+.eq-band-slider {
+  flex: 1;
+}
+
+.eq-band-slider .ant-slider-rail {
+  width: 4px !important;
+}
+
+.eq-band-slider .ant-slider-track {
+  width: 4px !important;
+}
+
+.eq-band-label {
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.eq-footer {
+  margin-top: 16px;
+  text-align: center;
+}
+

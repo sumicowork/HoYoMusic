@@ -11,6 +11,8 @@ import {
   MoonOutlined,
   SunOutlined,
   SearchOutlined,
+  HeartOutlined,
+  OrderedListOutlined,
 } from '@ant-design/icons';
 import { useThemeStore } from '../store/themeStore';
 import { IS_STATIC } from '../services/api';
@@ -36,12 +38,16 @@ const SideNav: React.FC = () => {
     { icon: <AppstoreOutlined />, label: '专辑', path: '/albums', color: '#8b5cf6' },
     { icon: <UserOutlined />, label: '艺术家', path: '/artists', color: '#f59e0b' },
     { icon: <TagsOutlined />, label: '标签', path: '/tags', color: '#10b981' },
-    ...(!IS_STATIC ? [{ icon: <LoginOutlined />, label: '管理', path: '/admin/login', color: '#ef4444' } as NavItem] : []),
+    ...(!IS_STATIC ? [
+      { icon: <HeartOutlined />, label: '收藏', path: '/favorites', color: '#ec4899' } as NavItem,
+      { icon: <OrderedListOutlined />, label: '歌单', path: '/playlists', color: '#f97316' } as NavItem,
+      { icon: <LoginOutlined />, label: '管理', path: '/admin/login', color: '#ef4444' } as NavItem,
+    ] : []),
     {
-      icon: mode === 'dark' ? <SunOutlined /> : <MoonOutlined />,
-      label: mode === 'dark' ? '浅色' : '深色',
+      icon: mode === 'light' ? <MoonOutlined /> : mode === 'dark' ? <MoonOutlined /> : <SunOutlined />,
+      label: mode === 'light' ? '深色' : mode === 'dark' ? 'OLED' : '浅色',
       action: toggleTheme,
-      color: mode === 'dark' ? '#fbbf24' : '#6366f1',
+      color: mode === 'light' ? '#6366f1' : mode === 'dark' ? '#a855f7' : '#fbbf24',
     },
   ];
 

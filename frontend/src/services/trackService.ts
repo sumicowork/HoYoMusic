@@ -164,6 +164,20 @@ export const trackService = {
     throw new Error('获取曲目详情失败');
   },
 
+  /** Record a play event (fire-and-forget) */
+  recordPlay(trackId: number): void {
+    if (IS_STATIC) return;
+    publicApi.post(`/public/tracks/${trackId}/play`).catch(() => {});
+  },
+
+  /** Get top played tracks */
+  async getTopTracks(limit = 20): Promise<Track[]> {
+    if (IS_STATIC) return [];
+    const response = await publicApi.get<ApiResponse<{ tracks: Track[] }>>(`/public/top-tracks?limit=${limit}`);
+    if (response.data.success && response.data.data) return response.data.data.tracks;
+    return [];
+  },
+
   async getTrackByIdPublic(id: number): Promise<Track> {
     if (IS_STATIC) return staticData.getTrackByIdPublic(id);
     const response = await publicApi.get<ApiResponse<{ track: Track }>>(`/public/tracks/${id}`);

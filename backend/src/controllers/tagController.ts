@@ -37,7 +37,7 @@ export const getTags = async (req: Request, res: Response) => {
     `;
 
     const result = await pool.query(query);
-    cache.set(cacheKey, result.rows, 120); // 缓存 2 分钟
+    cache.set(cacheKey, result.rows, 300); // 缓存 5 分钟
 
     res.json({
       success: true,
@@ -192,6 +192,7 @@ export const createTag = async (req: Request, res: Response) => {
       display_order || 0
     ]);
 
+    cache.invalidate('tags:all');
     res.status(201).json({
       success: true,
       data: result.rows[0]
@@ -282,6 +283,7 @@ export const updateTag = async (req: Request, res: Response) => {
       });
     }
 
+    cache.invalidate('tags:all');
     res.json({
       success: true,
       data: result.rows[0]
@@ -428,6 +430,7 @@ export const removeTagFromTrack = async (req: Request, res: Response) => {
       });
     }
 
+    cache.invalidate('tags:all');
     res.json({
       success: true,
       message: 'Tag removed from track'
@@ -564,6 +567,7 @@ export const createTagGroup = async (req: Request, res: Response) => {
       parent_group_id || null
     ]);
 
+    cache.invalidate('tags:all');
     res.status(201).json({
       success: true,
       data: result.rows[0]
@@ -629,6 +633,7 @@ export const updateTagGroup = async (req: Request, res: Response) => {
       });
     }
 
+    cache.invalidate('tags:all');
     res.json({
       success: true,
       data: result.rows[0]
@@ -678,6 +683,7 @@ export const deleteTagGroup = async (req: Request, res: Response) => {
       });
     }
 
+    cache.invalidate('tags:all');
     res.json({
       success: true,
       message: 'Tag group deleted successfully'
@@ -726,6 +732,7 @@ export const bulkUpdateTrackTags = async (req: Request, res: Response) => {
 
       await client.query('COMMIT');
 
+      cache.invalidate('tags:all');
       res.json({
         success: true,
         data: { message: `成功更新 ${trackIds.length} 首曲目的标签` }

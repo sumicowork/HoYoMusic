@@ -5,8 +5,11 @@ import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
 import dotenv from 'dotenv';
+import swaggerUi from 'swagger-ui-express';
 import passport from './config/passport';
+import { cache } from './utils/cache';
 import pool from './config/database';
+import { swaggerSpec } from './config/swagger';
 import { initWebDAVDirectories, testWebDAVConnection } from './config/webdav';
 import { testOSSConnection, initOSSDirectories } from './config/oss';
 import authRoutes from './routes/authRoutes';
@@ -19,6 +22,8 @@ import artistRoutes from './routes/artistRoutes';
 import gameRoutes from './routes/gameRoutes';
 import tagRoutes from './routes/tagRoutes';
 import analyticsRoutes from './routes/analyticsRoutes';
+import playlistRoutes from './routes/playlistRoutes';
+import favoriteRoutes from './routes/favoriteRoutes';
 import { visitLogger } from './middleware/visitLogger';
 import { errorHandler } from './middleware/errorHandler';
 
@@ -31,7 +36,16 @@ const PORT = process.env.PORT || 3000;
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
   contentSecurityPolicy: false, // Managed by Nginx in production
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  hsts: { maxAge: 31536000, includeSubDomains: true },
 }));
+
+// ── ETag ────────────────────────────────────────────────────────
+app.set('etag', 'weak'); // Enable weak ETags for all JSON responses
+
+// ── Request Logger ──────────────────────────────────────────────
+import { requestLogger } from './middleware/requestLogger';
+app.use(requestLogger);
 
 // ── Response Compression ────────────────────────────────────────
 app.use(compression({
@@ -61,8 +75,32 @@ const authLimiter = rateLimit({
 });
 app.use('/api/auth/login', authLimiter);
 
+// ── CORS Configuration ──────────────────────────────────────────
+const corsOrigins = process.env.CORS_ORIGINS;
+app.use(cors(corsOrigins ? {
+  origin: corsOrigins.split(',').map(s => s.trim()).filter(Boolean),
+  credentials: true,
+} : undefined)); // undefined = allow all (dev mode)
+
+// ── Request Timeout ─────────────────────────────────────────────
+const REQUEST_TIMEOUT = parseInt(process.env.REQUEST_TIMEOUT_MS || '60000');
+app.use((req, res, next) => {
+  // Skip timeout for audio streaming and large uploads
+  if (req.path.includes('/stream') || req.path.includes('/upload') || req.method === 'OPTIONS') {
+    return next();
+  }
+  res.setTimeout(REQUEST_TIMEOUT, () => {
+    if (!res.headersSent) {
+      res.status(408).json({
+        success: false,
+        error: { code: 'REQUEST_TIMEOUT', message: 'Request timed out' },
+      });
+    }
+  });
+  next();
+});
+
 // ── Core Middleware ─────────────────────────────────────────────
-app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(passport.initialize());
@@ -86,8 +124,14 @@ app.use('/api/albums', albumRoutes); // Album routes
 app.use('/api/artists', artistRoutes); // Artist routes
 app.use('/api/games', gameRoutes); // Game routes
 app.use('/api/tags', tagRoutes);         // Tag routes
+app.use('/api/playlists', playlistRoutes); // Playlist routes (authenticated)
+app.use('/api/favorites', favoriteRoutes); // Favorites routes (authenticated)
 app.use('/api/analytics', analyticsRoutes); // Analytics (authenticated)
 app.use('/api/public', publicRoutes);    // Public routes (无需认证)
+
+// API Documentation
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { customSiteTitle: 'HoYoMusic API Docs' }));
+app.get('/api/docs.json', (_req, res) => res.json(swaggerSpec));
 
 // Health check (with database connectivity test)
 app.get('/api/health', async (req, res) => {
@@ -98,6 +142,11 @@ app.get('/api/health', async (req, res) => {
       success: true,
       message: 'HoYoMusic API is running',
       database: dbOk ? 'connected' : 'error',
+      cache: cache.stats(),
+      memory: {
+        rss: Math.round(process.memoryUsage().rss / 1024 / 1024) + 'MB',
+        heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB',
+      },
       uptime: process.uptime(),
       timestamp: new Date().toISOString(),
     });
@@ -171,6 +220,62 @@ const runMigrations = async () => {
   } catch (err) {
     console.error('⚠️  visit_logs migration warning:', err);
   }
+
+  // playlists
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS playlists (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        name VARCHAR(200) NOT NULL,
+        description TEXT,
+        cover_path VARCHAR(500),
+        is_public BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS playlist_tracks (
+        playlist_id INTEGER REFERENCES playlists(id) ON DELETE CASCADE,
+        track_id INTEGER REFERENCES tracks(id) ON DELETE CASCADE,
+        position INTEGER NOT NULL DEFAULT 0,
+        added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (playlist_id, track_id)
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_playlists_user ON playlists(user_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_playlist_tracks_playlist ON playlist_tracks(playlist_id)`);
+    console.log('✅ DB migrations up to date (playlists)');
+  } catch (err) {
+    console.error('⚠️  playlists migration warning:', err);
+  }
+
+  // favorites
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS favorites (
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        track_id INTEGER REFERENCES tracks(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, track_id)
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_favorites_user ON favorites(user_id)`);
+    console.log('✅ DB migrations up to date (favorites)');
+  } catch (err) {
+    console.error('⚠️  favorites migration warning:', err);
+  }
+
+  // Add sha256_hash and play_count columns to tracks
+  try {
+    await pool.query(`ALTER TABLE tracks ADD COLUMN IF NOT EXISTS sha256_hash VARCHAR(64)`);
+    await pool.query(`ALTER TABLE tracks ADD COLUMN IF NOT EXISTS play_count INTEGER DEFAULT 0`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_tracks_hash ON tracks(sha256_hash) WHERE sha256_hash IS NOT NULL`);
+    console.log('✅ DB migrations up to date (tracks: sha256_hash, play_count)');
+  } catch (err) {
+    console.error('⚠️  tracks column migration warning:', err);
+  }
 };
 
 const startServer = async () => {
@@ -212,8 +317,12 @@ const startServer = async () => {
     // Run DB migrations
     await runMigrations();
 
+    // Pre-warm DB connection pool
+    const { warmPool } = await import('./config/database');
+    await warmPool(3);
+
     // Start server
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`🎵 HoYoMusic Backend Server running on port ${PORT}`);
       console.log(`🌐 API URL: http://localhost:${PORT}`);
       console.log(`📖 Public access enabled at /api/public`);
@@ -225,6 +334,26 @@ const startServer = async () => {
         console.log(`💾 Local storage mode active`);
       }
     });
+
+    // ── Graceful shutdown ────────────────────────────────────────
+    const shutdown = (signal: string) => {
+      console.log(`\n⏳ Received ${signal}, shutting down gracefully...`);
+      server.close(async () => {
+        try {
+          await pool.end();
+          console.log('✅ Database pool closed');
+        } catch {}
+        console.log('👋 Server shut down');
+        process.exit(0);
+      });
+      // Force kill after 10s
+      setTimeout(() => {
+        console.error('⚠️  Forced shutdown after timeout');
+        process.exit(1);
+      }, 10000);
+    };
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);

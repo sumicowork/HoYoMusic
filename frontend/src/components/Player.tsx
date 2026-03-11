@@ -16,10 +16,17 @@ import {
   ExpandOutlined,
 } from '@ant-design/icons';
 import { usePlayerStore } from '../store/playerStore';
+import { useEqualizerStore } from '../store/equalizerStore';
 import { trackService } from '../services/trackService';
 import { IS_STATIC } from '../services/api';
 import { lyricsService } from '../services/lyricsService';
+import { useDominantColor } from '../utils/useDominantColor';
+import { getAudioGraph, setEQGains } from '../utils/audioContext';
 import PlayQueue from './PlayQueue';
+import SleepTimer from './SleepTimer';
+import CrossfadeControl from './CrossfadeControl';
+import EqualizerControl from './EqualizerControl';
+import SpectrumVisualizer from './SpectrumVisualizer';
 import './Player.css';
 
 // ─── inline LRC parser ────────────────────────────────────────────────
@@ -76,8 +83,11 @@ const Player: React.FC = () => {
 
   const howlRef = useRef<Howl | null>(null);
   const progressIntervalRef = useRef<number | null>(null);
+  const audioGraphConnectedRef = useRef(false);
   const setIsPlaying = usePlayerStore((state) => state.setIsPlaying);
   const currentPlayMode = usePlayerStore((state) => state.playMode);
+  const eqEnabled = useEqualizerStore((s) => s.enabled);
+  const eqGains = useEqualizerStore((s) => s.gains);
 
   // Dynamic page title
   useEffect(() => {
@@ -120,8 +130,8 @@ const Player: React.FC = () => {
     if (!currentTrack || !('mediaSession' in navigator)) return;
     const coverSrc = currentTrack.cover_path
       ? trackService.getCoverUrl(currentTrack.cover_path)
-      : (currentTrack as any).album_cover
-        ? trackService.getCoverUrl((currentTrack as any).album_cover)
+      : currentTrack.album_cover
+        ? trackService.getCoverUrl(currentTrack.album_cover)
         : null;
     navigator.mediaSession.metadata = new MediaMetadata({
       title: currentTrack.title,
@@ -152,11 +162,11 @@ const Player: React.FC = () => {
           break;
         case 'ArrowLeft':
           e.preventDefault();
-          handlePrevious();
+          if (howlRef.current) { const t = Math.max(0, (howlRef.current.seek() as number) - 5); howlRef.current.seek(t); updateProgress(t); }
           break;
         case 'ArrowRight':
           e.preventDefault();
-          handleNext();
+          if (howlRef.current) { const t = Math.min(duration, (howlRef.current.seek() as number) + 5); howlRef.current.seek(t); updateProgress(t); }
           break;
         case 'ArrowUp':
           e.preventDefault();
@@ -170,6 +180,11 @@ const Player: React.FC = () => {
         case 'L':
           e.preventDefault();
           togglePlayMode();
+          break;
+        case 'm':
+        case 'M':
+          e.preventDefault();
+          handleVolumeChange(volume > 0 ? 0 : 0.8);
           break;
         case 'Escape':
           if (expanded) handleCollapse();
@@ -215,6 +230,33 @@ const Player: React.FC = () => {
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
     };
   }, [currentTrack]);
+
+  // Connect Howl's internal <audio> element to the Web Audio graph (EQ + Spectrum)
+  useEffect(() => {
+    if (!howlRef.current || !isPlaying) return;
+    // Small delay to ensure Howl has created its internal audio element
+    const timer = setTimeout(() => {
+      try {
+        const howl = howlRef.current as any;
+        const sounds = howl?._sounds;
+        if (sounds?.length > 0) {
+          const audioEl = sounds[0]._node as HTMLMediaElement;
+          if (audioEl) {
+            const graph = getAudioGraph();
+            graph.connectSource(audioEl);
+            audioGraphConnectedRef.current = true;
+            // Apply current EQ settings
+            if (eqEnabled) {
+              setEQGains(eqGains);
+            } else {
+              setEQGains([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+            }
+          }
+        }
+      } catch { /* ignore audio context errors */ }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [currentTrack, isPlaying]);
 
   useEffect(() => {
     if (howlRef.current) howlRef.current.loop(currentPlayMode === 'single');
@@ -278,16 +320,24 @@ const Player: React.FC = () => {
 
   if (!currentTrack) return null;
 
+  // Dynamic cover-based dominant color
+  const coverSrcForColor = currentTrack.cover_path
+    ? trackService.getCoverUrl(currentTrack.cover_path)
+    : currentTrack.album_cover
+      ? trackService.getCoverUrl(currentTrack.album_cover)
+      : null;
+  const dominantColor = useDominantColor(coverSrcForColor);
+
   // 缩略图用于底部栏小封面（56px），原图用于全屏展开大封面（260px）
   const coverSrc = currentTrack.cover_path
     ? trackService.getCoverUrl(currentTrack.cover_path)
-    : (currentTrack as any).album_cover
-      ? trackService.getCoverUrl((currentTrack as any).album_cover)
+    : currentTrack.album_cover
+      ? trackService.getCoverUrl(currentTrack.album_cover)
       : null;
   const coverThumbSrc = currentTrack.cover_path
     ? trackService.getCoverUrl(currentTrack.cover_path, true)
-    : (currentTrack as any).album_cover
-      ? trackService.getCoverUrl((currentTrack as any).album_cover, true)
+    : currentTrack.album_cover
+      ? trackService.getCoverUrl(currentTrack.album_cover, true)
       : null;
 
   // ─── Controls bar (shared between collapsed & expanded) ───
@@ -337,6 +387,9 @@ const Player: React.FC = () => {
         <div
           className="player-expanded-bg"
           onClick={handleCollapse}
+          style={dominantColor ? {
+            background: `radial-gradient(ellipse at 30% 40%, rgba(${dominantColor}, 0.35) 0%, transparent 60%), radial-gradient(ellipse at 70% 80%, rgba(${dominantColor}, 0.2) 0%, transparent 70%)`,
+          } : undefined}
         />
         {/* top-right close button */}
         <Button
@@ -360,6 +413,9 @@ const Player: React.FC = () => {
             <div className="player-expanded-title">{currentTrack.title}</div>
             {currentTrack.album_title && (
               <div className="player-expanded-album">{currentTrack.album_title}</div>
+            )}
+            {audioGraphConnectedRef.current && (
+              <SpectrumVisualizer width={260} height={60} />
             )}
           </div>
 
@@ -407,6 +463,9 @@ const Player: React.FC = () => {
             {controlsBar}
 
             <div className="player-volume">
+              <EqualizerControl />
+              <CrossfadeControl />
+              <SleepTimer />
               <Tooltip title="音量（↑/↓ 调节）"><SoundOutlined /></Tooltip>
               <Slider value={volume} min={0} max={1} step={0.01} onChange={handleVolumeChange} style={{ width: 100, marginLeft: 12 }} aria-label="音量" />
               <Tooltip title="播放队列">
@@ -452,6 +511,9 @@ const Player: React.FC = () => {
         {controlsBar}
 
         <div className="player-volume">
+          <EqualizerControl />
+          <CrossfadeControl />
+          <SleepTimer />
           <Tooltip title="音量（↑/↓ 调节）"><SoundOutlined /></Tooltip>
           <Slider value={volume} min={0} max={1} step={0.01} onChange={handleVolumeChange} style={{ width: 100, marginLeft: 12 }} aria-label="音量" />
           <Tooltip title="播放队列">

@@ -7,6 +7,8 @@ import http from 'http';
 import pool from '../config/database';
 import { TrackWithDetails } from '../types';
 import storageService from '../services/storageService';
+import { fromBuffer as fileTypeFromBuffer } from 'file-type';
+import { toStringList } from '../utils/metadata';
 
 // Fields already stored in dedicated columns – skip from credits
 const CREDIT_SKIP_KEYS = new Set([
@@ -74,10 +76,23 @@ export const uploadTracks = async (req: Request, res: Response) => {
 
     for (let fileIdx = 0; fileIdx < files.length; fileIdx++) {
       const file = files[fileIdx];
+      let fileBuffer: Buffer | null = null;
       try {
-        // Extract metadata from FLAC file (从Buffer中读取)
+        // Read file from disk (Multer disk storage)
+        fileBuffer = fs.readFileSync(file.path);
+
+        // ── Deep file type validation (magic bytes) ──
+        const typeResult = await fileTypeFromBuffer(fileBuffer);
+        if (!typeResult || !['audio/flac', 'audio/x-flac'].includes(typeResult.mime)) {
+          console.warn(`File ${file.originalname} failed magic byte check: ${typeResult?.mime || 'unknown'}`);
+          // Clean up temp file
+          try { fs.unlinkSync(file.path); } catch {}
+          continue; // skip this file
+        }
+
+        // Extract metadata from FLAC file
         // music-metadata v11: second arg must be IFileInfo object or mime string
-        const metadata = await parseBuffer(file.buffer, { mimeType: file.mimetype || 'audio/flac' });
+        const metadata = await parseBuffer(fileBuffer, { mimeType: file.mimetype || 'audio/flac' });
 
         // 优先使用前端传入的覆盖值，回退到 FLAC 内嵌标签，再回退到默认值
         const titleOverride = getTitleOverride(fileIdx);
@@ -130,7 +145,7 @@ export const uploadTracks = async (req: Request, res: Response) => {
 
         // Upload FLAC file to storage (local or WebDAV based on config)
         const trackUrl = await storageService.uploadFile(
-          file.buffer,
+          fileBuffer,
           file.originalname,
           'tracks',
           file.mimetype
@@ -266,25 +281,6 @@ export const uploadTracks = async (req: Request, res: Response) => {
               console.warn(`credits_override_${fileIdx} JSON parse failed, falling back to auto`);
             }
           } else {
-          // Helper: convert any value to a list of strings
-          const toStringList = (val: unknown): string[] => {
-            if (val === null || val === undefined) return [];
-            if (typeof val === 'string') return [val];
-            if (typeof val === 'number' || typeof val === 'boolean') return [String(val)];
-            if (val instanceof Uint8Array || Buffer.isBuffer(val)) return []; // binary – skip
-            if (Array.isArray(val)) {
-              return val.flatMap(item => toStringList(item));
-            }
-            // Object – try common text-carrying shapes
-            if (typeof val === 'object') {
-              const obj = val as Record<string, unknown>;
-              if (typeof obj['text'] === 'string' && obj['text']) return [obj['text']];
-              if (typeof obj['dB'] === 'number') return [`${obj['dB'].toFixed(2)} dB`];
-              if ('no' in obj && 'of' in obj) return [];
-              return [];
-            }
-            return [];
-          };
 
           // Walk ALL native tag sources
           if (metadata.native) {
@@ -330,6 +326,10 @@ export const uploadTracks = async (req: Request, res: Response) => {
       } catch (error) {
         console.error(`Error processing file ${file.originalname}:`, error);
         // Continue with other files
+      } finally {
+        // Clean up temp file from disk
+        try { if (file.path) fs.unlinkSync(file.path); } catch {}
+        fileBuffer = null; // allow GC
       }
     }
 
@@ -1044,26 +1044,22 @@ export const previewCredits = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: { code: 'NO_FILES', message: 'No files uploaded' } });
     }
 
-    // Reuse the same toStringList helper
-    const toStringList = (val: unknown): string[] => {
-      if (val === null || val === undefined) return [];
-      if (typeof val === 'string') return [val];
-      if (typeof val === 'number' || typeof val === 'boolean') return [String(val)];
-      if (val instanceof Uint8Array || Buffer.isBuffer(val)) return [];
-      if (Array.isArray(val)) return val.flatMap(item => toStringList(item));
-      if (typeof val === 'object') {
-        const obj = val as Record<string, unknown>;
-        if (typeof obj['text'] === 'string' && obj['text']) return [obj['text']];
-        if (typeof obj['dB'] === 'number') return [`${obj['dB'].toFixed(2)} dB`];
-        if ('no' in obj && 'of' in obj) return [];
-        return [];
-      }
-      return [];
-    };
+    // Reuse the shared toStringList helper from utils/metadata
 
     const results = [];
     for (const file of files) {
-      const metadata = await parseBuffer(file.buffer, { mimeType: file.mimetype || 'audio/flac' });
+      let buffer: Buffer | null = null;
+      try {
+      buffer = fs.readFileSync(file.path);
+
+      // Validate file type magic bytes
+      const typeResult = await fileTypeFromBuffer(buffer);
+      if (!typeResult || !['audio/flac', 'audio/x-flac'].includes(typeResult.mime)) {
+        results.push({ filename: file.originalname, credits: [], error: 'Not a valid FLAC file' });
+        continue;
+      }
+
+      const metadata = await parseBuffer(buffer, { mimeType: file.mimetype || 'audio/flac' });
       const credits: Array<{ key: string; value: string }> = [];
       const seen = new Set<string>();
 
@@ -1092,6 +1088,11 @@ export const previewCredits = async (req: Request, res: Response) => {
         filename: file.originalname,
         credits,
       });
+      } finally {
+        // Clean up temp file
+        try { if (file.path) fs.unlinkSync(file.path); } catch {}
+        buffer = null;
+      }
     }
 
     return res.json({ success: true, data: { results } });

@@ -15,6 +15,11 @@ interface PlayerState {
   howl: Howl | null;
   playMode: PlayMode;
 
+  // Sleep timer
+  sleepTimerEnd: number | null;
+  // Crossfade
+  crossfadeDuration: number;
+
   setCurrentTrack: (track: Track | null) => void;
   setPlaylist: (tracks: Track[]) => void;
   setIsPlaying: (playing: boolean) => void;
@@ -34,6 +39,12 @@ interface PlayerState {
   addToPlaylist: (track: Track) => void;
   playTrackOnly: (track: Track) => void;
   reorderPlaylist: (newPlaylist: Track[]) => void;
+
+  // Sleep timer
+  setSleepTimer: (minutes: number) => void;
+  clearSleepTimer: () => void;
+  // Crossfade
+  setCrossfadeDuration: (seconds: number) => void;
 }
 
 export const usePlayerStore = create<PlayerState>()(
@@ -47,6 +58,8 @@ export const usePlayerStore = create<PlayerState>()(
   duration: 0,
   howl: null,
   playMode: 'sequence',
+  sleepTimerEnd: null,
+  crossfadeDuration: 0,
 
   setCurrentTrack: (track) => set({ currentTrack: track }),
 
@@ -239,15 +252,27 @@ export const usePlayerStore = create<PlayerState>()(
   reorderPlaylist: (newPlaylist) => {
     set({ playlist: newPlaylist });
   },
+
+  // ── Sleep Timer ──
+  setSleepTimer: (minutes) => {
+    const end = Date.now() + minutes * 60 * 1000;
+    set({ sleepTimerEnd: end });
+  },
+  clearSleepTimer: () => {
+    set({ sleepTimerEnd: null });
+  },
+
+  // ── Crossfade ──
+  setCrossfadeDuration: (seconds) => set({ crossfadeDuration: seconds }),
 }),
     {
-      name: 'hoyomusic-player-storage', // localStorage 的 key
-      // 只持久化部分状态
+      name: 'hoyomusic-player-storage',
       partialize: (state) => ({
         playlist: state.playlist,
         currentTrack: state.currentTrack,
         playMode: state.playMode,
         volume: state.volume,
+        crossfadeDuration: state.crossfadeDuration,
       }),
     }
   )

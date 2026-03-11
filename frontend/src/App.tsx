@@ -12,7 +12,7 @@ import { usePlayerStore } from './store/playerStore';
 import { useThemeStore } from './store/themeStore';
 import { useAuthStore } from './store/authStore';
 import { IS_STATIC } from './services/api';
-import { darkTheme, lightTheme } from './theme/themeConfig';
+import { darkTheme, lightTheme, oledTheme } from './theme/themeConfig';
 import './theme/theme.css';
 import './theme/publicPages.css';
 import './theme/aurora-glass.css';
@@ -37,6 +37,10 @@ const GameManagement = lazy(() => import('./pages/GameManagement'));
 const ArtistManagement = lazy(() => import('./pages/ArtistManagement'));
 const Analytics = lazy(() => import('./pages/Analytics'));
 const Search = lazy(() => import('./pages/Search'));
+const Playlists = lazy(() => import('./pages/Playlists'));
+const PlaylistDetail = lazy(() => import('./pages/PlaylistDetail'));
+const Favorites = lazy(() => import('./pages/Favorites'));
+const Settings = lazy(() => import('./pages/Settings'));
 
 // 绑定静态实例，使 toast 工具在组件树外也能调用
 message.config({ maxCount: 5, top: 64 });
@@ -63,7 +67,7 @@ const App: React.FC = () => {
   }, [initializeAuth]);
 
   return (
-    <ConfigProvider theme={mode === 'dark' ? darkTheme : lightTheme} locale={zhCN}>
+    <ConfigProvider theme={mode === 'oled' ? oledTheme : mode === 'dark' ? darkTheme : lightTheme} locale={zhCN}>
       <AntApp>
         <Router>
           <div className={`app${currentTrack ? ' has-player' : ''}`}>
@@ -83,6 +87,15 @@ const App: React.FC = () => {
                 <Route path="/tags" element={<Tags />} />
                 <Route path="/tags/:id" element={<TagDetail />} />
                 <Route path="/search" element={<Search />} />
+
+                {/* 播放列表和收藏 - 需要登录 */}
+                {!IS_STATIC && (
+                  <>
+                    <Route path="/playlists" element={<ProtectedRoute><Playlists /></ProtectedRoute>} />
+                    <Route path="/playlists/:id" element={<ProtectedRoute><PlaylistDetail /></ProtectedRoute>} />
+                    <Route path="/favorites" element={<ProtectedRoute><Favorites /></ProtectedRoute>} />
+                  </>
+                )}
 
                 {/* 管理后台路由 - 需要登录（静态模式下不渲染） */}
                 {!IS_STATIC && (
@@ -133,6 +146,14 @@ const App: React.FC = () => {
                       element={
                         <ProtectedRoute>
                           <Analytics />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/admin/settings"
+                      element={
+                        <ProtectedRoute>
+                          <Settings />
                         </ProtectedRoute>
                       }
                     />

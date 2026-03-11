@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Layout, Input, Button, Form, Select, Slider,
   Table, Tag, Image, Space, Typography, Divider,
@@ -10,7 +10,7 @@ import {
   SortAscendingOutlined, ReloadOutlined, InfoCircleOutlined,
   TagOutlined, FolderOutlined,
 } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { ColumnsType } from 'antd/es/table';
 import { Track } from '../types';
 import { trackService, TrackSearchParams, DOWNLOAD_ENABLED } from '../services/trackService';
@@ -18,6 +18,7 @@ import { getTags, getTagGroups, Tag as TagType, TagGroup } from '../services/tag
 import { gameService, Game } from '../services/gameService';
 import { usePlayerStore } from '../store/playerStore';
 import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
+import { useSearchStore } from '../store/searchStore';
 import { toast } from '../utils/toast';
 import './Search.css';
 
@@ -64,7 +65,9 @@ function organizeTagsByGroup(tags: TagType[], groups: TagGroup[]) {
 
 const Search: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { playTrackOnly, addToPlaylist } = usePlayerStore();
+  const { addSearch } = useSearchStore();
   const [form] = Form.useForm();
 
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -74,6 +77,7 @@ const Search: React.FC = () => {
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [activeFilters, setActiveFilters] = useState(0);
   const [lastParams, setLastParams] = useState<TrackSearchParams>({});
+  const abortRef = useRef<AbortController | null>(null);
 
   // Tag 数据
   const [allTags, setAllTags] = useState<TagType[]>([]);
@@ -88,11 +92,75 @@ const Search: React.FC = () => {
     getTags().then(setAllTags).catch(() => {});
     getTagGroups().then(setTagGroups).catch(() => {});
     gameService.getGames().then(setGames).catch(() => {});
-  }, []);
+
+    // Restore all search filters from URL query params
+    const q = searchParams.get('q');
+    const gamesParam = searchParams.get('games');
+    const artistParam = searchParams.get('artist');
+    const yfParam = searchParams.get('yf');
+    const ytParam = searchParams.get('yt');
+    const dminParam = searchParams.get('dmin');
+    const dmaxParam = searchParams.get('dmax');
+    const tagsParam = searchParams.get('tags');
+    const tlParam = searchParams.get('tl');
+    const sbParam = searchParams.get('sb');
+    const sdParam = searchParams.get('sd');
+
+    const formValues: Record<string, any> = {};
+    if (q) formValues.keyword = q;
+    if (gamesParam) formValues.game_ids = gamesParam.split(',').map(Number).filter(Boolean);
+    if (artistParam) formValues.artist = artistParam;
+    if (sbParam) formValues.sort_by = sbParam;
+    if (sdParam) formValues.sort_dir = sdParam;
+    form.setFieldsValue(formValues);
+
+    if (yfParam && ytParam) {
+      setYearFilterEnabled(true);
+      setYearRange([parseInt(yfParam), parseInt(ytParam)]);
+    }
+    if (dminParam || dmaxParam) {
+      setDurationFilterEnabled(true);
+      setDurationRange([
+        dminParam ? Math.round(parseInt(dminParam) / 60) : 0,
+        dmaxParam ? Math.round(parseInt(dmaxParam) / 60) : 60,
+      ]);
+    }
+    if (tagsParam) {
+      setSelectedTagIds(tagsParam.split(',').map(Number).filter(Boolean));
+    }
+    if (tlParam === 'OR') setTagLogic('OR');
+
+    // If any param exists, trigger search
+    const hasParams = q || gamesParam || artistParam || yfParam || tagsParam;
+    if (hasParams) {
+      setTimeout(() => {
+        const params: TrackSearchParams = {
+          page: 1, limit: 20,
+          sort_by: (sbParam || 'created_at') as TrackSearchParams['sort_by'],
+          sort_dir: (sdParam as 'ASC' | 'DESC') || 'DESC',
+        };
+        if (q) params.search = q;
+        if (gamesParam) params.game_ids = gamesParam.split(',').map(Number).filter(Boolean);
+        if (artistParam) params.artist = artistParam;
+        if (yfParam) params.year_from = parseInt(yfParam);
+        if (ytParam) params.year_to = parseInt(ytParam);
+        if (dminParam) params.duration_min = parseInt(dminParam);
+        if (dmaxParam) params.duration_max = parseInt(dmaxParam);
+        if (tagsParam) {
+          params.tag_ids = tagsParam.split(',').map(Number).filter(Boolean);
+          params.tag_logic = tlParam === 'OR' ? 'OR' : 'AND';
+        }
+        countActive();
+        doSearch(params);
+      }, 0);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { grouped, childMap } = organizeTagsByGroup(allTags, tagGroups);
 
   const doSearch = useCallback(async (params: TrackSearchParams) => {
+    if (abortRef.current) abortRef.current.abort();
+    abortRef.current = new AbortController();
     setLoading(true);
     setSearched(true);
     setLastParams(params);
@@ -105,6 +173,7 @@ const Search: React.FC = () => {
         total: data.pagination.total,
       });
     } catch (e: any) {
+      if (e?.name === 'AbortError' || e?.name === 'CanceledError') return;
       toast.error('搜索失败，请重试');
     } finally {
       setLoading(false);
@@ -171,7 +240,23 @@ const Search: React.FC = () => {
 
   const handleSearch = () => {
     countActive();
-    doSearch(buildParams(1));
+    const params = buildParams(1);
+    // Persist all filters to URL
+    const sp: Record<string, string> = {};
+    if (params.search) sp.q = params.search;
+    if (params.game_ids?.length) sp.games = params.game_ids.join(',');
+    if (params.artist) sp.artist = params.artist;
+    if (params.year_from) sp.yf = String(params.year_from);
+    if (params.year_to) sp.yt = String(params.year_to);
+    if (params.duration_min) sp.dmin = String(params.duration_min);
+    if (params.duration_max) sp.dmax = String(params.duration_max);
+    if (params.tag_ids?.length) sp.tags = params.tag_ids.join(',');
+    if (params.tag_logic && params.tag_logic !== 'AND') sp.tl = params.tag_logic;
+    if (params.sort_by && params.sort_by !== 'created_at') sp.sb = params.sort_by;
+    if (params.sort_dir && params.sort_dir !== 'DESC') sp.sd = params.sort_dir;
+    if (params.search) addSearch(params.search);
+    setSearchParams(sp, { replace: true });
+    doSearch(params);
   };
 
   const handleReset = () => {
@@ -210,7 +295,7 @@ const Search: React.FC = () => {
       key: 'cover',
       width: 56,
       render: (coverPath, record) => {
-        const coverSrc = coverPath || (record as any).album_cover;
+        const coverSrc = coverPath || record.album_cover;
         const thumbSrc = coverSrc
           ? trackService.getCoverUrl(coverSrc, true)
           : undefined;

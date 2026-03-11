@@ -14,6 +14,7 @@ export interface Album {
   cover_path: string;
   release_date: string;
   game_id?: number;
+  game_name?: string;
   track_count: number;
   total_duration: number;
 }

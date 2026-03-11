@@ -1,9 +1,20 @@
 import multer from 'multer';
 import path from 'path';
+import os from 'os';
+import { v4 as uuidv4 } from 'uuid';
 
-// 使用内存存储，文件将保存在内存中作为Buffer
-// 后续由控制器处理上传到WebDAV
-const storage = multer.memoryStorage();
+// FLAC 使用磁盘临时存储，避免大文件（~500MB）占满内存导致 OOM
+const UPLOAD_TEMP_DIR = process.env.UPLOAD_TEMP_DIR || os.tmpdir();
+
+const diskStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, UPLOAD_TEMP_DIR);
+  },
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `hoyomusic_${uuidv4()}${ext}`);
+  },
+});
 
 // File filter for FLAC only
 const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
@@ -18,7 +29,7 @@ const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCa
 };
 
 const upload = multer({
-  storage,
+  storage: diskStorage,
   fileFilter,
   limits: {
     fileSize: 500 * 1024 * 1024, // 500MB max per FLAC file

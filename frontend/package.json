@@ -15,6 +15,7 @@
     "@types/react": "^19.2.13",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.4",
+    "rollup-plugin-visualizer": "^7.0.1",
     "typescript": "~5.9.3",
     "vite": "^7.2.4"
   },
@@ -25,10 +26,12 @@
     "@types/react-beautiful-dnd": "^13.1.8",
     "antd": "^6.2.3",
     "axios": "^1.13.4",
+    "framer-motion": "^12.35.2",
     "fuse.js": "^7.1.0",
     "howler": "^2.2.4",
     "react-beautiful-dnd": "^13.1.1",
     "react-router-dom": "^7.13.0",
+    "react-window": "^2.2.7",
     "recharts": "^3.8.0",
     "zustand": "^5.0.11"
   }

@@ -1,6 +1,7 @@
 import React from 'react';
-import { Drawer, List, Button, Empty, Typography, Popconfirm, message } from 'antd';
-import { PlayCircleOutlined, DeleteOutlined, ClearOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons';
+import { Drawer, Button, Empty, Typography, Popconfirm } from 'antd';
+import { PlayCircleOutlined, DeleteOutlined, ClearOutlined, HolderOutlined } from '@ant-design/icons';
+import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
 import { usePlayerStore } from '../store/playerStore';
 import { Track } from '../types';
 import './PlayQueue.css';
@@ -28,20 +29,15 @@ const PlayQueue: React.FC<PlayQueueProps> = ({ visible, onClose }) => {
     onClose();
   };
 
-  const handleMoveUp = (index: number) => {
-    if (index === 0) return;
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination) return;
+    const fromIdx = result.source.index;
+    const toIdx = result.destination.index;
+    if (fromIdx === toIdx) return;
     const newPlaylist = [...playlist];
-    [newPlaylist[index - 1], newPlaylist[index]] = [newPlaylist[index], newPlaylist[index - 1]];
+    const [moved] = newPlaylist.splice(fromIdx, 1);
+    newPlaylist.splice(toIdx, 0, moved);
     reorderPlaylist(newPlaylist);
-    message.success('已上移');
-  };
-
-  const handleMoveDown = (index: number) => {
-    if (index === playlist.length - 1) return;
-    const newPlaylist = [...playlist];
-    [newPlaylist[index], newPlaylist[index + 1]] = [newPlaylist[index + 1], newPlaylist[index]];
-    reorderPlaylist(newPlaylist);
-    message.success('已下移');
   };
 
   const formatDuration = (seconds: number | null) => {
@@ -82,80 +78,75 @@ const PlayQueue: React.FC<PlayQueueProps> = ({ visible, onClose }) => {
       {playlist.length === 0 ? (
         <Empty description="播放队列为空" />
       ) : (
-        <List
-          dataSource={playlist}
-          renderItem={(track, index) => {
-            const isCurrentTrack = track.id === currentTrack?.id;
-            return (
-              <List.Item
-                key={track.id}
-                className={`queue-item ${isCurrentTrack ? 'current' : ''}`}
-                actions={[
-                  <Button
-                    type="text"
-                    icon={<ArrowUpOutlined />}
-                    onClick={() => handleMoveUp(index)}
-                    disabled={index === 0}
-                    title="上移"
-                  />,
-                  <Button
-                    type="text"
-                    icon={<ArrowDownOutlined />}
-                    onClick={() => handleMoveDown(index)}
-                    disabled={index === playlist.length - 1}
-                    title="下移"
-                  />,
-                  <Button
-                    type="text"
-                    icon={<PlayCircleOutlined />}
-                    onClick={() => handlePlayTrack(track)}
-                    disabled={isCurrentTrack}
-                    title="播放"
-                  />,
-                  <Popconfirm
-                    title="确定要从队列中移除这首歌吗？"
-                    onConfirm={() => handleRemoveTrack(track.id)}
-                    okText="确定"
-                    cancelText="取消"
-                  >
-                    <Button
-                      type="text"
-                      danger
-                      icon={<DeleteOutlined />}
-                      title="移除"
-                    />
-                  </Popconfirm>,
-                ]}
-              >
-                <List.Item.Meta
-                  avatar={
-                    <div className="queue-item-number">
-                      {isCurrentTrack ? '▶' : index + 1}
-                    </div>
-                  }
-                  title={
-                    <Text strong={isCurrentTrack} className="queue-item-title">
-                      {track.title}
-                    </Text>
-                  }
-                  description={
-                    <div className="queue-item-info">
-                      <Text type="secondary" className="queue-item-duration">
-                        {formatDuration(track.duration)}
-                      </Text>
-                    </div>
-                  }
-                />
-              </List.Item>
-            );
-          }}
-        />
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <Droppable droppableId="play-queue">
+            {(provided) => (
+              <div ref={provided.innerRef} {...provided.droppableProps}>
+                {playlist.map((track, index) => {
+                  const isCurrentTrack = track.id === currentTrack?.id;
+                  return (
+                    <Draggable key={String(track.id)} draggableId={String(track.id)} index={index}>
+                      {(dragProvided, snapshot) => (
+                        <div
+                          ref={dragProvided.innerRef}
+                          {...dragProvided.draggableProps}
+                          className={`queue-item ${isCurrentTrack ? 'current' : ''} ${snapshot.isDragging ? 'dragging' : ''}`}
+                        >
+                          <div className="queue-item-row">
+                            <div className="queue-drag-handle" {...dragProvided.dragHandleProps}>
+                              <HolderOutlined />
+                            </div>
+                            <div className="queue-item-number">
+                              {isCurrentTrack ? '▶' : index + 1}
+                            </div>
+                            <div className="queue-item-meta">
+                              <Text strong={isCurrentTrack} className="queue-item-title">
+                                {track.title}
+                              </Text>
+                              <Text type="secondary" className="queue-item-duration">
+                                {formatDuration(track.duration)}
+                              </Text>
+                            </div>
+                            <div className="queue-item-actions">
+                              <Button
+                                type="text"
+                                icon={<PlayCircleOutlined />}
+                                onClick={() => handlePlayTrack(track)}
+                                disabled={isCurrentTrack}
+                                title="播放"
+                                size="small"
+                              />
+                              <Popconfirm
+                                title="确定要从队列中移除这首歌吗？"
+                                onConfirm={() => handleRemoveTrack(track.id)}
+                                okText="确定"
+                                cancelText="取消"
+                              >
+                                <Button
+                                  type="text"
+                                  danger
+                                  icon={<DeleteOutlined />}
+                                  title="移除"
+                                  size="small"
+                                />
+                              </Popconfirm>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </Draggable>
+                  );
+                })}
+                {provided.placeholder}
+              </div>
+            )}
+          </Droppable>
+        </DragDropContext>
       )}
     </Drawer>
   );
 };
 
 export default PlayQueue;
-
 
 
