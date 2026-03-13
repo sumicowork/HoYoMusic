@@ -59,7 +59,7 @@ const options: swaggerJsdoc.Options = {
             name: { type: 'string' },
             cover_path: { type: 'string', nullable: true },
             display_order: { type: 'integer' },
-            status: { type: 'string', enum: ['active', 'inactive'] },
+            status: { type: 'string', enum: ['active', 'inactive', 'maintenance', 'unreleased'] },
           },
         },
         Playlist: {

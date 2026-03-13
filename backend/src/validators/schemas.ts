@@ -44,7 +44,7 @@ export const createGameSchema = z.object({
   name_en: z.string().max(200).nullable().optional(),
   description: z.string().max(2000).nullable().optional(),
   display_order: z.number().int().default(0).optional(),
-  status: z.enum(['active', 'inactive']).default('active').optional(),
+  status: z.enum(['active', 'inactive', 'maintenance', 'unreleased']).default('active').optional(),
   cover_path: z.string().max(500).nullable().optional(),
 });
 
@@ -53,7 +53,7 @@ export const updateGameSchema = z.object({
   name_en: z.string().max(200).nullable().optional(),
   description: z.string().max(2000).nullable().optional(),
   display_order: z.number().int().optional(),
-  status: z.enum(['active', 'inactive']).optional(),
+  status: z.enum(['active', 'inactive', 'maintenance', 'unreleased']).optional(),
   cover_path: z.string().max(500).nullable().optional(),
 });
 

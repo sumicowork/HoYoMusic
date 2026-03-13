@@ -102,8 +102,11 @@ const GameManagement: React.FC = () => {
       form.resetFields();
       fetchGames();
     } catch (error: any) {
+      const detail = error.response?.data?.error?.details?.[0]?.message;
       if (error.response?.data?.error?.code === 'DUPLICATE') {
         message.error('游戏名称已存在');
+      } else if (detail) {
+        message.error(detail);
       } else {
         message.error(editingGame ? '更新失败' : '创建失败');
       }
