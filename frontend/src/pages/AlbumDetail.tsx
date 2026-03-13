@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Layout, Table, Button, Space, Image, Skeleton, Descriptions, message, Tooltip, Card, Typography } from 'antd';
+import { Layout, Table, Button, Space, Image, Skeleton, Descriptions, message, Tooltip, Card, Typography, Tag } from 'antd';
 import { ArrowLeftOutlined, PlayCircleOutlined, DownloadOutlined } from '@ant-design/icons';
 import { Track } from '../types';
 import { trackService, DOWNLOAD_ENABLED } from '../services/trackService';
@@ -94,23 +94,46 @@ const AlbumDetail: React.FC = () => {
     return `${minutes} minutes`;
   };
 
-  // Group tracks by disc
+  // Group tracks by disc (supports both disc table and track-level disc metadata)
   const discGroups = useMemo(() => {
-    if (discs.length === 0) return null;
     const groups: { disc: Disc; tracks: Track[] }[] = [];
 
-    // Build groups in disc_number order
-    for (const disc of discs.sort((a, b) => a.disc_number - b.disc_number)) {
-      const discTracks = tracks.filter(t => t.disc_id === disc.id);
-      if (discTracks.length > 0) {
-        groups.push({ disc, tracks: discTracks });
+    // Preferred source: album-level disc table + track.disc_id mapping
+    if (discs.length > 0) {
+      for (const disc of [...discs].sort((a, b) => a.disc_number - b.disc_number)) {
+        const discTracks = tracks.filter(t => t.disc_id === disc.id);
+        if (discTracks.length > 0) {
+          groups.push({ disc, tracks: discTracks });
+        }
       }
+
+      const unassigned = tracks.filter(t => !t.disc_id);
+      if (unassigned.length > 0 && groups.length > 0) {
+        groups.push({ disc: { id: 0, disc_number: 0, disc_title: '其他曲目' }, tracks: unassigned });
+      }
+
+      if (groups.length > 0) return groups;
     }
 
-    // Tracks without disc assignment
-    const unassigned = tracks.filter(t => !t.disc_id);
-    if (unassigned.length > 0 && groups.length > 0) {
-      groups.push({ disc: { id: 0, disc_number: 0, disc_title: '其他曲目' }, tracks: unassigned });
+    // Fallback source: group by track.disc_number when disc table is empty/unavailable
+    const byDiscNumber = new Map<number, Track[]>();
+    for (const track of tracks) {
+      if (track.disc_number == null) continue;
+      const key = track.disc_number;
+      const list = byDiscNumber.get(key) || [];
+      list.push(track);
+      byDiscNumber.set(key, list);
+    }
+
+    if (byDiscNumber.size === 0) return null;
+
+    for (const discNumber of [...byDiscNumber.keys()].sort((a, b) => a - b)) {
+      const discTracks = byDiscNumber.get(discNumber) || [];
+      const discTitle = discTracks.find(t => t.disc_title)?.disc_title || null;
+      groups.push({
+        disc: { id: discNumber, disc_number: discNumber, disc_title: discTitle },
+        tracks: discTracks,
+      });
     }
 
     return groups.length > 0 ? groups : null;
@@ -136,6 +159,13 @@ const AlbumDetail: React.FC = () => {
           >
             {title}
           </a>
+          {(record.disc_number != null || record.disc_title) && (
+            <div style={{ marginTop: 4 }}>
+              <Tag color="purple" style={{ marginInlineEnd: 0 }}>
+                Disc {record.disc_number ?? '?'}{record.disc_title ? ` - ${record.disc_title}` : ''}
+              </Tag>
+            </div>
+          )}
           {record.notes && (
             <Text type="secondary" style={{ display: 'block', fontSize: 12, marginTop: 2 }}>
               {record.notes}
