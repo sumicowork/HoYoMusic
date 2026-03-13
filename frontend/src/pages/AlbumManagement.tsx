@@ -51,6 +51,7 @@ const AlbumManagement: React.FC = () => {
   const [rangeStart, setRangeStart] = useState<number | null>(null);
   const [rangeEnd, setRangeEnd] = useState<number | null>(null);
   const [rangeTargetDiscId, setRangeTargetDiscId] = useState<number | null>(null);
+  const [sequentialDiscCounts, setSequentialDiscCounts] = useState<Record<number, number>>({});
 
 
   const fetchAlbums = async (page = 1, pageSize?: number) => {
@@ -158,6 +159,11 @@ const AlbumManagement: React.FC = () => {
         albumService.getAlbumById(album.id),
       ]);
       setDiscs(discData);
+      const initialCounts: Record<number, number> = {};
+      discData.forEach((disc) => {
+        initialCounts[disc.id] = 0;
+      });
+      setSequentialDiscCounts(initialCounts);
       const tracks: Track[] = albumDetail.tracks || [];
       setDiscTracks(tracks);
       const map: Record<number, number | null> = {};
@@ -184,6 +190,13 @@ const AlbumManagement: React.FC = () => {
       discForm.resetFields();
       const data = await discService.getDiscs(discAlbum.id);
       setDiscs(data);
+      setSequentialDiscCounts((prev) => {
+        const next: Record<number, number> = {};
+        data.forEach((disc) => {
+          next[disc.id] = prev[disc.id] ?? 0;
+        });
+        return next;
+      });
     } catch (error: any) {
       message.error(error.message || '创建碟片失败');
     }
@@ -214,6 +227,13 @@ const AlbumManagement: React.FC = () => {
       if (discAlbum) {
         const data = await discService.getDiscs(discAlbum.id);
         setDiscs(data);
+        setSequentialDiscCounts((prev) => {
+          const next: Record<number, number> = {};
+          data.forEach((disc) => {
+            next[disc.id] = prev[disc.id] ?? 0;
+          });
+          return next;
+        });
       }
     } catch (error: any) {
       message.error(error.message || '删除碟片失败');
@@ -258,6 +278,58 @@ const AlbumManagement: React.FC = () => {
       return next;
     });
     message.success(`已按曲目号范围 ${start}-${end} 更新 ${targetTracks.length} 首曲目`);
+  };
+
+  const handleApplySequentialDiscAssignment = () => {
+    const orderedDiscs = [...discs].sort((a, b) => a.disc_number - b.disc_number);
+    if (orderedDiscs.length === 0) {
+      message.warning('请先创建碟片');
+      return;
+    }
+
+    const requestedTotal = orderedDiscs.reduce((sum, disc) => {
+      const count = sequentialDiscCounts[disc.id] ?? 0;
+      return sum + Math.max(0, Math.floor(count));
+    }, 0);
+
+    if (requestedTotal <= 0) {
+      message.warning('请先输入每个分碟的曲目数');
+      return;
+    }
+
+    const unassignedTracks = [...discTracks]
+      .filter((track) => (discAssignments[track.id] ?? null) == null)
+      .sort((a, b) => {
+        const aNo = a.track_number ?? Number.MAX_SAFE_INTEGER;
+        const bNo = b.track_number ?? Number.MAX_SAFE_INTEGER;
+        if (aNo !== bNo) return aNo - bNo;
+        return a.id - b.id;
+      });
+
+    if (unassignedTracks.length === 0) {
+      message.warning('当前没有未分配曲目');
+      return;
+    }
+
+    setDiscAssignments((prev) => {
+      const next = { ...prev };
+      let cursor = 0;
+      for (const disc of orderedDiscs) {
+        const need = Math.max(0, Math.floor(sequentialDiscCounts[disc.id] ?? 0));
+        for (let i = 0; i < need && cursor < unassignedTracks.length; i += 1) {
+          next[unassignedTracks[cursor].id] = disc.id;
+          cursor += 1;
+        }
+      }
+
+      if (cursor < requestedTotal) {
+        message.warning(`仅分配了 ${cursor} 首（未分配曲目不足 ${requestedTotal} 首）`);
+      } else {
+        message.success(`已按分碟序号顺序分配 ${cursor} 首未分配曲目`);
+      }
+
+      return next;
+    });
   };
 
   const discTrackRowSelection: TableRowSelection<Track> = {
@@ -473,6 +545,7 @@ const AlbumManagement: React.FC = () => {
           setRangeStart(null);
           setRangeEnd(null);
           setRangeTargetDiscId(null);
+          setSequentialDiscCounts({});
           discForm.resetFields();
         }}
         width={860}
@@ -593,6 +666,32 @@ const AlbumManagement: React.FC = () => {
           <Button onClick={handleApplyRangeDiscAssignment}>
             应用范围分配
           </Button>
+        </Space>
+
+        <Space direction="vertical" style={{ width: '100%', marginBottom: 12 }} size={8}>
+          <Space wrap>
+            <strong>按分碟序号顺序分配未分配曲目：</strong>
+            <Button onClick={handleApplySequentialDiscAssignment}>应用顺序分配</Button>
+          </Space>
+          <Space wrap>
+            {[...discs]
+              .sort((a, b) => a.disc_number - b.disc_number)
+              .map((disc) => (
+                <Space key={disc.id} size={6}>
+                  <span>Disc {disc.disc_number}</span>
+                  <InputNumber
+                    min={0}
+                    precision={0}
+                    style={{ width: 100 }}
+                    placeholder="首数"
+                    value={sequentialDiscCounts[disc.id] ?? 0}
+                    onChange={(v) => {
+                      setSequentialDiscCounts((prev) => ({ ...prev, [disc.id]: v == null ? 0 : Number(v) }));
+                    }}
+                  />
+                </Space>
+              ))}
+          </Space>
         </Space>
 
         <Table
