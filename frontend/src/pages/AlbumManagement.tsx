@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Button, message, Space, Image, Modal, Form, Input, Select, DatePicker, Card, InputNumber, List, Popconfirm } from 'antd';
+import { Table, Button, message, Space, Image, Modal, Form, Input, Select, DatePicker, Card, InputNumber, List, Popconfirm, Divider } from 'antd';
 import {
   EditOutlined,
   PictureOutlined,
@@ -46,6 +46,11 @@ const AlbumManagement: React.FC = () => {
   const [discForm] = Form.useForm();
   const [discTracks, setDiscTracks] = useState<Track[]>([]);
   const [discAssignments, setDiscAssignments] = useState<Record<number, number | null>>({});
+  const [selectedDiscTrackKeys, setSelectedDiscTrackKeys] = useState<React.Key[]>([]);
+  const [bulkTargetDiscId, setBulkTargetDiscId] = useState<number | null>(null);
+  const [rangeStart, setRangeStart] = useState<number | null>(null);
+  const [rangeEnd, setRangeEnd] = useState<number | null>(null);
+  const [rangeTargetDiscId, setRangeTargetDiscId] = useState<number | null>(null);
 
 
   const fetchAlbums = async (page = 1, pageSize?: number) => {
@@ -142,6 +147,11 @@ const AlbumManagement: React.FC = () => {
     setDiscAlbum(album);
     setDiscModalVisible(true);
     setDiscLoading(true);
+    setSelectedDiscTrackKeys([]);
+    setBulkTargetDiscId(null);
+    setRangeStart(null);
+    setRangeEnd(null);
+    setRangeTargetDiscId(null);
     try {
       const [discData, albumDetail] = await Promise.all([
         discService.getDiscs(album.id),
@@ -191,6 +201,7 @@ const AlbumManagement: React.FC = () => {
       const albumDetail = await albumService.getAlbumById(discAlbum.id);
       const tracks: Track[] = albumDetail.tracks || [];
       setDiscTracks(tracks);
+      setSelectedDiscTrackKeys([]);
     } catch (error: any) {
       message.error(error.message || '保存曲目分碟失败');
     }
@@ -207,6 +218,51 @@ const AlbumManagement: React.FC = () => {
     } catch (error: any) {
       message.error(error.message || '删除碟片失败');
     }
+  };
+
+  const handleApplyBulkDiscAssignment = () => {
+    if (selectedDiscTrackKeys.length === 0) {
+      message.warning('请先勾选要批量分配的曲目');
+      return;
+    }
+    const selectedIds = selectedDiscTrackKeys.map(Number);
+    setDiscAssignments((prev) => {
+      const next = { ...prev };
+      selectedIds.forEach((trackId) => {
+        next[trackId] = bulkTargetDiscId;
+      });
+      return next;
+    });
+    message.success(`已批量更新 ${selectedIds.length} 首曲目`);
+  };
+
+  const handleApplyRangeDiscAssignment = () => {
+    if (rangeStart == null || rangeEnd == null) {
+      message.warning('请先输入曲目号范围');
+      return;
+    }
+    const start = Math.min(rangeStart, rangeEnd);
+    const end = Math.max(rangeStart, rangeEnd);
+    const targetTracks = discTracks.filter(
+      (t) => t.track_number != null && t.track_number >= start && t.track_number <= end
+    );
+    if (targetTracks.length === 0) {
+      message.warning(`未找到曲目号在 ${start}-${end} 范围内的曲目`);
+      return;
+    }
+    setDiscAssignments((prev) => {
+      const next = { ...prev };
+      targetTracks.forEach((track) => {
+        next[track.id] = rangeTargetDiscId;
+      });
+      return next;
+    });
+    message.success(`已按曲目号范围 ${start}-${end} 更新 ${targetTracks.length} 首曲目`);
+  };
+
+  const discTrackRowSelection: TableRowSelection<Track> = {
+    selectedRowKeys: selectedDiscTrackKeys,
+    onChange: (keys) => setSelectedDiscTrackKeys(keys),
   };
 
   const columns: ColumnsType<Album> = [
@@ -412,6 +468,11 @@ const AlbumManagement: React.FC = () => {
           setDiscs([]);
           setDiscTracks([]);
           setDiscAssignments({});
+          setSelectedDiscTrackKeys([]);
+          setBulkTargetDiscId(null);
+          setRangeStart(null);
+          setRangeEnd(null);
+          setRangeTargetDiscId(null);
           discForm.resetFields();
         }}
         width={860}
@@ -473,10 +534,72 @@ const AlbumManagement: React.FC = () => {
           )}
         />
 
+        <Divider style={{ margin: '12px 0' }} />
+
+        <Space wrap style={{ marginBottom: 12 }}>
+          <strong>批量选择分碟：</strong>
+          <Select
+            allowClear
+            placeholder="选择目标碟片（清空=未分配）"
+            style={{ width: 260 }}
+            value={bulkTargetDiscId}
+            onChange={(value) => setBulkTargetDiscId(value ?? null)}
+          >
+            {discs.map((disc) => (
+              <Select.Option key={disc.id} value={disc.id}>
+                Disc {disc.disc_number}{disc.disc_title ? ` - ${disc.disc_title}` : ''}
+              </Select.Option>
+            ))}
+          </Select>
+          <Button onClick={handleApplyBulkDiscAssignment} disabled={selectedDiscTrackKeys.length === 0}>
+            对已选曲目应用
+          </Button>
+          <Button onClick={() => setSelectedDiscTrackKeys([])}>
+            取消选择
+          </Button>
+          <span style={{ color: 'var(--text-secondary)' }}>已选 {selectedDiscTrackKeys.length} 首</span>
+        </Space>
+
+        <Space wrap style={{ marginBottom: 12 }}>
+          <strong>按曲目号范围分碟：</strong>
+          <InputNumber
+            min={1}
+            placeholder="起始"
+            style={{ width: 92 }}
+            value={rangeStart}
+            onChange={(v) => setRangeStart(v ?? null)}
+          />
+          <span>至</span>
+          <InputNumber
+            min={1}
+            placeholder="结束"
+            style={{ width: 92 }}
+            value={rangeEnd}
+            onChange={(v) => setRangeEnd(v ?? null)}
+          />
+          <Select
+            allowClear
+            placeholder="选择目标碟片（清空=未分配）"
+            style={{ width: 260 }}
+            value={rangeTargetDiscId}
+            onChange={(value) => setRangeTargetDiscId(value ?? null)}
+          >
+            {discs.map((disc) => (
+              <Select.Option key={disc.id} value={disc.id}>
+                Disc {disc.disc_number}{disc.disc_title ? ` - ${disc.disc_title}` : ''}
+              </Select.Option>
+            ))}
+          </Select>
+          <Button onClick={handleApplyRangeDiscAssignment}>
+            应用范围分配
+          </Button>
+        </Space>
+
         <Table
           rowKey="id"
           size="small"
           pagination={false}
+          rowSelection={discTrackRowSelection}
           dataSource={[...discTracks].sort((a, b) => (a.track_number || 9999) - (b.track_number || 9999))}
           columns={[
             { title: '#', dataIndex: 'track_number', width: 70, render: (v: number) => v || '-' },
