@@ -202,24 +202,6 @@ const AlbumManagement: React.FC = () => {
     }
   };
 
-  const handleSaveDiscAssignments = async () => {
-    try {
-      if (!discAlbum) return;
-      const assignments = Object.entries(discAssignments).map(([trackId, discId]) => ({
-        track_id: Number(trackId),
-        disc_id: discId,
-      }));
-      await discService.bulkAssignTracks(discAlbum.id, assignments);
-      message.success('曲目分碟已保存');
-      const albumDetail = await albumService.getAlbumById(discAlbum.id);
-      const tracks: Track[] = albumDetail.tracks || [];
-      setDiscTracks(tracks);
-      setSelectedDiscTrackKeys([]);
-    } catch (error: any) {
-      message.error(error.message || '保存曲目分碟失败');
-    }
-  };
-
   const handleDeleteDisc = async (discId: number) => {
     try {
       await discService.deleteDisc(discId);
@@ -240,27 +222,37 @@ const AlbumManagement: React.FC = () => {
     }
   };
 
-  const handleApplyBulkDiscAssignment = () => {
+  const handleApplyBulkDiscAssignment = async () => {
     if (selectedDiscTrackKeys.length === 0) {
       message.warning('请先勾选要批量分配的曲目');
       return;
     }
+    if (!discAlbum) return;
     const selectedIds = selectedDiscTrackKeys.map(Number);
-    setDiscAssignments((prev) => {
-      const next = { ...prev };
-      selectedIds.forEach((trackId) => {
-        next[trackId] = bulkTargetDiscId;
+    try {
+      await discService.bulkAssignTracks(
+        discAlbum.id,
+        selectedIds.map((trackId) => ({ track_id: trackId, disc_id: bulkTargetDiscId }))
+      );
+      setDiscAssignments((prev) => {
+        const next = { ...prev };
+        selectedIds.forEach((trackId) => {
+          next[trackId] = bulkTargetDiscId;
+        });
+        return next;
       });
-      return next;
-    });
-    message.success(`已批量更新 ${selectedIds.length} 首曲目`);
+      message.success(`已批量更新 ${selectedIds.length} 首曲目`);
+    } catch (error: any) {
+      message.error(error.message || '批量分配失败');
+    }
   };
 
-  const handleApplyRangeDiscAssignment = () => {
+  const handleApplyRangeDiscAssignment = async () => {
     if (rangeStart == null || rangeEnd == null) {
       message.warning('请先输入曲目号范围');
       return;
     }
+    if (!discAlbum) return;
     const start = Math.min(rangeStart, rangeEnd);
     const end = Math.max(rangeStart, rangeEnd);
     const targetTracks = discTracks.filter(
@@ -270,17 +262,25 @@ const AlbumManagement: React.FC = () => {
       message.warning(`未找到曲目号在 ${start}-${end} 范围内的曲目`);
       return;
     }
-    setDiscAssignments((prev) => {
-      const next = { ...prev };
-      targetTracks.forEach((track) => {
-        next[track.id] = rangeTargetDiscId;
+    try {
+      await discService.bulkAssignTracks(
+        discAlbum.id,
+        targetTracks.map((track) => ({ track_id: track.id, disc_id: rangeTargetDiscId }))
+      );
+      setDiscAssignments((prev) => {
+        const next = { ...prev };
+        targetTracks.forEach((track) => {
+          next[track.id] = rangeTargetDiscId;
+        });
+        return next;
       });
-      return next;
-    });
-    message.success(`已按曲目号范围 ${start}-${end} 更新 ${targetTracks.length} 首曲目`);
+      message.success(`已按曲目号范围 ${start}-${end} 更新 ${targetTracks.length} 首曲目`);
+    } catch (error: any) {
+      message.error(error.message || '范围分配失败');
+    }
   };
 
-  const handleApplySequentialDiscAssignment = () => {
+  const handleApplySequentialDiscAssignment = async () => {
     const orderedDiscs = [...discs].sort((a, b) => a.disc_number - b.disc_number);
     if (orderedDiscs.length === 0) {
       message.warning('请先创建碟片');
@@ -310,26 +310,50 @@ const AlbumManagement: React.FC = () => {
       message.warning('当前没有未分配曲目');
       return;
     }
+    if (!discAlbum) return;
 
-    setDiscAssignments((prev) => {
-      const next = { ...prev };
-      let cursor = 0;
-      for (const disc of orderedDiscs) {
-        const need = Math.max(0, Math.floor(sequentialDiscCounts[disc.id] ?? 0));
-        for (let i = 0; i < need && cursor < unassignedTracks.length; i += 1) {
-          next[unassignedTracks[cursor].id] = disc.id;
-          cursor += 1;
-        }
+    const assignments: { track_id: number; disc_id: number | null }[] = [];
+    let cursor = 0;
+    for (const disc of orderedDiscs) {
+      const need = Math.max(0, Math.floor(sequentialDiscCounts[disc.id] ?? 0));
+      for (let i = 0; i < need && cursor < unassignedTracks.length; i += 1) {
+        assignments.push({ track_id: unassignedTracks[cursor].id, disc_id: disc.id });
+        cursor += 1;
       }
+    }
+
+    if (assignments.length === 0) {
+      message.warning('没有可应用的分配');
+      return;
+    }
+
+    try {
+      await discService.bulkAssignTracks(discAlbum.id, assignments);
+      setDiscAssignments((prev) => {
+        const next = { ...prev };
+        assignments.forEach(({ track_id, disc_id }) => {
+          next[track_id] = disc_id;
+        });
+        return next;
+      });
 
       if (cursor < requestedTotal) {
         message.warning(`仅分配了 ${cursor} 首（未分配曲目不足 ${requestedTotal} 首）`);
       } else {
         message.success(`已按分碟序号顺序分配 ${cursor} 首未分配曲目`);
       }
+    } catch (error: any) {
+      message.error(error.message || '顺序分配失败');
+    }
+  };
 
-      return next;
-    });
+  const handleTrackDiscChange = async (trackId: number, discId: number | null) => {
+    try {
+      await discService.assignTrackToDisc(trackId, discId);
+      setDiscAssignments((prev) => ({ ...prev, [trackId]: discId }));
+    } catch (error: any) {
+      message.error(error.message || '分碟修改失败');
+    }
   };
 
   const discTrackRowSelection: TableRowSelection<Track> = {
@@ -550,9 +574,6 @@ const AlbumManagement: React.FC = () => {
         }}
         width={860}
         footer={[
-          <Button key="save" type="primary" onClick={handleSaveDiscAssignments} disabled={!discAlbum}>
-            保存曲目分碟
-          </Button>,
           <Button key="close" onClick={() => setDiscModalVisible(false)}>
             关闭
           </Button>,
@@ -713,7 +734,7 @@ const AlbumManagement: React.FC = () => {
                   placeholder="未分配"
                   style={{ width: '100%' }}
                   onChange={(value) => {
-                    setDiscAssignments((prev) => ({ ...prev, [record.id]: value ?? null }));
+                    handleTrackDiscChange(record.id, value ?? null);
                   }}
                 >
                   {discs.map((disc) => (
