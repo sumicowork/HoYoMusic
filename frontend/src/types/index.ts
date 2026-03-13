@@ -15,6 +15,10 @@ export interface Track {
   bit_depth: number | null;
   file_size: number | null;
   release_date: string | null;
+  notes?: string | null;
+  disc_id?: number | null;
+  disc_number?: number | null;
+  disc_title?: string | null;
   created_at: string;
   updated_at: string;
   album_title?: string;
@@ -40,6 +44,7 @@ export interface Album {
   title: string;
   cover_path: string | null;
   release_date: string | null;
+  notes?: string | null;
 }
 
 export interface ApiResponse<T> {

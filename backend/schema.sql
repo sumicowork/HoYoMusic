@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS albums (
     title VARCHAR(255) NOT NULL,
     cover_path VARCHAR(500),
     release_date DATE,
+    notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -32,6 +33,7 @@ CREATE TABLE IF NOT EXISTS tracks (
     id SERIAL PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
     album_id INTEGER REFERENCES albums(id) ON DELETE SET NULL,
+    disc_id INTEGER,
     file_path VARCHAR(500) NOT NULL,
     cover_path VARCHAR(500),
     duration INTEGER, -- in seconds
@@ -40,9 +42,33 @@ CREATE TABLE IF NOT EXISTS tracks (
     bit_depth INTEGER,
     file_size BIGINT,
     release_date DATE,
+    notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Album Discs table
+CREATE TABLE IF NOT EXISTS album_discs (
+    id SERIAL PRIMARY KEY,
+    album_id INTEGER NOT NULL REFERENCES albums(id) ON DELETE CASCADE,
+    disc_number INTEGER NOT NULL,
+    disc_title VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (album_id, disc_number)
+);
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'fk_tracks_disc'
+    ) THEN
+        ALTER TABLE tracks
+        ADD CONSTRAINT fk_tracks_disc
+        FOREIGN KEY (disc_id) REFERENCES album_discs(id) ON DELETE SET NULL;
+    END IF;
+END $$;
 
 -- Track Artists relationship (many-to-many)
 CREATE TABLE IF NOT EXISTS track_artists (
@@ -58,10 +84,11 @@ CREATE INDEX IF NOT EXISTS idx_artists_name ON artists(name);
 CREATE INDEX IF NOT EXISTS idx_albums_title ON albums(title);
 CREATE INDEX IF NOT EXISTS idx_track_artists_track_id ON track_artists(track_id);
 CREATE INDEX IF NOT EXISTS idx_track_artists_artist_id ON track_artists(artist_id);
+CREATE INDEX IF NOT EXISTS idx_tracks_disc_id ON tracks(disc_id);
+CREATE INDEX IF NOT EXISTS idx_album_discs_album_id ON album_discs(album_id);
 
 -- Insert default admin user (password: admin123)
 -- Password hash for 'admin123' with bcrypt
 INSERT INTO users (username, password_hash)
 VALUES ('admin', '$2b$10$XQqZ3zXJH4J4vF7.L0mYHOGKq5x0xVZNY9qW9z3X9X3X9X3X9X3X9e')
 ON CONFLICT (username) DO NOTHING;
-

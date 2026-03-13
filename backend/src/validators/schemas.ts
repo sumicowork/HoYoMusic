@@ -11,6 +11,7 @@ export const updateAlbumSchema = z.object({
   title: z.string().min(1, 'Title is required').max(500),
   release_date: z.string().nullable().optional(),
   game_id: z.union([z.number().int().positive(), z.null()]).optional(),
+  notes: z.string().max(5000).nullable().optional(),
 });
 
 export const bulkUpdateGameSchema = z.object({
@@ -25,6 +26,7 @@ export const updateTrackSchema = z.object({
   album_title: z.string().max(500).optional().nullable(),
   release_date: z.string().nullable().optional(),
   track_number: z.number().int().nullable().optional(),
+  notes: z.string().max(5000).nullable().optional(),
 });
 
 export const bulkDeleteTracksSchema = z.object({

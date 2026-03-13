@@ -97,6 +97,7 @@ const Admin: React.FC = () => {
       album_title: track.album_title,
       release_date: track.release_date ? dayjs(track.release_date) : null,
       track_number: (track as any).track_number || null,
+      notes: (track as any).notes || '',
     });
     setEditModalVisible(true);
   };
@@ -112,6 +113,7 @@ const Admin: React.FC = () => {
           album_title: values.album_title || '',
           release_date: values.release_date ? values.release_date.format('YYYY-MM-DD') : undefined,
           track_number: values.track_number || undefined,
+          notes: values.notes || null,
         });
         message.success('曲目信息已更新');
         setEditModalVisible(false);
@@ -381,6 +383,9 @@ const Admin: React.FC = () => {
           </Form.Item>
           <Form.Item name="track_number" label="曲目编号">
             <InputNumber min={1} style={{ width: '100%' }} placeholder="曲目编号" />
+          </Form.Item>
+          <Form.Item name="notes" label="备注">
+            <Input.TextArea rows={3} placeholder="曲目备注信息（可选）" maxLength={5000} showCount />
           </Form.Item>
         </Form>
       </Modal>

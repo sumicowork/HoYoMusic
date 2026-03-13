@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Layout, Table, Button, Space, Image, Skeleton, Descriptions, message, Tooltip } from 'antd';
+import { Layout, Table, Button, Space, Image, Skeleton, Descriptions, message, Tooltip, Card, Typography } from 'antd';
 import { ArrowLeftOutlined, PlayCircleOutlined, DownloadOutlined } from '@ant-design/icons';
 import { Track } from '../types';
 import { trackService, DOWNLOAD_ENABLED } from '../services/trackService';
@@ -10,6 +10,7 @@ import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
 import './AlbumDetail.css';
 
 const { Content } = Layout;
+const { Text } = Typography;
 
 interface Album {
   id: number;
@@ -18,6 +19,13 @@ interface Album {
   release_date: string;
   track_count: number;
   total_duration: number;
+  notes?: string | null;
+}
+
+interface Disc {
+  id: number;
+  disc_number: number;
+  disc_title: string | null;
 }
 
 const AlbumDetail: React.FC = () => {
@@ -25,6 +33,7 @@ const AlbumDetail: React.FC = () => {
   const navigate = useNavigate();
   const [album, setAlbum] = useState<Album | null>(null);
   const [tracks, setTracks] = useState<Track[]>([]);
+  const [discs, setDiscs] = useState<Disc[]>([]);
   const [loading, setLoading] = useState(true);
 
   const { play, setPlaylist, playTrackOnly } = usePlayerStore();
@@ -40,6 +49,7 @@ const AlbumDetail: React.FC = () => {
       const data = await albumService.getAlbumById(parseInt(id!));
       setAlbum(data.album);
       setTracks(data.tracks);
+      setDiscs(data.discs || []);
     } catch (error: any) {
       message.error('加载专辑详情失败');
     } finally {
@@ -48,13 +58,11 @@ const AlbumDetail: React.FC = () => {
   };
 
   const handlePlay = (track: Track) => {
-    // Only add this single track to queue, don't replace entire playlist
     playTrackOnly(track);
   };
 
   const handlePlayAll = () => {
     if (tracks.length > 0) {
-      // Replace playlist with all tracks from album
       setPlaylist(tracks);
       play(tracks[0]);
     }
@@ -68,7 +76,6 @@ const AlbumDetail: React.FC = () => {
     const apiBase = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
     window.open(`${apiBase}/albums/${id}/download`, '_blank');
   };
-
 
   const formatDuration = (seconds: number) => {
     if (!seconds) return '--';
@@ -87,6 +94,27 @@ const AlbumDetail: React.FC = () => {
     return `${minutes} minutes`;
   };
 
+  // Group tracks by disc
+  const discGroups = useMemo(() => {
+    if (discs.length === 0) return null;
+    const groups: { disc: Disc; tracks: Track[] }[] = [];
+
+    // Build groups in disc_number order
+    for (const disc of discs.sort((a, b) => a.disc_number - b.disc_number)) {
+      const discTracks = tracks.filter(t => t.disc_id === disc.id);
+      if (discTracks.length > 0) {
+        groups.push({ disc, tracks: discTracks });
+      }
+    }
+
+    // Tracks without disc assignment
+    const unassigned = tracks.filter(t => !t.disc_id);
+    if (unassigned.length > 0 && groups.length > 0) {
+      groups.push({ disc: { id: 0, disc_number: 0, disc_title: '其他曲目' }, tracks: unassigned });
+    }
+
+    return groups.length > 0 ? groups : null;
+  }, [tracks, discs]);
 
   const columns = [
     {
@@ -101,12 +129,19 @@ const AlbumDetail: React.FC = () => {
       dataIndex: 'title',
       key: 'title',
       render: (title: string, record: Track) => (
-        <a
-          onClick={() => navigate(`/track/${record.id}`)}
-          style={{ color: '#1890ff', cursor: 'pointer' }}
-        >
-          {title}
-        </a>
+        <span>
+          <a
+            onClick={() => navigate(`/track/${record.id}`)}
+            style={{ color: '#1890ff', cursor: 'pointer' }}
+          >
+            {title}
+          </a>
+          {record.notes && (
+            <Text type="secondary" style={{ display: 'block', fontSize: 12, marginTop: 2 }}>
+              {record.notes}
+            </Text>
+          )}
+        </span>
       ),
     },
     {
@@ -196,6 +231,13 @@ const AlbumDetail: React.FC = () => {
                 </Descriptions.Item>
               )}
             </Descriptions>
+            {album.notes && (
+              <Card size="small" className="album-notes-card" style={{ marginTop: 16 }}>
+                <Text type="secondary" style={{ whiteSpace: 'pre-wrap', fontSize: 13 }}>
+                  📝 {album.notes}
+                </Text>
+              </Card>
+            )}
             <Space style={{ marginTop: 24 }}>
               <Button
                 type="primary"
@@ -222,12 +264,32 @@ const AlbumDetail: React.FC = () => {
 
         <div className="album-tracks">
           <h2>曲目列表</h2>
-          <Table
-            columns={columns}
-            dataSource={tracks}
-            rowKey="id"
-            pagination={false}
-          />
+          {discGroups ? (
+            discGroups.map(group => (
+              <div key={group.disc.id} style={{ marginBottom: 32 }}>
+                <div className="album-disc-header">
+                  <span className="album-disc-number">💿 Disc {group.disc.disc_number || '?'}</span>
+                  {group.disc.disc_title && (
+                    <span className="album-disc-title"> — {group.disc.disc_title}</span>
+                  )}
+                </div>
+                <Table
+                  columns={columns}
+                  dataSource={group.tracks}
+                  rowKey="id"
+                  pagination={false}
+                  size="small"
+                />
+              </div>
+            ))
+          ) : (
+            <Table
+              columns={columns}
+              dataSource={tracks}
+              rowKey="id"
+              pagination={false}
+            />
+          )}
         </div>
       </Content>
     </Layout>
@@ -235,5 +297,4 @@ const AlbumDetail: React.FC = () => {
 };
 
 export default AlbumDetail;
-
 

@@ -16,17 +16,12 @@ import {
   ExpandOutlined,
 } from '@ant-design/icons';
 import { usePlayerStore } from '../store/playerStore';
-import { useEqualizerStore } from '../store/equalizerStore';
 import { trackService } from '../services/trackService';
 import { IS_STATIC } from '../services/api';
 import { lyricsService } from '../services/lyricsService';
-import { useDominantColor } from '../utils/useDominantColor';
-import { getAudioGraph, setEQGains } from '../utils/audioContext';
 import PlayQueue from './PlayQueue';
 import SleepTimer from './SleepTimer';
 import CrossfadeControl from './CrossfadeControl';
-import EqualizerControl from './EqualizerControl';
-import SpectrumVisualizer from './SpectrumVisualizer';
 import './Player.css';
 
 // ─── inline LRC parser ────────────────────────────────────────────────
@@ -83,11 +78,8 @@ const Player: React.FC = () => {
 
   const howlRef = useRef<Howl | null>(null);
   const progressIntervalRef = useRef<number | null>(null);
-  const audioGraphConnectedRef = useRef(false);
   const setIsPlaying = usePlayerStore((state) => state.setIsPlaying);
   const currentPlayMode = usePlayerStore((state) => state.playMode);
-  const eqEnabled = useEqualizerStore((s) => s.enabled);
-  const eqGains = useEqualizerStore((s) => s.gains);
 
   // Dynamic page title
   useEffect(() => {
@@ -231,33 +223,6 @@ const Player: React.FC = () => {
     };
   }, [currentTrack]);
 
-  // Connect Howl's internal <audio> element to the Web Audio graph (EQ + Spectrum)
-  useEffect(() => {
-    if (!howlRef.current || !isPlaying) return;
-    // Small delay to ensure Howl has created its internal audio element
-    const timer = setTimeout(() => {
-      try {
-        const howl = howlRef.current as any;
-        const sounds = howl?._sounds;
-        if (sounds?.length > 0) {
-          const audioEl = sounds[0]._node as HTMLMediaElement;
-          if (audioEl) {
-            const graph = getAudioGraph();
-            graph.connectSource(audioEl);
-            audioGraphConnectedRef.current = true;
-            // Apply current EQ settings
-            if (eqEnabled) {
-              setEQGains(eqGains);
-            } else {
-              setEQGains([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-            }
-          }
-        }
-      } catch { /* ignore audio context errors */ }
-    }, 100);
-    return () => clearTimeout(timer);
-  }, [currentTrack, isPlaying]);
-
   useEffect(() => {
     if (howlRef.current) howlRef.current.loop(currentPlayMode === 'single');
   }, [currentPlayMode]);
@@ -320,14 +285,6 @@ const Player: React.FC = () => {
 
   if (!currentTrack) return null;
 
-  // Dynamic cover-based dominant color
-  const coverSrcForColor = currentTrack.cover_path
-    ? trackService.getCoverUrl(currentTrack.cover_path)
-    : currentTrack.album_cover
-      ? trackService.getCoverUrl(currentTrack.album_cover)
-      : null;
-  const dominantColor = useDominantColor(coverSrcForColor);
-
   // 缩略图用于底部栏小封面（56px），原图用于全屏展开大封面（260px）
   const coverSrc = currentTrack.cover_path
     ? trackService.getCoverUrl(currentTrack.cover_path)
@@ -387,9 +344,6 @@ const Player: React.FC = () => {
         <div
           className="player-expanded-bg"
           onClick={handleCollapse}
-          style={dominantColor ? {
-            background: `radial-gradient(ellipse at 30% 40%, rgba(${dominantColor}, 0.35) 0%, transparent 60%), radial-gradient(ellipse at 70% 80%, rgba(${dominantColor}, 0.2) 0%, transparent 70%)`,
-          } : undefined}
         />
         {/* top-right close button */}
         <Button
@@ -413,9 +367,6 @@ const Player: React.FC = () => {
             <div className="player-expanded-title">{currentTrack.title}</div>
             {currentTrack.album_title && (
               <div className="player-expanded-album">{currentTrack.album_title}</div>
-            )}
-            {audioGraphConnectedRef.current && (
-              <SpectrumVisualizer width={260} height={60} />
             )}
           </div>
 
@@ -463,7 +414,6 @@ const Player: React.FC = () => {
             {controlsBar}
 
             <div className="player-volume">
-              <EqualizerControl />
               <CrossfadeControl />
               <SleepTimer />
               <Tooltip title="音量（↑/↓ 调节）"><SoundOutlined /></Tooltip>
@@ -511,7 +461,6 @@ const Player: React.FC = () => {
         {controlsBar}
 
         <div className="player-volume">
-          <EqualizerControl />
           <CrossfadeControl />
           <SleepTimer />
           <Tooltip title="音量（↑/↓ 调节）"><SoundOutlined /></Tooltip>

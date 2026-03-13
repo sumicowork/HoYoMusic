@@ -765,7 +765,7 @@ export const downloadTrack = async (req: Request, res: Response) => {
 export const updateTrack = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { title, artists, album_title, release_date, track_number } = req.body;
+    const { title, artists, album_title, release_date, track_number, notes } = req.body;
 
     const client = await pool.connect();
 
@@ -778,9 +778,10 @@ export const updateTrack = async (req: Request, res: Response) => {
           title = $1, 
           release_date = COALESCE($2, release_date),
           track_number = COALESCE($3, track_number),
+          notes = $4,
           updated_at = CURRENT_TIMESTAMP 
-        WHERE id = $4`,
-        [title, release_date || null, track_number || null, id]
+        WHERE id = $5`,
+        [title, release_date || null, track_number || null, notes !== undefined ? notes : null, id]
       );
 
       // Handle album

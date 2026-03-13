@@ -229,7 +229,10 @@ export const trackService = {
   },
 
   // Update track metadata
-  async updateTrack(id: number, data: { title: string; artists: string[]; album_title?: string; release_date?: string; track_number?: number }): Promise<void> {
+  async updateTrack(
+    id: number,
+    data: { title: string; artists: string[]; album_title?: string; release_date?: string; track_number?: number; notes?: string | null }
+  ): Promise<void> {
     const response = await api.put<ApiResponse<any>>(`/tracks/${id}`, data);
     if (!response.data.success) {
       throw new Error(response.data.error?.message || '更新失败');

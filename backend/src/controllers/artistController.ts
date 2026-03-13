@@ -86,7 +86,7 @@ export const getArtists = async (req: Request, res: Response) => {
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       },
     };
-    if (cacheKey) cache.set(cacheKey, response, 300); // 5 min cache
+    if (cacheKey) cache.set(cacheKey, response, 180); // 3 min cache
     res.json(response);
   } catch (error: any) {
     console.error('Get artists error:', error);
@@ -110,96 +110,93 @@ export const getArtistById = async (req: Request, res: Response) => {
     const cached = cache.get<any>(cacheKey);
     if (cached) return res.json(cached);
 
-    // ── Resolve aliases (single query) ──
+    // Check if this name is an alias → resolve to canonical name
     let resolvedName = name;
     let aliasNames: string[] = [];
     try {
-      const aliasResult = await pool.query(
-        `WITH resolve AS (
-           SELECT canonical_name FROM artist_aliases WHERE LOWER(alias_name) = LOWER($1) LIMIT 1
-         )
-         SELECT
-           COALESCE((SELECT canonical_name FROM resolve), $1) AS resolved,
-           array_agg(aa.alias_name) FILTER (WHERE aa.alias_name IS NOT NULL) AS aliases
-         FROM artist_aliases aa
-         WHERE LOWER(aa.canonical_name) = LOWER(COALESCE((SELECT canonical_name FROM resolve), $1))`,
+      const aliasCheck = await pool.query(
+        'SELECT canonical_name FROM artist_aliases WHERE LOWER(alias_name) = LOWER($1) LIMIT 1',
         [name]
       );
-      if (aliasResult.rows.length > 0) {
-        resolvedName = aliasResult.rows[0].resolved || name;
-        aliasNames = aliasResult.rows[0].aliases || [];
-      }
+      if (aliasCheck.rows.length > 0) resolvedName = aliasCheck.rows[0].canonical_name;
+
+      const aliasResult = await pool.query(
+        'SELECT alias_name FROM artist_aliases WHERE LOWER(canonical_name) = LOWER($1)',
+        [resolvedName]
+      );
+      aliasNames = aliasResult.rows.map((r: any) => r.alias_name);
     } catch {
       // artist_aliases table may not exist yet — degrade gracefully
     }
 
     const allNames = [resolvedName, ...aliasNames];
+
+    // Build parameterized query for all names
     const nameParams = allNames.map((_, i) => `LOWER($${i + 1})`).join(', ');
 
-    // ── CTE: tracks + albums + games + stats in 2 queries ──
-    // Query 1: Tracks (needs full row data, hard to merge)
-    const tracksResult = await pool.query(
-      `SELECT
-         t.*,
-         a.title  AS album_title,
-         a.cover_path AS album_cover,
-         array_agg(DISTINCT tc2.credit_key) AS roles,
-         array_agg(json_build_object('id', ar.id, 'name', ar.name)) AS artists
-       FROM track_credits tc
-       JOIN tracks t         ON tc.track_id  = t.id
-       LEFT JOIN albums a    ON t.album_id   = a.id
-       LEFT JOIN track_credits tc2 ON tc2.track_id = t.id AND LOWER(tc2.credit_value) IN (${nameParams})
-       LEFT JOIN track_artists ta  ON t.id = ta.track_id
-       LEFT JOIN artists ar        ON ta.artist_id = ar.id
-       WHERE LOWER(tc.credit_value) IN (${nameParams})
-       GROUP BY t.id, a.title, a.cover_path
-       ORDER BY t.created_at DESC`,
-      allNames
-    );
+    // Tracks featuring this person in credits (match all names)
+    const tracksQuery = `
+      SELECT
+        t.*,
+        a.title  AS album_title,
+        a.cover_path AS album_cover,
+        array_agg(DISTINCT tc2.credit_key) AS roles,
+        array_agg(json_build_object('id', ar.id, 'name', ar.name)) AS artists
+      FROM track_credits tc
+      JOIN tracks t         ON tc.track_id  = t.id
+      LEFT JOIN albums a    ON t.album_id   = a.id
+      LEFT JOIN track_credits tc2 ON tc2.track_id = t.id AND LOWER(tc2.credit_value) IN (${nameParams})
+      LEFT JOIN track_artists ta  ON t.id = ta.track_id
+      LEFT JOIN artists ar        ON ta.artist_id = ar.id
+      WHERE LOWER(tc.credit_value) IN (${nameParams})
+      GROUP BY t.id, a.title, a.cover_path
+      ORDER BY t.created_at DESC
+    `;
+    const tracksResult = await pool.query(tracksQuery, allNames);
     const tracks = tracksResult.rows.map(row => ({
       ...row,
       artists: row.artists.filter((a: any) => a.id !== null),
     }));
 
-    // Query 2: Albums + Games + Stats via CTE (3 queries → 1)
-    const metaResult = await pool.query(
-      `WITH matched_tracks AS (
-         SELECT DISTINCT tc.track_id, t.album_id
-         FROM track_credits tc
-         JOIN tracks t ON tc.track_id = t.id
-         WHERE LOWER(tc.credit_value) IN (${nameParams})
-       ),
-       artist_albums AS (
-         SELECT a.*, COUNT(DISTINCT t2.id) AS track_count
-         FROM matched_tracks mt
-         JOIN albums a ON mt.album_id = a.id
-         LEFT JOIN tracks t2 ON a.id = t2.album_id
-         GROUP BY a.id
-       ),
-       artist_games AS (
-         SELECT DISTINCT g.id, g.name, g.name_en, g.cover_path
-         FROM matched_tracks mt
-         JOIN albums a ON mt.album_id = a.id
-         JOIN games g ON a.game_id = g.id
-       ),
-       artist_stats AS (
-         SELECT
-           COUNT(DISTINCT tc.track_id)       AS track_count,
-           COUNT(DISTINCT t.album_id)        AS album_count,
-           array_agg(DISTINCT tc.credit_key) AS roles
-         FROM track_credits tc
-         LEFT JOIN tracks t ON tc.track_id = t.id
-         WHERE LOWER(tc.credit_value) IN (${nameParams})
-       )
-       SELECT
-         (SELECT json_agg(aa ORDER BY aa.release_date DESC NULLS LAST, aa.title) FROM artist_albums aa) AS albums,
-         (SELECT json_agg(ag ORDER BY ag.name) FROM artist_games ag) AS games,
-         (SELECT row_to_json(s) FROM artist_stats s) AS stats`,
-      allNames
-    );
+    // Albums
+    const albumsQuery = `
+      SELECT DISTINCT
+        a.*,
+        COUNT(DISTINCT t2.id) AS track_count
+      FROM track_credits tc
+      JOIN tracks t   ON tc.track_id = t.id
+      JOIN albums a   ON t.album_id  = a.id
+      LEFT JOIN tracks t2 ON a.id = t2.album_id
+      WHERE LOWER(tc.credit_value) IN (${nameParams})
+      GROUP BY a.id
+      ORDER BY a.release_date DESC, a.title ASC
+    `;
+    const albumsResult = await pool.query(albumsQuery, allNames);
 
-    const meta = metaResult.rows[0];
-    const stats = meta.stats || { track_count: 0, album_count: 0, roles: [] };
+    // Games (via albums)
+    const gamesQuery = `
+      SELECT DISTINCT g.id, g.name, g.name_en, g.cover_path
+      FROM track_credits tc
+      JOIN tracks t ON tc.track_id = t.id
+      JOIN albums a ON t.album_id = a.id
+      JOIN games g ON a.game_id = g.id
+      WHERE LOWER(tc.credit_value) IN (${nameParams})
+      ORDER BY g.name
+    `;
+    const gamesResult = await pool.query(gamesQuery, allNames);
+
+    // Summary stats + roles
+    const statsQuery = `
+      SELECT
+        COUNT(DISTINCT tc.track_id)       AS track_count,
+        COUNT(DISTINCT t.album_id)        AS album_count,
+        array_agg(DISTINCT tc.credit_key) AS roles
+      FROM track_credits tc
+      LEFT JOIN tracks t ON tc.track_id = t.id
+      WHERE LOWER(tc.credit_value) IN (${nameParams})
+    `;
+    const statsResult = await pool.query(statsQuery, allNames);
+    const stats = statsResult.rows[0];
 
     if (parseInt(stats.track_count) === 0) {
       return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Artist not found' } });
@@ -213,15 +210,15 @@ export const getArtistById = async (req: Request, res: Response) => {
           name: resolvedName,
           track_count: stats.track_count,
           album_count: stats.album_count,
-          roles: (stats.roles || []).filter(Boolean),
+          roles: stats.roles.filter(Boolean),
           aliases: aliasNames,
         },
         tracks,
-        albums: meta.albums || [],
-        games: meta.games || [],
+        albums: albumsResult.rows,
+        games: gamesResult.rows,
       },
     };
-    cache.set(cacheKey, response, 300); // 5 min cache
+    cache.set(cacheKey, response, 120); // 2 min cache
     res.json(response);
   } catch (error) {
     console.error('Get artist by ID error:', error);

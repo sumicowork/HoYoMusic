@@ -21,20 +21,21 @@ export const useThemeStore = create<ThemeState>()(
 
       toggleTheme: () => {
         const state = get();
-        const cycle: Record<string, ThemeMode> = { light: 'dark', dark: 'oled', oled: 'light' };
-        const newMode = cycle[state.mode] || 'dark';
+        const newMode: ThemeMode = state.mode === 'dark' ? 'light' : 'dark';
         state.setTheme(newMode);
       },
     }),
     {
       name: 'theme-storage',
       onRehydrateStorage: () => (state) => {
-        // 恢复主题时应用到document
+        // 恢复主题时应用到document，兼容旧版oled模式
         if (state) {
+          if ((state.mode as string) === 'oled') {
+            state.mode = 'dark';
+          }
           document.documentElement.setAttribute('data-theme', state.mode);
         }
       },
     }
   )
 );
-

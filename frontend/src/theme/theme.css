@@ -121,51 +121,6 @@
   --scrollbar-thumb-hover: #595959;
 }
 
-:root[data-theme='oled'] {
-  --bg-primary: #000000;
-  --bg-secondary: #0a0a0a;
-  --bg-tertiary: #111111;
-  --bg-elevated: #0a0a0a;
-  --bg-overlay: rgba(0, 0, 0, 0.85);
-
-  --text-primary: rgba(255, 255, 255, 0.90);
-  --text-secondary: rgba(255, 255, 255, 0.65);
-  --text-tertiary: rgba(255, 255, 255, 0.45);
-  --text-disabled: rgba(255, 255, 255, 0.25);
-  --text-inverse: rgba(0, 0, 0, 0.85);
-
-  --border-primary: #222222;
-  --border-secondary: #1a1a1a;
-  --border-tertiary: rgba(255, 255, 255, 0.08);
-  --divider: rgba(255, 255, 255, 0.08);
-
-  --shadow-sm: none;
-  --shadow-md: 0 0 0 1px rgba(255,255,255,0.06);
-  --shadow-lg: 0 0 0 1px rgba(255,255,255,0.08);
-
-  --card-bg: #0a0a0a;
-  --card-hover-bg: #111111;
-  --card-shadow: none;
-  --card-shadow-hover: 0 0 0 1px rgba(255,255,255,0.1);
-
-  --player-bg: #000000;
-  --player-control-bg: rgba(255, 255, 255, 0.06);
-  --player-control-hover: rgba(255, 255, 255, 0.10);
-
-  --sidebar-bg: #000000;
-  --sidebar-item-hover: rgba(255, 255, 255, 0.06);
-  --sidebar-item-active: #0a0a1a;
-
-  --input-bg: #0a0a0a;
-  --input-border: #222222;
-  --input-hover-border: #177ddc;
-
-  --album-overlay: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.85) 100%);
-
-  --scrollbar-track: #000000;
-  --scrollbar-thumb: #222222;
-  --scrollbar-thumb-hover: #333333;
-}
 
 /* 应用主题变量到全局 */
 body {

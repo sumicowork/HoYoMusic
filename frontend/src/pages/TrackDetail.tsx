@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Layout, Card, Button, Space, Image, Tag, Skeleton, Descriptions, message, Tooltip } from 'antd';
+import { Layout, Card, Button, Space, Image, Tag, Skeleton, Descriptions, message, Tooltip, Typography } from 'antd';
 import { ArrowLeftOutlined, PlayCircleOutlined, DownloadOutlined } from '@ant-design/icons';
 import { IS_STATIC } from '../services/api';
 import * as staticData from '../services/staticDataService';
@@ -208,6 +208,14 @@ const TrackDetail: React.FC = () => {
                   </Descriptions.Item>
                 )}
               </Descriptions>
+
+              {track.notes && (
+                <Card size="small" style={{ marginTop: 16, background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 12 }}>
+                  <Typography.Text type="secondary" style={{ whiteSpace: 'pre-wrap', fontSize: 13 }}>
+                    📝 {track.notes}
+                  </Typography.Text>
+                </Card>
+              )}
 
               <Space style={{ marginTop: 24 }}>
                 <Button

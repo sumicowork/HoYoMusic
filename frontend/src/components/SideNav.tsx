@@ -44,10 +44,10 @@ const SideNav: React.FC = () => {
       { icon: <LoginOutlined />, label: '管理', path: '/admin/login', color: '#ef4444' } as NavItem,
     ] : []),
     {
-      icon: mode === 'light' ? <MoonOutlined /> : mode === 'dark' ? <MoonOutlined /> : <SunOutlined />,
-      label: mode === 'light' ? '深色' : mode === 'dark' ? 'OLED' : '浅色',
+      icon: mode === 'light' ? <MoonOutlined /> : <SunOutlined />,
+      label: mode === 'light' ? '深色' : '浅色',
       action: toggleTheme,
-      color: mode === 'light' ? '#6366f1' : mode === 'dark' ? '#a855f7' : '#fbbf24',
+      color: mode === 'light' ? '#6366f1' : '#fbbf24',
     },
   ];
 

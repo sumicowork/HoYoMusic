@@ -1,20 +1,25 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Button, message, Space, Image, Modal, Form, Input, Select, DatePicker, Card } from 'antd';
+import { Table, Button, message, Space, Image, Modal, Form, Input, Select, DatePicker, Card, InputNumber, List, Popconfirm } from 'antd';
 import {
   EditOutlined,
   PictureOutlined,
   AppstoreOutlined,
   CalendarOutlined,
+  DatabaseOutlined,
+  PlusOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { TableRowSelection } from 'antd/es/table/interface';
 import { albumService, Album } from '../services/albumService';
 import { gameService, Game } from '../services/gameService';
+import { discService, Disc } from '../services/discService';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import AlbumCoverUpload from '../components/AlbumCoverUpload';
 import AdminLayout from '../components/AdminLayout';
 import { getCoverUrl } from '../utils/imageUtils';
+import { Track } from '../types';
 
 const AlbumManagement: React.FC = () => {
   const [albums, setAlbums] = useState<Album[]>([]);
@@ -32,6 +37,15 @@ const AlbumManagement: React.FC = () => {
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [bulkGameModalVisible, setBulkGameModalVisible] = useState(false);
   const [bulkGameId, setBulkGameId] = useState<number | null>(null);
+
+  // Disc management
+  const [discModalVisible, setDiscModalVisible] = useState(false);
+  const [discAlbum, setDiscAlbum] = useState<Album | null>(null);
+  const [discs, setDiscs] = useState<Disc[]>([]);
+  const [discLoading, setDiscLoading] = useState(false);
+  const [discForm] = Form.useForm();
+  const [discTracks, setDiscTracks] = useState<Track[]>([]);
+  const [discAssignments, setDiscAssignments] = useState<Record<number, number | null>>({});
 
 
   const fetchAlbums = async (page = 1, pageSize?: number) => {
@@ -73,6 +87,7 @@ const AlbumManagement: React.FC = () => {
       title: album.title,
       game_id: album.game_id,
       release_date: album.release_date ? dayjs(album.release_date) : null,
+      notes: album.notes || '',
     });
     setEditModalVisible(true);
   };
@@ -85,6 +100,7 @@ const AlbumManagement: React.FC = () => {
           title: values.title,
           game_id: values.game_id || null,
           release_date: values.release_date ? values.release_date.format('YYYY-MM-DD') : null,
+          notes: values.notes || null,
         };
 
         console.log('Updating album with data:', updateData);
@@ -118,6 +134,78 @@ const AlbumManagement: React.FC = () => {
       fetchAlbums(pagination.current);
     } catch (error: any) {
       message.error(error.message || '重新读取日期失败');
+    }
+  };
+
+  // ── Disc management ──────────────────────
+  const handleManageDiscs = async (album: Album) => {
+    setDiscAlbum(album);
+    setDiscModalVisible(true);
+    setDiscLoading(true);
+    try {
+      const [discData, albumDetail] = await Promise.all([
+        discService.getDiscs(album.id),
+        albumService.getAlbumById(album.id),
+      ]);
+      setDiscs(discData);
+      const tracks: Track[] = albumDetail.tracks || [];
+      setDiscTracks(tracks);
+      const map: Record<number, number | null> = {};
+      tracks.forEach((t) => {
+        map[t.id] = t.disc_id ?? null;
+      });
+      setDiscAssignments(map);
+    } catch (error: any) {
+      message.error('获取碟片列表失败');
+    } finally {
+      setDiscLoading(false);
+    }
+  };
+
+  const handleAddDisc = async () => {
+    try {
+      const values = await discForm.validateFields();
+      if (!discAlbum) return;
+      await discService.createDisc(discAlbum.id, {
+        disc_number: values.disc_number,
+        disc_title: values.disc_title || undefined,
+      });
+      message.success('碟片创建成功');
+      discForm.resetFields();
+      const data = await discService.getDiscs(discAlbum.id);
+      setDiscs(data);
+    } catch (error: any) {
+      message.error(error.message || '创建碟片失败');
+    }
+  };
+
+  const handleSaveDiscAssignments = async () => {
+    try {
+      if (!discAlbum) return;
+      const assignments = Object.entries(discAssignments).map(([trackId, discId]) => ({
+        track_id: Number(trackId),
+        disc_id: discId,
+      }));
+      await discService.bulkAssignTracks(discAlbum.id, assignments);
+      message.success('曲目分碟已保存');
+      const albumDetail = await albumService.getAlbumById(discAlbum.id);
+      const tracks: Track[] = albumDetail.tracks || [];
+      setDiscTracks(tracks);
+    } catch (error: any) {
+      message.error(error.message || '保存曲目分碟失败');
+    }
+  };
+
+  const handleDeleteDisc = async (discId: number) => {
+    try {
+      await discService.deleteDisc(discId);
+      message.success('碟片已删除');
+      if (discAlbum) {
+        const data = await discService.getDiscs(discAlbum.id);
+        setDiscs(data);
+      }
+    } catch (error: any) {
+      message.error(error.message || '删除碟片失败');
     }
   };
 
@@ -170,7 +258,7 @@ const AlbumManagement: React.FC = () => {
     {
       title: '操作',
       key: 'actions',
-      width: 280,
+      width: 340,
       render: (_, record) => (
         <Space wrap>
           <Button
@@ -186,6 +274,13 @@ const AlbumManagement: React.FC = () => {
             size="small"
           >
             上传封面
+          </Button>
+          <Button
+            icon={<DatabaseOutlined />}
+            onClick={() => handleManageDiscs(record)}
+            size="small"
+          >
+            碟片
           </Button>
           <Button
             icon={<CalendarOutlined />}
@@ -288,6 +383,9 @@ const AlbumManagement: React.FC = () => {
           <Form.Item name="release_date" label="发行日期">
             <DatePicker style={{ width: '100%' }} />
           </Form.Item>
+          <Form.Item name="notes" label="备注">
+            <Input.TextArea rows={3} placeholder="专辑备注信息（可选）" maxLength={5000} showCount />
+          </Form.Item>
         </Form>
       </Modal>
 
@@ -303,6 +401,110 @@ const AlbumManagement: React.FC = () => {
           onSuccess={handleCoverUploadSuccess}
         />
       )}
+
+      {/* Disc Management Modal */}
+      <Modal
+        title={discAlbum ? `碟片管理 - ${discAlbum.title}` : '碟片管理'}
+        open={discModalVisible}
+        onCancel={() => {
+          setDiscModalVisible(false);
+          setDiscAlbum(null);
+          setDiscs([]);
+          setDiscTracks([]);
+          setDiscAssignments({});
+          discForm.resetFields();
+        }}
+        width={860}
+        footer={[
+          <Button key="save" type="primary" onClick={handleSaveDiscAssignments} disabled={!discAlbum}>
+            保存曲目分碟
+          </Button>,
+          <Button key="close" onClick={() => setDiscModalVisible(false)}>
+            关闭
+          </Button>,
+        ]}
+      >
+        <Form form={discForm} layout="inline" style={{ marginBottom: 12 }}>
+          <Form.Item
+            name="disc_number"
+            label="碟号"
+            rules={[{ required: true, message: '请输入碟号' }]}
+          >
+            <InputNumber min={1} style={{ width: 120 }} />
+          </Form.Item>
+          <Form.Item name="disc_title" label="碟片名称">
+            <Input placeholder="例如：Disc 1 / Bonus" style={{ width: 280 }} />
+          </Form.Item>
+          <Form.Item>
+            <Button type="dashed" icon={<PlusOutlined />} onClick={handleAddDisc}>
+              添加碟片
+            </Button>
+          </Form.Item>
+        </Form>
+
+        <List
+          bordered
+          loading={discLoading}
+          dataSource={discs}
+          locale={{ emptyText: '暂无碟片，可先新增' }}
+          style={{ marginBottom: 16 }}
+          renderItem={(disc) => (
+            <List.Item
+              actions={[
+                <Popconfirm
+                  key="delete"
+                  title="删除该碟片？"
+                  description="已分配到该碟片的曲目会变为未分配"
+                  onConfirm={() => handleDeleteDisc(disc.id)}
+                  okText="删除"
+                  cancelText="取消"
+                >
+                  <Button size="small" icon={<DeleteOutlined />} danger>
+                    删除
+                  </Button>
+                </Popconfirm>,
+              ]}
+            >
+              <Space>
+                <strong>Disc {disc.disc_number}</strong>
+                <span>{disc.disc_title || '未命名碟片'}</span>
+              </Space>
+            </List.Item>
+          )}
+        />
+
+        <Table
+          rowKey="id"
+          size="small"
+          pagination={false}
+          dataSource={[...discTracks].sort((a, b) => (a.track_number || 9999) - (b.track_number || 9999))}
+          columns={[
+            { title: '#', dataIndex: 'track_number', width: 70, render: (v: number) => v || '-' },
+            { title: '曲目', dataIndex: 'title' },
+            {
+              title: '分碟',
+              width: 220,
+              render: (_: any, record: Track) => (
+                <Select
+                  value={discAssignments[record.id] ?? null}
+                  allowClear
+                  placeholder="未分配"
+                  style={{ width: '100%' }}
+                  onChange={(value) => {
+                    setDiscAssignments((prev) => ({ ...prev, [record.id]: value ?? null }));
+                  }}
+                >
+                  {discs.map((disc) => (
+                    <Select.Option key={disc.id} value={disc.id}>
+                      Disc {disc.disc_number}{disc.disc_title ? ` - ${disc.disc_title}` : ''}
+                    </Select.Option>
+                  ))}
+                </Select>
+              ),
+            },
+          ]}
+        />
+      </Modal>
 
       {/* Bulk Set Game Modal */}
       <Modal

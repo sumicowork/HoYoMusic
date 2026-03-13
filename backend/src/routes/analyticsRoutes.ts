@@ -18,9 +18,9 @@ router.get('/overview', async (_req: Request, res: Response) => {
   try {
     const [total, today, unique7d, errors, avgMs] = await Promise.all([
       pool.query(`SELECT COUNT(*)::int AS v FROM visit_logs`),
-      pool.query(`SELECT COUNT(*)::int AS v FROM visit_logs WHERE ts >= (NOW() AT TIME ZONE 'Asia/Shanghai')::date::timestamptz AT TIME ZONE 'Asia/Shanghai'`),
+      pool.query(`SELECT COUNT(*)::int AS v FROM visit_logs WHERE ts >= (NOW() AT TIME ZONE 'Asia/Shanghai')::date AT TIME ZONE 'Asia/Shanghai'`),
       pool.query(`SELECT COUNT(DISTINCT ip)::int AS v FROM visit_logs WHERE ts >= NOW() - INTERVAL '7 days'`),
-      pool.query(`SELECT COUNT(*)::int AS v FROM visit_logs WHERE status >= 400 AND ts >= (NOW() AT TIME ZONE 'Asia/Shanghai')::date::timestamptz AT TIME ZONE 'Asia/Shanghai'`),
+      pool.query(`SELECT COUNT(*)::int AS v FROM visit_logs WHERE status >= 400 AND ts >= (NOW() AT TIME ZONE 'Asia/Shanghai')::date AT TIME ZONE 'Asia/Shanghai'`),
       pool.query(`SELECT ROUND(AVG(duration_ms))::int AS v FROM visit_logs WHERE ts >= NOW() - INTERVAL '24 hours'`),
     ]);
     res.json({ success: true, data: {
@@ -59,7 +59,7 @@ router.get('/hourly', async (_req: Request, res: Response) => {
         COUNT(*)::int AS requests,
         COUNT(DISTINCT ip)::int AS visitors
       FROM visit_logs
-      WHERE ts >= (NOW() AT TIME ZONE 'Asia/Shanghai')::date::timestamptz AT TIME ZONE 'Asia/Shanghai'
+      WHERE ts >= (NOW() AT TIME ZONE 'Asia/Shanghai')::date AT TIME ZONE 'Asia/Shanghai'
       GROUP BY 1 ORDER BY 1
     `);
     res.json({ success: true, data: result.rows });

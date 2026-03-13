@@ -24,6 +24,7 @@ import tagRoutes from './routes/tagRoutes';
 import analyticsRoutes from './routes/analyticsRoutes';
 import playlistRoutes from './routes/playlistRoutes';
 import favoriteRoutes from './routes/favoriteRoutes';
+import discRoutes from './routes/discRoutes';
 import { visitLogger } from './middleware/visitLogger';
 import { errorHandler } from './middleware/errorHandler';
 
@@ -126,6 +127,7 @@ app.use('/api/games', gameRoutes); // Game routes
 app.use('/api/tags', tagRoutes);         // Tag routes
 app.use('/api/playlists', playlistRoutes); // Playlist routes (authenticated)
 app.use('/api/favorites', favoriteRoutes); // Favorites routes (authenticated)
+app.use('/api', discRoutes);               // Disc subdivision routes
 app.use('/api/analytics', analyticsRoutes); // Analytics (authenticated)
 app.use('/api/public', publicRoutes);    // Public routes (无需认证)
 
@@ -275,6 +277,35 @@ const runMigrations = async () => {
     console.log('✅ DB migrations up to date (tracks: sha256_hash, play_count)');
   } catch (err) {
     console.error('⚠️  tracks column migration warning:', err);
+  }
+
+  // Add notes column to albums and tracks
+  try {
+    await pool.query(`ALTER TABLE albums ADD COLUMN IF NOT EXISTS notes TEXT`);
+    await pool.query(`ALTER TABLE tracks ADD COLUMN IF NOT EXISTS notes TEXT`);
+    console.log('✅ DB migrations up to date (albums/tracks: notes)');
+  } catch (err) {
+    console.error('⚠️  notes column migration warning:', err);
+  }
+
+  // Album disc subdivision
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS album_discs (
+        id SERIAL PRIMARY KEY,
+        album_id INTEGER NOT NULL REFERENCES albums(id) ON DELETE CASCADE,
+        disc_number INTEGER NOT NULL,
+        disc_title VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(album_id, disc_number)
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_album_discs_album ON album_discs(album_id)`);
+    await pool.query(`ALTER TABLE tracks ADD COLUMN IF NOT EXISTS disc_id INTEGER REFERENCES album_discs(id) ON DELETE SET NULL`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_tracks_disc_id ON tracks(disc_id)`);
+    console.log('✅ DB migrations up to date (album_discs, tracks.disc_id)');
+  } catch (err) {
+    console.error('⚠️  album_discs migration warning:', err);
   }
 };
 

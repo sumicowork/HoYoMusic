@@ -12,7 +12,7 @@ import { usePlayerStore } from './store/playerStore';
 import { useThemeStore } from './store/themeStore';
 import { useAuthStore } from './store/authStore';
 import { IS_STATIC } from './services/api';
-import { darkTheme, lightTheme, oledTheme } from './theme/themeConfig';
+import { darkTheme, lightTheme } from './theme/themeConfig';
 import './theme/theme.css';
 import './theme/publicPages.css';
 import './theme/aurora-glass.css';
@@ -67,7 +67,7 @@ const App: React.FC = () => {
   }, [initializeAuth]);
 
   return (
-    <ConfigProvider theme={mode === 'oled' ? oledTheme : mode === 'dark' ? darkTheme : lightTheme} locale={zhCN}>
+    <ConfigProvider theme={mode === 'dark' ? darkTheme : lightTheme} locale={zhCN}>
       <AntApp>
         <Router>
           <div className={`app${currentTrack ? ' has-player' : ''}`}>

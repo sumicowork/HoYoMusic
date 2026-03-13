@@ -113,13 +113,16 @@ export const getAlbumById = async (req: Request, res: Response) => {
     const tracksQuery = `
       SELECT 
         t.*,
+        ad.disc_number,
+        ad.disc_title,
         array_agg(json_build_object('id', ar.id, 'name', ar.name)) as artists
       FROM tracks t
       LEFT JOIN track_artists ta ON t.id = ta.track_id
       LEFT JOIN artists ar ON ta.artist_id = ar.id
+      LEFT JOIN album_discs ad ON t.disc_id = ad.id
       WHERE t.album_id = $1
-      GROUP BY t.id
-      ORDER BY t.track_number ASC, t.title ASC
+      GROUP BY t.id, ad.disc_number, ad.disc_title
+      ORDER BY ad.disc_number ASC NULLS LAST, t.track_number ASC, t.title ASC
     `;
     const tracksResult = await pool.query(tracksQuery, [id]);
 
@@ -128,11 +131,18 @@ export const getAlbumById = async (req: Request, res: Response) => {
       artists: row.artists.filter((a: any) => a.id !== null),
     }));
 
+    // Get discs for this album
+    const discsResult = await pool.query(
+      `SELECT * FROM album_discs WHERE album_id = $1 ORDER BY disc_number ASC`,
+      [id]
+    );
+
     res.json({
       success: true,
       data: {
         album,
         tracks,
+        discs: discsResult.rows,
       },
     });
   } catch (error) {
@@ -148,14 +158,14 @@ export const getAlbumById = async (req: Request, res: Response) => {
 export const updateAlbum = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { title, release_date, game_id } = req.body;
+    const { title, release_date, game_id, notes } = req.body;
 
     const result = await pool.query(
       `UPDATE albums 
-       SET title = $1, release_date = $2, game_id = $3, updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $4 
+       SET title = $1, release_date = $2, game_id = $3, notes = $4, updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $5 
        RETURNING *`,
-      [title, release_date, game_id || null, id]
+      [title, release_date, game_id || null, notes !== undefined ? notes : null, id]
     );
 
     if (result.rows.length === 0) {
