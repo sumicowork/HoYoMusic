@@ -1,0 +1,10 @@
+# Python dependencies for server-side BPM analysis
+# Install with: python -m pip install -r requirements-bpm.txt
+
+librosa==0.10.2.post1
+numpy==2.2.2
+soundfile==0.12.1
+
+# Optional (harder to install on Windows, but good accuracy)
+# essentia
+

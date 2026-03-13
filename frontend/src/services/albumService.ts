@@ -29,6 +29,27 @@ export interface ApiResponse<T> {
   };
 }
 
+export interface AlbumBpmDetectResult {
+  album_id: number;
+  album_title: string;
+  total: number;
+  tagged: number;
+  low_confidence_tagged: number;
+  skipped: number;
+  failed: number;
+  details: Array<{
+    track_id: number;
+    title: string;
+    bpm: number | null;
+    confidence: number | null;
+    method: 'essentia' | 'librosa' | 'metadata' | null;
+    low_confidence: boolean;
+    tag: string | null;
+    status: 'tagged' | 'skipped' | 'failed';
+    reason?: string;
+  }>;
+}
+
 export const albumService = {
   async getRandomAlbums(count = 6): Promise<Album[]> {
     if (IS_STATIC) return staticData.getRandomAlbums(count);
@@ -82,6 +103,14 @@ export const albumService = {
       return response.data.data;
     }
     throw new Error(response.data.error?.message || '重新读取日期失败');
+  },
+
+  async detectBpm(albumId: number): Promise<AlbumBpmDetectResult> {
+    const response = await api.post<ApiResponse<AlbumBpmDetectResult>>(`/albums/${albumId}/detect-bpm`);
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data.error?.message || '批量BPM检测失败');
   },
 
   async uploadCover(id: number, file: File): Promise<{ album: Album; cover_path: string }> {

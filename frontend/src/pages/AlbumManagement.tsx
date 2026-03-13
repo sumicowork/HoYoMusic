@@ -37,6 +37,7 @@ const AlbumManagement: React.FC = () => {
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [bulkGameModalVisible, setBulkGameModalVisible] = useState(false);
   const [bulkGameId, setBulkGameId] = useState<number | null>(null);
+  const [bpmDetectingAlbumId, setBpmDetectingAlbumId] = useState<number | null>(null);
 
   // Disc management
   const [discModalVisible, setDiscModalVisible] = useState(false);
@@ -140,6 +141,47 @@ const AlbumManagement: React.FC = () => {
       fetchAlbums(pagination.current);
     } catch (error: any) {
       message.error(error.message || '重新读取日期失败');
+    }
+  };
+
+  const handleDetectBpm = async (album: Album) => {
+    try {
+      setBpmDetectingAlbumId(album.id);
+      const result = await albumService.detectBpm(album.id);
+      const baseMsg = `BPM检测完成：共 ${result.total} 首，成功打标 ${result.tagged} 首`;
+      if (result.failed > 0 || result.skipped > 0) {
+        message.warning(`${baseMsg}，跳过 ${result.skipped} 首，失败 ${result.failed} 首`);
+      } else {
+        message.success(baseMsg);
+      }
+
+      if (result.low_confidence_tagged > 0) {
+        const lowConfidenceRows = result.details
+          .filter((row) => row.status === 'tagged' && row.low_confidence)
+          .sort((a, b) => (a.confidence ?? 1) - (b.confidence ?? 1));
+
+        Modal.info({
+          title: `低置信度BPM（${lowConfidenceRows.length} 首）`,
+          width: 680,
+          okText: '知道了',
+          content: (
+            <div style={{ maxHeight: 360, overflow: 'auto' }}>
+              <div style={{ marginBottom: 8, color: 'var(--text-secondary)' }}>
+                建议人工复核以下曲目（置信度阈值 &lt; 0.55）。
+              </div>
+              {lowConfidenceRows.map((row) => (
+                <div key={row.track_id} style={{ marginBottom: 6 }}>
+                  #{row.track_id} {row.title} - {row.tag} | 置信度 {(row.confidence ?? 0).toFixed(2)} | {row.method}
+                </div>
+              ))}
+            </div>
+          ),
+        });
+      }
+    } catch (error: any) {
+      message.error(error.message || '批量BPM检测失败');
+    } finally {
+      setBpmDetectingAlbumId(null);
     }
   };
 
@@ -440,6 +482,13 @@ const AlbumManagement: React.FC = () => {
             size="small"
           >
             重读日期
+          </Button>
+          <Button
+            loading={bpmDetectingAlbumId === record.id}
+            onClick={() => handleDetectBpm(record)}
+            size="small"
+          >
+            BPM检测
           </Button>
           <Button
             onClick={() => navigate(`/albums/${record.id}`)}
