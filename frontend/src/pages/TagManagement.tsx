@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Collapse, Button, Modal, Form, Input, message, Space, Popconfirm,
-  ColorPicker, Card, Select, Tag as AntTag, InputNumber, List, Badge
+  ColorPicker, Card, Select, Tag as AntTag, InputNumber, List, Badge, Checkbox
 } from 'antd';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, AppstoreOutlined,
@@ -9,7 +9,7 @@ import {
 } from '@ant-design/icons';
 import {
   getTags, createTag, updateTag, deleteTag, Tag,
-  getTagGroups, TagGroup
+  getTagGroups, TagGroup, bulkDeleteTags, bulkMoveTagsToGroup
 } from '../services/tagService';
 import AdminLayout from '../components/AdminLayout';
 import TagGroupManager from '../components/TagGroupManager';
@@ -39,6 +39,10 @@ const TagManagement: React.FC = () => {
   const [groupManagerVisible, setGroupManagerVisible] = useState(false);
   const [editingTag, setEditingTag] = useState<Tag | null>(null);
   const [parentTagId, setParentTagId] = useState<number | null>(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
+  const [bulkGroupId, setBulkGroupId] = useState<number | null>(null);
+  const [bulkLoading, setBulkLoading] = useState(false);
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -139,11 +143,113 @@ const TagManagement: React.FC = () => {
     try {
       await deleteTag(id);
       message.success('标签删除成功');
+      setSelectedTagIds((prev) => prev.filter((tagId) => tagId !== id));
       fetchTags();
     } catch (error) {
       console.error('Failed to delete tag:', error);
       message.error('删除标签失败');
     }
+  };
+
+  const toggleSelectTag = (tagId: number, checked: boolean) => {
+    setSelectedTagIds((prev) => {
+      if (checked) {
+        return prev.includes(tagId) ? prev : [...prev, tagId];
+      }
+      return prev.filter((id) => id !== tagId);
+    });
+  };
+
+  const handleToggleSelectionMode = () => {
+    setSelectionMode((prev) => {
+      if (prev) {
+        setSelectedTagIds([]);
+        setBulkGroupId(null);
+      }
+      return !prev;
+    });
+  };
+
+  const handleSelectAllTags = () => {
+    setSelectedTagIds(tags.map((tag) => tag.id));
+  };
+
+  const handleClearSelection = () => {
+    setSelectedTagIds([]);
+  };
+
+  const handleBulkMove = async () => {
+    if (selectedTagIds.length === 0) {
+      message.warning('请先选择要批量更新的标签');
+      return;
+    }
+
+    const selectedTags = tags.filter((tag) => selectedTagIds.includes(tag.id));
+    if (selectedTags.length === 0) {
+      message.warning('未找到可更新的标签');
+      return;
+    }
+
+    setBulkLoading(true);
+    try {
+      const result = await bulkMoveTagsToGroup(selectedTags, bulkGroupId);
+      if (result.failed.length === 0) {
+        message.success(`成功更新 ${result.successIds.length} 个标签分组`);
+      } else {
+        message.warning(`已更新 ${result.successIds.length} 个，失败 ${result.failed.length} 个`);
+      }
+      setSelectedTagIds([]);
+      fetchTags();
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedTagIds.length === 0) {
+      message.warning('请先选择要删除的标签');
+      return;
+    }
+
+    const selectedSet = new Set(selectedTagIds);
+    const parentById = new Map(tags.map((tag) => [tag.id, tag.parent_id ?? null] as const));
+    const hasSelectedAncestor = (tagId: number) => {
+      let cursor = parentById.get(tagId) ?? null;
+      while (cursor) {
+        if (selectedSet.has(cursor)) return true;
+        cursor = parentById.get(cursor) ?? null;
+      }
+      return false;
+    };
+
+    const deleteTargets = selectedTagIds.filter((tagId) => !hasSelectedAncestor(tagId));
+    if (deleteTargets.length === 0) {
+      message.warning('没有可删除的目标标签');
+      return;
+    }
+
+    Modal.confirm({
+      title: '批量删除标签',
+      content: `确定删除 ${deleteTargets.length} 个标签吗？（已自动排除被父标签覆盖的子标签）`,
+      okText: '确定删除',
+      cancelText: '取消',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        setBulkLoading(true);
+        try {
+          const result = await bulkDeleteTags(deleteTargets);
+          if (result.failed.length === 0) {
+            message.success(`成功删除 ${result.successIds.length} 个标签`);
+          } else {
+            message.warning(`已删除 ${result.successIds.length} 个，失败 ${result.failed.length} 个`);
+          }
+          setSelectedTagIds([]);
+          fetchTags();
+        } finally {
+          setBulkLoading(false);
+        }
+      }
+    });
   };
 
   // 按分组组织tags
@@ -226,6 +332,12 @@ const TagManagement: React.FC = () => {
             }
             title={
               <Space>
+                {selectionMode && (
+                  <Checkbox
+                    checked={selectedTagIds.includes(tag.id)}
+                    onChange={(e) => toggleSelectTag(tag.id, e.target.checked)}
+                  />
+                )}
                 <strong>{tag.name}</strong>
                 {tag.parent_name && (
                   <AntTag color="default" style={{ fontSize: 11 }}>
@@ -279,6 +391,11 @@ const TagManagement: React.FC = () => {
         extra={
           <Space>
             <Button
+              onClick={handleToggleSelectionMode}
+            >
+              {selectionMode ? '退出批量模式' : '批量管理'}
+            </Button>
+            <Button
               icon={<AppstoreOutlined />}
               onClick={() => setGroupManagerVisible(true)}
             >
@@ -294,6 +411,43 @@ const TagManagement: React.FC = () => {
           </Space>
         }
       >
+        {selectionMode && (
+          <Card size="small" style={{ marginBottom: 12 }}>
+            <Space wrap>
+              <AntTag color="processing">已选 {selectedTagIds.length} 个标签</AntTag>
+              <Button size="small" onClick={handleSelectAllTags}>全选</Button>
+              <Button size="small" onClick={handleClearSelection}>清空选择</Button>
+              <Select
+                allowClear
+                placeholder="批量设置分组（清空=未分组）"
+                style={{ width: 260 }}
+                value={bulkGroupId}
+                onChange={(value) => setBulkGroupId(value ?? null)}
+                options={groups.map((g) => ({
+                  label: `${g.icon || '📁'} ${getDisplayName(g.name)}`,
+                  value: g.id
+                }))}
+              />
+              <Button
+                type="primary"
+                loading={bulkLoading}
+                disabled={selectedTagIds.length === 0}
+                onClick={handleBulkMove}
+              >
+                批量改分组
+              </Button>
+              <Button
+                danger
+                loading={bulkLoading}
+                disabled={selectedTagIds.length === 0}
+                onClick={handleBulkDelete}
+              >
+                批量删除
+              </Button>
+            </Space>
+          </Card>
+        )}
+
         <Collapse
           defaultActiveKey={groups.map(g => g.id.toString()).concat(['ungrouped'])}
           items={[

@@ -50,6 +50,22 @@ export interface AlbumBpmDetectResult {
   }>;
 }
 
+export interface AlbumBpmTask {
+  task_id: string;
+  album_id: number;
+  status: 'running' | 'completed' | 'failed';
+  created_at: string;
+  updated_at: string;
+  total: number;
+  processed: number;
+  tagged: number;
+  skipped: number;
+  failed: number;
+  low_confidence_tagged: number;
+  result?: AlbumBpmDetectResult;
+  error?: string;
+}
+
 export const albumService = {
   async getRandomAlbums(count = 6): Promise<Album[]> {
     if (IS_STATIC) return staticData.getRandomAlbums(count);
@@ -111,6 +127,22 @@ export const albumService = {
       return response.data.data;
     }
     throw new Error(response.data.error?.message || '批量BPM检测失败');
+  },
+
+  async createDetectBpmTask(albumId: number): Promise<AlbumBpmTask> {
+    const response = await api.post<ApiResponse<AlbumBpmTask>>(`/albums/${albumId}/detect-bpm/tasks`);
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data.error?.message || '创建BPM检测任务失败');
+  },
+
+  async getDetectBpmTask(albumId: number, taskId: string): Promise<AlbumBpmTask> {
+    const response = await api.get<ApiResponse<AlbumBpmTask>>(`/albums/${albumId}/detect-bpm/tasks/${taskId}`);
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data.error?.message || '获取BPM检测任务失败');
   },
 
   async uploadCover(id: number, file: File): Promise<{ album: Album; cover_path: string }> {

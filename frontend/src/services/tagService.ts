@@ -76,6 +76,11 @@ export interface UpdateTagGroupDTO {
   parent_group_id?: number | null;
 }
 
+export interface BulkTagOperationResult {
+  successIds: number[];
+  failed: Array<{ id: number; message: string }>;
+}
+
 // Get all tags
 export const getTags = async (): Promise<Tag[]> => {
   if (IS_STATIC) return staticData.getTags();
@@ -213,3 +218,64 @@ export const bulkUpdateTrackTags = async (params: {
     }
   });
 };
+
+export const bulkDeleteTags = async (tagIds: number[]): Promise<BulkTagOperationResult> => {
+  const settled = await Promise.allSettled(tagIds.map((id) => deleteTag(id)));
+  const successIds: number[] = [];
+  const failed: Array<{ id: number; message: string }> = [];
+
+  settled.forEach((result, index) => {
+    const tagId = tagIds[index];
+    if (result.status === 'fulfilled') {
+      successIds.push(tagId);
+      return;
+    }
+
+    const error: any = result.reason;
+    failed.push({
+      id: tagId,
+      message: error?.response?.data?.error?.message || error?.message || '删除失败',
+    });
+  });
+
+  return { successIds, failed };
+};
+
+export const bulkMoveTagsToGroup = async (
+  tags: Tag[],
+  groupId: number | null
+): Promise<BulkTagOperationResult> => {
+  const settled = await Promise.allSettled(
+    tags.map((tag) =>
+      updateTag(tag.id, {
+        name: tag.name,
+        color: tag.color,
+        description: tag.description || undefined,
+        group_id: groupId,
+        parent_id: tag.parent_id ?? null,
+        icon: tag.icon ?? null,
+        display_order: tag.display_order || 0,
+      })
+    )
+  );
+
+  const successIds: number[] = [];
+  const failed: Array<{ id: number; message: string }> = [];
+
+  settled.forEach((result, index) => {
+    const tag = tags[index];
+    if (result.status === 'fulfilled') {
+      successIds.push(tag.id);
+      return;
+    }
+
+    const error: any = result.reason;
+    failed.push({
+      id: tag.id,
+      message: error?.response?.data?.error?.message || error?.message || '更新失败',
+    });
+  });
+
+  return { successIds, failed };
+};
+

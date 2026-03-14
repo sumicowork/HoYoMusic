@@ -144,41 +144,80 @@ const AlbumManagement: React.FC = () => {
     }
   };
 
+  const showBpmDetectResult = (result: Awaited<ReturnType<typeof albumService.detectBpm>>) => {
+    const baseMsg = `BPM检测完成：共 ${result.total} 首，成功打标 ${result.tagged} 首`;
+    if (result.failed > 0 || result.skipped > 0) {
+      message.warning(`${baseMsg}，跳过 ${result.skipped} 首，失败 ${result.failed} 首`);
+    } else {
+      message.success(baseMsg);
+    }
+
+    if (result.low_confidence_tagged > 0) {
+      const lowConfidenceRows = result.details
+        .filter((row) => row.status === 'tagged' && row.low_confidence)
+        .sort((a, b) => (a.confidence ?? 1) - (b.confidence ?? 1));
+
+      Modal.info({
+        title: `低置信度BPM（${lowConfidenceRows.length} 首）`,
+        width: 680,
+        okText: '知道了',
+        content: (
+          <div style={{ maxHeight: 360, overflow: 'auto' }}>
+            <div style={{ marginBottom: 8, color: 'var(--text-secondary)' }}>
+              建议人工复核以下曲目（置信度阈值 &lt; 0.55）。
+            </div>
+            {lowConfidenceRows.map((row) => (
+              <div key={row.track_id} style={{ marginBottom: 6 }}>
+                #{row.track_id} {row.title} - {row.tag} | 置信度 {(row.confidence ?? 0).toFixed(2)} | {row.method}
+              </div>
+            ))}
+          </div>
+        ),
+      });
+    }
+  };
+
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
   const handleDetectBpm = async (album: Album) => {
+    const progressMsgKey = `bpm-task-${album.id}`;
     try {
       setBpmDetectingAlbumId(album.id);
-      const result = await albumService.detectBpm(album.id);
-      const baseMsg = `BPM检测完成：共 ${result.total} 首，成功打标 ${result.tagged} 首`;
-      if (result.failed > 0 || result.skipped > 0) {
-        message.warning(`${baseMsg}，跳过 ${result.skipped} 首，失败 ${result.failed} 首`);
-      } else {
-        message.success(baseMsg);
-      }
+      let task = await albumService.createDetectBpmTask(album.id);
 
-      if (result.low_confidence_tagged > 0) {
-        const lowConfidenceRows = result.details
-          .filter((row) => row.status === 'tagged' && row.low_confidence)
-          .sort((a, b) => (a.confidence ?? 1) - (b.confidence ?? 1));
+      const startedAt = Date.now();
+      const maxWaitMs = 45 * 60 * 1000;
+      const pollIntervalMs = 3000;
 
-        Modal.info({
-          title: `低置信度BPM（${lowConfidenceRows.length} 首）`,
-          width: 680,
-          okText: '知道了',
-          content: (
-            <div style={{ maxHeight: 360, overflow: 'auto' }}>
-              <div style={{ marginBottom: 8, color: 'var(--text-secondary)' }}>
-                建议人工复核以下曲目（置信度阈值 &lt; 0.55）。
-              </div>
-              {lowConfidenceRows.map((row) => (
-                <div key={row.track_id} style={{ marginBottom: 6 }}>
-                  #{row.track_id} {row.title} - {row.tag} | 置信度 {(row.confidence ?? 0).toFixed(2)} | {row.method}
-                </div>
-              ))}
-            </div>
-          ),
+      while (task.status === 'running') {
+        if (Date.now() - startedAt > maxWaitMs) {
+          throw new Error('BPM检测任务等待超时，请稍后在后台重试');
+        }
+
+        message.open({
+          key: progressMsgKey,
+          type: 'loading',
+          duration: 0,
+          content: `BPM检测中：${task.processed}/${task.total || '?'}（成功 ${task.tagged}，跳过 ${task.skipped}，失败 ${task.failed}）`,
         });
+
+        await sleep(pollIntervalMs);
+        task = await albumService.getDetectBpmTask(album.id, task.task_id);
       }
+
+      message.destroy(progressMsgKey);
+
+      if (task.status === 'failed') {
+        throw new Error(task.error || 'BPM检测任务失败');
+      }
+
+      if (!task.result) {
+        throw new Error('BPM检测任务未返回结果');
+      }
+
+      showBpmDetectResult(task.result);
     } catch (error: any) {
+      message.destroy(progressMsgKey);
       message.error(error.message || '批量BPM检测失败');
     } finally {
       setBpmDetectingAlbumId(null);

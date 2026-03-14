@@ -6,6 +6,7 @@ import fs from 'fs';
 import https from 'https';
 import http from 'http';
 import { spawn } from 'child_process';
+import { randomUUID } from 'crypto';
 import { parseBuffer } from 'music-metadata';
 import storageService from '../services/storageService';
 import { generateThumbnails, deriveThumbnailPath } from '../utils/thumbnails';
@@ -33,6 +34,63 @@ type PythonAnalyzerOutcome = {
 type BpmDetectionOutcome = {
   detection: BpmDetection | null;
   reason?: string;
+};
+
+type AlbumBpmTrackDetail = {
+  track_id: number;
+  title: string;
+  bpm: number | null;
+  confidence: number | null;
+  method: 'essentia' | 'librosa' | 'metadata' | null;
+  low_confidence: boolean;
+  tag: string | null;
+  status: 'tagged' | 'skipped' | 'failed';
+  reason?: string;
+};
+
+type AlbumBpmDetectResult = {
+  album_id: number;
+  album_title: string;
+  total: number;
+  tagged: number;
+  low_confidence_tagged: number;
+  skipped: number;
+  failed: number;
+  details: AlbumBpmTrackDetail[];
+};
+
+type BpmTaskStatus = 'running' | 'completed' | 'failed';
+
+type AlbumBpmTask = {
+  task_id: string;
+  album_id: number;
+  status: BpmTaskStatus;
+  created_at: string;
+  updated_at: string;
+  total: number;
+  processed: number;
+  tagged: number;
+  skipped: number;
+  failed: number;
+  low_confidence_tagged: number;
+  result?: AlbumBpmDetectResult;
+  error?: string;
+};
+
+const bpmTasks = new Map<string, AlbumBpmTask>();
+const bpmRunningTaskByAlbum = new Map<number, string>();
+const BPM_TASK_TTL_MS = 60 * 60 * 1000;
+
+const cleanupBpmTaskLater = (taskId: string) => {
+  setTimeout(() => {
+    const task = bpmTasks.get(taskId);
+    if (!task) return;
+    if (task.status === 'running') return;
+    bpmTasks.delete(taskId);
+    if (bpmRunningTaskByAlbum.get(task.album_id) === taskId) {
+      bpmRunningTaskByAlbum.delete(task.album_id);
+    }
+  }, BPM_TASK_TTL_MS);
 };
 
 const resolveBpmAnalyzerScriptPath = (): string | null => {
@@ -246,6 +304,192 @@ const detectBpmFromTrack = async (filePath: string): Promise<BpmDetectionOutcome
   }
 
   return { detection: null, reason: pythonReason || '未检测到信号BPM且无元数据BPM' };
+};
+
+const runAlbumBpmDetection = async (
+  albumId: string,
+  onProgress?: (snapshot: Partial<AlbumBpmTask>) => void
+): Promise<AlbumBpmDetectResult> => {
+  const albumCheck = await pool.query('SELECT id, title FROM albums WHERE id = $1', [albumId]);
+  if (albumCheck.rows.length === 0) {
+    const err = new Error('Album not found');
+    (err as any).code = 'NOT_FOUND';
+    throw err;
+  }
+
+  const tracksResult = await pool.query(
+    `SELECT id, title, file_path FROM tracks WHERE album_id = $1 ORDER BY track_number ASC NULLS LAST, id ASC`,
+    [albumId]
+  );
+
+  if (tracksResult.rows.length === 0) {
+    const err = new Error('该专辑没有曲目');
+    (err as any).code = 'NO_TRACKS';
+    throw err;
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    onProgress?.({ total: tracksResult.rows.length, processed: 0, tagged: 0, skipped: 0, failed: 0, low_confidence_tagged: 0 });
+
+    let bpmGroupId: number;
+    const groupResult = await client.query(
+      `SELECT id FROM tag_groups WHERE LOWER(name) = LOWER($1) LIMIT 1`,
+      [BPM_GROUP_NAME]
+    );
+
+    if (groupResult.rows.length > 0) {
+      bpmGroupId = groupResult.rows[0].id;
+    } else {
+      const createdGroup = await client.query(
+        `INSERT INTO tag_groups (name, description, icon, display_order)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id`,
+        [BPM_GROUP_NAME, 'Auto-generated BPM labels', 'DashboardOutlined', 90]
+      );
+      bpmGroupId = createdGroup.rows[0].id;
+    }
+
+    const existingBpmTags = await client.query(
+      `SELECT id, name FROM tags WHERE group_id = $1`,
+      [bpmGroupId]
+    );
+    const tagIdByName = new Map<string, number>(
+      existingBpmTags.rows.map((row) => [row.name.toUpperCase(), row.id])
+    );
+
+    const details: AlbumBpmTrackDetail[] = [];
+    let tagged = 0;
+    let lowConfidenceTagged = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    for (let index = 0; index < tracksResult.rows.length; index += 1) {
+      const track = tracksResult.rows[index];
+      try {
+        const detectionOutcome = await detectBpmFromTrack(track.file_path);
+        if (!detectionOutcome.detection) {
+          skipped += 1;
+          details.push({
+            track_id: track.id,
+            title: track.title,
+            bpm: null,
+            confidence: null,
+            method: null,
+            low_confidence: false,
+            tag: null,
+            status: 'skipped',
+            reason: detectionOutcome.reason || '未读取到有效BPM'
+          });
+          onProgress?.({ total: tracksResult.rows.length, processed: index + 1, tagged, skipped, failed, low_confidence_tagged: lowConfidenceTagged });
+          continue;
+        }
+
+        const detection = detectionOutcome.detection;
+        const tagName = `${detection.bpm}BPM`;
+        const normalizedTag = tagName.toUpperCase();
+        let tagId = tagIdByName.get(normalizedTag);
+
+        if (!tagId) {
+          try {
+            const createdTag = await client.query(
+              `INSERT INTO tags (name, color, description, group_id, display_order)
+               VALUES ($1, $2, $3, $4, $5)
+               RETURNING id`,
+              [tagName, BPM_TAG_COLOR, 'Auto-generated by BPM detector', bpmGroupId, detection.bpm]
+            );
+            tagId = createdTag.rows[0].id;
+            if (tagId) tagIdByName.set(normalizedTag, tagId);
+          } catch (tagErr: any) {
+            if (tagErr.code === '23505') {
+              const existingTagByName = await client.query(
+                `SELECT id FROM tags WHERE LOWER(name) = LOWER($1) LIMIT 1`,
+                [tagName]
+              );
+              if (existingTagByName.rows.length > 0) {
+                tagId = existingTagByName.rows[0].id;
+                if (tagId) tagIdByName.set(normalizedTag, tagId);
+              } else {
+                throw tagErr;
+              }
+            } else {
+              throw tagErr;
+            }
+          }
+        }
+
+        if (!tagId) {
+          throw new Error('BPM tag creation failed');
+        }
+
+        await client.query(
+          `DELETE FROM track_tags tt
+           USING tags t
+           WHERE tt.track_id = $1
+             AND tt.tag_id = t.id
+             AND t.group_id = $2`,
+          [track.id, bpmGroupId]
+        );
+
+        await client.query(
+          `INSERT INTO track_tags (track_id, tag_id)
+           VALUES ($1, $2)
+           ON CONFLICT (track_id, tag_id) DO NOTHING`,
+          [track.id, tagId]
+        );
+
+        const lowConfidence = detection.confidence != null && detection.confidence < BPM_LOW_CONFIDENCE_THRESHOLD;
+        if (lowConfidence) lowConfidenceTagged += 1;
+        tagged += 1;
+
+        details.push({
+          track_id: track.id,
+          title: track.title,
+          bpm: detection.bpm,
+          confidence: detection.confidence,
+          method: detection.method,
+          low_confidence: lowConfidence,
+          tag: tagName,
+          status: 'tagged'
+        });
+      } catch (trackError: any) {
+        failed += 1;
+        details.push({
+          track_id: track.id,
+          title: track.title,
+          bpm: null,
+          confidence: null,
+          method: null,
+          low_confidence: false,
+          tag: null,
+          status: 'failed',
+          reason: trackError?.message || 'BPM分析失败'
+        });
+      }
+
+      onProgress?.({ total: tracksResult.rows.length, processed: index + 1, tagged, skipped, failed, low_confidence_tagged: lowConfidenceTagged });
+    }
+
+    await client.query('COMMIT');
+    cache.invalidate('tags:all');
+
+    return {
+      album_id: Number(albumId),
+      album_title: albumCheck.rows[0].title,
+      total: tracksResult.rows.length,
+      tagged,
+      low_confidence_tagged: lowConfidenceTagged,
+      skipped,
+      failed,
+      details,
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 };
 
 // Get all albums with track count
@@ -728,207 +972,118 @@ export const rescanDates = async (req: Request, res: Response) => {
 // Detect BPM for all tracks in an album and write as BPM-group tags (e.g. 128BPM)
 export const detectAlbumBpm = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-
-    const albumCheck = await pool.query('SELECT id, title FROM albums WHERE id = $1', [id]);
-    if (albumCheck.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: { code: 'NOT_FOUND', message: 'Album not found' }
-      });
-    }
-
-    const tracksResult = await pool.query(
-      `SELECT id, title, file_path FROM tracks WHERE album_id = $1 ORDER BY track_number ASC NULLS LAST, id ASC`,
-      [id]
-    );
-
-    if (tracksResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: { code: 'NO_TRACKS', message: '该专辑没有曲目' }
-      });
-    }
-
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-
-      let bpmGroupId: number;
-      const groupResult = await client.query(
-        `SELECT id FROM tag_groups WHERE LOWER(name) = LOWER($1) LIMIT 1`,
-        [BPM_GROUP_NAME]
-      );
-
-      if (groupResult.rows.length > 0) {
-        bpmGroupId = groupResult.rows[0].id;
-      } else {
-        const createdGroup = await client.query(
-          `INSERT INTO tag_groups (name, description, icon, display_order)
-           VALUES ($1, $2, $3, $4)
-           RETURNING id`,
-          [BPM_GROUP_NAME, 'Auto-generated BPM labels', 'DashboardOutlined', 90]
-        );
-        bpmGroupId = createdGroup.rows[0].id;
-      }
-
-      const existingBpmTags = await client.query(
-        `SELECT id, name FROM tags WHERE group_id = $1`,
-        [bpmGroupId]
-      );
-      const tagIdByName = new Map<string, number>(
-        existingBpmTags.rows.map((row) => [row.name.toUpperCase(), row.id])
-      );
-
-      const details: Array<{
-        track_id: number;
-        title: string;
-        bpm: number | null;
-        confidence: number | null;
-        method: 'essentia' | 'librosa' | 'metadata' | null;
-        low_confidence: boolean;
-        tag: string | null;
-        status: string;
-        reason?: string;
-      }> = [];
-      let tagged = 0;
-      let lowConfidenceTagged = 0;
-
-      for (const track of tracksResult.rows) {
-        try {
-          const detectionOutcome = await detectBpmFromTrack(track.file_path);
-          if (!detectionOutcome.detection) {
-            details.push({
-              track_id: track.id,
-              title: track.title,
-              bpm: null,
-              confidence: null,
-              method: null,
-              low_confidence: false,
-              tag: null,
-              status: 'skipped',
-              reason: detectionOutcome.reason || '未读取到有效BPM'
-            });
-            continue;
-          }
-
-          const detection = detectionOutcome.detection;
-
-          const tagName = `${detection.bpm}BPM`;
-          const normalizedTag = tagName.toUpperCase();
-          let tagId = tagIdByName.get(normalizedTag);
-
-          if (!tagId) {
-            try {
-              const createdTag = await client.query(
-                `INSERT INTO tags (name, color, description, group_id, display_order)
-                 VALUES ($1, $2, $3, $4, $5)
-                 RETURNING id`,
-                [tagName, BPM_TAG_COLOR, 'Auto-generated by BPM detector', bpmGroupId, detection.bpm]
-              );
-              tagId = createdTag.rows[0].id;
-              if (tagId) {
-                tagIdByName.set(normalizedTag, tagId);
-              }
-            } catch (tagErr: any) {
-              if (tagErr.code === '23505') {
-                const existingTagByName = await client.query(
-                  `SELECT id FROM tags WHERE LOWER(name) = LOWER($1) LIMIT 1`,
-                  [tagName]
-                );
-                if (existingTagByName.rows.length > 0) {
-                  tagId = existingTagByName.rows[0].id;
-                  if (tagId) {
-                    tagIdByName.set(normalizedTag, tagId);
-                  }
-                } else {
-                  throw tagErr;
-                }
-              } else {
-                throw tagErr;
-              }
-            }
-          }
-
-          if (!tagId) {
-            throw new Error('BPM tag creation failed');
-          }
-
-          await client.query(
-            `DELETE FROM track_tags tt
-             USING tags t
-             WHERE tt.track_id = $1
-               AND tt.tag_id = t.id
-               AND t.group_id = $2`,
-            [track.id, bpmGroupId]
-          );
-
-          await client.query(
-            `INSERT INTO track_tags (track_id, tag_id)
-             VALUES ($1, $2)
-             ON CONFLICT (track_id, tag_id) DO NOTHING`,
-            [track.id, tagId]
-          );
-
-          const lowConfidence = detection.confidence != null && detection.confidence < BPM_LOW_CONFIDENCE_THRESHOLD;
-          if (lowConfidence) {
-            lowConfidenceTagged += 1;
-          }
-
-          tagged += 1;
-          details.push({
-            track_id: track.id,
-            title: track.title,
-            bpm: detection.bpm,
-            confidence: detection.confidence,
-            method: detection.method,
-            low_confidence: lowConfidence,
-            tag: tagName,
-            status: 'tagged'
-          });
-        } catch (trackError: any) {
-          details.push({
-            track_id: track.id,
-            title: track.title,
-            bpm: null,
-            confidence: null,
-            method: null,
-            low_confidence: false,
-            tag: null,
-            status: 'failed',
-            reason: trackError?.message || 'BPM分析失败'
-          });
-        }
-      }
-
-      await client.query('COMMIT');
-      cache.invalidate('tags:all');
-
-      res.json({
-        success: true,
-        data: {
-          album_id: Number(id),
-          album_title: albumCheck.rows[0].title,
-          total: tracksResult.rows.length,
-          tagged,
-          low_confidence_tagged: lowConfidenceTagged,
-          skipped: details.filter((d) => d.status === 'skipped').length,
-          failed: details.filter((d) => d.status === 'failed').length,
-          details
-        }
-      });
-    } catch (err) {
-      await client.query('ROLLBACK');
-      throw err;
-    } finally {
-      client.release();
-    }
+    const id = String(req.params.id);
+    const result = await runAlbumBpmDetection(id);
+    res.json({ success: true, data: result });
   } catch (error) {
+    if ((error as any)?.code === 'NOT_FOUND') {
+      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Album not found' } });
+    }
+    if ((error as any)?.code === 'NO_TRACKS') {
+      return res.status(404).json({ success: false, error: { code: 'NO_TRACKS', message: '该专辑没有曲目' } });
+    }
     console.error('Detect album BPM error:', error);
     res.status(500).json({
       success: false,
       error: { code: 'BPM_DETECT_ERROR', message: '批量BPM检测失败' }
     });
   }
+};
+
+export const createAlbumBpmTask = async (req: Request, res: Response) => {
+  const id = String(req.params.id);
+  const albumId = Number(id);
+  if (!Number.isFinite(albumId)) {
+    return res.status(400).json({ success: false, error: { code: 'INVALID_ID', message: 'Invalid album id' } });
+  }
+
+  const runningTaskId = bpmRunningTaskByAlbum.get(albumId);
+  if (runningTaskId) {
+    const existing = bpmTasks.get(runningTaskId);
+    if (existing && existing.status === 'running') {
+      return res.json({ success: true, data: existing });
+    }
+    bpmRunningTaskByAlbum.delete(albumId);
+  }
+
+  const taskId = randomUUID();
+  const now = new Date().toISOString();
+  const task: AlbumBpmTask = {
+    task_id: taskId,
+    album_id: albumId,
+    status: 'running',
+    created_at: now,
+    updated_at: now,
+    total: 0,
+    processed: 0,
+    tagged: 0,
+    skipped: 0,
+    failed: 0,
+    low_confidence_tagged: 0,
+  };
+
+  bpmTasks.set(taskId, task);
+  bpmRunningTaskByAlbum.set(albumId, taskId);
+
+  void (async () => {
+    try {
+      const result = await runAlbumBpmDetection(id, (snapshot) => {
+        const current = bpmTasks.get(taskId);
+        if (!current || current.status !== 'running') return;
+        bpmTasks.set(taskId, {
+          ...current,
+          ...snapshot,
+          updated_at: new Date().toISOString(),
+        });
+      });
+
+      const current = bpmTasks.get(taskId);
+      if (!current) return;
+      bpmTasks.set(taskId, {
+        ...current,
+        status: 'completed',
+        total: result.total,
+        processed: result.total,
+        tagged: result.tagged,
+        skipped: result.skipped,
+        failed: result.failed,
+        low_confidence_tagged: result.low_confidence_tagged,
+        result,
+        updated_at: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      const current = bpmTasks.get(taskId);
+      if (!current) return;
+      bpmTasks.set(taskId, {
+        ...current,
+        status: 'failed',
+        error: error?.message || '任务执行失败',
+        updated_at: new Date().toISOString(),
+      });
+    } finally {
+      if (bpmRunningTaskByAlbum.get(albumId) === taskId) {
+        bpmRunningTaskByAlbum.delete(albumId);
+      }
+      cleanupBpmTaskLater(taskId);
+    }
+  })();
+
+  res.status(202).json({ success: true, data: task });
+};
+
+export const getAlbumBpmTask = async (req: Request, res: Response) => {
+  const id = String(req.params.id);
+  const taskId = String(req.params.taskId);
+  const albumId = Number(id);
+  const task = bpmTasks.get(taskId);
+
+  if (!task || task.album_id !== albumId) {
+    return res.status(404).json({
+      success: false,
+      error: { code: 'NOT_FOUND', message: 'BPM task not found' }
+    });
+  }
+
+  res.json({ success: true, data: task });
 };
 
