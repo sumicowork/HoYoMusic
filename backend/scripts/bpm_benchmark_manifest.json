@@ -1,0 +1,11 @@
+[
+  {
+    "file": "../uploads/tracks/example_track_01.flac",
+    "gt_bpm": 128
+  },
+  {
+    "file": "../uploads/tracks/example_track_02.flac",
+    "gt_bpm": 90
+  }
+]
+
