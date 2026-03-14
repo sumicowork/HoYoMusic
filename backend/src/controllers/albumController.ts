@@ -16,7 +16,6 @@ const BPM_TAG_COLOR = '#13c2c2';
 const BPM_MIN = 40;
 const BPM_MAX = 300;
 const REMOTE_READ_BYTES = 1024 * 512;
-const BPM_ANALYZER_SCRIPT = path.join(process.cwd(), 'scripts', 'detect_bpm.py');
 const BPM_ANALYZER_TIMEOUT_MS = 180000;
 const BPM_LOW_CONFIDENCE_THRESHOLD = 0.55;
 
@@ -24,6 +23,34 @@ type BpmDetection = {
   bpm: number;
   confidence: number | null;
   method: 'essentia' | 'librosa' | 'metadata';
+};
+
+type PythonAnalyzerOutcome = {
+  detection: (Omit<BpmDetection, 'method'> & { method: 'essentia' | 'librosa' }) | null;
+  reason?: string;
+};
+
+type BpmDetectionOutcome = {
+  detection: BpmDetection | null;
+  reason?: string;
+};
+
+const resolveBpmAnalyzerScriptPath = (): string | null => {
+  const configured = process.env.BPM_ANALYZER_SCRIPT;
+  const candidates = [
+    configured,
+    path.join(process.cwd(), 'scripts', 'detect_bpm.py'),
+    path.join(__dirname, '../../scripts/detect_bpm.py'),
+    path.join(__dirname, '../scripts/detect_bpm.py'),
+  ].filter((p): p is string => !!p);
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
 };
 
 const fetchBufferFromUrl = async (url: string, maxBytes: number): Promise<Buffer> => {
@@ -92,19 +119,23 @@ const normalizeConfidence = (value: unknown): number | null => {
   return Math.max(0, Math.min(1, value));
 };
 
-const detectBpmByPythonAnalyzer = async (source: string): Promise<Omit<BpmDetection, 'method'> & { method: 'essentia' | 'librosa' } | null> => {
-  if (!fs.existsSync(BPM_ANALYZER_SCRIPT)) {
-    return null;
+const detectBpmByPythonAnalyzer = async (source: string): Promise<PythonAnalyzerOutcome> => {
+  const analyzerScriptPath = resolveBpmAnalyzerScriptPath();
+  if (!analyzerScriptPath) {
+    return {
+      detection: null,
+      reason: `Python BPM脚本不存在（可通过 BPM_ANALYZER_SCRIPT 指定路径）`
+    };
   }
 
   const pythonBin = process.env.BPM_PYTHON || 'python';
   const analyzerMethod = process.env.BPM_ANALYZER || 'auto';
 
-  return await new Promise<Omit<BpmDetection, 'method'> & { method: 'essentia' | 'librosa' } | null>((resolve) => {
+  return await new Promise<PythonAnalyzerOutcome>((resolve) => {
     const child = spawn(
       pythonBin,
       [
-        BPM_ANALYZER_SCRIPT,
+        analyzerScriptPath,
         '--input', source,
         '--method', analyzerMethod,
         '--duration', '120',
@@ -116,7 +147,7 @@ const detectBpmByPythonAnalyzer = async (source: string): Promise<Omit<BpmDetect
     let stderr = '';
     let settled = false;
 
-    const done = (result: Omit<BpmDetection, 'method'> & { method: 'essentia' | 'librosa' } | null) => {
+    const done = (result: PythonAnalyzerOutcome) => {
       if (!settled) {
         settled = true;
         resolve(result);
@@ -129,7 +160,7 @@ const detectBpmByPythonAnalyzer = async (source: string): Promise<Omit<BpmDetect
       } catch {
         // no-op
       }
-      done(null);
+      done({ detection: null, reason: 'Python BPM分析超时' });
     }, BPM_ANALYZER_TIMEOUT_MS);
 
     child.stdout.on('data', (chunk) => {
@@ -142,51 +173,64 @@ const detectBpmByPythonAnalyzer = async (source: string): Promise<Omit<BpmDetect
 
     child.on('error', () => {
       clearTimeout(timer);
-      done(null);
+      done({ detection: null, reason: `无法启动Python解释器：${pythonBin}` });
     });
 
     child.on('close', () => {
       clearTimeout(timer);
       try {
         const parsed = JSON.parse((stdout || '{}').trim());
+        if (!parsed?.ok) {
+          const reason = [parsed?.error, Array.isArray(parsed?.details) ? parsed.details.join('; ') : undefined]
+            .filter(Boolean)
+            .join(' | ');
+          done({ detection: null, reason: reason || 'Python BPM分析失败' });
+          return;
+        }
+
         const bpm = normalizeBpm(parsed?.bpm);
         const method = parsed?.method === 'essentia' ? 'essentia' : parsed?.method === 'librosa' ? 'librosa' : null;
         if (!bpm || !method) {
-          done(null);
+          done({ detection: null, reason: 'Python BPM分析返回值无效' });
           return;
         }
 
         done({
-          bpm,
-          confidence: normalizeConfidence(parsed?.confidence),
-          method,
+          detection: {
+            bpm,
+            confidence: normalizeConfidence(parsed?.confidence),
+            method,
+          },
         });
       } catch {
-        if (stderr) {
-          console.warn('BPM analyzer stderr:', stderr.slice(0, 300));
-        }
-        done(null);
+        done({ detection: null, reason: stderr?.slice(0, 300) || 'Python BPM输出解析失败' });
       }
     });
   });
 };
 
-const detectBpmFromTrack = async (filePath: string): Promise<BpmDetection | null> => {
+const detectBpmFromTrack = async (filePath: string): Promise<BpmDetectionOutcome> => {
+  let pythonReason: string | undefined;
   const source = await resolveTrackSource(filePath);
   if (source) {
-    const analyzerResult = await detectBpmByPythonAnalyzer(source);
-    if (analyzerResult) {
-      return analyzerResult;
+    const analyzer = await detectBpmByPythonAnalyzer(source);
+    if (analyzer.detection) {
+      return { detection: analyzer.detection };
     }
+    pythonReason = analyzer.reason;
+  } else {
+    pythonReason = '音频源不可读（路径或URL无效）';
   }
 
   const buffer = await readTrackHeadBuffer(filePath);
-  if (!buffer || buffer.length === 0) return null;
+  if (!buffer || buffer.length === 0) {
+    return { detection: null, reason: pythonReason || '无法读取音频头部数据' };
+  }
 
   const metadata = await parseBuffer(buffer);
   const commonBpm = normalizeBpm((metadata.common as any).bpm);
   if (commonBpm) {
-    return { bpm: commonBpm, confidence: null, method: 'metadata' };
+    return { detection: { bpm: commonBpm, confidence: null, method: 'metadata' } };
   }
 
   for (const [, tags] of Object.entries(metadata.native || {})) {
@@ -196,12 +240,12 @@ const detectBpmFromTrack = async (filePath: string): Promise<BpmDetection | null
       const numeric = typeof tag.value === 'number' ? tag.value : Number(tag.value);
       const normalized = normalizeBpm(numeric);
       if (normalized) {
-        return { bpm: normalized, confidence: null, method: 'metadata' };
+        return { detection: { bpm: normalized, confidence: null, method: 'metadata' } };
       }
     }
   }
 
-  return null;
+  return { detection: null, reason: pythonReason || '未检测到信号BPM且无元数据BPM' };
 };
 
 // Get all albums with track count
@@ -752,8 +796,8 @@ export const detectAlbumBpm = async (req: Request, res: Response) => {
 
       for (const track of tracksResult.rows) {
         try {
-          const detection = await detectBpmFromTrack(track.file_path);
-          if (!detection) {
+          const detectionOutcome = await detectBpmFromTrack(track.file_path);
+          if (!detectionOutcome.detection) {
             details.push({
               track_id: track.id,
               title: track.title,
@@ -763,10 +807,12 @@ export const detectAlbumBpm = async (req: Request, res: Response) => {
               low_confidence: false,
               tag: null,
               status: 'skipped',
-              reason: '未读取到有效BPM'
+              reason: detectionOutcome.reason || '未读取到有效BPM'
             });
             continue;
           }
+
+          const detection = detectionOutcome.detection;
 
           const tagName = `${detection.bpm}BPM`;
           const normalizedTag = tagName.toUpperCase();
