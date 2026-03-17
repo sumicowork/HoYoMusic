@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import pool from '../config/database';
 import { authenticateJWT } from '../middleware/auth';
+import { cache } from '../utils/cache';
+import remoteResourceCache from '../services/remoteResourceCache';
 
 const router = Router();
 router.use(authenticateJWT as any);
@@ -11,6 +13,110 @@ const clampDays = (v: any, max = 90) => Math.min(Math.max(parseInt(v) || 30, 1),
 const safeError = (e: any) => {
   const msg = process.env.NODE_ENV === 'production' ? 'Internal server error' : (e?.message || 'Unknown error');
   return { success: false, error: { code: 'ANALYTICS_ERROR', message: msg } };
+};
+
+const warmupAppCache = async () => {
+  const warmKeys: string[] = [];
+
+  const games = await pool.query(`
+    SELECT
+      g.*,
+      COUNT(DISTINCT a.id) as album_count
+    FROM games g
+    LEFT JOIN albums a ON g.id = a.game_id
+    GROUP BY g.id
+    ORDER BY g.display_order ASC, g.name ASC
+  `);
+  cache.set('games:all', games.rows, 300);
+  warmKeys.push('games:all');
+
+  const tags = await pool.query(`
+    SELECT
+      t.*,
+      tg.name as group_name,
+      tg.icon as group_icon,
+      tg.display_order as group_order,
+      pt.name as parent_name,
+      COUNT(DISTINCT tt.track_id) as track_count,
+      (
+        SELECT COUNT(*)
+        FROM tags ct
+        WHERE ct.parent_id = t.id
+      ) as children_count
+    FROM tags t
+    LEFT JOIN tag_groups tg ON t.group_id = tg.id
+    LEFT JOIN tags pt ON t.parent_id = pt.id
+    LEFT JOIN track_tags tt ON t.id = tt.tag_id
+    GROUP BY t.id, tg.name, tg.icon, tg.display_order, pt.name
+    ORDER BY
+      tg.display_order ASC NULLS LAST,
+      t.parent_id ASC NULLS FIRST,
+      t.display_order ASC,
+      t.name ASC
+  `);
+  cache.set('tags:all', tags.rows, 300);
+  warmKeys.push('tags:all');
+
+  const artistCount = await pool.query(`
+    SELECT COUNT(DISTINCT tc.credit_value)
+    FROM track_credits tc
+    WHERE tc.credit_value IS NOT NULL AND tc.credit_value <> ''
+  `);
+  const artistRows = await pool.query(`
+    SELECT
+      tc.credit_value                         AS name,
+      COUNT(DISTINCT tc.track_id)             AS track_count,
+      COUNT(DISTINCT t.album_id)              AS album_count,
+      array_agg(DISTINCT tc.credit_key)       AS roles
+    FROM track_credits tc
+    LEFT JOIN tracks t ON tc.track_id = t.id
+    WHERE tc.credit_value IS NOT NULL AND tc.credit_value <> ''
+    GROUP BY tc.credit_value
+    ORDER BY COUNT(DISTINCT tc.track_id) DESC, tc.credit_value ASC
+    LIMIT $1 OFFSET $2
+  `, [100, 0]);
+  cache.set('artists:p1:l100', {
+    success: true,
+    data: {
+      artists: artistRows.rows,
+      pagination: {
+        page: 1,
+        limit: 100,
+        total: parseInt(artistCount.rows[0].count),
+        totalPages: Math.ceil(parseInt(artistCount.rows[0].count) / 100),
+      },
+    },
+  }, 180);
+  warmKeys.push('artists:p1:l100');
+
+  const albumCount = await pool.query(`SELECT COUNT(*) FROM albums a`);
+  const albumRows = await pool.query(`
+    SELECT
+      a.*,
+      COUNT(DISTINCT t.id) as track_count,
+      MIN(t.duration) as min_duration,
+      SUM(t.duration) as total_duration
+    FROM albums a
+    LEFT JOIN tracks t ON a.id = t.album_id
+    GROUP BY a.id
+    ORDER BY COALESCE(a.release_date, a.created_at) DESC, a.title ASC
+    LIMIT $1 OFFSET $2
+  `, [20, 0]);
+  cache.set('albums:p1:l20', {
+    success: true,
+    data: {
+      albums: albumRows.rows,
+      pagination: {
+        page: 1,
+        limit: 20,
+        total: parseInt(albumCount.rows[0].count),
+        totalPages: Math.ceil(parseInt(albumCount.rows[0].count) / 20),
+      },
+    },
+  }, 300);
+  warmKeys.push('albums:p1:l20');
+
+  return warmKeys;
 };
 
 // ── Overview cards ────────────────────────────────────────────────
@@ -192,6 +298,44 @@ router.get('/recent', async (req: Request, res: Response) => {
       FROM visit_logs ORDER BY ts DESC LIMIT $1
     `, [limit]);
     res.json({ success: true, data: result.rows });
+  } catch (e: any) { res.status(500).json(safeError(e)); }
+});
+
+// ── Cache analytics ──────────────────────────────────────────────
+router.get('/cache', async (_req: Request, res: Response) => {
+  try {
+    const [remote] = await Promise.all([
+      remoteResourceCache.stats(),
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        appCache: cache.snapshot(80),
+        remoteCache: remote,
+      },
+    });
+  } catch (e: any) { res.status(500).json(safeError(e)); }
+});
+
+// ── One-click refresh + prewarm ─────────────────────────────────
+router.post('/cache/warmup', async (_req: Request, res: Response) => {
+  try {
+    cache.clear();
+    const warmedKeys = await warmupAppCache();
+    const [remote] = await Promise.all([
+      remoteResourceCache.stats(),
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        message: '缓存已刷新并完成预热',
+        warmedKeys,
+        appCache: cache.snapshot(80),
+        remoteCache: remote,
+      },
+    });
   } catch (e: any) { res.status(500).json(safeError(e)); }
 });
 

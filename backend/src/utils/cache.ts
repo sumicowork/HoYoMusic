@@ -12,6 +12,7 @@
 interface CacheEntry<T> {
   data: T;
   expiresAt: number;
+  createdAt: number;
 }
 
 class MemoryCache {
@@ -35,6 +36,7 @@ class MemoryCache {
     this.store.set(key, {
       data,
       expiresAt: Date.now() + ttlSeconds * 1000,
+      createdAt: Date.now(),
     });
   }
 
@@ -102,6 +104,34 @@ class MemoryCache {
       hits: this.hits,
       misses: this.misses,
       hitRate: total > 0 ? ((this.hits / total) * 100).toFixed(1) + '%' : 'N/A',
+    };
+  }
+
+  snapshot(limit = 50) {
+    const now = Date.now();
+    const entries = Array.from(this.store.entries())
+      .map(([key, value]) => {
+        let approxBytes = 0;
+        try {
+          approxBytes = Buffer.byteLength(JSON.stringify(value.data), 'utf8');
+        } catch {
+          approxBytes = 0;
+        }
+        return {
+          key,
+          expiresInMs: Math.max(0, value.expiresAt - now),
+          ageMs: Math.max(0, now - value.createdAt),
+          approxBytes,
+        };
+      })
+      .sort((a, b) => b.approxBytes - a.approxBytes)
+      .slice(0, Math.max(1, limit));
+
+    return {
+      ...this.stats(),
+      entries: this.store.size,
+      entriesDetail: entries,
+      approxTotalBytes: entries.reduce((sum, item) => sum + item.approxBytes, 0),
     };
   }
 }

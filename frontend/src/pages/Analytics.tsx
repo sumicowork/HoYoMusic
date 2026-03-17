@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  Card, Row, Col, Statistic, Table, Tag, Select, Spin, Typography, Space, Badge
+  Card, Row, Col, Statistic, Table, Tag, Select, Spin, Typography, Space, Badge, Button, message
 } from 'antd';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
@@ -139,13 +139,15 @@ const Analytics: React.FC = () => {
   const [perf, setPerf]             = useState<any[]>([]);
   const [recent, setRecent]         = useState<any[]>([]);
   const [referers, setReferers]     = useState<any[]>([]);
+  const [cacheInfo, setCacheInfo]   = useState<any>(null);
   const [loading, setLoading]       = useState(true);
+  const [warming, setWarming]       = useState(false);
   const [lastRefresh, setLast]      = useState(new Date());
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [ov, tr, hr, cn, pg, dv, sc, pf, rc, rf] = await Promise.all([
+      const [ov, tr, hr, cn, pg, dv, sc, pf, rc, rf, ch] = await Promise.all([
         api.get('/analytics/overview'),
         api.get(`/analytics/trend?days=${days}`),
         api.get('/analytics/hourly'),
@@ -156,6 +158,7 @@ const Analytics: React.FC = () => {
         api.get(`/analytics/performance?days=${days}`),
         api.get('/analytics/recent?limit=100'),
         api.get(`/analytics/referers?days=${days}`),
+        api.get('/analytics/cache'),
       ]);
       setOverview(ov.data.data);
       setTrend(tr.data.data);
@@ -170,6 +173,7 @@ const Analytics: React.FC = () => {
       })));
       setRecent(rc.data.data);
       setReferers(rf.data.data);
+      setCacheInfo(ch.data.data);
       setLast(new Date());
     } catch (e) {
       console.error('[Analytics]', e);
@@ -179,6 +183,21 @@ const Analytics: React.FC = () => {
   }, [days]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  const handleWarmup = async () => {
+    setWarming(true);
+    try {
+      const result = await api.post('/analytics/cache/warmup');
+      setCacheInfo(result.data.data);
+      message.success('缓存已刷新并完成预热');
+      await fetchAll();
+    } catch (e) {
+      console.error('[Analytics warmup]', e);
+      message.error('缓存预热失败，请稍后重试');
+    } finally {
+      setWarming(false);
+    }
+  };
 
   // ── columns ──────────────────────────────────────────────────
   const recentCols: ColumnsType<any> = [
@@ -248,6 +267,14 @@ const Analytics: React.FC = () => {
               style={{ cursor: 'pointer', userSelect: 'none' }}
               onClick={fetchAll}
             >刷新</Tag>
+            <Button
+              type="primary"
+              icon={<ThunderboltOutlined />}
+              loading={warming}
+              onClick={handleWarmup}
+            >
+              一键刷新预热
+            </Button>
           </Space>
         </div>
 
@@ -463,6 +490,66 @@ const Analytics: React.FC = () => {
               </Card>
             </Col>
           </Row>
+
+          {/* ── Cache Analytics ── */}
+          <Card title="🧠 缓存详情分析" className="analytics-card" style={{ marginBottom: 16 }}>
+            <Row gutter={[16, 16]} style={{ marginBottom: 12 }}>
+              <Col xs={12} sm={8} lg={6}>
+                <Statistic title="应用缓存条目" value={cacheInfo?.appCache?.entries ?? 0} />
+              </Col>
+              <Col xs={12} sm={8} lg={6}>
+                <Statistic title="应用缓存命中率" value={cacheInfo?.appCache?.hitRate ?? 'N/A'} />
+              </Col>
+              <Col xs={12} sm={8} lg={6}>
+                <Statistic title="远程缓存文件" value={cacheInfo?.remoteCache?.totalFiles ?? 0} />
+              </Col>
+              <Col xs={12} sm={8} lg={6}>
+                <Statistic title="远程缓存命中率" value={cacheInfo?.remoteCache?.hitRate ?? 'N/A'} />
+              </Col>
+            </Row>
+
+            <Row gutter={[16, 16]}>
+              <Col xs={24} lg={12}>
+                <Table
+                  size="small"
+                  pagination={false}
+                  rowKey="key"
+                  dataSource={cacheInfo?.appCache?.entriesDetail || []}
+                  title={() => '应用缓存热点 Key（按体积）'}
+                  columns={[
+                    { title: 'Key', dataIndex: 'key', ellipsis: true, render: (v: string) => <Text code>{v}</Text> },
+                    { title: '剩余TTL', dataIndex: 'expiresInMs', width: 100, align: 'right', render: (v: number) => `${Math.round(v / 1000)}s` },
+                    { title: '估算大小', dataIndex: 'approxBytes', width: 110, align: 'right', render: (v: number) => `${Math.round(v / 1024)} KB` },
+                  ]}
+                />
+              </Col>
+              <Col xs={24} lg={12}>
+                <Table
+                  size="small"
+                  pagination={false}
+                  rowKey="category"
+                  dataSource={[
+                    {
+                      category: 'covers',
+                      files: cacheInfo?.remoteCache?.covers?.files || 0,
+                      totalBytes: cacheInfo?.remoteCache?.covers?.totalBytes || 0,
+                    },
+                    {
+                      category: 'lyrics',
+                      files: cacheInfo?.remoteCache?.lyrics?.files || 0,
+                      totalBytes: cacheInfo?.remoteCache?.lyrics?.totalBytes || 0,
+                    },
+                  ]}
+                  title={() => '远程代理本地缓存占用'}
+                  columns={[
+                    { title: '分类', dataIndex: 'category', width: 100 },
+                    { title: '文件数', dataIndex: 'files', width: 90, align: 'right' },
+                    { title: '体积', dataIndex: 'totalBytes', align: 'right', render: (v: number) => `${(v / 1024 / 1024).toFixed(2)} MB` },
+                  ]}
+                />
+              </Col>
+            </Row>
+          </Card>
 
           {/* ── Recent Logs ── */}
           <Card title="📋 最近请求记录" className="analytics-card">
