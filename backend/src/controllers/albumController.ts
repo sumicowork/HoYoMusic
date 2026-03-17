@@ -80,6 +80,13 @@ type AlbumBpmTask = {
 const bpmTasks = new Map<string, AlbumBpmTask>();
 const bpmRunningTaskByAlbum = new Map<number, string>();
 const BPM_TASK_TTL_MS = 60 * 60 * 1000;
+const BPM_TAG_NAME_PATTERN = /^(\d{2,3})\s*BPM$/i;
+
+const parseBpmTagName = (tagName: string): number | null => {
+  const match = BPM_TAG_NAME_PATTERN.exec(String(tagName || '').trim());
+  if (!match) return null;
+  return normalizeBpm(Number(match[1]));
+};
 
 const cleanupBpmTaskLater = (taskId: string) => {
   setTimeout(() => {
@@ -359,6 +366,26 @@ const runAlbumBpmDetection = async (
       existingBpmTags.rows.map((row) => [row.name.toUpperCase(), row.id])
     );
 
+    const trackIds = tracksResult.rows.map((row) => Number(row.id));
+    const existingTrackBpmTagRows = await client.query(
+      `SELECT tt.track_id, t.name
+       FROM track_tags tt
+       JOIN tags t ON t.id = tt.tag_id
+       WHERE tt.track_id = ANY($1::int[])
+         AND t.name ~* '^[0-9]{2,3}\\s*BPM$'`,
+      [trackIds]
+    );
+
+    const existingBpmTagByTrackId = new Map<number, string>();
+    for (const row of existingTrackBpmTagRows.rows) {
+      const trackId = Number(row.track_id);
+      if (existingBpmTagByTrackId.has(trackId)) continue;
+      const name = String(row.name || '').trim();
+      if (!name) continue;
+      if (!parseBpmTagName(name)) continue;
+      existingBpmTagByTrackId.set(trackId, name.toUpperCase());
+    }
+
     const details: AlbumBpmTrackDetail[] = [];
     let tagged = 0;
     let lowConfidenceTagged = 0;
@@ -367,6 +394,25 @@ const runAlbumBpmDetection = async (
 
     for (let index = 0; index < tracksResult.rows.length; index += 1) {
       const track = tracksResult.rows[index];
+
+      const existingBpmTag = existingBpmTagByTrackId.get(Number(track.id));
+      if (existingBpmTag) {
+        skipped += 1;
+        details.push({
+          track_id: track.id,
+          title: track.title,
+          bpm: null,
+          confidence: null,
+          method: null,
+          low_confidence: false,
+          tag: existingBpmTag,
+          status: 'skipped',
+          reason: `已存在BPM标签（${existingBpmTag}），跳过检测`
+        });
+        onProgress?.({ total: tracksResult.rows.length, processed: index + 1, tagged, skipped, failed, low_confidence_tagged: lowConfidenceTagged });
+        continue;
+      }
+
       try {
         const detectionOutcome = await detectBpmFromTrack(track.file_path);
         if (!detectionOutcome.detection) {
