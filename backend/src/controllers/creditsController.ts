@@ -21,6 +21,19 @@ interface ImportFile {
   tracks: ImportTrackEntry[];
 }
 
+interface ExportCreditsRequestBody {
+  albumIds?: number[];
+}
+
+interface ExportQueryRow {
+  album_title: string;
+  track_id: number;
+  track_title: string;
+  credit_key: string;
+  credit_value: string;
+  display_order: number;
+}
+
 type ImportResultStatus = 'imported' | 'skipped' | 'not_found' | 'ambiguous' | 'error';
 
 interface ImportResultItem {
@@ -30,6 +43,22 @@ interface ImportResultItem {
   imported_count?: number;
   message?: string;
 }
+
+const parseAlbumIds = (body: ExportCreditsRequestBody): number[] | null => {
+  if (!Array.isArray(body.albumIds) || body.albumIds.length === 0) {
+    return null;
+  }
+
+  const normalized = body.albumIds
+    .map((id) => Number(id))
+    .filter((id) => Number.isInteger(id) && id > 0);
+
+  if (normalized.length !== body.albumIds.length) {
+    return null;
+  }
+
+  return Array.from(new Set(normalized));
+};
 
 // Get credits for a track
 export const getCredits = async (req: Request, res: Response) => {
@@ -303,6 +332,87 @@ export const importCredits = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: { code: 'IMPORT_ERROR', message: 'Credits 导入失败' }
+    });
+  }
+};
+
+// Export credits in the same JSON shape used by credits import
+export const exportCredits = async (req: Request, res: Response) => {
+  try {
+    const albumIds = parseAlbumIds(req.body as ExportCreditsRequestBody);
+    if (!albumIds) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'INVALID_DATA', message: 'albumIds 必须是非空数字数组' }
+      });
+    }
+
+    const rowsResult = await pool.query<ExportQueryRow>(
+      `SELECT
+         a.title AS album_title,
+         t.id AS track_id,
+         t.title AS track_title,
+         tc.credit_key,
+         tc.credit_value,
+         tc.display_order
+       FROM albums a
+       JOIN tracks t ON t.album_id = a.id
+       JOIN track_credits tc ON tc.track_id = t.id
+       WHERE a.id = ANY($1::int[])
+       ORDER BY a.title ASC, t.track_number ASC NULLS LAST, t.id ASC, tc.display_order ASC, tc.id ASC`,
+      [albumIds]
+    );
+
+    if (rowsResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'NO_CREDITS_FOUND', message: '所选专辑未找到可导出的 Credits' }
+      });
+    }
+
+    const trackMap = new Map<number, ImportTrackEntry>();
+
+    for (const row of rowsResult.rows) {
+      const existingTrack = trackMap.get(row.track_id);
+      if (!existingTrack) {
+        trackMap.set(row.track_id, {
+          album: row.album_title,
+          track: row.track_title,
+          credits: [
+            {
+              key: row.credit_key,
+              value: row.credit_value,
+              order: row.display_order,
+            }
+          ]
+        });
+        continue;
+      }
+
+      existingTrack.credits.push({
+        key: row.credit_key,
+        value: row.credit_value,
+        order: row.display_order,
+      });
+    }
+
+    const exportPayload: ImportFile = {
+      version: '1.0',
+      conflict_mode: 'append',
+      tracks: Array.from(trackMap.values()),
+    };
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `credits-export-${timestamp}.json`;
+
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return res.status(200).send(JSON.stringify(exportPayload, null, 2));
+  } catch (error) {
+    console.error('Export credits error:', error);
+    return res.status(500).json({
+      success: false,
+      error: { code: 'EXPORT_ERROR', message: 'Credits 导出失败' }
     });
   }
 };

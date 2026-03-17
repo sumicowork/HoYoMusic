@@ -18,31 +18,57 @@ export const getArtists = async (req: Request, res: Response) => {
       if (cached) return res.json(cached);
     }
 
-    // Use separate param lists for count vs list queries to avoid index confusion
+    // Use canonical_name (merged aliases -> main name) for listing and search.
+    // This ensures alias entries are not returned as separate artists.
     if (search) {
       const searchPattern = `%${search}%`;
 
       const countResult = await pool.query(
-        `SELECT COUNT(DISTINCT tc.credit_value)
-         FROM track_credits tc
-         WHERE tc.credit_value IS NOT NULL AND tc.credit_value <> ''
-           AND LOWER(tc.credit_value) LIKE LOWER($1)`,
+        `WITH canonical_credits AS (
+           SELECT COALESCE(aa.canonical_name, tc.credit_value) AS canonical_name
+           FROM track_credits tc
+           LEFT JOIN artist_aliases aa ON LOWER(tc.credit_value) = LOWER(aa.alias_name)
+           WHERE tc.credit_value IS NOT NULL AND tc.credit_value <> ''
+         ),
+         alias_matches AS (
+           SELECT DISTINCT canonical_name
+           FROM artist_aliases
+           WHERE LOWER(alias_name) LIKE LOWER($1)
+         )
+         SELECT COUNT(DISTINCT canonical_name)
+         FROM canonical_credits
+         WHERE LOWER(canonical_name) LIKE LOWER($1)
+            OR canonical_name IN (SELECT canonical_name FROM alias_matches)`,
         [searchPattern]
       );
       const total = parseInt(countResult.rows[0].count);
 
       const artistsResult = await pool.query(
-        `SELECT
-           tc.credit_value                         AS name,
-           COUNT(DISTINCT tc.track_id)             AS track_count,
-           COUNT(DISTINCT t.album_id)              AS album_count,
-           array_agg(DISTINCT tc.credit_key)       AS roles
-         FROM track_credits tc
-         LEFT JOIN tracks t ON tc.track_id = t.id
-         WHERE tc.credit_value IS NOT NULL AND tc.credit_value <> ''
-           AND LOWER(tc.credit_value) LIKE LOWER($3)
-         GROUP BY tc.credit_value
-         ORDER BY COUNT(DISTINCT tc.track_id) DESC, tc.credit_value ASC
+        `WITH canonical_credits AS (
+           SELECT
+             COALESCE(aa.canonical_name, tc.credit_value) AS canonical_name,
+             tc.track_id,
+             tc.credit_key
+           FROM track_credits tc
+           LEFT JOIN artist_aliases aa ON LOWER(tc.credit_value) = LOWER(aa.alias_name)
+           WHERE tc.credit_value IS NOT NULL AND tc.credit_value <> ''
+         ),
+         alias_matches AS (
+           SELECT DISTINCT canonical_name
+           FROM artist_aliases
+           WHERE LOWER(alias_name) LIKE LOWER($3)
+         )
+         SELECT
+           cc.canonical_name                        AS name,
+           COUNT(DISTINCT cc.track_id)              AS track_count,
+           COUNT(DISTINCT t.album_id)               AS album_count,
+           array_agg(DISTINCT cc.credit_key)        AS roles
+         FROM canonical_credits cc
+         LEFT JOIN tracks t ON cc.track_id = t.id
+         WHERE LOWER(cc.canonical_name) LIKE LOWER($3)
+            OR cc.canonical_name IN (SELECT canonical_name FROM alias_matches)
+         GROUP BY cc.canonical_name
+         ORDER BY COUNT(DISTINCT cc.track_id) DESC, cc.canonical_name ASC
          LIMIT $1 OFFSET $2`,
         [limit, offset, searchPattern]
       );
@@ -57,24 +83,37 @@ export const getArtists = async (req: Request, res: Response) => {
     }
 
     // No search
-    const countResult = await pool.query(
-      `SELECT COUNT(DISTINCT tc.credit_value)
-       FROM track_credits tc
-       WHERE tc.credit_value IS NOT NULL AND tc.credit_value <> ''`
-    );
+    const countResult = await pool.query(`
+      WITH canonical_credits AS (
+        SELECT COALESCE(aa.canonical_name, tc.credit_value) AS canonical_name
+        FROM track_credits tc
+        LEFT JOIN artist_aliases aa ON LOWER(tc.credit_value) = LOWER(aa.alias_name)
+        WHERE tc.credit_value IS NOT NULL AND tc.credit_value <> ''
+      )
+      SELECT COUNT(DISTINCT canonical_name)
+      FROM canonical_credits
+    `);
     const total = parseInt(countResult.rows[0].count);
 
     const artistsResult = await pool.query(
-      `SELECT
-         tc.credit_value                         AS name,
-         COUNT(DISTINCT tc.track_id)             AS track_count,
-         COUNT(DISTINCT t.album_id)              AS album_count,
-         array_agg(DISTINCT tc.credit_key)       AS roles
-       FROM track_credits tc
-       LEFT JOIN tracks t ON tc.track_id = t.id
-       WHERE tc.credit_value IS NOT NULL AND tc.credit_value <> ''
-       GROUP BY tc.credit_value
-       ORDER BY COUNT(DISTINCT tc.track_id) DESC, tc.credit_value ASC
+      `WITH canonical_credits AS (
+         SELECT
+           COALESCE(aa.canonical_name, tc.credit_value) AS canonical_name,
+           tc.track_id,
+           tc.credit_key
+         FROM track_credits tc
+         LEFT JOIN artist_aliases aa ON LOWER(tc.credit_value) = LOWER(aa.alias_name)
+         WHERE tc.credit_value IS NOT NULL AND tc.credit_value <> ''
+       )
+       SELECT
+         cc.canonical_name                         AS name,
+         COUNT(DISTINCT cc.track_id)              AS track_count,
+         COUNT(DISTINCT t.album_id)               AS album_count,
+         array_agg(DISTINCT cc.credit_key)        AS roles
+       FROM canonical_credits cc
+       LEFT JOIN tracks t ON cc.track_id = t.id
+       GROUP BY cc.canonical_name
+       ORDER BY COUNT(DISTINCT cc.track_id) DESC, cc.canonical_name ASC
        LIMIT $1 OFFSET $2`,
       [limit, offset]
     );

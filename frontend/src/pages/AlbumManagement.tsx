@@ -8,10 +8,12 @@ import {
   DatabaseOutlined,
   PlusOutlined,
   DeleteOutlined,
+  DownloadOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { TableRowSelection } from 'antd/es/table/interface';
 import { albumService, Album } from '../services/albumService';
+import { creditsService } from '../services/creditsService';
 import { gameService, Game } from '../services/gameService';
 import { discService, Disc } from '../services/discService';
 import { Link, useNavigate } from 'react-router-dom';
@@ -37,6 +39,7 @@ const AlbumManagement: React.FC = () => {
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [bulkGameModalVisible, setBulkGameModalVisible] = useState(false);
   const [bulkGameId, setBulkGameId] = useState<number | null>(null);
+  const [exportingCredits, setExportingCredits] = useState(false);
   const [bpmDetectingAlbumId, setBpmDetectingAlbumId] = useState<number | null>(null);
 
   // Disc management
@@ -559,6 +562,32 @@ const AlbumManagement: React.FC = () => {
     }
   };
 
+  const handleExportCredits = async () => {
+    if (selectedRowKeys.length === 0) {
+      message.warning('请先选择要导出的专辑');
+      return;
+    }
+
+    setExportingCredits(true);
+    try {
+      const albumIds = selectedRowKeys.map(Number);
+      const { blob, fileName } = await creditsService.exportCredits(albumIds);
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = downloadUrl;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      window.URL.revokeObjectURL(downloadUrl);
+      message.success(`已导出 ${selectedRowKeys.length} 张专辑的 Credits`);
+    } catch (error: any) {
+      message.error(error.message || '导出 Credits 失败');
+    } finally {
+      setExportingCredits(false);
+    }
+  };
+
   const hasSelection = selectedRowKeys.length > 0;
 
   return (
@@ -568,12 +597,21 @@ const AlbumManagement: React.FC = () => {
         extra={
           <Space>
             {hasSelection && (
-              <Button
-                icon={<AppstoreOutlined />}
-                onClick={() => setBulkGameModalVisible(true)}
-              >
-                批量设置游戏 ({selectedRowKeys.length})
-              </Button>
+              <>
+                <Button
+                  icon={<DownloadOutlined />}
+                  loading={exportingCredits}
+                  onClick={handleExportCredits}
+                >
+                  导出 Credits ({selectedRowKeys.length})
+                </Button>
+                <Button
+                  icon={<AppstoreOutlined />}
+                  onClick={() => setBulkGameModalVisible(true)}
+                >
+                  批量设置游戏 ({selectedRowKeys.length})
+                </Button>
+              </>
             )}
           </Space>
         }

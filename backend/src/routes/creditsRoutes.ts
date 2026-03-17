@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getCredits, addCredit, updateCredit, deleteCredit, importCredits } from '../controllers/creditsController';
+import { getCredits, addCredit, updateCredit, deleteCredit, importCredits, exportCredits } from '../controllers/creditsController';
 import { authenticateJWT } from '../middleware/auth';
 import { jsonUpload } from '../middleware/upload';
 import { validateBody } from '../middleware/validate';
@@ -13,6 +13,9 @@ router.get('/:id/credits', getCredits);
 // Bulk import from JSON file - require authentication
 // Accepts: multipart/form-data with field "file", OR application/json body
 router.post('/import', authenticateJWT, jsonUpload.single('file'), importCredits);
+
+// Bulk export to JSON file (same schema as import)
+router.post('/export', authenticateJWT, exportCredits);
 
 // Admin routes - require authentication
 router.post('/:id/credits', authenticateJWT, validateBody(addCreditSchema), addCredit);
