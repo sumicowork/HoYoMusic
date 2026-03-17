@@ -78,6 +78,7 @@ const Player: React.FC = () => {
 
   const howlRef = useRef<Howl | null>(null);
   const progressIntervalRef = useRef<number | null>(null);
+  const lastRecordedTrackIdRef = useRef<number | null>(null);
   const setIsPlaying = usePlayerStore((state) => state.setIsPlaying);
   const currentPlayMode = usePlayerStore((state) => state.playMode);
 
@@ -189,6 +190,12 @@ const Player: React.FC = () => {
 
   useEffect(() => {
     if (currentTrack) {
+      // Record one play event per track switch (not on pause/resume).
+      if (lastRecordedTrackIdRef.current !== currentTrack.id) {
+        trackService.recordPlay(currentTrack.id);
+        lastRecordedTrackIdRef.current = currentTrack.id;
+      }
+
       if (howlRef.current) howlRef.current.unload();
       const streamUrl = (IS_STATIC && currentTrack.audio_url)
         ? currentTrack.audio_url
