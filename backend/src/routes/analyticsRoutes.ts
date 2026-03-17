@@ -275,13 +275,24 @@ router.get('/trend', async (req: Request, res: Response) => {
 router.get('/hourly', async (_req: Request, res: Response) => {
   try {
     const result = await pool.query(`
+      WITH hours AS (
+        SELECT generate_series(0, 23) AS hour
+      ),
+      today_logs AS (
+        SELECT
+          EXTRACT(HOUR FROM ts AT TIME ZONE 'Asia/Shanghai')::int AS hour,
+          ip
+        FROM visit_logs
+        WHERE (ts AT TIME ZONE 'Asia/Shanghai')::date = (NOW() AT TIME ZONE 'Asia/Shanghai')::date
+      )
       SELECT
-        EXTRACT(HOUR FROM ts AT TIME ZONE 'Asia/Shanghai')::int AS hour,
-        COUNT(*)::int AS requests,
-        COUNT(DISTINCT ip)::int AS visitors
-      FROM visit_logs
-      WHERE ts >= (NOW() AT TIME ZONE 'Asia/Shanghai')::date AT TIME ZONE 'Asia/Shanghai'
-      GROUP BY 1 ORDER BY 1
+        h.hour,
+        COALESCE(COUNT(t.hour), 0)::int AS requests,
+        COALESCE(COUNT(DISTINCT t.ip), 0)::int AS visitors
+      FROM hours h
+      LEFT JOIN today_logs t ON t.hour = h.hour
+      GROUP BY h.hour
+      ORDER BY h.hour
     `);
     res.json({ success: true, data: result.rows });
   } catch (e: any) { res.status(500).json(safeError(e)); }
