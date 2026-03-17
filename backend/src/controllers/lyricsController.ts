@@ -6,8 +6,10 @@ import path from 'path';
 import pool from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 import storageService from '../services/storageService';
+import remoteResourceCache from '../services/remoteResourceCache';
 
 const LYRICS_DIR = path.join(process.cwd(), 'uploads', 'lyrics');
+const buildLyricsCacheKey = (lyricsPath: string) => `lyrics:${lyricsPath}`;
 
 // Ensure lyrics directory exists
 fs.mkdir(LYRICS_DIR, { recursive: true }).catch(console.error);
@@ -38,6 +40,8 @@ export const uploadLyrics = async (req: Request, res: Response) => {
       'UPDATE tracks SET lyrics_path = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
       [relativePath, id]
     );
+
+    await remoteResourceCache.deleteBinary('lyrics', buildLyricsCacheKey(relativePath));
 
     res.json({
       success: true,
@@ -84,10 +88,15 @@ export const getLyrics = async (req: Request, res: Response) => {
     let lyricsContent: string;
 
     if (storageService.isOSS() && (lyrics_path.startsWith('http://') || lyrics_path.startsWith('https://'))) {
+      const cacheKey = buildLyricsCacheKey(lyrics_path);
+      const cached = await remoteResourceCache.getBinary('lyrics', cacheKey);
+      if (cached) {
+        lyricsContent = cached.buffer.toString('utf-8');
+      } else {
       // OSS 模式：用签名 URL 从 OSS 拉取歌词内容
       const ossService = (await import('../services/ossService')).default;
       const signedUrl = await ossService.getSignedUrl(lyrics_path, 300);
-      lyricsContent = await new Promise<string>((resolve, reject) => {
+      const lyricBuffer = await new Promise<Buffer>((resolve, reject) => {
         const client = signedUrl.startsWith('https') ? https : http;
         client.get(signedUrl, (ossRes) => {
           if (ossRes.statusCode !== 200) {
@@ -95,10 +104,16 @@ export const getLyrics = async (req: Request, res: Response) => {
           }
           const chunks: Buffer[] = [];
           ossRes.on('data', (chunk: Buffer) => chunks.push(chunk));
-          ossRes.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
+          ossRes.on('end', () => resolve(Buffer.concat(chunks)));
           ossRes.on('error', reject);
         }).on('error', reject);
       });
+      lyricsContent = lyricBuffer.toString('utf-8');
+      await remoteResourceCache.setBinary('lyrics', cacheKey, {
+        buffer: lyricBuffer,
+        contentType: 'text/plain; charset=utf-8',
+      });
+      }
     } else {
       // 本地存储模式：读取本地文件
       const filePath = path.join(process.cwd(), 'uploads', lyrics_path);
@@ -157,6 +172,8 @@ export const updateLyrics = async (req: Request, res: Response) => {
     const filePath = path.join(process.cwd(), 'uploads', lyrics_path);
     await fs.writeFile(filePath, lyricsContent, 'utf-8');
 
+    await remoteResourceCache.deleteBinary('lyrics', buildLyricsCacheKey(lyrics_path));
+
     await pool.query(
       'UPDATE tracks SET updated_at = CURRENT_TIMESTAMP WHERE id = $1',
       [id]
@@ -198,6 +215,8 @@ export const deleteLyrics = async (req: Request, res: Response) => {
     const { lyrics_path } = trackResult.rows[0];
 
     if (lyrics_path) {
+      await remoteResourceCache.deleteBinary('lyrics', buildLyricsCacheKey(lyrics_path));
+
       // Delete file
       try {
         const filePath = path.join(process.cwd(), 'uploads', lyrics_path);

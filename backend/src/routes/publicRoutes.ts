@@ -7,6 +7,7 @@ import path from 'path';
 import { getTracks, getTrackById, streamTrack, downloadTrack } from '../controllers/trackController';
 import pool from '../config/database';
 import storageService from '../services/storageService';
+import remoteResourceCache from '../services/remoteResourceCache';
 
 const router = Router();
 
@@ -14,6 +15,24 @@ const router = Router();
 const DOWNLOAD_ENABLED = process.env.DOWNLOAD_ENABLED === 'true';
 const downloadDisabled = (_req: Request, res: Response) =>
   res.status(503).json({ success: false, error: { code: 'DOWNLOAD_DISABLED', message: '下载功能暂时关闭，服务器维护中。' } });
+
+const fetchUrlBuffer = async (url: string): Promise<{ statusCode: number; buffer: Buffer; contentType: string }> => {
+  return await new Promise((resolve, reject) => {
+    const client = url.startsWith('https') ? https : http;
+    client.get(url, (resp) => {
+      const chunks: Buffer[] = [];
+      resp.on('data', (chunk: Buffer) => chunks.push(chunk));
+      resp.on('end', () => {
+        resolve({
+          statusCode: resp.statusCode || 200,
+          buffer: Buffer.concat(chunks),
+          contentType: (resp.headers['content-type'] as string) || 'image/jpeg',
+        });
+      });
+      resp.on('error', reject);
+    }).on('error', reject);
+  });
+};
 // ──────────────────────────────────────────────────────────────────
 
 // ── 封面图片代理（OSS 模式下中转，避免前端直连 OSS）─────────────────
@@ -29,8 +48,8 @@ router.get('/covers/proxy', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: { code: 'MISSING_PARAM', message: 'Missing path parameter' } });
     }
 
-    // Helper: pipe image buffer through sharp for thumbnail (resize only, preserve format & quality)
-    const sendThumbnail = async (imageBuffer: Buffer) => {
+    // Helper: convert image buffer to thumbnail (resize only, preserve format family)
+    const buildThumbnail = async (imageBuffer: Buffer): Promise<{ buffer: Buffer; contentType: string }> => {
       try {
         // Detect original format
         const meta = await sharp(imageBuffer).metadata();
@@ -53,70 +72,46 @@ router.get('/covers/proxy', async (req: Request, res: Response) => {
         }
 
         const thumbBuffer = await pipeline.toBuffer();
-        res.setHeader('Content-Type', contentType);
-        res.setHeader('Content-Length', thumbBuffer.length);
-        res.setHeader('Cache-Control', 'public, max-age=604800'); // 7 days
-        return res.send(thumbBuffer);
+        return { buffer: thumbBuffer, contentType };
       } catch (e) {
-        // sharp fails → send original
-        res.setHeader('Content-Type', 'image/jpeg');
-        res.setHeader('Cache-Control', 'public, max-age=86400');
-        return res.send(imageBuffer);
+        // sharp fails → use original bytes
+        return { buffer: imageBuffer, contentType: 'image/jpeg' };
       }
     };
 
+    const sendImage = (buffer: Buffer, contentType: string, maxAge: number) => {
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Length', buffer.length);
+      res.setHeader('Cache-Control', `public, max-age=${maxAge}`);
+      return res.send(buffer);
+    };
+
     if (storageService.isOSS()) {
+      const cacheKey = `cover:${coverPath}:${isThumb ? 'thumb' : 'origin'}`;
+      const cached = await remoteResourceCache.getBinary('covers', cacheKey);
+      if (cached) {
+        return sendImage(cached.buffer, cached.contentType, isThumb ? 604800 : 86400);
+      }
+
       // OSS 模式：通过签名 URL 中转封面图片
       const ossService = (await import('../services/ossService')).default;
       const signedUrl = await ossService.getSignedUrl(coverPath, 3600); // 1 小时有效
 
       if (isThumb) {
-        // Fetch full image, then resize
-        const proto = signedUrl.startsWith('https') ? https : http;
-        const chunks: Buffer[] = [];
-        proto.get(signedUrl, (ossRes) => {
-          if (ossRes.statusCode === 404) {
-            return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Cover not found' } });
-          }
-          ossRes.on('data', (chunk: Buffer) => chunks.push(chunk));
-          ossRes.on('end', async () => {
-            const imageBuffer = Buffer.concat(chunks);
-            await sendThumbnail(imageBuffer);
-          });
-          ossRes.on('error', (err) => {
-            console.error('[CoverProxy] OSS thumb error:', err);
-            if (!res.headersSent) res.status(500).json({ success: false, error: { code: 'PROXY_ERROR', message: 'Proxy error' } });
-          });
-        }).on('error', (err) => {
-          console.error('[CoverProxy] OSS request error:', err);
-          if (!res.headersSent) res.status(500).json({ success: false, error: { code: 'PROXY_ERROR', message: 'Proxy error' } });
-        });
-        return;
-      }
-
-      const ossRequest = (signedUrl.startsWith('https') ? https : http).get(signedUrl, (ossRes) => {
-        if (ossRes.statusCode === 404) {
+        const remote = await fetchUrlBuffer(signedUrl);
+        if (remote.statusCode === 404) {
           return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Cover not found' } });
         }
-
-        const forwardHeaders: Record<string, string> = {
-          'Content-Type': (ossRes.headers['content-type'] as string) || 'image/jpeg',
-          'Cache-Control': 'public, max-age=86400', // 浏览器缓存 1 天
-        };
-        if (ossRes.headers['content-length']) {
-          forwardHeaders['Content-Length'] = ossRes.headers['content-length'] as string;
-        }
-        res.writeHead(ossRes.statusCode || 200, forwardHeaders);
-        ossRes.pipe(res);
-      });
-
-      ossRequest.on('error', (err) => {
-        console.error('[CoverProxy] OSS proxy error:', err);
-        if (!res.headersSent) {
-          res.status(500).json({ success: false, error: { code: 'PROXY_ERROR', message: 'Failed to proxy cover from OSS' } });
-        }
-      });
-      return;
+        const thumb = await buildThumbnail(remote.buffer);
+        await remoteResourceCache.setBinary('covers', cacheKey, thumb);
+        return sendImage(thumb.buffer, thumb.contentType, 604800);
+      }
+      const remote = await fetchUrlBuffer(signedUrl);
+      if (remote.statusCode === 404) {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Cover not found' } });
+      }
+      await remoteResourceCache.setBinary('covers', cacheKey, { buffer: remote.buffer, contentType: remote.contentType });
+      return sendImage(remote.buffer, remote.contentType, 86400);
     }
 
     // 本地 / WebDAV 模式
@@ -129,7 +124,8 @@ router.get('/covers/proxy', async (req: Request, res: Response) => {
           remoteRes.on('data', (chunk: Buffer) => chunks.push(chunk));
           remoteRes.on('end', async () => {
             const imageBuffer = Buffer.concat(chunks);
-            await sendThumbnail(imageBuffer);
+            const thumb = await buildThumbnail(imageBuffer);
+            sendImage(thumb.buffer, thumb.contentType, 604800);
           });
           remoteRes.on('error', () => res.redirect(coverPath));
         }).on('error', () => res.redirect(coverPath));
@@ -146,7 +142,8 @@ router.get('/covers/proxy', async (req: Request, res: Response) => {
       const fullPath = path.join(UPLOAD_DIR, stripped);
       if (fs.existsSync(fullPath)) {
         const imageBuffer = fs.readFileSync(fullPath);
-        await sendThumbnail(imageBuffer);
+        const thumb = await buildThumbnail(imageBuffer);
+        sendImage(thumb.buffer, thumb.contentType, 604800);
         return;
       }
     }
