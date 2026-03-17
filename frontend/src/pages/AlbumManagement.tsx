@@ -42,6 +42,10 @@ const AlbumManagement: React.FC = () => {
   const [exportingCredits, setExportingCredits] = useState(false);
   const [exportModalVisible, setExportModalVisible] = useState(false);
   const [exportAlbumIds, setExportAlbumIds] = useState<number[]>([]);
+  const [exportAlbums, setExportAlbums] = useState<Album[]>([]);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportSearchText, setExportSearchText] = useState('');
+  const [exportPagination, setExportPagination] = useState({ current: 1, pageSize: 20, total: 0 });
   const [bpmDetectingAlbumId, setBpmDetectingAlbumId] = useState<number | null>(null);
 
   // Disc management
@@ -591,6 +595,42 @@ const AlbumManagement: React.FC = () => {
     }
   };
 
+  const fetchExportAlbums = async (page = 1, pageSize?: number, search?: string) => {
+    const size = pageSize ?? exportPagination.pageSize;
+    const keyword = search ?? exportSearchText;
+    setExportLoading(true);
+    try {
+      const data = await albumService.getAlbums(page, size, keyword);
+      setExportAlbums(data.albums);
+      setExportPagination({
+        current: data.pagination.page,
+        pageSize: size,
+        total: data.pagination.total,
+      });
+    } catch (error: any) {
+      message.error(error.message || '获取可导出专辑失败');
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  const openExportModal = () => {
+    setExportAlbumIds([]);
+    setExportSearchText('');
+    setExportModalVisible(true);
+    fetchExportAlbums(1, exportPagination.pageSize, '');
+  };
+
+  const handleSelectExportCurrentPage = () => {
+    const ids = exportAlbums.map((album) => album.id);
+    setExportAlbumIds((prev) => Array.from(new Set([...prev, ...ids])));
+  };
+
+  const handleUnselectExportCurrentPage = () => {
+    const currentPageIds = new Set(exportAlbums.map((album) => album.id));
+    setExportAlbumIds((prev) => prev.filter((id) => !currentPageIds.has(id)));
+  };
+
   const hasSelection = selectedRowKeys.length > 0;
 
   return (
@@ -609,10 +649,7 @@ const AlbumManagement: React.FC = () => {
             )}
             <Button
               icon={<DownloadOutlined />}
-              onClick={() => {
-                setExportAlbumIds([]);
-                setExportModalVisible(true);
-              }}
+              onClick={openExportModal}
             >
               导出 Credits
             </Button>
@@ -923,21 +960,67 @@ const AlbumManagement: React.FC = () => {
       >
         <Space direction="vertical" style={{ width: '100%' }} size={10}>
           <div style={{ color: 'var(--text-secondary)' }}>
-            点击后可批量选择要导出的专辑，导出格式与 Credits 导入格式一致。
+            可搜索并跨页批量选择专辑，导出格式与 Credits 导入格式一致。
           </div>
-          <Select
-            mode="multiple"
+          <Input.Search
             allowClear
-            showSearch
-            placeholder="请选择要导出的专辑（可多选）"
-            optionFilterProp="label"
-            style={{ width: '100%' }}
-            value={exportAlbumIds}
-            onChange={(value) => setExportAlbumIds(value as number[])}
-            options={albums.map((album) => ({
-              value: album.id,
-              label: album.title,
-            }))}
+            placeholder="搜索专辑标题"
+            value={exportSearchText}
+            onChange={(e) => setExportSearchText(e.target.value)}
+            onSearch={(value) => {
+              setExportSearchText(value);
+              fetchExportAlbums(1, exportPagination.pageSize, value);
+            }}
+          />
+          <Space wrap>
+            <Button onClick={handleSelectExportCurrentPage} disabled={exportAlbums.length === 0}>全选当前页</Button>
+            <Button onClick={handleUnselectExportCurrentPage} disabled={exportAlbums.length === 0}>取消当前页</Button>
+            <Button onClick={() => setExportAlbumIds([])} disabled={exportAlbumIds.length === 0}>清空已选</Button>
+            <span style={{ color: 'var(--text-secondary)' }}>已选 {exportAlbumIds.length} 张</span>
+          </Space>
+          <Table
+            rowKey="id"
+            size="small"
+            loading={exportLoading}
+            dataSource={exportAlbums}
+            pagination={{
+              ...exportPagination,
+              showSizeChanger: true,
+              pageSizeOptions: ['10', '20', '50', '100'],
+              showTotal: (total: number) => `共 ${total} 张专辑`,
+            }}
+            onChange={(newPagination) => {
+              const newSize = newPagination.pageSize || exportPagination.pageSize;
+              const newPage = newPagination.pageSize !== exportPagination.pageSize ? 1 : (newPagination.current || 1);
+              fetchExportAlbums(newPage, newSize, exportSearchText);
+            }}
+            rowSelection={{
+              selectedRowKeys: exportAlbumIds,
+              preserveSelectedRowKeys: true,
+              onChange: (keys) => setExportAlbumIds(keys as number[]),
+            }}
+            columns={[
+              {
+                title: '专辑',
+                dataIndex: 'title',
+                key: 'title',
+                ellipsis: true,
+              },
+              {
+                title: '游戏',
+                dataIndex: 'game_name',
+                key: 'game_name',
+                width: 180,
+                render: (gameName: string | undefined) => gameName || '-',
+              },
+              {
+                title: '曲目数',
+                dataIndex: 'track_count',
+                key: 'track_count',
+                width: 100,
+                render: (count: number | undefined) => count ?? 0,
+              },
+            ]}
           />
         </Space>
       </Modal>
