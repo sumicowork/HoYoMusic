@@ -40,6 +40,8 @@ const AlbumManagement: React.FC = () => {
   const [bulkGameModalVisible, setBulkGameModalVisible] = useState(false);
   const [bulkGameId, setBulkGameId] = useState<number | null>(null);
   const [exportingCredits, setExportingCredits] = useState(false);
+  const [exportModalVisible, setExportModalVisible] = useState(false);
+  const [exportAlbumIds, setExportAlbumIds] = useState<number[]>([]);
   const [bpmDetectingAlbumId, setBpmDetectingAlbumId] = useState<number | null>(null);
 
   // Disc management
@@ -563,15 +565,14 @@ const AlbumManagement: React.FC = () => {
   };
 
   const handleExportCredits = async () => {
-    if (selectedRowKeys.length === 0) {
-      message.warning('请先选择要导出的专辑');
+    if (exportAlbumIds.length === 0) {
+      message.warning('请先在弹窗中选择要导出的专辑');
       return;
     }
 
     setExportingCredits(true);
     try {
-      const albumIds = selectedRowKeys.map(Number);
-      const { blob, fileName } = await creditsService.exportCredits(albumIds);
+      const { blob, fileName } = await creditsService.exportCredits(exportAlbumIds);
       const downloadUrl = window.URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = downloadUrl;
@@ -580,7 +581,9 @@ const AlbumManagement: React.FC = () => {
       anchor.click();
       document.body.removeChild(anchor);
       window.URL.revokeObjectURL(downloadUrl);
-      message.success(`已导出 ${selectedRowKeys.length} 张专辑的 Credits`);
+      message.success(`已导出 ${exportAlbumIds.length} 张专辑的 Credits`);
+      setExportModalVisible(false);
+      setExportAlbumIds([]);
     } catch (error: any) {
       message.error(error.message || '导出 Credits 失败');
     } finally {
@@ -597,22 +600,22 @@ const AlbumManagement: React.FC = () => {
         extra={
           <Space>
             {hasSelection && (
-              <>
-                <Button
-                  icon={<DownloadOutlined />}
-                  loading={exportingCredits}
-                  onClick={handleExportCredits}
-                >
-                  导出 Credits ({selectedRowKeys.length})
-                </Button>
-                <Button
-                  icon={<AppstoreOutlined />}
-                  onClick={() => setBulkGameModalVisible(true)}
-                >
-                  批量设置游戏 ({selectedRowKeys.length})
-                </Button>
-              </>
+              <Button
+                icon={<AppstoreOutlined />}
+                onClick={() => setBulkGameModalVisible(true)}
+              >
+                批量设置游戏 ({selectedRowKeys.length})
+              </Button>
             )}
+            <Button
+              icon={<DownloadOutlined />}
+              onClick={() => {
+                setExportAlbumIds([]);
+                setExportModalVisible(true);
+              }}
+            >
+              导出 Credits
+            </Button>
           </Space>
         }
       >
@@ -902,6 +905,41 @@ const AlbumManagement: React.FC = () => {
             </Select.Option>
           ))}
         </Select>
+      </Modal>
+
+      {/* Export Credits Modal */}
+      <Modal
+        title="导出 Credits"
+        open={exportModalVisible}
+        onOk={handleExportCredits}
+        onCancel={() => {
+          if (exportingCredits) return;
+          setExportModalVisible(false);
+          setExportAlbumIds([]);
+        }}
+        okText={exportingCredits ? '导出中...' : `导出 (${exportAlbumIds.length})`}
+        cancelText="取消"
+        okButtonProps={{ loading: exportingCredits }}
+      >
+        <Space direction="vertical" style={{ width: '100%' }} size={10}>
+          <div style={{ color: 'var(--text-secondary)' }}>
+            点击后可批量选择要导出的专辑，导出格式与 Credits 导入格式一致。
+          </div>
+          <Select
+            mode="multiple"
+            allowClear
+            showSearch
+            placeholder="请选择要导出的专辑（可多选）"
+            optionFilterProp="label"
+            style={{ width: '100%' }}
+            value={exportAlbumIds}
+            onChange={(value) => setExportAlbumIds(value as number[])}
+            options={albums.map((album) => ({
+              value: album.id,
+              label: album.title,
+            }))}
+          />
+        </Space>
       </Modal>
     </AdminLayout>
   );
