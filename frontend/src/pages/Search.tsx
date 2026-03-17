@@ -10,7 +10,7 @@ import {
   SortAscendingOutlined, ReloadOutlined, InfoCircleOutlined,
   TagOutlined, FolderOutlined,
 } from '@ant-design/icons';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import type { ColumnsType } from 'antd/es/table';
 import { Track } from '../types';
 import { trackService, TrackSearchParams, DOWNLOAD_ENABLED } from '../services/trackService';
@@ -64,7 +64,6 @@ function organizeTagsByGroup(tags: TagType[], groups: TagGroup[]) {
 }
 
 const Search: React.FC = () => {
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { playTrackOnly, addToPlaylist } = usePlayerStore();
   const { addSearch } = useSearchStore();
@@ -255,9 +254,9 @@ const Search: React.FC = () => {
       key: 'title',
       ellipsis: true,
       render: (title, record) => (
-        <a className="search-track-title" onClick={() => navigate(`/track/${record.id}`)}>
+        <Link className="search-track-title" to={`/track/${record.id}`}>
           {title}
-        </a>
+        </Link>
       ),
     },
     {
@@ -266,7 +265,11 @@ const Search: React.FC = () => {
       key: 'album',
       ellipsis: true,
       responsive: ['sm'],
-      render: (t: string) => t ? <Text type="secondary">{t}</Text> : '—',
+      render: (t: string, record: Track) => {
+        if (!t) return '—';
+        if (!record.album_id) return <Text type="secondary">{t}</Text>;
+        return <Link to={`/albums/${record.album_id}`}>{t}</Link>;
+      },
     },
     {
       title: '时长',

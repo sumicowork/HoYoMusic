@@ -14,7 +14,7 @@ import type { TableRowSelection } from 'antd/es/table/interface';
 import { albumService, Album } from '../services/albumService';
 import { gameService, Game } from '../services/gameService';
 import { discService, Disc } from '../services/discService';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import AlbumCoverUpload from '../components/AlbumCoverUpload';
 import AdminLayout from '../components/AdminLayout';
@@ -463,6 +463,7 @@ const AlbumManagement: React.FC = () => {
       dataIndex: 'title',
       key: 'title',
       ellipsis: true,
+      render: (title: string, record: Album) => <Link to={`/albums/${record.id}`}>{title}</Link>,
     },
     {
       title: '游戏',
@@ -811,7 +812,11 @@ const AlbumManagement: React.FC = () => {
           dataSource={[...discTracks].sort((a, b) => (a.track_number || 9999) - (b.track_number || 9999))}
           columns={[
             { title: '#', dataIndex: 'track_number', width: 70, render: (v: number) => v || '-' },
-            { title: '曲目', dataIndex: 'title' },
+            {
+              title: '曲目',
+              dataIndex: 'title',
+              render: (title: string, record: Track) => <Link to={`/track/${record.id}`}>{title}</Link>,
+            },
             {
               title: '分碟',
               width: 220,

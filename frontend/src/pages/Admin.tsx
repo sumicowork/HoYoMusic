@@ -18,6 +18,7 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import type { TableRowSelection } from 'antd/es/table/interface';
 import dayjs from 'dayjs';
+import { Link } from 'react-router-dom';
 import { Track } from '../types';
 import { trackService } from '../services/trackService';
 import { usePlayerStore } from '../store/playerStore';
@@ -197,6 +198,7 @@ const Admin: React.FC = () => {
       dataIndex: 'title',
       key: 'title',
       ellipsis: true,
+      render: (title: string, record: Track) => <Link to={`/track/${record.id}`}>{title}</Link>,
     },
     {
       title: '专辑',
@@ -204,6 +206,11 @@ const Admin: React.FC = () => {
       key: 'album',
       ellipsis: true,
       responsive: ['sm'],
+      render: (albumTitle: string, record: Track) => {
+        if (!albumTitle) return '—';
+        if (!record.album_id) return albumTitle;
+        return <Link to={`/albums/${record.album_id}`}>{albumTitle}</Link>;
+      },
     },
     {
       title: '时长',

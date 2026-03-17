@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card, Descriptions, Empty } from 'antd';
+import { useNavigate } from 'react-router-dom';
 import './CreditsDisplay.css';
 
 interface Credit {
@@ -14,6 +15,47 @@ interface CreditsDisplayProps {
 }
 
 const CreditsDisplay: React.FC<CreditsDisplayProps> = ({ credits }) => {
+  const navigate = useNavigate();
+
+  const isCreatorField = (key: string) => {
+    const normalized = String(key || '').toLowerCase();
+    return /(artist|vocal|composer|arranger|producer|lyric|歌|词|曲|编|作|制作|演唱|艺术家)/.test(normalized);
+  };
+
+  const renderCreatorLinks = (value: string) => {
+    const parts = String(value || '')
+      .split(/\s*[\/、,，;；&＆]\s*/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    if (parts.length <= 1) {
+      return (
+        <span
+          className="credit-link"
+          onClick={() => navigate(`/artists/${encodeURIComponent(value)}`)}
+        >
+          {value}
+        </span>
+      );
+    }
+
+    return (
+      <>
+        {parts.map((name, index) => (
+          <React.Fragment key={`${name}-${index}`}>
+            <span
+              className="credit-link"
+              onClick={() => navigate(`/artists/${encodeURIComponent(name)}`)}
+            >
+              {name}
+            </span>
+            {index < parts.length - 1 ? ' / ' : ''}
+          </React.Fragment>
+        ))}
+      </>
+    );
+  };
+
   if (!credits || credits.length === 0) {
     return (
       <Card className="credits-card">
@@ -30,7 +72,9 @@ const CreditsDisplay: React.FC<CreditsDisplayProps> = ({ credits }) => {
             key={credit.id}
             label={credit.credit_key}
           >
-            {credit.credit_value}
+            {isCreatorField(credit.credit_key)
+              ? renderCreatorLinks(credit.credit_value)
+              : credit.credit_value}
           </Descriptions.Item>
         ))}
       </Descriptions>

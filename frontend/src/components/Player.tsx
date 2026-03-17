@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Howl } from 'howler';
 import { Slider, Button, Space, Tooltip, Badge } from 'antd';
+import { useNavigate } from 'react-router-dom';
 import {
   PlayCircleOutlined,
   PauseCircleOutlined,
@@ -41,6 +42,7 @@ function parseLrc(content: string): LyricLine[] {
 }
 
 const Player: React.FC = () => {
+  const navigate = useNavigate();
   const {
     currentTrack,
     isPlaying,
@@ -371,9 +373,21 @@ const Player: React.FC = () => {
                 <SoundOutlined style={{ fontSize: 64, opacity: 0.4 }} />
               </div>
             )}
-            <div className="player-expanded-title">{currentTrack.title}</div>
+            <div
+              className="player-expanded-title"
+              style={{ cursor: 'pointer' }}
+              onClick={() => navigate(`/track/${currentTrack.id}`)}
+            >
+              {currentTrack.title}
+            </div>
             {currentTrack.album_title && (
-              <div className="player-expanded-album">{currentTrack.album_title}</div>
+              <div
+                className="player-expanded-album"
+                style={{ cursor: currentTrack.album_id ? 'pointer' : 'default' }}
+                onClick={() => currentTrack.album_id && navigate(`/albums/${currentTrack.album_id}`)}
+              >
+                {currentTrack.album_title}
+              </div>
             )}
           </div>
 
@@ -414,7 +428,13 @@ const Player: React.FC = () => {
                 <img src={coverThumbSrc} alt={currentTrack.title} className="player-cover" style={{ width: 44, height: 44 }} />
               )}
               <div className="player-text">
-                <div className="player-title">{currentTrack.title}</div>
+                <div
+                  className="player-title"
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => navigate(`/track/${currentTrack.id}`)}
+                >
+                  {currentTrack.title}
+                </div>
               </div>
             </div>
 

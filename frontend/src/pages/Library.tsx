@@ -6,7 +6,7 @@ import { Track } from '../types';
 import { trackService, DOWNLOAD_ENABLED } from '../services/trackService';
 import { usePlayerStore } from '../store/playerStore';
 import { useAuthStore } from '../store/authStore';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
 import './Library.css';
 
@@ -115,12 +115,18 @@ const Library: React.FC = () => {
       dataIndex: 'title',
       key: 'title',
       ellipsis: true,
+      render: (title: string, record: Track) => <Link to={`/track/${record.id}`}>{title}</Link>,
     },
     {
       title: '专辑',
       dataIndex: 'album_title',
       key: 'album',
       ellipsis: true,
+      render: (albumTitle: string, record: Track) => {
+        if (!albumTitle) return '—';
+        if (!record.album_id) return albumTitle;
+        return <Link to={`/albums/${record.album_id}`}>{albumTitle}</Link>;
+      },
     },
     {
       title: '时长',

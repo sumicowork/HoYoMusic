@@ -18,3 +18,13 @@
   color: var(--text-primary);
 }
 
+.credits-card .credit-link {
+  color: var(--ant-color-link);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.credits-card .credit-link:hover {
+  text-decoration: underline;
+}
+

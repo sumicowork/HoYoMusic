@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   Layout,
   Button,
@@ -84,19 +84,27 @@ const TagDetail: React.FC = () => {
       title: '标题',
       dataIndex: 'title',
       key: 'title',
-      render: (title: string) => <strong>{title}</strong>,
+      render: (title: string, record: any) => <Link to={`/track/${record.id}`}><strong>{title}</strong></Link>,
     },
     {
       title: '艺术家',
       dataIndex: 'artist_name',
       key: 'artist_name',
       width: 200,
+      render: (artistName: string) => artistName
+        ? <Link to={`/artists/${encodeURIComponent(artistName)}`}>{artistName}</Link>
+        : '—',
     },
     {
       title: '专辑',
       dataIndex: 'album_title',
       key: 'album_title',
       width: 200,
+      render: (albumTitle: string, record: any) => {
+        if (!albumTitle) return '—';
+        if (!record.album_id) return albumTitle;
+        return <Link to={`/albums/${record.album_id}`}>{albumTitle}</Link>;
+      },
     },
     {
       title: '时长',

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Table, Typography, Button, Space, message, Empty, Popconfirm } from 'antd';
 import { PlayCircleOutlined, DeleteOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import { Link } from 'react-router-dom';
 import { usePlayerStore } from '../store/playerStore';
 import playlistService from '../services/playlistService';
 import type { Track } from '../types';
@@ -14,7 +15,7 @@ const PlaylistDetail: React.FC = () => {
   const [playlist, setPlaylist] = useState<any>(null);
   const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
-  const { play, setPlaylist: setPlayerPlaylist } = usePlayerStore();
+  const { play, playTrackOnly, setPlaylist: setPlayerPlaylist } = usePlayerStore();
 
   const loadPlaylist = useCallback(async () => {
     if (!id) return;
@@ -62,13 +63,18 @@ const PlaylistDetail: React.FC = () => {
       dataIndex: 'title',
       key: 'title',
       render: (title: string, record: Track) => (
-        <a onClick={() => play(record)} style={{ cursor: 'pointer' }}>{title}</a>
+        <Link to={`/track/${record.id}`}>{title}</Link>
       ),
     },
     {
       title: '专辑',
       dataIndex: 'album_title',
       key: 'album_title',
+      render: (albumTitle: string, record: Track) => {
+        if (!albumTitle) return '—';
+        if (!record.album_id) return albumTitle;
+        return <Link to={`/albums/${record.album_id}`}>{albumTitle}</Link>;
+      },
     },
     {
       title: '时长',
@@ -80,11 +86,19 @@ const PlaylistDetail: React.FC = () => {
     {
       title: '',
       key: 'actions',
-      width: 60,
+      width: 100,
       render: (_: any, record: Track) => (
-        <Popconfirm title="确认移除?" onConfirm={() => handleRemoveTrack(record.id)}>
-          <Button type="text" danger size="small" icon={<DeleteOutlined />} />
-        </Popconfirm>
+        <Space size={0}>
+          <Button
+            type="text"
+            size="small"
+            icon={<PlayCircleOutlined />}
+            onClick={() => playTrackOnly(record)}
+          />
+          <Popconfirm title="确认移除?" onConfirm={() => handleRemoveTrack(record.id)}>
+            <Button type="text" danger size="small" icon={<DeleteOutlined />} />
+          </Popconfirm>
+        </Space>
       ),
     },
   ];

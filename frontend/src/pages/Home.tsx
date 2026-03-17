@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Layout, message, Skeleton } from 'antd';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 // Detect mobile viewport
 const useIsMobile = () => {
@@ -117,7 +117,14 @@ const TrackItem: React.FC<{ track: Track; onPlay: () => void }> = ({ track, onPl
         onError={handleImageError}
       />
       <div className="rec-track-info">
-        <div className="rec-track-title">{track.title}</div>
+        <div className="rec-track-title">
+          <Link
+            to={`/track/${track.id}`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            {track.title}
+          </Link>
+        </div>
       </div>
       <span className="rec-track-duration">
         <ClockCircleOutlined /> {formatDuration(track.duration)}

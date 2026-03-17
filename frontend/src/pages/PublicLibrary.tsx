@@ -5,7 +5,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { Track } from '../types';
 import { trackService, DOWNLOAD_ENABLED } from '../services/trackService';
 import { usePlayerStore } from '../store/playerStore';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
 import './PublicLibrary.css';
 
@@ -19,7 +19,6 @@ const PublicLibrary: React.FC = () => {
   const [searchText, setSearchText] = useState('');
 
   const { playTrackOnly } = usePlayerStore();
-  const navigate = useNavigate();
 
   const fetchTracks = async (page = 1, search = '', pageSize?: number) => {
     const size = pageSize ?? pagination.pageSize;
@@ -97,12 +96,9 @@ const PublicLibrary: React.FC = () => {
       key: 'title',
       ellipsis: true,
       render: (title: string, record: Track) => (
-        <a
-          onClick={() => navigate(`/track/${record.id}`)}
-          style={{ color: '#1890ff', cursor: 'pointer' }}
-        >
+        <Link to={`/track/${record.id}`} style={{ color: '#1890ff' }}>
           {title}
-        </a>
+        </Link>
       ),
     },
     {
@@ -111,6 +107,11 @@ const PublicLibrary: React.FC = () => {
       key: 'album',
       ellipsis: true,
       responsive: ['sm'],
+      render: (albumTitle: string, record: Track) => {
+        if (!albumTitle) return '—';
+        if (!record.album_id) return albumTitle;
+        return <Link to={`/albums/${record.album_id}`}>{albumTitle}</Link>;
+      },
     },
     {
       title: '时长',

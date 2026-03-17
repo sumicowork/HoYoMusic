@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Typography, Space, Button, Empty, message } from 'antd';
 import { HeartFilled, PlayCircleOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Link } from 'react-router-dom';
 import { usePlayerStore } from '../store/playerStore';
 import favoriteService from '../services/favoriteService';
 import type { Track } from '../types';
@@ -11,7 +12,7 @@ const Favorites: React.FC = () => {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ page: 1, total: 0 });
-  const { play, setPlaylist: setPlayerPlaylist } = usePlayerStore();
+  const { play, playTrackOnly, setPlaylist: setPlayerPlaylist } = usePlayerStore();
 
   const loadFavorites = useCallback(async (page = 1) => {
     setLoading(true);
@@ -51,13 +52,18 @@ const Favorites: React.FC = () => {
       dataIndex: 'title',
       key: 'title',
       render: (title: string, record: Track) => (
-        <a onClick={() => play(record)} style={{ cursor: 'pointer' }}>{title}</a>
+        <Link to={`/track/${record.id}`}>{title}</Link>
       ),
     },
     {
       title: '专辑',
       dataIndex: 'album_title',
       key: 'album_title',
+      render: (albumTitle: string, record: Track) => {
+        if (!albumTitle) return '—';
+        if (!record.album_id) return albumTitle;
+        return <Link to={`/albums/${record.album_id}`}>{albumTitle}</Link>;
+      },
     },
     {
       title: '时长',
@@ -69,15 +75,23 @@ const Favorites: React.FC = () => {
     {
       title: '',
       key: 'actions',
-      width: 60,
+      width: 110,
       render: (_: any, record: Track) => (
-        <Button
-          type="text"
-          danger
-          size="small"
-          icon={<DeleteOutlined />}
-          onClick={() => handleRemove(record.id)}
-        />
+        <Space size={0}>
+          <Button
+            type="text"
+            size="small"
+            icon={<PlayCircleOutlined />}
+            onClick={() => playTrackOnly(record)}
+          />
+          <Button
+            type="text"
+            danger
+            size="small"
+            icon={<DeleteOutlined />}
+            onClick={() => handleRemove(record.id)}
+          />
+        </Space>
       ),
     },
   ];

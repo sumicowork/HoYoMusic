@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Layout, Card, Button, Space, Image, Tag, Skeleton, Descriptions, message, Tooltip, Typography } from 'antd';
 import { ArrowLeftOutlined, PlayCircleOutlined, DownloadOutlined } from '@ant-design/icons';
 import { IS_STATIC } from '../services/api';
@@ -172,7 +172,14 @@ const TrackDetail: React.FC = () => {
 
             <div className="track-info-details">
               <h1>{track.title}</h1>
-              {track.album_title && <h4>专辑：{track.album_title}</h4>}
+              {track.album_title && (
+                <h4>
+                  专辑：
+                  {track.album_id
+                    ? <Link to={`/albums/${track.album_id}`}>{track.album_title}</Link>
+                    : track.album_title}
+                </h4>
+              )}
 
               <Space style={{ marginTop: 16, marginBottom: 24 }} wrap>
                 <Tag color="blue">FLAC</Tag>

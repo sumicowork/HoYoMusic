@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Layout, Table, Button, Space, Tag, Skeleton, Avatar, Tabs, Card, Row, Col, message, Tooltip } from 'antd';
 import { ArrowLeftOutlined, PlayCircleOutlined, DownloadOutlined, UserOutlined } from '@ant-design/icons';
 import { IS_STATIC } from '../services/api';
@@ -107,7 +107,11 @@ const ArtistDetail: React.FC = () => {
       title: '专辑',
       dataIndex: 'album_title',
       key: 'album',
-      render: (album: string) => album || '-',
+      render: (album: string, record: Track) => {
+        if (!album) return '-';
+        if (!record.album_id) return album;
+        return <Link to={`/albums/${record.album_id}`}>{album}</Link>;
+      },
     },
     {
       title: '担任角色',

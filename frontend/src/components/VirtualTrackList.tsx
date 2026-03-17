@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 import { List, type RowComponentProps } from 'react-window';
+import { Link } from 'react-router-dom';
 import { Track } from '../types';
 import { usePlayerStore } from '../store/playerStore';
 import { getCoverUrl, handleImageError } from '../utils/imageUtils';
@@ -62,10 +63,22 @@ const VirtualTrackList: React.FC<Props> = ({ tracks, height, onPlay }) => {
             textOverflow: 'ellipsis',
             fontWeight: isActive ? 600 : 400,
           }}>
-            {track.title}
+            <Link
+              to={`/track/${track.id}`}
+              onClick={(event) => event.stopPropagation()}
+            >
+              {track.title}
+            </Link>
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-tertiary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {track.album_title || ''}
+            {track.album_id && track.album_title ? (
+              <Link
+                to={`/albums/${track.album_id}`}
+                onClick={(event) => event.stopPropagation()}
+              >
+                {track.album_title}
+              </Link>
+            ) : (track.album_title || '')}
           </div>
         </div>
         <span style={{ fontSize: 12, color: 'var(--text-tertiary)', flexShrink: 0 }}>
