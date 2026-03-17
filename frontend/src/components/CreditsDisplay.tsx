@@ -17,14 +17,9 @@ interface CreditsDisplayProps {
 const CreditsDisplay: React.FC<CreditsDisplayProps> = ({ credits }) => {
   const navigate = useNavigate();
 
-  const isCreatorField = (key: string) => {
-    const normalized = String(key || '').toLowerCase();
-    return /(artist|vocal|composer|arranger|producer|lyric|歌|词|曲|编|作|制作|演唱|艺术家)/.test(normalized);
-  };
-
   const renderCreatorLinks = (value: string) => {
     const parts = String(value || '')
-      .split(/\s*[\/、,，;；&＆]\s*/)
+      .split(/\s*(?:\/|、|,|，|;|；|&|＆|\||｜|\+|＋)\s*/)
       .map((item) => item.trim())
       .filter(Boolean);
 
@@ -72,9 +67,7 @@ const CreditsDisplay: React.FC<CreditsDisplayProps> = ({ credits }) => {
             key={credit.id}
             label={credit.credit_key}
           >
-            {isCreatorField(credit.credit_key)
-              ? renderCreatorLinks(credit.credit_value)
-              : credit.credit_value}
+            {credit.credit_value ? renderCreatorLinks(credit.credit_value) : credit.credit_value}
           </Descriptions.Item>
         ))}
       </Descriptions>
