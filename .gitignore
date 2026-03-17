@@ -35,6 +35,12 @@ coverage/
 # Temporary files
 *.tmp
 .cache/
+_*.txt
+*_check.txt
+vite_check.txt
+be_check.txt
+fe_check.txt
+backend/scripts/__pycache__/
 
 # Build / compiler output logs
 build_out.txt

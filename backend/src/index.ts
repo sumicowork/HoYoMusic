@@ -33,6 +33,18 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Remote deployments usually sit behind reverse proxies (Nginx/1Panel).
+const trustProxy = process.env.TRUST_PROXY;
+if (trustProxy === 'true') {
+  app.set('trust proxy', true);
+} else if (trustProxy === 'false') {
+  app.set('trust proxy', false);
+} else if (trustProxy && !Number.isNaN(Number(trustProxy))) {
+  app.set('trust proxy', Number(trustProxy));
+} else {
+  app.set('trust proxy', 1);
+}
+
 // ── Security Middleware ─────────────────────────────────────────
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },

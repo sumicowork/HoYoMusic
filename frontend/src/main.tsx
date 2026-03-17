@@ -15,9 +15,7 @@ import '@fontsource/plus-jakarta-sans/latin-800.css';
 import '@fontsource/noto-serif-sc/latin-400.css';
 import '@fontsource/noto-serif-sc/latin-700.css';
 import '@fontsource/noto-serif-sc/chinese-simplified-400.css';
-import '@fontsource/noto-serif-sc/chinese-simplified-500.css';
 import '@fontsource/noto-serif-sc/chinese-simplified-700.css';
-import '@fontsource/noto-serif-sc/chinese-simplified-900.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

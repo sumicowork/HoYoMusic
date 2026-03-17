@@ -22,13 +22,8 @@ body {
   overflow-x: hidden;
 }
 
-/* ── Global lazy loading ─────────────────────────────────── */
-/* All images are lazy-loaded by default unless they have loading="eager" */
-img {
-  loading: lazy; /* declarative hint (CSS) */
-}
-
-/* Native lazy load on all img elements without explicit attribute */
+/* ── Image rendering defaults ─────────────────────────────── */
+/* Note: native lazy-load must be set in markup via loading="lazy". */
 img:not([loading]) {
   content-visibility: auto;
 }
