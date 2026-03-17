@@ -189,7 +189,14 @@ const Analytics: React.FC = () => {
     try {
       const result = await api.post('/analytics/cache/warmup');
       setCacheInfo(result.data.data);
-      message.success('缓存已刷新并完成预热');
+      const remoteWarmup = result?.data?.data?.remoteWarmup;
+      if (remoteWarmup) {
+        message.success(
+          `预热完成：封面拉取 ${remoteWarmup.covers?.fetched || 0}/${remoteWarmup.covers?.checked || 0}，歌词拉取 ${remoteWarmup.lyrics?.fetched || 0}/${remoteWarmup.lyrics?.checked || 0}`
+        );
+      } else {
+        message.success('缓存已刷新并完成预热');
+      }
       await fetchAll();
     } catch (e) {
       console.error('[Analytics warmup]', e);

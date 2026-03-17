@@ -1,8 +1,11 @@
 import { Router, Request, Response } from 'express';
+import http from 'http';
+import https from 'https';
 import pool from '../config/database';
 import { authenticateJWT } from '../middleware/auth';
 import { cache } from '../utils/cache';
 import remoteResourceCache from '../services/remoteResourceCache';
+import storageService from '../services/storageService';
 
 const router = Router();
 router.use(authenticateJWT as any);
@@ -13,6 +16,118 @@ const clampDays = (v: any, max = 90) => Math.min(Math.max(parseInt(v) || 30, 1),
 const safeError = (e: any) => {
   const msg = process.env.NODE_ENV === 'production' ? 'Internal server error' : (e?.message || 'Unknown error');
   return { success: false, error: { code: 'ANALYTICS_ERROR', message: msg } };
+};
+
+const fetchUrlBuffer = async (url: string): Promise<{ statusCode: number; buffer: Buffer; contentType: string }> => {
+  return await new Promise((resolve, reject) => {
+    const client = url.startsWith('https') ? https : http;
+    client.get(url, (resp) => {
+      const chunks: Buffer[] = [];
+      resp.on('data', (chunk: Buffer) => chunks.push(chunk));
+      resp.on('end', () => {
+        resolve({
+          statusCode: resp.statusCode || 200,
+          buffer: Buffer.concat(chunks),
+          contentType: (resp.headers['content-type'] as string) || 'application/octet-stream',
+        });
+      });
+      resp.on('error', reject);
+    }).on('error', reject);
+  });
+};
+
+const warmupRemoteResourceCache = async () => {
+  const summary = {
+    enabled: remoteResourceCache.isEnabled(),
+    storageMode: storageService.isOSS() ? 'oss' : storageService.isWebDAV() ? 'webdav' : 'local',
+    covers: { checked: 0, fetched: 0, skipped: 0, failed: 0 },
+    lyrics: { checked: 0, fetched: 0, skipped: 0, failed: 0 },
+  };
+
+  if (!remoteResourceCache.isEnabled() || !storageService.isOSS()) {
+    return summary;
+  }
+
+  const ossService = (await import('../services/ossService')).default;
+  const coverLimit = Math.min(Math.max(parseInt(process.env.WARMUP_REMOTE_COVERS_LIMIT || '80', 10), 1), 300);
+  const lyricsLimit = Math.min(Math.max(parseInt(process.env.WARMUP_REMOTE_LYRICS_LIMIT || '80', 10), 1), 300);
+
+  const [coversResult, lyricsResult] = await Promise.all([
+    pool.query(
+      `SELECT cover_path FROM (
+         SELECT cover_path, updated_at FROM albums WHERE cover_path IS NOT NULL AND cover_path <> ''
+         UNION
+         SELECT cover_path, updated_at FROM tracks WHERE cover_path IS NOT NULL AND cover_path <> ''
+         UNION
+         SELECT cover_path, updated_at FROM games  WHERE cover_path IS NOT NULL AND cover_path <> ''
+       ) c
+       ORDER BY updated_at DESC NULLS LAST
+       LIMIT $1`,
+      [coverLimit]
+    ),
+    pool.query(
+      `SELECT lyrics_path
+       FROM tracks
+       WHERE lyrics_path IS NOT NULL AND lyrics_path <> ''
+       ORDER BY updated_at DESC NULLS LAST
+       LIMIT $1`,
+      [lyricsLimit]
+    ),
+  ]);
+
+  const coverPaths = Array.from(new Set(coversResult.rows.map((r) => String(r.cover_path).trim()).filter(Boolean)));
+  const lyricsPaths = Array.from(new Set(lyricsResult.rows.map((r) => String(r.lyrics_path).trim()).filter(Boolean)));
+
+  for (const coverPath of coverPaths) {
+    summary.covers.checked += 1;
+    const cacheKey = `cover:${coverPath}:origin`;
+    const cached = await remoteResourceCache.getBinary('covers', cacheKey);
+    if (cached) {
+      summary.covers.skipped += 1;
+      continue;
+    }
+
+    try {
+      const signedUrl = await ossService.getSignedUrl(coverPath, 600);
+      const remote = await fetchUrlBuffer(signedUrl);
+      if (remote.statusCode >= 200 && remote.statusCode < 300) {
+        await remoteResourceCache.setBinary('covers', cacheKey, { buffer: remote.buffer, contentType: remote.contentType });
+        summary.covers.fetched += 1;
+      } else {
+        summary.covers.failed += 1;
+      }
+    } catch {
+      summary.covers.failed += 1;
+    }
+  }
+
+  for (const lyricsPath of lyricsPaths) {
+    summary.lyrics.checked += 1;
+    const cacheKey = `lyrics:${lyricsPath}`;
+    const cached = await remoteResourceCache.getBinary('lyrics', cacheKey);
+    if (cached) {
+      summary.lyrics.skipped += 1;
+      continue;
+    }
+
+    try {
+      const signedUrl = await ossService.getSignedUrl(lyricsPath, 600);
+      const remote = await fetchUrlBuffer(signedUrl);
+      if (remote.statusCode >= 200 && remote.statusCode < 300) {
+        await remoteResourceCache.setBinary('lyrics', cacheKey, {
+          buffer: remote.buffer,
+          contentType: remote.contentType || 'text/plain; charset=utf-8',
+        });
+        summary.lyrics.fetched += 1;
+      } else {
+        summary.lyrics.failed += 1;
+      }
+    } catch {
+      summary.lyrics.failed += 1;
+    }
+  }
+
+  return summary;
 };
 
 const warmupAppCache = async () => {
@@ -322,7 +437,10 @@ router.get('/cache', async (_req: Request, res: Response) => {
 router.post('/cache/warmup', async (_req: Request, res: Response) => {
   try {
     cache.clear();
-    const warmedKeys = await warmupAppCache();
+    const [warmedKeys, remoteWarmup] = await Promise.all([
+      warmupAppCache(),
+      warmupRemoteResourceCache(),
+    ]);
     const [remote] = await Promise.all([
       remoteResourceCache.stats(),
     ]);
@@ -332,6 +450,7 @@ router.post('/cache/warmup', async (_req: Request, res: Response) => {
       data: {
         message: '缓存已刷新并完成预热',
         warmedKeys,
+        remoteWarmup,
         appCache: cache.snapshot(80),
         remoteCache: remote,
       },
