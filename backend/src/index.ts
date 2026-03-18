@@ -291,6 +291,31 @@ const runMigrations = async () => {
     console.error('⚠️  tracks column migration warning:', err);
   }
 
+  // effective play events for top-tracks and heat analytics
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS track_play_events (
+        id BIGSERIAL PRIMARY KEY,
+        track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+        played_seconds NUMERIC(10,2) NOT NULL DEFAULT 0,
+        track_duration_seconds NUMERIC(10,2),
+        min_required_seconds NUMERIC(10,2) NOT NULL,
+        effective_play BOOLEAN NOT NULL DEFAULT FALSE,
+        source_ip VARCHAR(64),
+        user_agent TEXT,
+        session_key VARCHAR(128) NOT NULL,
+        played_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE(track_id, session_key)
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_track_play_events_played_at ON track_play_events (played_at DESC)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_track_play_events_track_effective ON track_play_events (track_id, effective_play, played_at DESC)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_track_play_events_source_ip ON track_play_events (source_ip)`);
+    console.log('✅ DB migrations up to date (track_play_events)');
+  } catch (err) {
+    console.error('⚠️  track_play_events migration warning:', err);
+  }
+
   // Add notes column to albums and tracks
   try {
     await pool.query(`ALTER TABLE albums ADD COLUMN IF NOT EXISTS notes TEXT`);

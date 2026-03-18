@@ -51,6 +51,24 @@ const DEVICE_ICON: Record<string, React.ReactNode> = {
   desktop: <DesktopOutlined />,
 };
 
+interface HotTrackRow {
+  track_id: number;
+  track_title: string;
+  album_id: number | null;
+  album_title: string | null;
+  effective_plays: number;
+  unique_ips: number;
+  avg_played_seconds: number | null;
+  last_played_at: string;
+}
+
+interface HotTrackIpSourceRow {
+  ip: string;
+  effective_plays: number;
+  avg_played_seconds: number | null;
+  last_played_at: string;
+}
+
 // ── Storage analytics sub-component ──────────────────────────────
 const StorageAnalytics: React.FC = () => {
   const [data, setData] = useState<any>(null);
@@ -140,6 +158,10 @@ const Analytics: React.FC = () => {
   const [recent, setRecent]         = useState<any[]>([]);
   const [referers, setReferers]     = useState<any[]>([]);
   const [cacheInfo, setCacheInfo]   = useState<any>(null);
+  const [hotTracks, setHotTracks]   = useState<HotTrackRow[]>([]);
+  const [selectedHotTrack, setSelectedHotTrack] = useState<HotTrackRow | null>(null);
+  const [hotTrackIps, setHotTrackIps] = useState<HotTrackIpSourceRow[]>([]);
+  const [hotTrackIpsLoading, setHotTrackIpsLoading] = useState(false);
   const [loading, setLoading]       = useState(true);
   const [warming, setWarming]       = useState(false);
   const [lastRefresh, setLast]      = useState(new Date());
@@ -147,7 +169,7 @@ const Analytics: React.FC = () => {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [ov, tr, hr, cn, pg, dv, sc, pf, rc, rf, ch] = await Promise.all([
+      const [ov, tr, hr, cn, pg, dv, sc, pf, rc, rf, ch, ht] = await Promise.all([
         api.get('/analytics/overview'),
         api.get(`/analytics/trend?days=${days}`),
         api.get('/analytics/hourly'),
@@ -159,6 +181,7 @@ const Analytics: React.FC = () => {
         api.get('/analytics/recent?limit=100'),
         api.get(`/analytics/referers?days=${days}`),
         api.get('/analytics/cache'),
+        api.get(`/analytics/tracks/hot?days=${days}&limit=50`),
       ]);
       setOverview(ov.data.data);
       setTrend(tr.data.data);
@@ -174,6 +197,7 @@ const Analytics: React.FC = () => {
       setRecent(rc.data.data);
       setReferers(rf.data.data);
       setCacheInfo(ch.data.data);
+      setHotTracks(ht.data.data || []);
       setLast(new Date());
     } catch (e) {
       console.error('[Analytics]', e);
@@ -183,6 +207,26 @@ const Analytics: React.FC = () => {
   }, [days]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  useEffect(() => {
+    setSelectedHotTrack(null);
+    setHotTrackIps([]);
+  }, [days]);
+
+  const fetchHotTrackIps = async (track: HotTrackRow) => {
+    setSelectedHotTrack(track);
+    setHotTrackIpsLoading(true);
+    try {
+      const response = await api.get(`/analytics/tracks/${track.track_id}/ip-sources?days=${days}`);
+      setHotTrackIps(response.data?.data?.ipSources || []);
+    } catch (e) {
+      console.error('[Analytics hot track ips]', e);
+      message.error('加载来源 IP 失败');
+      setHotTrackIps([]);
+    } finally {
+      setHotTrackIpsLoading(false);
+    }
+  };
 
   const handleWarmup = async () => {
     setWarming(true);
@@ -450,6 +494,92 @@ const Analytics: React.FC = () => {
                     ))}
                   </Col>
                 </Row>
+              </Card>
+            </Col>
+          </Row>
+
+          <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+            <Col xs={24} lg={15}>
+              <Card title="🔥 歌曲热度（有效播放）" className="analytics-card">
+                <Table
+                  size="small"
+                  rowKey="track_id"
+                  dataSource={hotTracks}
+                  pagination={{ pageSize: 10, size: 'small', showSizeChanger: false }}
+                  columns={[
+                    {
+                      title: '歌曲',
+                      dataIndex: 'track_title',
+                      ellipsis: true,
+                      render: (v: string, r: HotTrackRow) => (
+                        <div>
+                          <div style={{ fontWeight: 500 }}>{v}</div>
+                          <Text type="secondary" style={{ fontSize: 12 }}>{r.album_title || '-'}</Text>
+                        </div>
+                      ),
+                    },
+                    {
+                      title: '有效播放',
+                      dataIndex: 'effective_plays',
+                      width: 92,
+                      align: 'right',
+                      sorter: (a: HotTrackRow, b: HotTrackRow) => a.effective_plays - b.effective_plays,
+                      defaultSortOrder: 'descend',
+                    },
+                    { title: '独立IP', dataIndex: 'unique_ips', width: 82, align: 'right' },
+                    {
+                      title: '均播放秒数',
+                      dataIndex: 'avg_played_seconds',
+                      width: 100,
+                      align: 'right',
+                      render: (v: number | null) => (v == null ? '-' : `${Number(v).toFixed(1)}s`),
+                    },
+                    {
+                      title: '来源IP',
+                      width: 96,
+                      render: (_: any, r: HotTrackRow) => (
+                        <Button size="small" onClick={() => fetchHotTrackIps(r)}>查看</Button>
+                      ),
+                    },
+                  ]}
+                />
+              </Card>
+            </Col>
+
+            <Col xs={24} lg={9}>
+              <Card
+                title={selectedHotTrack ? `来源 IP - ${selectedHotTrack.track_title}` : '来源 IP 明细'}
+                className="analytics-card"
+              >
+                <Table
+                  size="small"
+                  loading={hotTrackIpsLoading}
+                  rowKey={(r: HotTrackIpSourceRow, i?: number) => `${r.ip}-${i}`}
+                  dataSource={hotTrackIps}
+                  pagination={{ pageSize: 8, size: 'small', showSizeChanger: false }}
+                  locale={{ emptyText: selectedHotTrack ? '暂无有效播放来源 IP' : '请先选择左侧歌曲' }}
+                  columns={[
+                    {
+                      title: 'IP',
+                      dataIndex: 'ip',
+                      render: (v: string) => <Text copyable style={{ fontSize: 12, fontFamily: 'monospace' }}>{v || '-'}</Text>,
+                    },
+                    { title: '有效播放', dataIndex: 'effective_plays', width: 80, align: 'right' },
+                    {
+                      title: '均秒数',
+                      dataIndex: 'avg_played_seconds',
+                      width: 80,
+                      align: 'right',
+                      render: (v: number | null) => (v == null ? '-' : `${Number(v).toFixed(1)}s`),
+                    },
+                    {
+                      title: '最后时间',
+                      dataIndex: 'last_played_at',
+                      width: 140,
+                      render: (v: string) => <Text style={{ fontSize: 12 }}>{fmtTime(v)}</Text>,
+                    },
+                  ]}
+                />
               </Card>
             </Col>
           </Row>

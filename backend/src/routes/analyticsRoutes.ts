@@ -486,6 +486,84 @@ router.get('/referers', async (req: Request, res: Response) => {
   } catch (e: any) { res.status(500).json(safeError(e)); }
 });
 
+// ── Hot tracks by effective plays ────────────────────────────────
+router.get('/tracks/hot', async (req: Request, res: Response) => {
+  try {
+    const d = clampDays(req.query.days, 180);
+    const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 50, 1), 200);
+    const result = await pool.query(
+      `SELECT
+         t.id AS track_id,
+         t.title AS track_title,
+         a.id AS album_id,
+         a.title AS album_title,
+         COUNT(*)::int AS effective_plays,
+         COUNT(DISTINCT tpe.source_ip)::int AS unique_ips,
+         ROUND(AVG(tpe.played_seconds)::numeric, 1) AS avg_played_seconds,
+         MAX(tpe.played_at) AS last_played_at
+       FROM track_play_events tpe
+       JOIN tracks t ON tpe.track_id = t.id
+       LEFT JOIN albums a ON t.album_id = a.id
+       WHERE tpe.effective_play = TRUE
+         AND tpe.played_at >= NOW() - INTERVAL '1 day' * $1
+       GROUP BY t.id, t.title, a.id, a.title
+       ORDER BY COUNT(*) DESC, MAX(tpe.played_at) DESC
+       LIMIT $2`,
+      [d, limit]
+    );
+    res.json({ success: true, data: result.rows });
+  } catch (e: any) { res.status(500).json(safeError(e)); }
+});
+
+// ── Source IPs for a hot track ───────────────────────────────────
+router.get('/tracks/:id/ip-sources', async (req: Request, res: Response) => {
+  try {
+    const d = clampDays(req.query.days, 180);
+    const trackId = parseInt(String(req.params.id || ''), 10);
+    if (!Number.isInteger(trackId) || trackId <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'INVALID_TRACK_ID', message: 'Invalid track id' }
+      });
+    }
+
+    const trackResult = await pool.query(
+      'SELECT id AS track_id, title AS track_title FROM tracks WHERE id = $1 LIMIT 1',
+      [trackId]
+    );
+    if (trackResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Track not found' }
+      });
+    }
+
+    const ipResult = await pool.query(
+      `SELECT
+         source_ip AS ip,
+         COUNT(*)::int AS effective_plays,
+         ROUND(AVG(played_seconds)::numeric, 1) AS avg_played_seconds,
+         MAX(played_at) AS last_played_at
+       FROM track_play_events
+       WHERE track_id = $1
+         AND effective_play = TRUE
+         AND played_at >= NOW() - INTERVAL '1 day' * $2
+       GROUP BY source_ip
+       ORDER BY COUNT(*) DESC, MAX(played_at) DESC
+       LIMIT 500`,
+      [trackId, d]
+    );
+
+    return res.json({
+      success: true,
+      data: {
+        track: trackResult.rows[0],
+        ipSources: ipResult.rows,
+      }
+    });
+  } catch (e: any) { return res.status(500).json(safeError(e)); }
+});
+
 // ── Storage analytics ─────────────────────────────────────────────
 router.get('/storage', async (_req: Request, res: Response) => {
   try {

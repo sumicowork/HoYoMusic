@@ -11,6 +11,12 @@ import remoteResourceCache from '../services/remoteResourceCache';
 
 const router = Router();
 
+interface RecordPlayBody {
+  played_seconds?: number;
+  track_duration_seconds?: number;
+  session_key?: string;
+}
+
 // ── 全局下载开关（通过环境变量 DOWNLOAD_ENABLED 控制）────────────
 const DOWNLOAD_ENABLED = process.env.DOWNLOAD_ENABLED === 'true';
 const downloadDisabled = (_req: Request, res: Response) =>
@@ -32,6 +38,18 @@ const fetchUrlBuffer = async (url: string): Promise<{ statusCode: number; buffer
       resp.on('error', reject);
     }).on('error', reject);
   });
+};
+
+const getRealIp = (req: Request): string => {
+  const fwd = req.headers['x-forwarded-for'];
+  if (typeof fwd === 'string') return fwd.split(',')[0].trim();
+  return (req.socket?.remoteAddress || '0.0.0.0').replace(/^::ffff:/, '');
+};
+
+const toPositiveNumber = (value: unknown): number | null => {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n;
 };
 // ──────────────────────────────────────────────────────────────────
 
@@ -209,14 +227,94 @@ router.get('/tracks/:id', getTrackById);
 router.get('/tracks/:id/stream', streamTrack);
 router.get('/tracks/:id/download', DOWNLOAD_ENABLED ? downloadTrack : downloadDisabled);
 
-// Increment play count
+// Record play event and mark effective plays using threshold:
+// played >= max(10, min(30, duration * 0.5))
 router.post('/tracks/:id/play', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    await pool.query('UPDATE tracks SET play_count = COALESCE(play_count, 0) + 1 WHERE id = $1', [id]);
-    res.json({ success: true });
+    const trackId = Number(id);
+    if (!Number.isInteger(trackId) || trackId <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'INVALID_TRACK_ID', message: 'Invalid track id' }
+      });
+    }
+
+    const body = (req.body || {}) as RecordPlayBody;
+    const playedSeconds = toPositiveNumber(body.played_seconds) ?? 0;
+
+    const trackResult = await pool.query<{ duration: number | null }>(
+      'SELECT duration FROM tracks WHERE id = $1 LIMIT 1',
+      [trackId]
+    );
+    if (trackResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Track not found' }
+      });
+    }
+
+    const durationFromBody = toPositiveNumber(body.track_duration_seconds);
+    const durationFromDb = toPositiveNumber(trackResult.rows[0].duration);
+    const durationSeconds = durationFromBody ?? durationFromDb;
+    const minRequiredSeconds = Math.max(10, Math.min(30, (durationSeconds ?? 60) * 0.5));
+    const effectivePlay = playedSeconds >= minRequiredSeconds;
+
+    const sessionKeyRaw = String(body.session_key || '').trim();
+    const sessionKey = sessionKeyRaw.length > 0
+      ? sessionKeyRaw.slice(0, 128)
+      : `legacy-${trackId}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+    const sourceIp = getRealIp(req).slice(0, 64);
+    const userAgent = String(req.headers['user-agent'] || '').slice(0, 512);
+
+    const upsertResult = await pool.query<{ effective_play: boolean }>(
+      `INSERT INTO track_play_events (
+         track_id,
+         played_seconds,
+         track_duration_seconds,
+         min_required_seconds,
+         effective_play,
+         source_ip,
+         user_agent,
+         session_key,
+         played_at
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+       ON CONFLICT (track_id, session_key)
+       DO UPDATE SET
+         played_seconds = GREATEST(track_play_events.played_seconds, EXCLUDED.played_seconds),
+         track_duration_seconds = COALESCE(EXCLUDED.track_duration_seconds, track_play_events.track_duration_seconds),
+         min_required_seconds = EXCLUDED.min_required_seconds,
+         effective_play = (track_play_events.effective_play OR EXCLUDED.effective_play),
+         source_ip = COALESCE(NULLIF(EXCLUDED.source_ip, ''), track_play_events.source_ip),
+         user_agent = COALESCE(NULLIF(EXCLUDED.user_agent, ''), track_play_events.user_agent),
+         played_at = NOW()
+       RETURNING effective_play`,
+      [
+        trackId,
+        playedSeconds,
+        durationSeconds,
+        minRequiredSeconds,
+        effectivePlay,
+        sourceIp,
+        userAgent,
+        sessionKey,
+      ]
+    );
+
+    const isEffective = Boolean(upsertResult.rows[0]?.effective_play);
+    return res.json({
+      success: true,
+      data: {
+        track_id: trackId,
+        effective_play: isEffective,
+        played_seconds: playedSeconds,
+        min_required_seconds: minRequiredSeconds,
+      }
+    });
   } catch {
-    res.status(500).json({ success: false });
+    return res.status(500).json({ success: false });
   }
 });
 
@@ -225,16 +323,31 @@ router.get('/top-tracks', async (req: Request, res: Response) => {
   try {
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const result = await pool.query(`
-      SELECT t.id, t.title, t.duration, t.play_count, t.cover_path,
+      SELECT
+             t.id,
+             t.title,
+             t.duration,
+             t.play_count,
+             t.cover_path,
+             COALESCE(tp.effective_play_count, 0)::int AS effective_play_count,
+             COALESCE(tp.unique_ips, 0)::int AS unique_ips,
              a.title AS album_title, a.cover_path AS album_cover,
              array_agg(json_build_object('id', ar.id, 'name', ar.name)) FILTER (WHERE ar.id IS NOT NULL) AS artists
       FROM tracks t
+      LEFT JOIN (
+        SELECT
+          track_id,
+          COUNT(*) FILTER (WHERE effective_play) AS effective_play_count,
+          COUNT(DISTINCT source_ip) FILTER (WHERE effective_play AND source_ip IS NOT NULL AND source_ip <> '') AS unique_ips
+        FROM track_play_events
+        GROUP BY track_id
+      ) tp ON tp.track_id = t.id
       LEFT JOIN albums a ON t.album_id = a.id
       LEFT JOIN track_artists ta ON t.id = ta.track_id
       LEFT JOIN artists ar ON ta.artist_id = ar.id
-      WHERE t.play_count > 0
-      GROUP BY t.id, a.title, a.cover_path
-      ORDER BY t.play_count DESC NULLS LAST
+      WHERE COALESCE(tp.effective_play_count, 0) > 0
+      GROUP BY t.id, a.title, a.cover_path, tp.effective_play_count, tp.unique_ips
+      ORDER BY COALESCE(tp.effective_play_count, 0) DESC, t.id DESC
       LIMIT $1
     `, [limit]);
     res.json({ success: true, data: { tracks: result.rows } });

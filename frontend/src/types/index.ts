@@ -23,6 +23,9 @@ export interface Track {
   updated_at: string;
   album_title?: string;
   album_cover?: string | null;
+  play_count?: number;
+  effective_play_count?: number;
+  unique_ips?: number;
   artists: Artist[];
   /** 静态模式：CDN 音频直链 */
   audio_url?: string;

@@ -41,10 +41,25 @@ CREATE TABLE IF NOT EXISTS tracks (
     sample_rate INTEGER,
     bit_depth INTEGER,
     file_size BIGINT,
+    play_count INTEGER DEFAULT 0,
     release_date DATE,
     notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS track_play_events (
+    id BIGSERIAL PRIMARY KEY,
+    track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+    played_seconds NUMERIC(10,2) NOT NULL DEFAULT 0,
+    track_duration_seconds NUMERIC(10,2),
+    min_required_seconds NUMERIC(10,2) NOT NULL,
+    effective_play BOOLEAN NOT NULL DEFAULT FALSE,
+    source_ip VARCHAR(64),
+    user_agent TEXT,
+    session_key VARCHAR(128) NOT NULL,
+    played_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (track_id, session_key)
 );
 
 -- Album Discs table
@@ -86,6 +101,9 @@ CREATE INDEX IF NOT EXISTS idx_track_artists_track_id ON track_artists(track_id)
 CREATE INDEX IF NOT EXISTS idx_track_artists_artist_id ON track_artists(artist_id);
 CREATE INDEX IF NOT EXISTS idx_tracks_disc_id ON tracks(disc_id);
 CREATE INDEX IF NOT EXISTS idx_album_discs_album_id ON album_discs(album_id);
+CREATE INDEX IF NOT EXISTS idx_track_play_events_played_at ON track_play_events(played_at DESC);
+CREATE INDEX IF NOT EXISTS idx_track_play_events_track_effective ON track_play_events(track_id, effective_play, played_at DESC);
+CREATE INDEX IF NOT EXISTS idx_track_play_events_source_ip ON track_play_events(source_ip);
 
 -- Insert default admin user (password: admin123)
 -- Password hash for 'admin123' with bcrypt

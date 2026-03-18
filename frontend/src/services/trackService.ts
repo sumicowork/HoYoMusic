@@ -165,9 +165,13 @@ export const trackService = {
   },
 
   /** Record a play event (fire-and-forget) */
-  recordPlay(trackId: number): void {
+  recordPlay(trackId: number, payload?: { playedSeconds?: number; trackDurationSeconds?: number | null; sessionKey?: string }): void {
     if (IS_STATIC) return;
-    publicApi.post(`/public/tracks/${trackId}/play`).catch(() => {});
+    publicApi.post(`/public/tracks/${trackId}/play`, {
+      played_seconds: payload?.playedSeconds ?? 0,
+      track_duration_seconds: payload?.trackDurationSeconds ?? null,
+      session_key: payload?.sessionKey ?? null,
+    }).catch(() => {});
   },
 
   /** Get top played tracks */

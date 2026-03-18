@@ -80,9 +80,34 @@ const Player: React.FC = () => {
 
   const howlRef = useRef<Howl | null>(null);
   const progressIntervalRef = useRef<number | null>(null);
-  const lastRecordedTrackIdRef = useRef<number | null>(null);
+  const playSessionKeyRef = useRef<string | null>(null);
+  const effectivePlayReportedRef = useRef(false);
   const setIsPlaying = usePlayerStore((state) => state.setIsPlaying);
   const currentPlayMode = usePlayerStore((state) => state.playMode);
+
+  const getEffectivePlayThreshold = (trackDuration: number | null | undefined) => {
+    const safeDuration = trackDuration && trackDuration > 0 ? trackDuration : 60;
+    return Math.max(10, Math.min(30, safeDuration * 0.5));
+  };
+
+  const tryReportEffectivePlay = (playedSeconds: number) => {
+    if (!currentTrack || effectivePlayReportedRef.current) return;
+
+    const durationForRule = (duration && duration > 0 ? duration : currentTrack.duration) ?? null;
+    const threshold = getEffectivePlayThreshold(durationForRule);
+    if (playedSeconds < threshold) return;
+
+    const sessionKey = playSessionKeyRef.current
+      || `${currentTrack.id}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    playSessionKeyRef.current = sessionKey;
+
+    trackService.recordPlay(currentTrack.id, {
+      playedSeconds,
+      trackDurationSeconds: durationForRule,
+      sessionKey,
+    });
+    effectivePlayReportedRef.current = true;
+  };
 
   // Dynamic page title
   useEffect(() => {
@@ -192,11 +217,8 @@ const Player: React.FC = () => {
 
   useEffect(() => {
     if (currentTrack) {
-      // Record one play event per track switch (not on pause/resume).
-      if (lastRecordedTrackIdRef.current !== currentTrack.id) {
-        trackService.recordPlay(currentTrack.id);
-        lastRecordedTrackIdRef.current = currentTrack.id;
-      }
+      playSessionKeyRef.current = `${currentTrack.id}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      effectivePlayReportedRef.current = false;
 
       if (howlRef.current) howlRef.current.unload();
       const streamUrl = (IS_STATIC && currentTrack.audio_url)
@@ -220,6 +242,7 @@ const Player: React.FC = () => {
         },
         onend: function () {
           if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+          tryReportEffectivePlay(newHowl.duration());
           if (currentPlayMode !== 'single') { setIsPlaying(false); handleNext(); }
         },
       });
@@ -231,6 +254,10 @@ const Player: React.FC = () => {
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
     };
   }, [currentTrack]);
+
+  useEffect(() => {
+    tryReportEffectivePlay(progress);
+  }, [progress, duration, currentTrack?.id]);
 
   useEffect(() => {
     if (howlRef.current) howlRef.current.loop(currentPlayMode === 'single');
