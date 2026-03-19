@@ -10,7 +10,7 @@ import { trackService, DOWNLOAD_ENABLED } from '../services/trackService';
 import { usePlayerStore } from '../store/playerStore';
 import LyricsDisplay from '../components/LyricsDisplay';
 import CreditsDisplay from '../components/CreditsDisplay';
-import { getTags, getTrackTags, Tag as TagType } from '../services/tagService';
+import { getTagGroups, getTags, getTrackTags, Tag as TagType, TagGroup } from '../services/tagService';
 import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
 import { buildTagPathLookup, getTagPathLabel } from '../utils/tagPath';
 import './TrackDetail.css';
@@ -32,11 +32,12 @@ const TrackDetail: React.FC = () => {
   const [lyrics, setLyrics] = useState<string | null>(null);
   const [credits, setCredits] = useState<Credit[]>([]);
   const [allTags, setAllTags] = useState<TagType[]>([]);
+  const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
   const [tags, setTags] = useState<TagType[]>([]);
   const [loading, setLoading] = useState(true);
   const tagPathLookup = useMemo(
-    () => buildTagPathLookup(allTags.length > 0 ? allTags : tags),
-    [allTags, tags]
+    () => buildTagPathLookup(allTags.length > 0 ? allTags : tags, tagGroups),
+    [allTags, tags, tagGroups]
   );
 
   const { progress, playTrackOnly, seek } = usePlayerStore();
@@ -47,6 +48,7 @@ const TrackDetail: React.FC = () => {
       fetchLyrics();
       fetchCredits();
       fetchAllTags();
+      fetchTagGroups();
       fetchTags();
     }
   }, [id]);
@@ -57,6 +59,15 @@ const TrackDetail: React.FC = () => {
       setAllTags(data);
     } catch (error) {
       console.error('Failed to load all tags:', error);
+    }
+  };
+
+  const fetchTagGroups = async () => {
+    try {
+      const data = await getTagGroups();
+      setTagGroups(data);
+    } catch (error) {
+      console.error('Failed to load tag groups:', error);
     }
   };
 

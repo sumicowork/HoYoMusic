@@ -254,7 +254,7 @@ const TagManagement: React.FC = () => {
   };
 
   // 按分组组织tags
-  const tagPathLookup = React.useMemo(() => buildTagPathLookup(tags), [tags]);
+  const tagPathLookup = React.useMemo(() => buildTagPathLookup(tags, groups), [tags, groups]);
 
   const organizedTags = React.useMemo(() => {
     const grouped: { [key: string]: Tag[] } = {

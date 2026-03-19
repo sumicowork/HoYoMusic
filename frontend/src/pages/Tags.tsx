@@ -58,7 +58,7 @@ const Tags: React.FC = () => {
   };
 
   const tree = useMemo(() => buildGroupTree(groups), [groups]);
-  const tagPathLookup = useMemo(() => buildTagPathLookup(tags), [tags]);
+  const tagPathLookup = useMemo(() => buildTagPathLookup(tags, groups), [tags, groups]);
   const childTagMap = useMemo(() => buildTagChildMap(tags), [tags]);
   const tagIdSet = useMemo(() => new Set(tags.map((tag) => tag.id)), [tags]);
 

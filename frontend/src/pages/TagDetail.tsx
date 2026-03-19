@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   Layout,
@@ -15,10 +15,10 @@ import {
   PlayCircleOutlined,
   DownloadOutlined
 } from '@ant-design/icons';
-import { getTagById, Tag } from '../services/tagService';
+import { getTagById, getTagGroups, Tag, TagGroup } from '../services/tagService';
 import { usePlayerStore } from '../store/playerStore';
 import { trackService, DOWNLOAD_ENABLED } from '../services/trackService';
-import { getTagPathLabel } from '../utils/tagPath';
+import { buildTagPathLookup, getTagPathLabel } from '../utils/tagPath';
 import './TagDetail.css';
 
 const { Content } = Layout;
@@ -27,14 +27,26 @@ const TagDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [tag, setTag] = useState<Tag | null>(null);
+  const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
   const [loading, setLoading] = useState(true);
+  const tagPathLookup = useMemo(() => (tag ? buildTagPathLookup([tag], tagGroups) : undefined), [tag, tagGroups]);
   const { play, setPlaylist, playTrackOnly } = usePlayerStore();
 
   useEffect(() => {
     if (id) {
       fetchTagDetails();
+      fetchTagGroups();
     }
   }, [id]);
+
+  const fetchTagGroups = async () => {
+    try {
+      const data = await getTagGroups();
+      setTagGroups(data);
+    } catch (error) {
+      console.error('Failed to fetch tag groups:', error);
+    }
+  };
 
   const fetchTagDetails = async () => {
     try {
@@ -180,7 +192,7 @@ const TagDetail: React.FC = () => {
             <AntTag color={tag.color} style={{ fontSize: 16, padding: '4px 12px' }}>
               标签
             </AntTag>
-            <h1>{getTagPathLabel(tag)}</h1>
+            <h1>{getTagPathLabel(tag, tagPathLookup)}</h1>
             {tag.description && <p className="tag-description">{tag.description}</p>}
             <div className="tag-stats"><span>{tag.track_count || 0} 首歌曲</span></div>
 

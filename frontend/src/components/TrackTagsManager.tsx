@@ -245,7 +245,7 @@ const TrackTagsManager: React.FC<TrackTagsManagerProps> = ({
   const availableTags = allTags.filter(
     tag => !trackTags.some(t => t.id === tag.id)
   );
-  const tagPathLookup = useMemo(() => buildTagPathLookup(allTags), [allTags]);
+  const tagPathLookup = useMemo(() => buildTagPathLookup(allTags, groups), [allTags, groups]);
 
   const availableParentTags = allTags.filter(tag => !tag.parent_id);
 

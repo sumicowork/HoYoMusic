@@ -105,7 +105,7 @@ const Search: React.FC = () => {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { grouped, childMap } = organizeTagsByGroup(allTags, tagGroups);
-  const tagPathLookup = useMemo(() => buildTagPathLookup(allTags), [allTags]);
+  const tagPathLookup = useMemo(() => buildTagPathLookup(allTags, tagGroups), [allTags, tagGroups]);
 
   const doSearch = useCallback(async (params: TrackSearchParams) => {
     if (abortRef.current) abortRef.current.abort();
