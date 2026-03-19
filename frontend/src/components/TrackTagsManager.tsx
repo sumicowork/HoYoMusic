@@ -148,16 +148,19 @@ const TrackTagsManager: React.FC<TrackTagsManagerProps> = ({
       await addTagToTrack(trackId, created.id);
       message.success('标签创建并添加成功');
 
+      const preservedGroupId = values.group_id || null;
+      const preservedParentId = values.parent_id || null;
+
       createForm.setFieldsValue({
         name: '',
         color: '#1890ff',
         description: '',
-        group_id: null,
-        parent_id: null,
+        group_id: preservedGroupId,
+        parent_id: preservedParentId,
         icon: null,
         display_order: 0,
       });
-      setCreateParentTagId(null);
+      setCreateParentTagId(preservedParentId);
 
       await fetchData();
       onTagsUpdated?.();
@@ -463,7 +466,15 @@ const TrackTagsManager: React.FC<TrackTagsManagerProps> = ({
                 label: `${t.icon || '🏷️'} ${t.name}`,
                 value: t.id,
               }))}
-              onChange={(value) => setCreateParentTagId(value ?? null)}
+              onChange={(value) => {
+                const parentId = value ?? null;
+                setCreateParentTagId(parentId);
+
+                if (parentId) {
+                  const parentTag = allTags.find((tag) => tag.id === parentId);
+                  createForm.setFieldValue('group_id', parentTag?.group_id ?? null);
+                }
+              }}
             />
           </Form.Item>
 

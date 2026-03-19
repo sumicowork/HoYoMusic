@@ -100,6 +100,15 @@ const TagManagement: React.FC = () => {
     setModalVisible(true);
   };
 
+  const handleParentTagChange = (value: number | null) => {
+    setParentTagId(value);
+
+    if (value) {
+      const parentTag = tags.find((tag) => tag.id === value);
+      form.setFieldValue('group_id', parentTag?.group_id ?? null);
+    }
+  };
+
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
@@ -556,7 +565,7 @@ const TagManagement: React.FC = () => {
                 label: `${t.icon || '🏷️'} ${t.name}`,
                 value: t.id
               }))}
-              onChange={setParentTagId}
+              onChange={(value) => handleParentTagChange(value ?? null)}
             />
           </Form.Item>
 
