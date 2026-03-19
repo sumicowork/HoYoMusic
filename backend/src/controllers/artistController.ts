@@ -3,6 +3,16 @@ import pool from '../config/database';
 import storageService from '../services/storageService';
 import { cache } from '../utils/cache';
 
+interface ArtistRoleMapping {
+  from: string;
+  to: string;
+}
+
+interface UpdateArtistBody {
+  name: string;
+  roleMappings?: ArtistRoleMapping[];
+}
+
 // Get all "artists" from track_credits (unique credit_value, with track count)
 export const getArtists = async (req: Request, res: Response) => {
   try {
@@ -391,9 +401,129 @@ export const getArtistById = async (req: Request, res: Response) => {
   }
 };
 
-// Update artist (keep for backward compat, now a no-op stub)
+// Update artist name/roles and apply changes to original track credits
 export const updateArtist = async (req: Request, res: Response) => {
-  res.status(410).json({ success: false, error: { code: 'GONE', message: 'Artist editing is no longer supported' } });
+  const sourceName = decodeURIComponent(String(req.params.id || '')).trim();
+  const { name, roleMappings = [] } = req.body as UpdateArtistBody;
+  const targetName = String(name || '').trim();
+
+  if (!sourceName || !targetName) {
+    return res.status(400).json({
+      success: false,
+      error: { code: 'INVALID_INPUT', message: '缺少原名称或新名称' }
+    });
+  }
+
+  const normalizedRoleMappings = roleMappings
+    .map((m) => ({
+      from: String(m.from || '').trim(),
+      to: String(m.to || '').trim(),
+    }))
+    .filter((m) => m.from.length > 0 && m.to.length > 0);
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS artist_aliases (
+        id SERIAL PRIMARY KEY,
+        canonical_name VARCHAR(500) NOT NULL,
+        alias_name VARCHAR(500) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(canonical_name, alias_name)
+      )
+    `);
+
+    const canonicalResult = await client.query(
+      'SELECT canonical_name FROM artist_aliases WHERE LOWER(alias_name) = LOWER($1) LIMIT 1',
+      [sourceName]
+    );
+    const canonicalName = canonicalResult.rows[0]?.canonical_name || sourceName;
+
+    const aliasResult = await client.query(
+      'SELECT alias_name FROM artist_aliases WHERE LOWER(canonical_name) = LOWER($1)',
+      [canonicalName]
+    );
+
+    const clusterNames = Array.from(new Set([
+      canonicalName,
+      sourceName,
+      ...aliasResult.rows.map((r: any) => String(r.alias_name || '').trim()).filter(Boolean),
+    ]));
+
+    const clusterLowerNames = clusterNames.map((n) => n.toLowerCase());
+
+    let updatedRoleRows = 0;
+    for (const mapping of normalizedRoleMappings) {
+      const roleUpdate = await client.query(
+        `UPDATE track_credits
+         SET credit_key = $1, updated_at = CURRENT_TIMESTAMP
+         WHERE LOWER(credit_value) = ANY($2::text[])
+           AND LOWER(credit_key) = LOWER($3)`,
+        [mapping.to, clusterLowerNames, mapping.from]
+      );
+      updatedRoleRows += roleUpdate.rowCount ?? 0;
+    }
+
+    const nameUpdate = await client.query(
+      `UPDATE track_credits
+       SET credit_value = $1, updated_at = CURRENT_TIMESTAMP
+       WHERE LOWER(credit_value) = ANY($2::text[])`,
+      [targetName, clusterLowerNames]
+    );
+
+    // Normalize alias relationships: targetName becomes canonical for this cluster.
+    await client.query(
+      'DELETE FROM artist_aliases WHERE LOWER(canonical_name) = ANY($1::text[]) OR LOWER(alias_name) = ANY($1::text[])',
+      [clusterLowerNames]
+    );
+
+    for (const oldName of clusterNames) {
+      if (oldName.toLowerCase() === targetName.toLowerCase()) continue;
+      await client.query(
+        `INSERT INTO artist_aliases (canonical_name, alias_name)
+         VALUES ($1, $2)
+         ON CONFLICT (canonical_name, alias_name) DO NOTHING`,
+        [targetName, oldName]
+      );
+    }
+
+    // Keep avatar mapping aligned with renamed canonical/alias names when table exists.
+    try {
+      await client.query(
+        'UPDATE artist_avatars SET artist_name = $1 WHERE LOWER(artist_name) = ANY($2::text[])',
+        [targetName, clusterLowerNames]
+      );
+    } catch {
+      // Ignore if artist_avatars table does not exist yet.
+    }
+
+    await client.query('COMMIT');
+
+    cache.invalidatePattern('artist');
+    cache.invalidatePattern('artists');
+
+    return res.json({
+      success: true,
+      data: {
+        source_name: sourceName,
+        target_name: targetName,
+        updated_name_rows: nameUpdate.rowCount,
+        updated_role_rows: updatedRoleRows,
+        role_mapping_count: normalizedRoleMappings.length,
+        message: '艺术家名称/职务已更新，并已应用到原歌曲 Credits'
+      }
+    });
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    console.error('Update artist error:', error);
+    return res.status(500).json({
+      success: false,
+      error: { code: 'UPDATE_ERROR', message: '更新艺术家失败' }
+    });
+  } finally {
+    client.release();
+  }
 };
 
 // Helper: ensure artist_aliases table exists

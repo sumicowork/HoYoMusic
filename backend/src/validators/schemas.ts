@@ -110,3 +110,13 @@ export const mergeArtistsSchema = z.object({
   aliasNames: z.array(z.string().min(1).max(500)).min(1, 'aliasNames is required'),
 });
 
+export const updateArtistSchema = z.object({
+  name: z.string().min(1, 'name is required').max(500),
+  roleMappings: z.array(
+    z.object({
+      from: z.string().min(1).max(200),
+      to: z.string().min(1).max(200),
+    })
+  ).optional(),
+});
+

@@ -3,7 +3,7 @@ import { getArtists, getArtistById, updateArtist, mergeArtists, getAliases, dele
 import { coverUpload } from '../middleware/upload';
 import passport from 'passport';
 import { validateBody } from '../middleware/validate';
-import { mergeArtistsSchema } from '../validators/schemas';
+import { mergeArtistsSchema, updateArtistSchema } from '../validators/schemas';
 
 const router = express.Router();
 
@@ -18,7 +18,7 @@ router.get('/:id', getArtistById);
 router.post('/avatar/:name', passport.authenticate('jwt', { session: false }), coverUpload.single('avatar'), uploadArtistAvatar);
 router.post('/merge', passport.authenticate('jwt', { session: false }), validateBody(mergeArtistsSchema), mergeArtists);
 router.delete('/aliases/:id', passport.authenticate('jwt', { session: false }), deleteAlias);
-router.put('/:id', passport.authenticate('jwt', { session: false }), updateArtist);
+router.put('/:id', passport.authenticate('jwt', { session: false }), validateBody(updateArtistSchema), updateArtist);
 
 export default router;
 

@@ -7,6 +7,7 @@ import {
   DeleteOutlined,
   SearchOutlined,
   UserOutlined,
+  EditOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { TableRowSelection } from 'antd/es/table/interface';
@@ -21,6 +22,11 @@ interface ArtistItem {
   roles: string[];
   is_alias?: boolean;
   canonical_name?: string | null;
+}
+
+interface RoleMappingItem {
+  from: string;
+  to: string;
 }
 
 interface AliasItem {
@@ -40,6 +46,10 @@ const ArtistManagement: React.FC = () => {
   const [selectedArtistNames, setSelectedArtistNames] = useState<string[]>([]);
   const [mergeModalVisible, setMergeModalVisible] = useState(false);
   const [canonicalName, setCanonicalName] = useState('');
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editingArtist, setEditingArtist] = useState<ArtistItem | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editRoleMappings, setEditRoleMappings] = useState<RoleMappingItem[]>([]);
 
   // Aliases
   const [aliases, setAliases] = useState<AliasItem[]>([]);
@@ -149,6 +159,47 @@ const ArtistManagement: React.FC = () => {
     }
   };
 
+  const openEditModal = (artist: ArtistItem) => {
+    setEditingArtist(artist);
+    setEditName(artist.name);
+    setEditRoleMappings((artist.roles || []).filter(Boolean).map((r) => ({ from: r, to: r })));
+    setEditModalVisible(true);
+  };
+
+  const handleSaveArtistEdit = async () => {
+    if (!editingArtist) return;
+    const trimmedName = editName.trim();
+    if (!trimmedName) {
+      message.warning('名称不能为空');
+      return;
+    }
+
+    const roleMappings = editRoleMappings
+      .map((m) => ({ from: m.from.trim(), to: m.to.trim() }))
+      .filter((m) => m.from && m.to && m.from !== m.to);
+
+    try {
+      const response = await api.put(`/artists/${encodeURIComponent(editingArtist.name)}`, {
+        name: trimmedName,
+        roleMappings,
+      });
+      if (response.data.success) {
+        message.success(response.data.data?.message || '艺术家信息已更新');
+        setEditModalVisible(false);
+        setEditingArtist(null);
+        setEditName('');
+        setEditRoleMappings([]);
+        setSelectedArtistNames([]);
+        setCanonicalName('');
+        fetchArtists(pagination.current, searchText, pagination.pageSize);
+        fetchAliases();
+        fetchAvatars();
+      }
+    } catch (error: any) {
+      message.error(error?.response?.data?.error?.message || error.message || '更新失败');
+    }
+  };
+
   const getArtistRowKey = (record: ArtistItem) => (
     record.is_alias
       ? `alias:${record.canonical_name || ''}:${record.name}`
@@ -235,6 +286,16 @@ const ArtistManagement: React.FC = () => {
           ))}
           {(roles || []).length > 5 && <Tag>+{roles.length - 5}</Tag>}
         </Space>
+      ),
+    },
+    {
+      title: '操作',
+      key: 'actions',
+      width: 90,
+      render: (_: any, record: ArtistItem) => (
+        <Button size="small" icon={<EditOutlined />} onClick={() => openEditModal(record)}>
+          修改
+        </Button>
       ),
     },
   ];
@@ -372,6 +433,59 @@ const ArtistManagement: React.FC = () => {
             </Card>
           ))
         )}
+      </Modal>
+
+      {/* Edit Artist Modal */}
+      <Modal
+        title={editingArtist ? `修改艺术家：${editingArtist.name}` : '修改艺术家'}
+        open={editModalVisible}
+        onOk={handleSaveArtistEdit}
+        onCancel={() => {
+          setEditModalVisible(false);
+          setEditingArtist(null);
+          setEditName('');
+          setEditRoleMappings([]);
+        }}
+        okText="保存并应用到原歌曲 Credits"
+        cancelText="取消"
+        width={640}
+      >
+        <div style={{ marginBottom: 12, color: '#999', fontSize: 12 }}>
+          修改将批量应用到该艺术家相关歌曲的 Credits（名称和职务）。
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 6, fontWeight: 600 }}>名称</div>
+          <Input
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            placeholder="输入新的艺术家名称"
+            maxLength={500}
+          />
+        </div>
+        <div>
+          <div style={{ marginBottom: 8, fontWeight: 600 }}>职务映射（留空或不改则保持原值）</div>
+          <Space direction="vertical" style={{ width: '100%' }} size={8}>
+            {editRoleMappings.length === 0 && (
+              <div style={{ color: '#999', fontSize: 12 }}>暂无可修改的职务</div>
+            )}
+            {editRoleMappings.map((mapping, index) => (
+              <Space key={`${mapping.from}-${index}`} style={{ width: '100%' }} align="center">
+                <Tag color="purple" style={{ minWidth: 120, textAlign: 'center', marginRight: 0 }}>{mapping.from}</Tag>
+                <span style={{ color: '#999' }}>→</span>
+                <Input
+                  value={mapping.to}
+                  onChange={(e) => {
+                    const next = [...editRoleMappings];
+                    next[index] = { ...next[index], to: e.target.value };
+                    setEditRoleMappings(next);
+                  }}
+                  placeholder="新的职务名称"
+                  maxLength={200}
+                />
+              </Space>
+            ))}
+          </Space>
+        </div>
       </Modal>
     </AdminLayout>
   );
