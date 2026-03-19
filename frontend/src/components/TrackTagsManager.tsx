@@ -7,6 +7,8 @@ import {
   message,
   Space,
   Input,
+  Form,
+  InputNumber,
   ColorPicker,
   Popconfirm,
   Divider,
@@ -19,7 +21,9 @@ import {
   createTag,
   updateTag,
   deleteTag,
+  getTagGroups,
   Tag as TagType,
+  TagGroup,
 } from '../services/tagService';
 
 interface TrackTagsManagerProps {
@@ -37,19 +41,20 @@ const TrackTagsManager: React.FC<TrackTagsManagerProps> = ({
   onClose,
   onTagsUpdated
 }) => {
+  const { TextArea } = Input;
+
   const [allTags, setAllTags] = useState<TagType[]>([]);
+  const [groups, setGroups] = useState<TagGroup[]>([]);
   const [trackTags, setTrackTags] = useState<TagType[]>([]);
   const [loading, setLoading] = useState(false);
   const [addingTagId, setAddingTagId] = useState<number | undefined>(undefined);
-
-  const [newTagName, setNewTagName] = useState('');
-  const [newTagColor, setNewTagColor] = useState('#1890ff');
-  const [newTagDescription, setNewTagDescription] = useState('');
+  const [createParentTagId, setCreateParentTagId] = useState<number | null>(null);
 
   const [editingTagId, setEditingTagId] = useState<number | null>(null);
   const [editTagName, setEditTagName] = useState('');
   const [editTagColor, setEditTagColor] = useState('#1890ff');
   const [editTagDescription, setEditTagDescription] = useState('');
+  const [createForm] = Form.useForm();
 
   useEffect(() => {
     if (visible) {
@@ -60,12 +65,14 @@ const TrackTagsManager: React.FC<TrackTagsManagerProps> = ({
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [tags, currentTags] = await Promise.all([
+      const [tags, currentTags, tagGroups] = await Promise.all([
         getTags(),
-        getTrackTags(trackId)
+        getTrackTags(trackId),
+        getTagGroups(),
       ]);
       setAllTags(tags);
       setTrackTags(currentTags);
+      setGroups(tagGroups);
     } catch (error) {
       console.error('Failed to fetch tags:', error);
       message.error('获取标签失败');
@@ -73,6 +80,22 @@ const TrackTagsManager: React.FC<TrackTagsManagerProps> = ({
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!visible) {
+      return;
+    }
+    createForm.setFieldsValue({
+      color: '#1890ff',
+      group_id: null,
+      parent_id: null,
+      icon: null,
+      display_order: 0,
+      description: '',
+      name: '',
+    });
+    setCreateParentTagId(null);
+  }, [visible, createForm]);
 
   const handleAddTag = async (tagId: number) => {
     try {
@@ -106,25 +129,35 @@ const TrackTagsManager: React.FC<TrackTagsManagerProps> = ({
   };
 
   const handleCreateAndAttachTag = async () => {
-    const name = newTagName.trim();
-    if (!name) {
-      message.warning('请输入标签名称');
-      return;
-    }
-
     try {
+      const values = await createForm.validateFields();
+      const colorValue = typeof values.color === 'string'
+        ? values.color
+        : values.color?.toHexString?.() || '#1890ff';
+
       setLoading(true);
       const created = await createTag({
-        name,
-        color: newTagColor,
-        description: newTagDescription.trim() || undefined,
+        name: values.name.trim(),
+        color: colorValue,
+        description: values.description?.trim() || undefined,
+        group_id: values.group_id || null,
+        parent_id: values.parent_id || null,
+        icon: values.icon?.trim() || null,
+        display_order: values.display_order || 0,
       });
       await addTagToTrack(trackId, created.id);
       message.success('标签创建并添加成功');
 
-      setNewTagName('');
-      setNewTagColor('#1890ff');
-      setNewTagDescription('');
+      createForm.setFieldsValue({
+        name: '',
+        color: '#1890ff',
+        description: '',
+        group_id: null,
+        parent_id: null,
+        icon: null,
+        display_order: 0,
+      });
+      setCreateParentTagId(null);
 
       await fetchData();
       onTagsUpdated?.();
@@ -211,6 +244,8 @@ const TrackTagsManager: React.FC<TrackTagsManagerProps> = ({
   const availableTags = allTags.filter(
     tag => !trackTags.some(t => t.id === tag.id)
   );
+
+  const availableParentTags = allTags.filter(tag => !tag.parent_id);
 
   return (
     <Modal
@@ -352,30 +387,89 @@ const TrackTagsManager: React.FC<TrackTagsManagerProps> = ({
 
       <div style={{ marginTop: 20 }}>
         <h4 style={{ marginBottom: 12 }}>就地新建并添加标签：</h4>
-        <Space wrap>
-          <Input
-            value={newTagName}
-            onChange={(e) => setNewTagName(e.target.value)}
-            placeholder="标签名称"
-            style={{ width: 180 }}
-            maxLength={50}
-          />
-          <ColorPicker
-            value={newTagColor}
-            onChange={(color) => setNewTagColor(color.toHexString())}
-            showText
-          />
-          <Input
-            value={newTagDescription}
-            onChange={(e) => setNewTagDescription(e.target.value)}
-            placeholder="描述（可选）"
-            style={{ width: 220 }}
-            maxLength={200}
-          />
+        <Form
+          form={createForm}
+          layout="vertical"
+          initialValues={{
+            color: '#1890ff',
+            group_id: null,
+            parent_id: null,
+            icon: null,
+            display_order: 0,
+            description: '',
+            name: '',
+          }}
+        >
+          <Form.Item
+            name="name"
+            label="标签名称"
+            rules={[
+              { required: true, message: '请输入标签名称' },
+              { max: 50, message: '标签名称最多 50 个字符' },
+            ]}
+          >
+            <Input placeholder="例如：原神、蒙德、风之歌" maxLength={50} />
+          </Form.Item>
+
+          <Form.Item name="group_id" label="所属分组">
+            <Select
+              placeholder="选择分组（可选）"
+              allowClear
+              options={groups.map((g) => ({
+                label: `${g.icon || '📁'} ${g.name}`,
+                value: g.id,
+              }))}
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="parent_id"
+            label="父级标签"
+            extra={createParentTagId ? '此标签将成为所选标签的子标签' : '留空则为顶级标签'}
+          >
+            <Select
+              placeholder="选择父级标签（可选）"
+              allowClear
+              options={availableParentTags.map((t) => ({
+                label: `${t.icon || '🏷️'} ${t.name}`,
+                value: t.id,
+              }))}
+              onChange={(value) => setCreateParentTagId(value ?? null)}
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="color"
+            label="标签颜色"
+            rules={[{ required: true, message: '请选择标签颜色' }]}
+          >
+            <ColorPicker showText />
+          </Form.Item>
+
+          <Form.Item
+            name="icon"
+            label="图标"
+            rules={[{ max: 50, message: '图标最多 50 个字符' }]}
+          >
+            <Input placeholder="例如：🎮 或留空" maxLength={50} />
+          </Form.Item>
+
+          <Form.Item name="display_order" label="显示顺序">
+            <InputNumber min={0} style={{ width: '100%' }} placeholder="数字越小越靠前" />
+          </Form.Item>
+
+          <Form.Item
+            name="description"
+            label="描述"
+            rules={[{ max: 500, message: '描述最多 500 个字符' }]}
+          >
+            <TextArea rows={3} placeholder="标签的描述信息（可选）" maxLength={500} showCount />
+          </Form.Item>
+
           <Button type="primary" loading={loading} onClick={handleCreateAndAttachTag}>
             新建并添加
           </Button>
-        </Space>
+        </Form>
       </div>
     </Modal>
   );
