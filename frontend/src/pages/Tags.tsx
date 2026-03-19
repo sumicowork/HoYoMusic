@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Layout, Card, Empty, message, Tag as AntTag, Collapse } from 'antd';
 import { TagOutlined, AppstoreOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
@@ -33,6 +33,9 @@ const Tags: React.FC = () => {
   const [tags, setTags] = useState<Tag[]>([]);
   const [groups, setGroups] = useState<TagGroup[]>([]);
   const [loading, setLoading] = useState(true);
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const showGridDebug = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debugGrid') === '1';
+  const [gridDebugText, setGridDebugText] = useState('');
 
   useEffect(() => {
     fetchData();
@@ -53,6 +56,36 @@ const Tags: React.FC = () => {
 
   const ungroupedTags = tags.filter(t => !t.group_id);
   const tree = buildGroupTree(groups, tags);
+
+  useEffect(() => {
+    if (!showGridDebug) return;
+
+    const updateDebugText = () => {
+      const contentEl = contentRef.current;
+      const gridEl = contentEl?.querySelector('.tag-grid') as HTMLElement | null;
+      if (!contentEl || !gridEl) {
+        setGridDebugText('grid not mounted');
+        return;
+      }
+
+      const contentWidth = Math.round(contentEl.getBoundingClientRect().width);
+      const gridWidth = Math.round(gridEl.getBoundingClientRect().width);
+      const gridTemplate = window.getComputedStyle(gridEl).gridTemplateColumns;
+      const cols = gridTemplate.split(' ').filter(Boolean).length;
+
+      setGridDebugText(`content:${contentWidth}px | grid:${gridWidth}px | cols:${cols} | template:${gridTemplate}`);
+    };
+
+    updateDebugText();
+    window.addEventListener('resize', updateDebugText);
+    const ro = new ResizeObserver(updateDebugText);
+    if (contentRef.current) ro.observe(contentRef.current);
+
+    return () => {
+      window.removeEventListener('resize', updateDebugText);
+      ro.disconnect();
+    };
+  }, [showGridDebug, loading, tags.length, groups.length]);
 
   const renderTagCard = (tag: Tag) => (
     <Card
@@ -117,7 +150,12 @@ const Tags: React.FC = () => {
 
   return (
     <Layout className="tags-layout">
-      <Content className="tags-content">
+      <Content className="tags-content" ref={contentRef}>
+        {showGridDebug && (
+          <div className="tag-grid-debug" role="status" aria-live="polite">
+            {gridDebugText || 'debug ready'}
+          </div>
+        )}
         {loading ? (
           <div className="loading-container"><p>加载中...</p></div>
         ) : tags.length === 0 ? (
