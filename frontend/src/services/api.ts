@@ -17,6 +17,12 @@ api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+
+    if (config.method?.toLowerCase() === 'get') {
+      // Force revalidation for admin list/detail reads right after CRUD actions.
+      config.headers['Cache-Control'] = 'no-cache';
+      config.headers.Pragma = 'no-cache';
+    }
   }
   return config;
 });

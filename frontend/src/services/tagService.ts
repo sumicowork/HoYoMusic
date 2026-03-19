@@ -81,17 +81,30 @@ export interface BulkTagOperationResult {
   failed: Array<{ id: number; message: string }>;
 }
 
+const getReadRequestConfig = () => {
+  const token = localStorage.getItem('token');
+  if (!token) return undefined;
+
+  return {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Cache-Control': 'no-cache',
+      Pragma: 'no-cache',
+    },
+  };
+};
+
 // Get all tags
 export const getTags = async (): Promise<Tag[]> => {
   if (IS_STATIC) return staticData.getTags();
-  const response = await axios.get(`${API_URL}/tags`);
+  const response = await axios.get(`${API_URL}/tags`, getReadRequestConfig());
   return response.data.data;
 };
 
 // Get tag by ID
 export const getTagById = async (id: number): Promise<Tag> => {
   if (IS_STATIC) return staticData.getTagById(id);
-  const response = await axios.get(`${API_URL}/tags/${id}`);
+  const response = await axios.get(`${API_URL}/tags/${id}`, getReadRequestConfig());
   return response.data.data;
 };
 
@@ -130,7 +143,7 @@ export const deleteTag = async (id: number): Promise<void> => {
 // Get tags for a track
 export const getTrackTags = async (trackId: number): Promise<Tag[]> => {
   if (IS_STATIC) return staticData.getTrackTags(trackId) as Promise<Tag[]>;
-  const response = await axios.get(`${API_URL}/tags/track/${trackId}`);
+  const response = await axios.get(`${API_URL}/tags/track/${trackId}`, getReadRequestConfig());
   return response.data.data;
 };
 
@@ -163,7 +176,7 @@ export const removeTagFromTrack = async (trackId: number, tagId: number): Promis
 // Get all tag groups
 export const getTagGroups = async (): Promise<TagGroup[]> => {
   if (IS_STATIC) return staticData.getTagGroups();
-  const response = await axios.get(`${API_URL}/tags/groups/all`);
+  const response = await axios.get(`${API_URL}/tags/groups/all`, getReadRequestConfig());
   return response.data.data;
 };
 

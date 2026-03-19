@@ -5,7 +5,17 @@ import { Request, Response, NextFunction } from 'express';
  * @param maxAge Cache duration in seconds (0 = no-cache)
  */
 export const cacheControl = (maxAge: number) => {
-  return (_req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const hasAuthHeader = Boolean(req.headers.authorization);
+
+    if (hasAuthHeader) {
+      // Authenticated clients (admin) should always read fresh data after mutations.
+      res.set('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+      res.set('Pragma', 'no-cache');
+      res.set('Vary', 'Authorization');
+      return next();
+    }
+
     if (maxAge > 0) {
       res.set('Cache-Control', `public, max-age=${maxAge}`);
     } else {
