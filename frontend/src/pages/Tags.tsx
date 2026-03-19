@@ -72,8 +72,16 @@ const Tags: React.FC = () => {
       const gridWidth = Math.round(gridEl.getBoundingClientRect().width);
       const gridTemplate = window.getComputedStyle(gridEl).gridTemplateColumns;
       const cols = gridTemplate.split(' ').filter(Boolean).length;
+      const innerWidth = Math.round(window.innerWidth);
+      const clientWidth = Math.round(document.documentElement.clientWidth);
+      const visualWidth = Math.round(window.visualViewport?.width || 0);
+      const dpr = window.devicePixelRatio || 1;
+      const mq560 = window.matchMedia('(max-width: 560px)').matches ? '1' : '0';
+      const mq768 = window.matchMedia('(max-width: 768px)').matches ? '1' : '0';
 
-      setGridDebugText(`content:${contentWidth}px | grid:${gridWidth}px | cols:${cols} | template:${gridTemplate}`);
+      setGridDebugText(
+        `vw:${innerWidth}/${clientWidth}/${visualWidth}px dpr:${dpr.toFixed(2)} mq560:${mq560} mq768:${mq768} | content:${contentWidth}px grid:${gridWidth}px cols:${cols} template:${gridTemplate}`
+      );
     };
 
     updateDebugText();
