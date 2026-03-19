@@ -424,43 +424,14 @@ export const updateArtist = async (req: Request, res: Response) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS artist_aliases (
-        id SERIAL PRIMARY KEY,
-        canonical_name VARCHAR(500) NOT NULL,
-        alias_name VARCHAR(500) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(canonical_name, alias_name)
-      )
-    `);
-
-    const canonicalResult = await client.query(
-      'SELECT canonical_name FROM artist_aliases WHERE LOWER(alias_name) = LOWER($1) LIMIT 1',
-      [sourceName]
-    );
-    const canonicalName = canonicalResult.rows[0]?.canonical_name || sourceName;
-
-    const aliasResult = await client.query(
-      'SELECT alias_name FROM artist_aliases WHERE LOWER(canonical_name) = LOWER($1)',
-      [canonicalName]
-    );
-
-    const clusterNames = Array.from(new Set([
-      canonicalName,
-      sourceName,
-      ...aliasResult.rows.map((r: any) => String(r.alias_name || '').trim()).filter(Boolean),
-    ]));
-
-    const clusterLowerNames = clusterNames.map((n) => n.toLowerCase());
-
     let updatedRoleRows = 0;
     for (const mapping of normalizedRoleMappings) {
       const roleUpdate = await client.query(
         `UPDATE track_credits
          SET credit_key = $1, updated_at = CURRENT_TIMESTAMP
-         WHERE LOWER(credit_value) = ANY($2::text[])
+         WHERE LOWER(credit_value) = LOWER($2)
            AND LOWER(credit_key) = LOWER($3)`,
-        [mapping.to, clusterLowerNames, mapping.from]
+        [mapping.to, sourceName, mapping.from]
       );
       updatedRoleRows += roleUpdate.rowCount ?? 0;
     }
@@ -468,31 +439,15 @@ export const updateArtist = async (req: Request, res: Response) => {
     const nameUpdate = await client.query(
       `UPDATE track_credits
        SET credit_value = $1, updated_at = CURRENT_TIMESTAMP
-       WHERE LOWER(credit_value) = ANY($2::text[])`,
-      [targetName, clusterLowerNames]
+       WHERE LOWER(credit_value) = LOWER($2)`,
+      [targetName, sourceName]
     );
 
-    // Normalize alias relationships: targetName becomes canonical for this cluster.
-    await client.query(
-      'DELETE FROM artist_aliases WHERE LOWER(canonical_name) = ANY($1::text[]) OR LOWER(alias_name) = ANY($1::text[])',
-      [clusterLowerNames]
-    );
-
-    for (const oldName of clusterNames) {
-      if (oldName.toLowerCase() === targetName.toLowerCase()) continue;
-      await client.query(
-        `INSERT INTO artist_aliases (canonical_name, alias_name)
-         VALUES ($1, $2)
-         ON CONFLICT (canonical_name, alias_name) DO NOTHING`,
-        [targetName, oldName]
-      );
-    }
-
-    // Keep avatar mapping aligned with renamed canonical/alias names when table exists.
+    // Keep avatar mapping aligned with renamed artist name when table exists.
     try {
       await client.query(
-        'UPDATE artist_avatars SET artist_name = $1 WHERE LOWER(artist_name) = ANY($2::text[])',
-        [targetName, clusterLowerNames]
+        'UPDATE artist_avatars SET artist_name = $1 WHERE LOWER(artist_name) = LOWER($2)',
+        [targetName, sourceName]
       );
     } catch {
       // Ignore if artist_avatars table does not exist yet.
