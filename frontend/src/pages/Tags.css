@@ -1,6 +1,8 @@
 .tags-layout {
   min-height: 100vh;
   background: transparent !important;
+  /* Reserve scrollbar space to avoid width jump when panels expand/collapse */
+  scrollbar-gutter: stable;
 }
 
 .tags-content {
@@ -11,14 +13,23 @@
 
 .tags-collapse {
   background: transparent;
+  width: 100%;
 }
 
 .tags-collapse .ant-collapse-item {
   margin-bottom: 16px;
+  width: 100%;
+  box-sizing: border-box;
   border-radius: 16px !important;
   overflow: hidden;
   backdrop-filter: blur(12px) saturate(160%);
   -webkit-backdrop-filter: blur(12px) saturate(160%);
+}
+
+.tags-collapse .ant-collapse-content,
+.tags-collapse .ant-collapse-content-box {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 [data-theme='light'] .tags-collapse .ant-collapse-item {
