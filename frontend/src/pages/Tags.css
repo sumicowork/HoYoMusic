@@ -1,11 +1,15 @@
 .tags-layout {
   min-height: 100vh;
+  width: 100%;
   background: transparent !important;
   /* Reserve scrollbar space to avoid width jump when panels expand/collapse */
   scrollbar-gutter: stable;
 }
 
 .tags-content {
+  width: 100%;
+  align-self: stretch;
+  box-sizing: border-box;
   max-width: 1400px;
   margin: 0 auto;
   padding: 32px 24px;
