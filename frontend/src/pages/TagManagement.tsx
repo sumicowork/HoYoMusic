@@ -13,7 +13,6 @@ import {
 } from '../services/tagService';
 import AdminLayout from '../components/AdminLayout';
 import TagGroupManager from '../components/TagGroupManager';
-import { buildTagPathLookup, getTagPathLabel } from '../utils/tagPath';
 import './TagManagement.css';
 
 const { TextArea } = Input;
@@ -254,8 +253,6 @@ const TagManagement: React.FC = () => {
   };
 
   // 按分组组织tags
-  const tagPathLookup = React.useMemo(() => buildTagPathLookup(tags, groups), [tags, groups]);
-
   const organizedTags = React.useMemo(() => {
     const grouped: { [key: string]: Tag[] } = {
       ungrouped: []
@@ -341,7 +338,7 @@ const TagManagement: React.FC = () => {
                     onChange={(e) => toggleSelectTag(tag.id, e.target.checked)}
                   />
                 )}
-                <strong>{getTagPathLabel(tag, tagPathLookup)}</strong>
+                <strong>{tag.name}</strong>
                 {tag.parent_name && (
                   <AntTag color="default" style={{ fontSize: 11 }}>
                     {tag.parent_name} 的子标签

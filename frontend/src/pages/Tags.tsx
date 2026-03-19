@@ -3,7 +3,6 @@ import { Layout, Card, Empty, message, Tag as AntTag, Collapse } from 'antd';
 import { TagOutlined, AppstoreOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { getTags, getTagGroups, Tag, TagGroup } from '../services/tagService';
-import { buildTagPathLookup, getTagPathLabel } from '../utils/tagPath';
 import './Tags.css';
 
 const { Content } = Layout;
@@ -58,7 +57,6 @@ const Tags: React.FC = () => {
   };
 
   const tree = useMemo(() => buildGroupTree(groups), [groups]);
-  const tagPathLookup = useMemo(() => buildTagPathLookup(tags, groups), [tags, groups]);
   const childTagMap = useMemo(() => buildTagChildMap(tags), [tags]);
   const tagIdSet = useMemo(() => new Set(tags.map((tag) => tag.id)), [tags]);
 
@@ -91,7 +89,7 @@ const Tags: React.FC = () => {
         <div className="tag-icon" style={{ backgroundColor: tag.color }}>
           <TagOutlined style={{ fontSize: 20, color: '#fff' }} />
         </div>
-        <h3 className="tag-name">{getTagPathLabel(tag, tagPathLookup)}</h3>
+        <h3 className="tag-name">{tag.name}</h3>
         <div className="tag-stats">
           <span>{tag.track_count || 0} 首</span>
         </div>

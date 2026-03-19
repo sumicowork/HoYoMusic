@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Modal,
   Tag,
@@ -25,7 +25,6 @@ import {
   Tag as TagType,
   TagGroup,
 } from '../services/tagService';
-import { buildTagPathLookup, getTagPathLabel } from '../utils/tagPath';
 
 interface TrackTagsManagerProps {
   visible: boolean;
@@ -245,7 +244,6 @@ const TrackTagsManager: React.FC<TrackTagsManagerProps> = ({
   const availableTags = allTags.filter(
     tag => !trackTags.some(t => t.id === tag.id)
   );
-  const tagPathLookup = useMemo(() => buildTagPathLookup(allTags, groups), [allTags, groups]);
 
   const availableParentTags = allTags.filter(tag => !tag.parent_id);
 
@@ -297,7 +295,7 @@ const TrackTagsManager: React.FC<TrackTagsManagerProps> = ({
           ) : (
             <Space wrap style={{ flex: 1 }}>
               <Tag color={tag.color} style={{ fontSize: 14, padding: '4px 8px' }}>
-                {getTagPathLabel(tag, tagPathLookup)}
+                {tag.name}
               </Tag>
               {tag.description && (
                 <span style={{ color: '#999', fontSize: 12 }}>{tag.description}</span>
