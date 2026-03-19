@@ -18,6 +18,7 @@ import {
 import { getTagById, Tag } from '../services/tagService';
 import { usePlayerStore } from '../store/playerStore';
 import { trackService, DOWNLOAD_ENABLED } from '../services/trackService';
+import { getTagPathLabel } from '../utils/tagPath';
 import './TagDetail.css';
 
 const { Content } = Layout;
@@ -179,7 +180,7 @@ const TagDetail: React.FC = () => {
             <AntTag color={tag.color} style={{ fontSize: 16, padding: '4px 12px' }}>
               标签
             </AntTag>
-            <h1>{tag.name}</h1>
+            <h1>{getTagPathLabel(tag)}</h1>
             {tag.description && <p className="tag-description">{tag.description}</p>}
             <div className="tag-stats"><span>{tag.track_count || 0} 首歌曲</span></div>
 

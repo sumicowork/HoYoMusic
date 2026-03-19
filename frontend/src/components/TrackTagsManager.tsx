@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Modal,
   Tag,
@@ -25,6 +25,7 @@ import {
   Tag as TagType,
   TagGroup,
 } from '../services/tagService';
+import { buildTagPathLookup, getTagPathLabel } from '../utils/tagPath';
 
 interface TrackTagsManagerProps {
   visible: boolean;
@@ -244,8 +245,118 @@ const TrackTagsManager: React.FC<TrackTagsManagerProps> = ({
   const availableTags = allTags.filter(
     tag => !trackTags.some(t => t.id === tag.id)
   );
+  const tagPathLookup = useMemo(() => buildTagPathLookup(allTags), [allTags]);
 
   const availableParentTags = allTags.filter(tag => !tag.parent_id);
+
+  const getChildTrackTags = (parentId: number): TagType[] => {
+    return trackTags.filter((tag) => tag.parent_id === parentId);
+  };
+
+  const trackTagIdSet = new Set(trackTags.map((tag) => tag.id));
+  const rootTrackTags = trackTags.filter((tag) => !tag.parent_id || !trackTagIdSet.has(tag.parent_id));
+
+  const renderTrackTagItem = (tag: TagType, level: number = 0): React.ReactNode => {
+    const children = getChildTrackTags(tag.id);
+
+    return (
+      <div key={tag.id} style={{ marginLeft: level * 16 }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            padding: '8px 10px',
+            border: '1px solid #f0f0f0',
+            borderRadius: 8,
+          }}
+        >
+          {editingTagId === tag.id ? (
+            <Space wrap style={{ flex: 1 }}>
+              <Input
+                value={editTagName}
+                onChange={(e) => setEditTagName(e.target.value)}
+                placeholder="标签名称"
+                style={{ width: 180 }}
+                maxLength={50}
+              />
+              <ColorPicker
+                value={editTagColor}
+                onChange={(color) => setEditTagColor(color.toHexString())}
+                showText
+              />
+              <Input
+                value={editTagDescription}
+                onChange={(e) => setEditTagDescription(e.target.value)}
+                placeholder="描述（可选）"
+                style={{ width: 220 }}
+                maxLength={200}
+              />
+            </Space>
+          ) : (
+            <Space wrap style={{ flex: 1 }}>
+              <Tag color={tag.color} style={{ fontSize: 14, padding: '4px 8px' }}>
+                {getTagPathLabel(tag, tagPathLookup)}
+              </Tag>
+              {tag.description && (
+                <span style={{ color: '#999', fontSize: 12 }}>{tag.description}</span>
+              )}
+            </Space>
+          )}
+
+          <Space>
+            {editingTagId === tag.id ? (
+              <>
+                <Button size="small" type="primary" loading={loading} onClick={() => handleUpdateTag(tag.id)}>
+                  保存
+                </Button>
+                <Button size="small" onClick={cancelEditTag}>
+                  取消
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button size="small" onClick={() => startEditTag(tag)}>
+                  编辑
+                </Button>
+                <Button size="small" onClick={() => handleRemoveTag(tag.id)}>
+                  移除
+                </Button>
+                <Popconfirm
+                  title="确定删除该标签吗？"
+                  description="该操作会全局删除标签，并影响所有歌曲"
+                  onConfirm={() => handleDeleteTag(tag.id)}
+                  okText="删除"
+                  cancelText="取消"
+                  okButtonProps={{ danger: true }}
+                >
+                  <Button size="small" danger>
+                    删除
+                  </Button>
+                </Popconfirm>
+              </>
+            )}
+          </Space>
+        </div>
+
+        {children.length > 0 && (
+          <div
+            style={{
+              marginLeft: 18,
+              borderLeft: '2px solid #f0f0f0',
+              paddingLeft: 10,
+              marginTop: 8,
+              display: 'grid',
+              gap: 8,
+            }}
+          >
+            {children.map((child) => renderTrackTagItem(child, level + 1))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <Modal
@@ -265,87 +376,7 @@ const TrackTagsManager: React.FC<TrackTagsManagerProps> = ({
           <p style={{ color: '#999' }}>暂无标签</p>
         ) : (
           <div style={{ display: 'grid', gap: 8 }}>
-            {trackTags.map(tag => (
-              <div
-                key={tag.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 12,
-                  padding: '8px 10px',
-                  border: '1px solid #f0f0f0',
-                  borderRadius: 8,
-                }}
-              >
-                {editingTagId === tag.id ? (
-                  <Space wrap style={{ flex: 1 }}>
-                    <Input
-                      value={editTagName}
-                      onChange={(e) => setEditTagName(e.target.value)}
-                      placeholder="标签名称"
-                      style={{ width: 180 }}
-                      maxLength={50}
-                    />
-                    <ColorPicker
-                      value={editTagColor}
-                      onChange={(color) => setEditTagColor(color.toHexString())}
-                      showText
-                    />
-                    <Input
-                      value={editTagDescription}
-                      onChange={(e) => setEditTagDescription(e.target.value)}
-                      placeholder="描述（可选）"
-                      style={{ width: 220 }}
-                      maxLength={200}
-                    />
-                  </Space>
-                ) : (
-                  <Space wrap style={{ flex: 1 }}>
-                    <Tag color={tag.color} style={{ fontSize: 14, padding: '4px 8px' }}>
-                      {tag.name}
-                    </Tag>
-                    {tag.description && (
-                      <span style={{ color: '#999', fontSize: 12 }}>{tag.description}</span>
-                    )}
-                  </Space>
-                )}
-
-                <Space>
-                  {editingTagId === tag.id ? (
-                    <>
-                      <Button size="small" type="primary" loading={loading} onClick={() => handleUpdateTag(tag.id)}>
-                        保存
-                      </Button>
-                      <Button size="small" onClick={cancelEditTag}>
-                        取消
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <Button size="small" onClick={() => startEditTag(tag)}>
-                        编辑
-                      </Button>
-                      <Button size="small" onClick={() => handleRemoveTag(tag.id)}>
-                        移除
-                      </Button>
-                      <Popconfirm
-                        title="确定删除该标签吗？"
-                        description="该操作会全局删除标签，并影响所有歌曲"
-                        onConfirm={() => handleDeleteTag(tag.id)}
-                        okText="删除"
-                        cancelText="取消"
-                        okButtonProps={{ danger: true }}
-                      >
-                        <Button size="small" danger>
-                          删除
-                        </Button>
-                      </Popconfirm>
-                    </>
-                  )}
-                </Space>
-              </div>
-            ))}
+            {rootTrackTags.map((tag) => renderTrackTagItem(tag))}
           </div>
         )}
       </div>

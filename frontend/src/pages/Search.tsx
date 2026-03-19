@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   Layout, Input, Button, Form, Select, Slider,
   Table, Tag, Image, Space, Typography, Divider,
@@ -20,6 +20,7 @@ import { usePlayerStore } from '../store/playerStore';
 import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
 import { useSearchStore } from '../store/searchStore';
 import { toast } from '../utils/toast';
+import { buildTagPathLookup, getTagPathLabel } from '../utils/tagPath';
 import './Search.css';
 
 const { Content } = Layout;
@@ -104,6 +105,7 @@ const Search: React.FC = () => {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { grouped, childMap } = organizeTagsByGroup(allTags, tagGroups);
+  const tagPathLookup = useMemo(() => buildTagPathLookup(allTags), [allTags]);
 
   const doSearch = useCallback(async (params: TrackSearchParams) => {
     if (abortRef.current) abortRef.current.abort();
@@ -400,7 +402,7 @@ const Search: React.FC = () => {
                     onClose={() => setSelectedTagIds(prev => prev.filter(x => x !== id))}
                     style={{ marginBottom: 4 }}
                   >
-                    {tag.name}
+                    {getTagPathLabel(tag, tagPathLookup)}
                   </Tag>
                 ) : null;
               })}

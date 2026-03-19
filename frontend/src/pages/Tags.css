@@ -114,6 +114,24 @@
   min-width: 0;
 }
 
+.tag-tree-list {
+  display: grid;
+  gap: 12px;
+}
+
+.tag-tree-node {
+  display: grid;
+  gap: 10px;
+}
+
+.tag-tree-children {
+  margin-left: 14px;
+  padding-left: 12px;
+  border-left: 2px solid rgba(102, 126, 234, 0.2);
+  display: grid;
+  gap: 10px;
+}
+
 
 .tag-card {
   width: 100%;

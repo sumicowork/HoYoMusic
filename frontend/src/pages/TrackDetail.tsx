@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Layout, Card, Button, Space, Image, Tag, Skeleton, Descriptions, message, Tooltip, Typography } from 'antd';
 import { ArrowLeftOutlined, PlayCircleOutlined, DownloadOutlined } from '@ant-design/icons';
@@ -12,6 +12,7 @@ import LyricsDisplay from '../components/LyricsDisplay';
 import CreditsDisplay from '../components/CreditsDisplay';
 import { getTrackTags, Tag as TagType } from '../services/tagService';
 import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
+import { buildTagPathLookup, getTagPathLabel } from '../utils/tagPath';
 import './TrackDetail.css';
 
 const { Content } = Layout;
@@ -32,6 +33,7 @@ const TrackDetail: React.FC = () => {
   const [credits, setCredits] = useState<Credit[]>([]);
   const [tags, setTags] = useState<TagType[]>([]);
   const [loading, setLoading] = useState(true);
+  const tagPathLookup = useMemo(() => buildTagPathLookup(tags), [tags]);
 
   const { progress, playTrackOnly, seek } = usePlayerStore();
 
@@ -193,7 +195,7 @@ const TrackDetail: React.FC = () => {
                 )}
                 {tags.map(tag => (
                   <Tag key={tag.id} color={tag.color}>
-                    {tag.name}
+                    {getTagPathLabel(tag, tagPathLookup)}
                   </Tag>
                 ))}
               </Space>
