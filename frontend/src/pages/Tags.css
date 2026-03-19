@@ -86,18 +86,22 @@
 }
 
 .tag-card-col {
-  display: flex;
+  min-width: 0;
 }
 
 .tag-card {
   width: 100%;
-  min-width: 220px;
+  min-width: 0;
   border-radius: 16px;
   transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
   cursor: pointer;
   height: 100%;
   backdrop-filter: blur(10px) saturate(150%);
   -webkit-backdrop-filter: blur(10px) saturate(150%);
+}
+
+.tag-card-col > .tag-card {
+  height: 100%;
 }
 
 .tag-card:hover {
@@ -125,6 +129,7 @@
   font-weight: 600;
   margin: 0 0 6px 0;
   color: var(--text-primary);
+  overflow-wrap: anywhere;
 }
 
 .tag-description {
@@ -158,9 +163,5 @@
 @media (max-width: 768px) {
   .tags-content {
     padding: 16px 12px;
-  }
-
-  .tag-card {
-    min-width: 0;
   }
 }
