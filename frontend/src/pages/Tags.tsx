@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Layout, Card, Empty, message, Row, Col, Tag as AntTag, Collapse } from 'antd';
+import { Layout, Card, Empty, message, Tag as AntTag, Collapse } from 'antd';
 import { TagOutlined, AppstoreOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { getTags, getTagGroups, Tag, TagGroup } from '../services/tagService';
@@ -55,24 +55,23 @@ const Tags: React.FC = () => {
   const tree = buildGroupTree(groups, tags);
 
   const renderTagCard = (tag: Tag) => (
-    <Col xs={24} sm={12} md={8} lg={8} xl={6} xxl={4} key={tag.id} className="tag-card-col">
-      <Card
-        hoverable
-        className="tag-card"
-        onClick={() => navigate(`/tags/${tag.id}`)}
-        style={{ borderLeft: `4px solid ${tag.color}` }}
-      >
-        <div className="tag-card-content">
-          <div className="tag-icon" style={{ backgroundColor: tag.color }}>
-            <TagOutlined style={{ fontSize: 20, color: '#fff' }} />
-          </div>
-          <h3 className="tag-name">{tag.name}</h3>
-          <div className="tag-stats">
-            <span>{tag.track_count || 0} 首</span>
-          </div>
+    <Card
+      key={tag.id}
+      hoverable
+      className="tag-card"
+      onClick={() => navigate(`/tags/${tag.id}`)}
+      style={{ borderLeft: `4px solid ${tag.color}` }}
+    >
+      <div className="tag-card-content">
+        <div className="tag-icon" style={{ backgroundColor: tag.color }}>
+          <TagOutlined style={{ fontSize: 20, color: '#fff' }} />
         </div>
-      </Card>
-    </Col>
+        <h3 className="tag-name">{tag.name}</h3>
+        <div className="tag-stats">
+          <span>{tag.track_count || 0} 首</span>
+        </div>
+      </div>
+    </Card>
   );
 
   const renderGroup = (group: TagGroup, depth = 0): React.ReactNode => {
@@ -90,9 +89,9 @@ const Tags: React.FC = () => {
         }
       >
         {(group.tags || []).length > 0 && (
-          <Row gutter={[12, 12]} style={{ marginBottom: (group.children || []).length > 0 ? 16 : 0 }}>
+          <div className="tag-grid" style={{ marginBottom: (group.children || []).length > 0 ? 16 : 0 }}>
             {group.tags!.map(renderTagCard)}
-          </Row>
+          </div>
         )}
         {(group.children || []).map(child => {
           const childHasContent = (child.tags?.length ?? 0) > 0 || (child.children?.length ?? 0) > 0;
@@ -105,9 +104,9 @@ const Tags: React.FC = () => {
                 <strong>{child.name}</strong>
                 <AntTag style={{ marginLeft: 8, fontSize: 11 }} color="purple">{child.tag_count || 0}</AntTag>
               </div>
-              <Row gutter={[12, 12]}>
+              <div className="tag-grid">
                 {(child.tags || []).map(renderTagCard)}
-              </Row>
+              </div>
               {(child.children || []).map(sub => renderGroup(sub, depth + 2))}
             </div>
           );
@@ -137,9 +136,9 @@ const Tags: React.FC = () => {
             {ungroupedTags.length > 0 && (
               <div style={{ marginTop: 24 }}>
                 <h3 className="tags-section-title"><TagOutlined /> 其他标签</h3>
-                <Row gutter={[12, 12]}>
+                <div className="tag-grid">
                   {ungroupedTags.map(renderTagCard)}
-                </Row>
+                </div>
               </div>
             )}
           </>

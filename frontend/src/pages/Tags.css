@@ -85,8 +85,10 @@
   color: var(--text-secondary);
 }
 
-.tag-card-col {
-  min-width: 0;
+.tag-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
 }
 
 .tag-card {
@@ -98,10 +100,6 @@
   height: 100%;
   backdrop-filter: blur(10px) saturate(150%);
   -webkit-backdrop-filter: blur(10px) saturate(150%);
-}
-
-.tag-card-col > .tag-card {
-  height: 100%;
 }
 
 .tag-card:hover {
@@ -163,5 +161,9 @@
 @media (max-width: 768px) {
   .tags-content {
     padding: 16px 12px;
+  }
+
+  .tag-grid {
+    grid-template-columns: 1fr;
   }
 }
