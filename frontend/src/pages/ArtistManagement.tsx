@@ -19,6 +19,8 @@ interface ArtistItem {
   track_count: number;
   album_count: number;
   roles: string[];
+  is_alias?: boolean;
+  canonical_name?: string | null;
 }
 
 interface AliasItem {
@@ -35,7 +37,7 @@ const ArtistManagement: React.FC = () => {
   const [searchText, setSearchText] = useState('');
 
   // Merge state
-  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+  const [selectedArtistNames, setSelectedArtistNames] = useState<string[]>([]);
   const [mergeModalVisible, setMergeModalVisible] = useState(false);
   const [canonicalName, setCanonicalName] = useState('');
 
@@ -50,7 +52,7 @@ const ArtistManagement: React.FC = () => {
     const size = pageSize ?? pagination.pageSize;
     setLoading(true);
     try {
-      const response = await api.get(`/artists?page=${page}&limit=${size}&search=${encodeURIComponent(search)}`);
+      const response = await api.get(`/artists?page=${page}&limit=${size}&search=${encodeURIComponent(search)}&include_aliases=true`);
       if (response.data.success) {
         setArtists(response.data.data.artists);
         setPagination(prev => ({
@@ -115,7 +117,7 @@ const ArtistManagement: React.FC = () => {
       message.warning('请输入主名称');
       return;
     }
-    const aliasNames = (selectedRowKeys as string[]).filter(n => n !== canonicalName.trim());
+    const aliasNames = selectedArtistNames.filter(n => n !== canonicalName.trim());
     if (aliasNames.length === 0) {
       message.warning('请至少选择一个不同于主名称的艺术家作为别名');
       return;
@@ -128,7 +130,7 @@ const ArtistManagement: React.FC = () => {
       if (response.data.success) {
         message.success(response.data.data.message);
         setMergeModalVisible(false);
-        setSelectedRowKeys([]);
+        setSelectedArtistNames([]);
         setCanonicalName('');
         fetchAliases();
       }
@@ -147,9 +149,19 @@ const ArtistManagement: React.FC = () => {
     }
   };
 
+  const getArtistRowKey = (record: ArtistItem) => (
+    record.is_alias
+      ? `alias:${record.canonical_name || ''}:${record.name}`
+      : `main:${record.name}`
+  );
+
   const rowSelection: TableRowSelection<ArtistItem> = {
-    selectedRowKeys,
-    onChange: (keys) => setSelectedRowKeys(keys),
+    selectedRowKeys: selectedArtistNames.map((name) => `main:${name}`),
+    onChange: (_keys, selectedRows) => {
+      const names = selectedRows.filter((r) => !r.is_alias).map((r) => r.name);
+      setSelectedArtistNames(names);
+    },
+    getCheckboxProps: (record) => ({ disabled: !!record.is_alias }),
   };
 
   const columns: ColumnsType<ArtistItem> = [
@@ -190,6 +202,14 @@ const ArtistManagement: React.FC = () => {
       dataIndex: 'name',
       key: 'name',
       ellipsis: true,
+      render: (name: string, record: ArtistItem) => (
+        <div>
+          <div>{name}</div>
+          {record.is_alias && record.canonical_name && (
+            <div style={{ fontSize: 12, color: '#999' }}>（{record.canonical_name} 的别名）</div>
+          )}
+        </div>
+      ),
     },
     {
       title: '曲目数',
@@ -219,7 +239,7 @@ const ArtistManagement: React.FC = () => {
     },
   ];
 
-  const hasSelection = selectedRowKeys.length > 0;
+  const hasSelection = selectedArtistNames.length > 0;
 
   // Group aliases by canonical_name
   const aliasGroups: Record<string, AliasItem[]> = {};
@@ -243,15 +263,15 @@ const ArtistManagement: React.FC = () => {
               onSearch={(val) => { setSearchText(val); fetchArtists(1, val); }}
               enterButton={<SearchOutlined />}
             />
-            {hasSelection && selectedRowKeys.length >= 2 && (
+            {hasSelection && selectedArtistNames.length >= 2 && (
               <Button
                 icon={<MergeCellsOutlined />}
                 onClick={() => {
-                  setCanonicalName(selectedRowKeys[0] as string);
+                  setCanonicalName(selectedArtistNames[0]);
                   setMergeModalVisible(true);
                 }}
               >
-                合并艺术家 ({selectedRowKeys.length})
+                合并艺术家 ({selectedArtistNames.length})
               </Button>
             )}
             <Button onClick={() => { fetchAliases(); setAliasesModalVisible(true); }}>
@@ -263,7 +283,7 @@ const ArtistManagement: React.FC = () => {
         <Table
           columns={columns}
           dataSource={artists}
-          rowKey="name"
+          rowKey={getArtistRowKey}
           loading={loading}
           rowSelection={rowSelection}
           pagination={{
@@ -291,7 +311,7 @@ const ArtistManagement: React.FC = () => {
         width={500}
       >
         <div style={{ marginBottom: 16 }}>
-          <p>已选择 <strong>{selectedRowKeys.length}</strong> 个艺术家。请选择<strong>主名称</strong>，其余将作为别名。</p>
+          <p>已选择 <strong>{selectedArtistNames.length}</strong> 个艺术家。请选择<strong>主名称</strong>，其余将作为别名。</p>
           <p style={{ color: '#999', fontSize: 12 }}>合并仅创建别名关系，不会修改原始 Credits 数据。</p>
         </div>
         <div style={{ marginBottom: 12 }}>
@@ -301,7 +321,7 @@ const ArtistManagement: React.FC = () => {
             value={canonicalName}
             onChange={setCanonicalName}
           >
-            {(selectedRowKeys as string[]).map(name => (
+            {selectedArtistNames.map(name => (
               <Select.Option key={name} value={name}>{name}</Select.Option>
             ))}
           </Select>
@@ -309,7 +329,7 @@ const ArtistManagement: React.FC = () => {
         <div>
           <strong>将作为别名：</strong>
           <div style={{ marginTop: 4 }}>
-            {(selectedRowKeys as string[]).filter(n => n !== canonicalName).map(name => (
+            {selectedArtistNames.filter(n => n !== canonicalName).map(name => (
               <Tag key={name} color="orange" style={{ margin: 4 }}>{name}</Tag>
             ))}
           </div>

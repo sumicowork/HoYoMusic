@@ -85,7 +85,13 @@
   color: var(--text-secondary);
 }
 
+.tag-card-col {
+  display: flex;
+}
+
 .tag-card {
+  width: 100%;
+  min-width: 220px;
   border-radius: 16px;
   transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
   cursor: pointer;
@@ -152,5 +158,9 @@
 @media (max-width: 768px) {
   .tags-content {
     padding: 16px 12px;
+  }
+
+  .tag-card {
+    min-width: 0;
   }
 }

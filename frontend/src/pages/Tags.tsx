@@ -55,7 +55,7 @@ const Tags: React.FC = () => {
   const tree = buildGroupTree(groups, tags);
 
   const renderTagCard = (tag: Tag) => (
-    <Col xs={24} sm={12} md={8} lg={6} xl={4} key={tag.id}>
+    <Col xs={24} sm={12} md={8} lg={8} xl={6} xxl={4} key={tag.id} className="tag-card-col">
       <Card
         hoverable
         className="tag-card"

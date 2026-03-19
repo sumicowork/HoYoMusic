@@ -10,6 +10,132 @@ export const getArtists = async (req: Request, res: Response) => {
     const limit = parseInt(req.query.limit as string) || 100;
     const offset = (page - 1) * limit;
     const search = (req.query.search as string || '').trim();
+    const includeAliases = String(req.query.include_aliases || '').toLowerCase() === 'true';
+
+    // Admin view: include canonical names and alias rows (alias rows are annotated for UI display)
+    if (includeAliases) {
+      const params: any[] = [];
+      let whereSql = '';
+      if (search) {
+        params.push(`%${search}%`);
+        whereSql = `
+          WHERE LOWER(base.name) LIKE LOWER($1)
+             OR LOWER(COALESCE(base.canonical_name, '')) LIKE LOWER($1)
+        `;
+      }
+
+      const countSql = `
+        WITH canonical_credits AS (
+          SELECT
+            COALESCE(aa.canonical_name, tc.credit_value) AS canonical_name,
+            tc.track_id,
+            tc.credit_key
+          FROM track_credits tc
+          LEFT JOIN artist_aliases aa ON LOWER(tc.credit_value) = LOWER(aa.alias_name)
+          WHERE tc.credit_value IS NOT NULL AND tc.credit_value <> ''
+        ),
+        canonical_stats AS (
+          SELECT
+            cc.canonical_name AS name,
+            COUNT(DISTINCT cc.track_id) AS track_count,
+            COUNT(DISTINCT t.album_id) AS album_count,
+            array_agg(DISTINCT cc.credit_key) AS roles
+          FROM canonical_credits cc
+          LEFT JOIN tracks t ON cc.track_id = t.id
+          GROUP BY cc.canonical_name
+        ),
+        base AS (
+          SELECT
+            cs.name,
+            cs.track_count,
+            cs.album_count,
+            cs.roles,
+            FALSE AS is_alias,
+            NULL::text AS canonical_name
+          FROM canonical_stats cs
+          UNION ALL
+          SELECT
+            aa.alias_name AS name,
+            cs.track_count,
+            cs.album_count,
+            cs.roles,
+            TRUE AS is_alias,
+            aa.canonical_name
+          FROM artist_aliases aa
+          JOIN canonical_stats cs ON LOWER(cs.name) = LOWER(aa.canonical_name)
+        )
+        SELECT COUNT(*)::int AS total
+        FROM base
+        ${whereSql}
+      `;
+      const countResult = await pool.query(countSql, params);
+      const total = parseInt(countResult.rows[0].total, 10);
+
+      const listSql = `
+        WITH canonical_credits AS (
+          SELECT
+            COALESCE(aa.canonical_name, tc.credit_value) AS canonical_name,
+            tc.track_id,
+            tc.credit_key
+          FROM track_credits tc
+          LEFT JOIN artist_aliases aa ON LOWER(tc.credit_value) = LOWER(aa.alias_name)
+          WHERE tc.credit_value IS NOT NULL AND tc.credit_value <> ''
+        ),
+        canonical_stats AS (
+          SELECT
+            cc.canonical_name AS name,
+            COUNT(DISTINCT cc.track_id) AS track_count,
+            COUNT(DISTINCT t.album_id) AS album_count,
+            array_agg(DISTINCT cc.credit_key) AS roles
+          FROM canonical_credits cc
+          LEFT JOIN tracks t ON cc.track_id = t.id
+          GROUP BY cc.canonical_name
+        ),
+        base AS (
+          SELECT
+            cs.name,
+            cs.track_count,
+            cs.album_count,
+            cs.roles,
+            FALSE AS is_alias,
+            NULL::text AS canonical_name
+          FROM canonical_stats cs
+          UNION ALL
+          SELECT
+            aa.alias_name AS name,
+            cs.track_count,
+            cs.album_count,
+            cs.roles,
+            TRUE AS is_alias,
+            aa.canonical_name
+          FROM artist_aliases aa
+          JOIN canonical_stats cs ON LOWER(cs.name) = LOWER(aa.canonical_name)
+        )
+        SELECT
+          base.name,
+          base.track_count,
+          base.album_count,
+          base.roles,
+          base.is_alias,
+          base.canonical_name
+        FROM base
+        ${whereSql}
+        ORDER BY
+          base.track_count DESC,
+          base.is_alias ASC,
+          base.name ASC
+        LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+      `;
+      const listResult = await pool.query(listSql, [...params, limit, offset]);
+
+      return res.json({
+        success: true,
+        data: {
+          artists: listResult.rows,
+          pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+        },
+      });
+    }
 
     // Cache for non-search paginated results
     const cacheKey = search ? null : `artists:p${page}:l${limit}`;
