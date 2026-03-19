@@ -90,6 +90,12 @@
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   align-items: stretch;
   gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.tag-grid > * {
+  min-width: 0;
 }
 
 
@@ -160,7 +166,7 @@
   margin-top: 12px;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 560px) {
   .tags-content {
     padding: 16px 12px;
   }
