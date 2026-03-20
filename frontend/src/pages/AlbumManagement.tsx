@@ -700,7 +700,7 @@ const AlbumManagement: React.FC = () => {
             </Select>
           </Form.Item>
           <Form.Item name="release_date" label="发行日期">
-            <DatePicker style={{ width: '100%' }} />
+            <DatePicker style={{ width: '100%' }} format="YYYYMMDD" placeholder="例如 20250101" />
           </Form.Item>
           <Form.Item name="notes" label="备注">
             <Input.TextArea rows={3} placeholder="专辑备注信息（可选）" maxLength={5000} showCount />
