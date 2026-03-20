@@ -194,41 +194,89 @@ const Analytics: React.FC = () => {
   const [loading, setLoading]       = useState(true);
   const [warming, setWarming]       = useState(false);
   const [lastRefresh, setLast]      = useState(new Date());
+  const ANALYTICS_TIMEOUT_MS = 12000;
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [ov, tr, hr, cn, pg, dv, sc, pf, rc, rf, ch, ht, vs] = await Promise.all([
-        api.get('/analytics/overview'),
-        api.get(`/analytics/trend?days=${days}`),
-        api.get('/analytics/hourly'),
-        api.get(`/analytics/countries?days=${days}`),
-        api.get(`/analytics/pages?days=${days}`),
-        api.get(`/analytics/devices?days=${days}`),
-        api.get(`/analytics/status-codes?days=${days}`),
-        api.get(`/analytics/performance?days=${days}`),
-        api.get('/analytics/recent?limit=100'),
-        api.get(`/analytics/referers?days=${days}`),
-        api.get('/analytics/cache'),
-        api.get(`/analytics/tracks/hot?days=${days}&limit=50`),
-        api.get(`/analytics/visitors?days=${days}&page=1&limit=50`),
-      ]);
-      setOverview(ov.data.data);
-      setTrend(tr.data.data);
-      setHourly(hr.data.data);
-      setCountries(cn.data.data);
-      setPages(pg.data.data);
-      setDevices(dv.data.data);
-      setStatus(sc.data.data);
-      setPerf(pf.data.data.map((r: any) => ({
-        ...r,
-        label: new Date(r.hour).toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }),
-      })));
-      setRecent(rc.data.data);
-      setReferers(rf.data.data);
-      setCacheInfo(ch.data.data);
-      setHotTracks(ht.data.data || []);
-      setVisitors(vs.data?.data?.visitors || []);
+      const requests = {
+        overview: api.get('/analytics/overview', { timeout: ANALYTICS_TIMEOUT_MS }),
+        trend: api.get(`/analytics/trend?days=${days}`, { timeout: ANALYTICS_TIMEOUT_MS }),
+        hourly: api.get('/analytics/hourly', { timeout: ANALYTICS_TIMEOUT_MS }),
+        countries: api.get(`/analytics/countries?days=${days}`, { timeout: ANALYTICS_TIMEOUT_MS }),
+        pages: api.get(`/analytics/pages?days=${days}`, { timeout: ANALYTICS_TIMEOUT_MS }),
+        devices: api.get(`/analytics/devices?days=${days}`, { timeout: ANALYTICS_TIMEOUT_MS }),
+        statusCodes: api.get(`/analytics/status-codes?days=${days}`, { timeout: ANALYTICS_TIMEOUT_MS }),
+        performance: api.get(`/analytics/performance?days=${days}`, { timeout: ANALYTICS_TIMEOUT_MS }),
+        recent: api.get('/analytics/recent?limit=100', { timeout: ANALYTICS_TIMEOUT_MS }),
+        referers: api.get(`/analytics/referers?days=${days}`, { timeout: ANALYTICS_TIMEOUT_MS }),
+        cache: api.get('/analytics/cache', { timeout: ANALYTICS_TIMEOUT_MS }),
+        hotTracks: api.get(`/analytics/tracks/hot?days=${days}&limit=50`, { timeout: ANALYTICS_TIMEOUT_MS }),
+        visitors: api.get(`/analytics/visitors?days=${days}&page=1&limit=50`, { timeout: ANALYTICS_TIMEOUT_MS }),
+      } as const;
+
+      const keys = Object.keys(requests) as Array<keyof typeof requests>;
+      const settled = await Promise.allSettled(keys.map((k) => requests[k]));
+      const failedKeys: string[] = [];
+
+      const getData = (key: keyof typeof requests): any | null => {
+        const idx = keys.indexOf(key);
+        const result = settled[idx];
+        if (result.status !== 'fulfilled') {
+          failedKeys.push(String(key));
+          return null;
+        }
+        return result.value.data?.data ?? null;
+      };
+
+      const overviewData = getData('overview');
+      if (overviewData) setOverview(overviewData);
+
+      const trendData = getData('trend');
+      if (trendData) setTrend(trendData);
+
+      const hourlyDataResp = getData('hourly');
+      if (hourlyDataResp) setHourly(hourlyDataResp);
+
+      const countriesData = getData('countries');
+      if (countriesData) setCountries(countriesData);
+
+      const pagesData = getData('pages');
+      if (pagesData) setPages(pagesData);
+
+      const devicesData = getData('devices');
+      if (devicesData) setDevices(devicesData);
+
+      const statusCodesData = getData('statusCodes');
+      if (statusCodesData) setStatus(statusCodesData);
+
+      const perfData = getData('performance');
+      if (perfData) {
+        setPerf(perfData.map((r: any) => ({
+          ...r,
+          label: new Date(r.hour).toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }),
+        })));
+      }
+
+      const recentData = getData('recent');
+      if (recentData) setRecent(recentData);
+
+      const referersData = getData('referers');
+      if (referersData) setReferers(referersData);
+
+      const cacheData = getData('cache');
+      if (cacheData) setCacheInfo(cacheData);
+
+      const hotTracksData = getData('hotTracks');
+      if (hotTracksData) setHotTracks(hotTracksData || []);
+
+      const visitorsData = getData('visitors');
+      if (visitorsData) setVisitors(visitorsData?.visitors || []);
+
+      if (failedKeys.length > 0) {
+        message.warning(`部分统计加载失败：${failedKeys.join(', ')}`);
+      }
+
       setLast(new Date());
     } catch (e) {
       console.error('[Analytics]', e);
