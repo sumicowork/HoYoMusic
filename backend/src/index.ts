@@ -234,6 +234,8 @@ const runMigrations = async () => {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_visit_logs_ts      ON visit_logs (ts DESC)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_visit_logs_country ON visit_logs (country)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_visit_logs_path    ON visit_logs (path text_pattern_ops)`);
+    await pool.query(`ALTER TABLE visit_logs ADD COLUMN IF NOT EXISTS visitor_id VARCHAR(128)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_visit_logs_visitor_id ON visit_logs (visitor_id)`);
     console.log('✅ DB migrations up to date (visit_logs)');
   } catch (err) {
     console.error('⚠️  visit_logs migration warning:', err);

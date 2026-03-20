@@ -6,6 +6,7 @@ type VisitLogEntry = [
   string | null,
   string | null,
   string | null,
+  string | null,
   number | null,
   number | null,
   string,
@@ -46,14 +47,14 @@ async function flushQueue(force = false): Promise<void> {
 
   try {
     const placeholders = batch.map((_, i) => {
-      const base = i * 16;
-      return `($${base + 1},$${base + 2},$${base + 3},$${base + 4},$${base + 5},$${base + 6},$${base + 7},$${base + 8},$${base + 9},$${base + 10},$${base + 11},$${base + 12},$${base + 13},$${base + 14},$${base + 15},$${base + 16})`;
+      const base = i * 17;
+      return `($${base + 1},$${base + 2},$${base + 3},$${base + 4},$${base + 5},$${base + 6},$${base + 7},$${base + 8},$${base + 9},$${base + 10},$${base + 11},$${base + 12},$${base + 13},$${base + 14},$${base + 15},$${base + 16},$${base + 17})`;
     }).join(',');
     const values = batch.flat();
 
     await pool.query(
       `INSERT INTO visit_logs
-        (ip, country, region, city, latitude, longitude,
+        (ip, visitor_id, country, region, city, latitude, longitude,
          method, path, status, duration_ms,
          user_agent, ua_browser, ua_os, ua_device,
          referer, bytes_sent)
@@ -93,6 +94,16 @@ function getRealIp(req: Request): string {
   return (req.socket?.remoteAddress || '0.0.0.0').replace(/^::ffff:/, '');
 }
 
+function getVisitorId(req: Request): string | null {
+  const raw = req.headers['x-visitor-id'];
+  if (typeof raw !== 'string') return null;
+  const value = raw.trim();
+  if (!value) return null;
+  if (value.length > 128) return null;
+  if (!/^[A-Za-z0-9_-]+$/.test(value)) return null;
+  return value;
+}
+
 export function visitLogger(req: Request, res: Response, next: NextFunction) {
   if (!VISIT_LOGGER_ENABLED) return next();
 
@@ -106,6 +117,7 @@ export function visitLogger(req: Request, res: Response, next: NextFunction) {
     try {
       const duration = Date.now() - startAt;
       const ip = getRealIp(req);
+      const visitorId = getVisitorId(req);
       const ua = (req.headers['user-agent'] || '').slice(0, 512);
       const referer = ((req.headers['referer'] || req.headers['referrer'] || '') as string).slice(0, 512);
 
@@ -136,7 +148,7 @@ export function visitLogger(req: Request, res: Response, next: NextFunction) {
       const bytes = bytesRaw ? parseInt(bytesRaw as string) : 0;
 
       enqueue([
-        ip, country, region, city, lat, lon,
+        ip, visitorId, country, region, city, lat, lon,
         req.method, urlPath.slice(0, 1024), res.statusCode, duration,
         ua, uaBrowser.slice(0, 128), uaOs.slice(0, 128), uaDevice.slice(0, 64),
         referer, bytes,

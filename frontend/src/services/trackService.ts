@@ -1,4 +1,4 @@
-import api, { IS_STATIC } from './api';
+import api, { IS_STATIC, getOrCreateVisitorId } from './api';
 import * as staticData from './staticDataService';
 import axios from 'axios';
 import { ApiResponse, Track } from '../types';
@@ -18,6 +18,14 @@ const publicApi = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+});
+
+publicApi.interceptors.request.use((config) => {
+  const visitorId = getOrCreateVisitorId();
+  if (visitorId) {
+    config.headers['x-visitor-id'] = visitorId;
+  }
+  return config;
 });
 
 export interface TrackSearchParams {

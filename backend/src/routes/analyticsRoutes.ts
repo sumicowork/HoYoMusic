@@ -12,6 +12,7 @@ router.use(authenticateJWT as any);
 
 // ── Helper ────────────────────────────────────────────────────────
 const clampDays = (v: any, max = 90) => Math.min(Math.max(parseInt(v) || 30, 1), max);
+const UNIQUE_VISITOR_EXPR = "COALESCE(NULLIF(visitor_id, ''), ip)";
 /** Sanitized error message for production */
 const safeError = (e: any) => {
   const msg = process.env.NODE_ENV === 'production' ? 'Internal server error' : (e?.message || 'Unknown error');
@@ -240,7 +241,7 @@ router.get('/overview', async (_req: Request, res: Response) => {
     const [total, today, unique7d, errors, avgMs] = await Promise.all([
       pool.query(`SELECT COUNT(*)::int AS v FROM visit_logs`),
       pool.query(`SELECT COUNT(*)::int AS v FROM visit_logs WHERE ts >= (NOW() AT TIME ZONE 'Asia/Shanghai')::date AT TIME ZONE 'Asia/Shanghai'`),
-      pool.query(`SELECT COUNT(DISTINCT ip)::int AS v FROM visit_logs WHERE ts >= NOW() - INTERVAL '7 days'`),
+      pool.query(`SELECT COUNT(DISTINCT ${UNIQUE_VISITOR_EXPR})::int AS v FROM visit_logs WHERE ts >= NOW() - INTERVAL '7 days'`),
       pool.query(`SELECT COUNT(*)::int AS v FROM visit_logs WHERE status >= 400 AND ts >= (NOW() AT TIME ZONE 'Asia/Shanghai')::date AT TIME ZONE 'Asia/Shanghai'`),
       pool.query(`SELECT ROUND(AVG(duration_ms))::int AS v FROM visit_logs WHERE ts >= NOW() - INTERVAL '24 hours'`),
     ]);
@@ -262,7 +263,7 @@ router.get('/trend', async (req: Request, res: Response) => {
       SELECT
         DATE_TRUNC('day', ts AT TIME ZONE 'Asia/Shanghai')::date AS date,
         COUNT(*)::int               AS requests,
-        COUNT(DISTINCT ip)::int     AS visitors
+        COUNT(DISTINCT ${UNIQUE_VISITOR_EXPR})::int AS visitors
       FROM visit_logs
       WHERE ts >= NOW() - INTERVAL '1 day' * $1
       GROUP BY 1 ORDER BY 1
@@ -288,7 +289,7 @@ router.get('/hourly', async (_req: Request, res: Response) => {
       SELECT
         h.hour,
         COALESCE(COUNT(t.hour), 0)::int AS requests,
-        COALESCE(COUNT(DISTINCT t.ip), 0)::int AS visitors
+        COALESCE(COUNT(DISTINCT COALESCE(NULLIF(t.visitor_id, ''), t.ip)), 0)::int AS visitors
       FROM hours h
       LEFT JOIN today_logs t ON t.hour = h.hour
       GROUP BY h.hour
@@ -306,7 +307,7 @@ router.get('/countries', async (req: Request, res: Response) => {
       SELECT
         COALESCE(NULLIF(country,''), 'Unknown') AS country,
         COUNT(*)::int           AS requests,
-        COUNT(DISTINCT ip)::int AS visitors
+        COUNT(DISTINCT ${UNIQUE_VISITOR_EXPR})::int AS visitors
       FROM visit_logs
       WHERE ts >= NOW() - INTERVAL '1 day' * $1
       GROUP BY 1 ORDER BY 3 DESC LIMIT 50
@@ -343,7 +344,7 @@ router.get('/pages', async (req: Request, res: Response) => {
       SELECT
         path,
         COUNT(*)::int                                  AS hits,
-        COUNT(DISTINCT ip)::int                        AS visitors,
+        COUNT(DISTINCT ${UNIQUE_VISITOR_EXPR})::int   AS visitors,
         ROUND(AVG(duration_ms))::int                   AS avg_ms,
         ROUND(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY duration_ms))::int AS p95_ms,
         COUNT(*) FILTER (WHERE status >= 400)::int     AS errors
@@ -418,7 +419,7 @@ router.get('/recent', async (req: Request, res: Response) => {
   try {
     const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
     const result = await pool.query(`
-      SELECT id, ts, ip, country, region, city,
+      SELECT id, ts, ip, visitor_id, country, region, city,
              method, path, status, duration_ms,
              ua_browser, ua_os, ua_device, referer, bytes_sent
       FROM visit_logs ORDER BY ts DESC LIMIT $1
