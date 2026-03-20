@@ -62,6 +62,8 @@ const AlbumManagement: React.FC = () => {
   const [rangeEnd, setRangeEnd] = useState<number | null>(null);
   const [rangeTargetDiscId, setRangeTargetDiscId] = useState<number | null>(null);
   const [sequentialDiscCounts, setSequentialDiscCounts] = useState<Record<number, number>>({});
+  const [releaseDateDraftById, setReleaseDateDraftById] = useState<Record<number, string>>({});
+  const [savingReleaseDateById, setSavingReleaseDateById] = useState<Record<number, boolean>>({});
 
 
   const fetchAlbums = async (page = 1, pageSize?: number) => {
@@ -96,6 +98,67 @@ const AlbumManagement: React.FC = () => {
     fetchAlbums();
     fetchGames();
   }, []);
+
+  useEffect(() => {
+    setReleaseDateDraftById((prev) => {
+      const next: Record<number, string> = {};
+      albums.forEach((album) => {
+        const compact = album.release_date ? dayjs(album.release_date).format('YYYYMMDD') : '';
+        next[album.id] = prev[album.id] ?? compact;
+      });
+      return next;
+    });
+  }, [albums]);
+
+  const compactToIsoDate = (value: string): string | null => {
+    const normalized = value.trim();
+    if (!normalized) return null;
+    if (!/^\d{8}$/.test(normalized)) return null;
+    const iso = `${normalized.slice(0, 4)}-${normalized.slice(4, 6)}-${normalized.slice(6, 8)}`;
+    return dayjs(iso, 'YYYY-MM-DD', true).isValid() ? iso : null;
+  };
+
+  const handleReleaseDateBlurSave = async (album: Album, rawValue: string) => {
+    const trimmed = rawValue.trim();
+    const currentIso = album.release_date ? dayjs(album.release_date).format('YYYY-MM-DD') : null;
+
+    if (trimmed && !/^\d{8}$/.test(trimmed)) {
+      message.error('发行日期请使用 YYYYMMDD 格式');
+      setReleaseDateDraftById((prev) => ({ ...prev, [album.id]: album.release_date ? dayjs(album.release_date).format('YYYYMMDD') : '' }));
+      return;
+    }
+
+    const nextIso = compactToIsoDate(trimmed);
+    if (trimmed && !nextIso) {
+      message.error('发行日期无效，请检查日期是否正确');
+      setReleaseDateDraftById((prev) => ({ ...prev, [album.id]: album.release_date ? dayjs(album.release_date).format('YYYYMMDD') : '' }));
+      return;
+    }
+
+    if (currentIso === nextIso) {
+      setReleaseDateDraftById((prev) => ({ ...prev, [album.id]: nextIso ? dayjs(nextIso).format('YYYYMMDD') : '' }));
+      return;
+    }
+
+    setSavingReleaseDateById((prev) => ({ ...prev, [album.id]: true }));
+    try {
+      await albumService.updateAlbum(album.id, {
+        title: album.title,
+        game_id: album.game_id || null,
+        release_date: nextIso,
+        notes: album.notes || null,
+      });
+
+      setAlbums((prev) => prev.map((item) => (item.id === album.id ? { ...item, release_date: nextIso || '' } : item)));
+      setReleaseDateDraftById((prev) => ({ ...prev, [album.id]: nextIso ? dayjs(nextIso).format('YYYYMMDD') : '' }));
+      message.success('发行日期已更新');
+    } catch (error: any) {
+      message.error(error.message || '发行日期更新失败');
+      setReleaseDateDraftById((prev) => ({ ...prev, [album.id]: album.release_date ? dayjs(album.release_date).format('YYYYMMDD') : '' }));
+    } finally {
+      setSavingReleaseDateById((prev) => ({ ...prev, [album.id]: false }));
+    }
+  };
 
   const handleEdit = (album: Album) => {
     setEditingAlbum(album);
@@ -495,8 +558,23 @@ const AlbumManagement: React.FC = () => {
       title: '发行日期',
       dataIndex: 'release_date',
       key: 'release_date',
-      width: 120,
-      render: (date) => date ? new Date(date).getFullYear() : '-',
+      width: 170,
+      render: (_date, record) => (
+        <Input
+          size="small"
+          maxLength={8}
+          placeholder="YYYYMMDD"
+          value={releaseDateDraftById[record.id] ?? (record.release_date ? dayjs(record.release_date).format('YYYYMMDD') : '')}
+          disabled={savingReleaseDateById[record.id]}
+          onChange={(e) => {
+            const next = e.target.value.replace(/\D/g, '');
+            setReleaseDateDraftById((prev) => ({ ...prev, [record.id]: next }));
+          }}
+          onBlur={(e) => {
+            void handleReleaseDateBlurSave(record, e.target.value);
+          }}
+        />
+      ),
     },
     {
       title: '操作',
