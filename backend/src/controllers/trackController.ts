@@ -60,6 +60,7 @@ export const uploadTracks = async (req: Request, res: Response) => {
     }
 
     const uploadedTracks = [];
+    const skippedDuplicates: Array<{ title: string; album: string | null; file: string }> = [];
     // auto_credits: 优先从 query string 读（绕开 multipart body 字段顺序问题），兼容 body
     const autoCreditsRaw = (req.query.auto_credits as string) ?? req.body.auto_credits;
     const autoCredits = autoCreditsRaw === 'false' ? false : true;
@@ -107,6 +108,34 @@ export const uploadTracks = async (req: Request, res: Response) => {
           ? (albumOverride || null)
           : (metadata.common.album || null);
         const trackNumber = metadata.common.track.no || null;
+
+        const normalizedTitle = title.trim();
+        const normalizedAlbumTitle = albumTitle ? albumTitle.trim() : null;
+
+        // Skip duplicate title+album records before uploading to remote storage.
+        const duplicateCheck = await pool.query(
+          `
+            SELECT t.id
+            FROM tracks t
+            LEFT JOIN albums a ON t.album_id = a.id
+            WHERE LOWER(TRIM(t.title)) = LOWER(TRIM($1))
+              AND (
+                ($2::text IS NULL AND a.title IS NULL)
+                OR ($2::text IS NOT NULL AND LOWER(TRIM(a.title)) = LOWER(TRIM($2::text)))
+              )
+            LIMIT 1
+          `,
+          [normalizedTitle, normalizedAlbumTitle]
+        );
+
+        if (duplicateCheck.rows.length > 0) {
+          skippedDuplicates.push({
+            title: normalizedTitle,
+            album: normalizedAlbumTitle,
+            file: file.originalname,
+          });
+          continue;
+        }
 
         // Parse release date: prefer full date string from native tags, fallback to year-only
         let releaseDate: Date | null = null;
@@ -310,7 +339,7 @@ export const uploadTracks = async (req: Request, res: Response) => {
             id: track.id,
             title: track.title,
             artists: artistNames,
-            album: albumTitle,
+            album: normalizedAlbumTitle,
           });
         } catch (error) {
           await client.query('ROLLBACK');
@@ -338,6 +367,8 @@ export const uploadTracks = async (req: Request, res: Response) => {
       data: {
         tracks: uploadedTracks,
         total: uploadedTracks.length,
+        skipped_duplicates: skippedDuplicates,
+        skipped_total: skippedDuplicates.length,
       },
     });
   } catch (error) {
