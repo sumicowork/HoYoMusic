@@ -116,7 +116,15 @@
 
 .tag-tree-list {
   display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(clamp(180px, 22vw, 240px), 1fr));
+  align-items: stretch;
   gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.tag-tree-list > * {
+  min-width: 0;
 }
 
 .tag-tree-node {
@@ -206,6 +214,10 @@
   }
 
   .tag-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tag-tree-list {
     grid-template-columns: 1fr;
   }
 }
