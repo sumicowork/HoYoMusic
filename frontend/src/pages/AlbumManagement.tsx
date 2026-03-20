@@ -47,6 +47,7 @@ const AlbumManagement: React.FC = () => {
   const [exportSearchText, setExportSearchText] = useState('');
   const [exportPagination, setExportPagination] = useState({ current: 1, pageSize: 20, total: 0 });
   const [bpmDetectingAlbumId, setBpmDetectingAlbumId] = useState<number | null>(null);
+  const [batchBpmRunning, setBatchBpmRunning] = useState(false);
 
   // Disc management
   const [discModalVisible, setDiscModalVisible] = useState(false);
@@ -293,6 +294,136 @@ const AlbumManagement: React.FC = () => {
       message.error(error.message || '批量BPM检测失败');
     } finally {
       setBpmDetectingAlbumId(null);
+    }
+  };
+
+  const fetchAllAlbumsForBpm = async (): Promise<Album[]> => {
+    const limit = 100;
+    let page = 1;
+    let totalPages = 1;
+    const all: Album[] = [];
+
+    while (page <= totalPages) {
+      const data = await albumService.getAlbums(page, limit);
+      all.push(...data.albums);
+      totalPages = data.pagination?.totalPages || 1;
+      page += 1;
+    }
+
+    return all;
+  };
+
+  const runSingleAlbumBpmTask = async (album: Album): Promise<void> => {
+    let task = await albumService.createDetectBpmTask(album.id);
+    const startedAt = Date.now();
+    const maxWaitMs = 45 * 60 * 1000;
+    const pollIntervalMs = 3000;
+
+    while (task.status === 'running') {
+      if (Date.now() - startedAt > maxWaitMs) {
+        throw new Error('任务等待超时');
+      }
+      await sleep(pollIntervalMs);
+      task = await albumService.getDetectBpmTask(album.id, task.task_id);
+    }
+
+    if (task.status === 'failed') {
+      throw new Error(task.error || '任务失败');
+    }
+  };
+
+  const handleBatchDetectBpm = async () => {
+    if (batchBpmRunning) return;
+
+    const confirmed = await new Promise<boolean>((resolve) => {
+      Modal.confirm({
+        title: '一键 BPM 检测',
+        content: '将把全部专辑加入 BPM 检测队列，并按最多 2 个并行任务处理。是否继续？',
+        okText: '开始检测',
+        cancelText: '取消',
+        onOk: () => resolve(true),
+        onCancel: () => resolve(false),
+      });
+    });
+
+    if (!confirmed) return;
+
+    const progressMsgKey = 'bpm-batch-task';
+    setBatchBpmRunning(true);
+
+    try {
+      const allAlbums = await fetchAllAlbumsForBpm();
+      if (allAlbums.length === 0) {
+        message.info('当前没有可检测的专辑');
+        return;
+      }
+
+      const total = allAlbums.length;
+      let done = 0;
+      let success = 0;
+      let failed = 0;
+      const failedAlbums: Array<{ id: number; title: string; error: string }> = [];
+      let cursor = 0;
+
+      const updateProgress = () => {
+        message.open({
+          key: progressMsgKey,
+          type: 'loading',
+          duration: 0,
+          content: `BPM批量检测中：${done}/${total}（成功 ${success}，失败 ${failed}）`,
+        });
+      };
+
+      updateProgress();
+
+      const worker = async () => {
+        while (true) {
+          const idx = cursor;
+          cursor += 1;
+          if (idx >= total) break;
+
+          const album = allAlbums[idx];
+          try {
+            await runSingleAlbumBpmTask(album);
+            success += 1;
+          } catch (error: any) {
+            failed += 1;
+            failedAlbums.push({ id: album.id, title: album.title, error: error?.message || '未知错误' });
+          } finally {
+            done += 1;
+            updateProgress();
+          }
+        }
+      };
+
+      await Promise.all([worker(), worker()]);
+      message.destroy(progressMsgKey);
+
+      if (failed === 0) {
+        message.success(`BPM批量检测完成：${success}/${total} 全部成功`);
+      } else {
+        Modal.warning({
+          title: `BPM批量检测完成：成功 ${success}，失败 ${failed}`,
+          width: 760,
+          content: (
+            <div style={{ maxHeight: 320, overflowY: 'auto' }}>
+              {failedAlbums.map((item) => (
+                <div key={item.id} style={{ marginBottom: 6 }}>
+                  #{item.id} {item.title}：{item.error}
+                </div>
+              ))}
+            </div>
+          ),
+          okText: '知道了',
+        });
+      }
+
+      fetchAlbums(pagination.current);
+    } catch (error: any) {
+      message.destroy(progressMsgKey);
+      message.error(error.message || '一键BPM检测失败');
+    } finally {
+      setBatchBpmRunning(false);
     }
   };
 
@@ -730,6 +861,12 @@ const AlbumManagement: React.FC = () => {
               onClick={openExportModal}
             >
               导出 Credits
+            </Button>
+            <Button
+              loading={batchBpmRunning}
+              onClick={handleBatchDetectBpm}
+            >
+              一键BPM检测
             </Button>
           </Space>
         }
