@@ -11,7 +11,6 @@ import {
   FileTextOutlined, TagOutlined, FolderOpenOutlined,
 } from '@ant-design/icons';
 import { trackService } from '../services/trackService';
-import { parseBlob } from 'music-metadata-browser';
 import { toast } from '../utils/toast';
 import './UploadModal.css';
 
@@ -50,19 +49,6 @@ function parseFilename(name: string): { title: string; artist: string; album: st
   return { title, artist: '', album: '' };
 }
 
-async function parseLocalMetadata(file: File): Promise<{ title: string; artist: string; album: string }> {
-  const fallback = parseFilename(file.name);
-  try {
-    const metadata = await parseBlob(file);
-    const title = metadata.common.title?.trim() || fallback.title;
-    const artist = (metadata.common.artists?.join(', ') || metadata.common.artist || '').trim();
-    const album = (metadata.common.album || '').trim();
-    return { title, artist, album };
-  } catch {
-    return fallback;
-  }
-}
-
 const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }) => {
   const [fileItems, setFileItems] = useState<FileItem[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -85,39 +71,30 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
   const formatSize = (b: number) =>
     b < 1024 * 1024 ? `${(b / 1024).toFixed(1)} KB` : `${(b / (1024 * 1024)).toFixed(2)} MB`;
 
-  const addFiles = useCallback(async (files: File[]) => {
-    const accepted: File[] = [];
-    for (const file of files) {
+  const addFiles = useCallback((files: File[]) => {
+    setFileItems(prev => {
+      const next = [...prev];
+      for (const file of files) {
       const ok = file.name.toLowerCase().endsWith('.flac') ||
                  file.type === 'audio/flac' || file.type === 'audio/x-flac';
       if (!ok) {
         toast.error(`${file.name} 不是 FLAC 格式，已跳过`);
         continue;
       }
-      accepted.push(file);
-    }
-
-    const parsed = await Promise.all(accepted.map(async (file) => ({
-      file,
-      ...(await parseLocalMetadata(file)),
-    })));
-
-    setFileItems(prev => {
-      const next = [...prev];
-      for (const item of parsed) {
-        if (next.some(f => f.name === item.file.name && f.size === item.file.size)) continue;
+        if (next.some(f => f.name === file.name && f.size === file.size)) continue;
+        const { title, artist, album } = parseFilename(file.name);
         next.push({
           uid: `${Date.now()}-${Math.random()}`,
-          name: item.file.name,
-          originFileObj: item.file,
-          size: item.file.size,
+          name: file.name,
+          originFileObj: file,
+          size: file.size,
           status: 'pending',
-          detectedTitle: item.title,
-          detectedArtist: item.artist,
-          detectedAlbum: item.album,
-          editTitle: item.title,
-          editArtist: item.artist,
-          editAlbum: item.album,
+          detectedTitle: title,
+          detectedArtist: artist,
+          detectedAlbum: album,
+          editTitle: title,
+          editArtist: artist,
+          editAlbum: album,
         });
       }
       return next;
@@ -125,13 +102,13 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
   }, []);
 
   const handleBeforeUpload = useCallback((file: File) => {
-    void addFiles([file]);
+    addFiles([file]);
     return false;
   }, [addFiles]);
 
   const handleFolderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    void addFiles(files);
+    addFiles(files);
     // reset so same folder can be selected again
     e.target.value = '';
   };
@@ -170,15 +147,51 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
           index,
           file: f.name,
           title: (f.editTitle || f.detectedTitle || '').trim(),
-          album: (f.editAlbum || f.detectedAlbum || '').trim() || null,
         }))
       );
 
       if (duplicates.length > 0) {
-        const duplicateIndexSet = new Set(duplicates.map((d) => d.index));
-        nextItems = fileItems.filter((_, idx) => !duplicateIndexSet.has(idx));
-        setFileItems(nextItems);
-        toast.warning(`检测到 ${duplicates.length} 首重名，已自动跳过`);
+        const shouldContinueAll = await new Promise<boolean>((resolve) => {
+          const detailRows = duplicates.slice(0, 8).map((dup) => {
+            const firstExisting = dup.existing_tracks?.[0];
+            const albumText = firstExisting?.album_title || '未分类专辑';
+            const artistText = firstExisting?.artists?.join(' / ') || '未知艺术家';
+            return (
+              <div key={`${dup.index}-${dup.file}`} style={{ marginBottom: 6 }}>
+                <Text strong>{dup.file}</Text>
+                <br />
+                <Text type="secondary">数据库已有：#{firstExisting?.id ?? '-'} · {firstExisting?.title || dup.title} · {albumText} · {artistText}</Text>
+              </div>
+            );
+          });
+
+          Modal.confirm({
+            title: `检测到 ${duplicates.length} 首重名歌曲`,
+            width: 760,
+            okText: '继续导入全部',
+            cancelText: '移除重名后继续',
+            maskClosable: false,
+            keyboard: false,
+            content: (
+              <div>
+                <Text>已按“文件名（去扩展名）= 曲目名”匹配到数据库已有歌曲。请人工确认是否继续导入。</Text>
+                <div style={{ marginTop: 10, maxHeight: 260, overflowY: 'auto' }}>{detailRows}</div>
+                {duplicates.length > 8 && (
+                  <Text type="secondary">仅展示前 8 条，其余 {duplicates.length - 8} 条请在导入后复核。</Text>
+                )}
+              </div>
+            ),
+            onOk: () => resolve(true),
+            onCancel: () => resolve(false),
+          });
+        });
+
+        if (!shouldContinueAll) {
+          const duplicateIndexSet = new Set(duplicates.map((d) => d.index));
+          nextItems = fileItems.filter((_, idx) => !duplicateIndexSet.has(idx));
+          setFileItems(nextItems);
+          toast.warning(`已移除 ${duplicates.length} 首重名文件`);
+        }
       }
     } catch (e: any) {
       toast.error('重名检查失败：' + (e?.message || '未知错误'));

@@ -20,7 +20,7 @@ import type { TableRowSelection } from 'antd/es/table/interface';
 import dayjs from 'dayjs';
 import { Link } from 'react-router-dom';
 import { Track } from '../types';
-import { trackService } from '../services/trackService';
+import { trackService, type SameAlbumDuplicateGroup } from '../services/trackService';
 import { usePlayerStore } from '../store/playerStore';
 import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
 import LyricsEditor from '../components/LyricsEditor';
@@ -53,6 +53,9 @@ const Admin: React.FC = () => {
   const [bulkTagModalVisible, setBulkTagModalVisible] = useState(false);
   const [bulkMoveModalVisible, setBulkMoveModalVisible] = useState(false);
   const [creditsImportModalVisible, setCreditsImportModalVisible] = useState(false);
+  const [duplicateModalVisible, setDuplicateModalVisible] = useState(false);
+  const [duplicateScanLoading, setDuplicateScanLoading] = useState(false);
+  const [duplicateGroups, setDuplicateGroups] = useState<SameAlbumDuplicateGroup[]>([]);
 
   // Search state
   const [searchText, setSearchText] = useState('');
@@ -216,6 +219,22 @@ const Admin: React.FC = () => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleScanDuplicates = async () => {
+    setDuplicateScanLoading(true);
+    try {
+      const groups = await trackService.getSameAlbumDuplicateTracks();
+      setDuplicateGroups(groups);
+      setDuplicateModalVisible(true);
+      if (groups.length === 0) {
+        message.success('未发现同专辑同曲名重复项');
+      }
+    } catch (error: any) {
+      message.error(error.message || '重复检查失败');
+    } finally {
+      setDuplicateScanLoading(false);
+    }
   };
 
   const rowSelection: TableRowSelection<Track> = {
@@ -425,6 +444,9 @@ const Admin: React.FC = () => {
             >
               批量导入 Credits
             </Button>
+            <Button loading={duplicateScanLoading} onClick={handleScanDuplicates}>
+              重复检查
+            </Button>
           </Space>
         }
       >
@@ -557,6 +579,31 @@ const Admin: React.FC = () => {
           fetchTracks(pagination.current);
         }}
       />
+
+      <Modal
+        title="同专辑同曲名重复检查"
+        open={duplicateModalVisible}
+        onCancel={() => setDuplicateModalVisible(false)}
+        footer={<Button onClick={() => setDuplicateModalVisible(false)}>关闭</Button>}
+        width={900}
+      >
+        <Table
+          rowKey={(row) => `${row.album_id ?? 'none'}-${row.normalized_title}`}
+          size="small"
+          pagination={{ pageSize: 8 }}
+          dataSource={duplicateGroups}
+          columns={[
+            { title: '专辑', dataIndex: 'album_title', key: 'album_title', width: 240 },
+            { title: '曲名', dataIndex: 'display_title', key: 'display_title', width: 240 },
+            { title: '重复数量', dataIndex: 'duplicate_count', key: 'duplicate_count', width: 100 },
+            {
+              title: '曲目ID/艺术家',
+              key: 'tracks',
+              render: (_, row) => row.tracks.map((t) => `#${t.id} ${t.artists.join('/') || '未知艺术家'}`).join(' | '),
+            },
+          ]}
+        />
+      </Modal>
     </AdminLayout>
   );
 };

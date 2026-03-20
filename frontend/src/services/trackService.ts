@@ -42,6 +42,28 @@ export interface DuplicatePrecheckItem {
   title: string;
   album: string | null;
   reason: 'DUPLICATE_IN_DB' | 'DUPLICATE_IN_BATCH';
+  existing_tracks?: Array<{
+    id: number;
+    title: string;
+    album_id: number | null;
+    album_title: string | null;
+    artists: string[];
+  }>;
+}
+
+export interface SameAlbumDuplicateGroup {
+  album_id: number | null;
+  album_title: string;
+  normalized_title: string;
+  display_title: string;
+  duplicate_count: number;
+  tracks: Array<{
+    id: number;
+    title: string;
+    album_id: number | null;
+    album_title: string;
+    artists: string[];
+  }>;
 }
 
 export const trackService = {
@@ -116,13 +138,21 @@ export const trackService = {
     throw new Error(response.data.error?.message || '预览失败');
   },
 
-  async precheckDuplicateTracks(items: Array<{ index: number; file: string; title: string; album: string | null }>): Promise<DuplicatePrecheckItem[]> {
+  async precheckDuplicateTracks(items: Array<{ index: number; file: string; title: string }>): Promise<DuplicatePrecheckItem[]> {
     const response = await api.post<ApiResponse<{ duplicates: DuplicatePrecheckItem[] }>>('/tracks/precheck-duplicates', { items });
 
     if (response.data.success && response.data.data) {
       return response.data.data.duplicates;
     }
     throw new Error(response.data.error?.message || '重名检查失败');
+  },
+
+  async getSameAlbumDuplicateTracks(): Promise<SameAlbumDuplicateGroup[]> {
+    const response = await api.get<ApiResponse<{ groups: SameAlbumDuplicateGroup[] }>>('/tracks/duplicates/same-album-title');
+    if (response.data.success && response.data.data) {
+      return response.data.data.groups;
+    }
+    throw new Error(response.data.error?.message || '重复检查失败');
   },
 
   async getTracks(page = 1, limit = 20, search = ''): Promise<{ tracks: Track[]; pagination: any }> {

@@ -29,7 +29,6 @@
     "framer-motion": "^12.35.2",
     "fuse.js": "^7.1.0",
     "howler": "^2.2.4",
-    "music-metadata-browser": "^2.5.11",
     "react-beautiful-dnd": "^13.1.1",
     "react-router-dom": "^7.13.0",
     "react-window": "^2.2.7",

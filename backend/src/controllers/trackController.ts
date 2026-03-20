@@ -52,29 +52,34 @@ type Queryable = {
   query: (text: string, params?: any[]) => Promise<{ rows: any[] }>;
 };
 
-const findDuplicateTrackByTitleAlbum = async (
+const findTracksByTitle = async (
   db: Queryable,
-  title: string,
-  albumTitle: string | null
-): Promise<{ id: number } | null> => {
+  title: string
+): Promise<Array<{ id: number; title: string; album_id: number | null; album_title: string | null; artists: string[] }>> => {
   const normalizedTitle = title.trim();
-  const normalizedAlbumTitle = albumTitle ? albumTitle.trim() : null;
-  const duplicateCheck = await db.query(
+  const result = await db.query(
     `
-      SELECT t.id
+      SELECT
+        t.id,
+        t.title,
+        t.album_id,
+        a.title AS album_title,
+        COALESCE(
+          array_agg(DISTINCT ar.name) FILTER (WHERE ar.name IS NOT NULL),
+          ARRAY[]::text[]
+        ) AS artists
       FROM tracks t
       LEFT JOIN albums a ON t.album_id = a.id
+      LEFT JOIN track_artists ta ON ta.track_id = t.id
+      LEFT JOIN artists ar ON ar.id = ta.artist_id
       WHERE LOWER(TRIM(t.title)) = LOWER(TRIM($1))
-        AND (
-          ($2::text IS NULL AND a.title IS NULL)
-          OR ($2::text IS NOT NULL AND LOWER(TRIM(a.title)) = LOWER(TRIM($2::text)))
-        )
-      LIMIT 1
+      GROUP BY t.id, t.title, t.album_id, a.title
+      ORDER BY t.id DESC
     `,
-    [normalizedTitle, normalizedAlbumTitle]
+    [normalizedTitle]
   );
 
-  return duplicateCheck.rows[0] || null;
+  return result.rows;
 };
 
 export const uploadTracks = async (req: Request, res: Response) => {
@@ -89,7 +94,6 @@ export const uploadTracks = async (req: Request, res: Response) => {
     }
 
     const uploadedTracks = [];
-    const skippedDuplicates: Array<{ title: string; album: string | null; file: string }> = [];
     // auto_credits: 优先从 query string 读（绕开 multipart body 字段顺序问题），兼容 body
     const autoCreditsRaw = (req.query.auto_credits as string) ?? req.body.auto_credits;
     const autoCredits = autoCreditsRaw === 'false' ? false : true;
@@ -138,20 +142,7 @@ export const uploadTracks = async (req: Request, res: Response) => {
           : (metadata.common.album || null);
         const trackNumber = metadata.common.track.no || null;
 
-        const normalizedTitle = title.trim();
         const normalizedAlbumTitle = albumTitle ? albumTitle.trim() : null;
-
-        // Skip duplicate title+album records before uploading to remote storage.
-        const duplicate = await findDuplicateTrackByTitleAlbum(pool, normalizedTitle, normalizedAlbumTitle);
-
-        if (duplicate) {
-          skippedDuplicates.push({
-            title: normalizedTitle,
-            album: normalizedAlbumTitle,
-            file: file.originalname,
-          });
-          continue;
-        }
 
         // Parse release date: prefer full date string from native tags, fallback to year-only
         let releaseDate: Date | null = null;
@@ -383,8 +374,6 @@ export const uploadTracks = async (req: Request, res: Response) => {
       data: {
         tracks: uploadedTracks,
         total: uploadedTracks.length,
-        skipped_duplicates: skippedDuplicates,
-        skipped_total: skippedDuplicates.length,
       },
     });
   } catch (error) {
@@ -397,7 +386,7 @@ export const uploadTracks = async (req: Request, res: Response) => {
 };
 
 /**
- * Precheck duplicate tracks by local metadata payload (title + album) before upload.
+ * Precheck duplicate tracks by filename-derived title before upload.
  * POST /api/tracks/precheck-duplicates
  */
 export const precheckDuplicateTracks = async (req: Request, res: Response) => {
@@ -416,6 +405,7 @@ export const precheckDuplicateTracks = async (req: Request, res: Response) => {
       title: string;
       album: string | null;
       reason: 'DUPLICATE_IN_DB' | 'DUPLICATE_IN_BATCH';
+      existing_tracks?: Array<{ id: number; title: string; album_id: number | null; album_title: string | null; artists: string[] }>;
     }> = [];
     const seenInBatch = new Set<string>();
 
@@ -424,22 +414,27 @@ export const precheckDuplicateTracks = async (req: Request, res: Response) => {
       const index = Number.isInteger(item.index) ? item.index : i;
       const file = typeof item.file === 'string' ? item.file : `item_${index}`;
       const titleRaw = typeof item.title === 'string' ? item.title : '';
-      const albumRaw = typeof item.album === 'string' ? item.album : null;
-
       const title = titleRaw.trim();
-      const album = albumRaw ? albumRaw.trim() : null;
+      const album = null;
       if (!title) continue;
 
-      const batchKey = `${title.toLowerCase()}||${(album || '').toLowerCase()}`;
+      const batchKey = title.toLowerCase();
       if (seenInBatch.has(batchKey)) {
         duplicates.push({ index, file, title, album, reason: 'DUPLICATE_IN_BATCH' });
         continue;
       }
       seenInBatch.add(batchKey);
 
-      const duplicate = await findDuplicateTrackByTitleAlbum(pool, title, album);
-      if (duplicate) {
-        duplicates.push({ index, file, title, album, reason: 'DUPLICATE_IN_DB' });
+      const existingTracks = await findTracksByTitle(pool, title);
+      if (existingTracks.length > 0) {
+        duplicates.push({
+          index,
+          file,
+          title,
+          album,
+          reason: 'DUPLICATE_IN_DB',
+          existing_tracks: existingTracks,
+        });
       }
     }
 
@@ -455,6 +450,55 @@ export const precheckDuplicateTracks = async (req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       error: { code: 'PRECHECK_ERROR', message: 'Failed to precheck duplicates' },
+    });
+  }
+};
+
+// Scan duplicates where tracks share the same album and title.
+export const scanSameAlbumDuplicateTracks = async (_req: Request, res: Response) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        t.album_id,
+        COALESCE(a.title, '未分类专辑') AS album_title,
+        LOWER(TRIM(t.title)) AS normalized_title,
+        MIN(t.title) AS display_title,
+        COUNT(*)::int AS duplicate_count,
+        json_agg(
+          json_build_object(
+            'id', t.id,
+            'title', t.title,
+            'album_id', t.album_id,
+            'album_title', COALESCE(a.title, '未分类专辑'),
+            'artists', COALESCE(artists.names, ARRAY[]::text[])
+          )
+          ORDER BY t.id ASC
+        ) AS tracks
+      FROM tracks t
+      LEFT JOIN albums a ON a.id = t.album_id
+      LEFT JOIN LATERAL (
+        SELECT array_agg(DISTINCT ar.name ORDER BY ar.name) AS names
+        FROM track_artists ta
+        JOIN artists ar ON ar.id = ta.artist_id
+        WHERE ta.track_id = t.id
+      ) artists ON TRUE
+      GROUP BY t.album_id, COALESCE(a.title, '未分类专辑'), LOWER(TRIM(t.title))
+      HAVING COUNT(*) > 1
+      ORDER BY duplicate_count DESC, album_title ASC, display_title ASC
+    `);
+
+    res.json({
+      success: true,
+      data: {
+        groups: result.rows,
+        total_groups: result.rows.length,
+      },
+    });
+  } catch (error) {
+    console.error('Scan duplicate tracks error:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'DUPLICATE_SCAN_ERROR', message: 'Failed to scan duplicate tracks' },
     });
   }
 };

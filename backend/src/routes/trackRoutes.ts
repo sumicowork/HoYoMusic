@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { uploadTracks, getTracks, getTrackById, streamTrack, downloadTrack, updateTrack, deleteTrack, uploadTrackCover, bulkDeleteTracks, bulkMoveTracksToAlbum, previewCredits, precheckDuplicateTracks } from '../controllers/trackController';
+import { uploadTracks, getTracks, getTrackById, streamTrack, downloadTrack, updateTrack, deleteTrack, uploadTrackCover, bulkDeleteTracks, bulkMoveTracksToAlbum, previewCredits, precheckDuplicateTracks, scanSameAlbumDuplicateTracks } from '../controllers/trackController';
 import { authenticateJWT } from '../middleware/auth';
 import { authenticateStream } from '../middleware/authenticateStream';
 import upload, { coverUpload } from '../middleware/upload';
@@ -18,6 +18,7 @@ const downloadDisabled = (_req: Request, res: Response) =>
 router.post('/upload', authenticateJWT, upload.array('tracks', 20), uploadTracks);
 router.post('/precheck-duplicates', authenticateJWT, precheckDuplicateTracks);
 router.post('/preview-credits', authenticateJWT, upload.array('tracks', 20), previewCredits);
+router.get('/duplicates/same-album-title', authenticateJWT, scanSameAlbumDuplicateTracks);
 router.delete('/bulk', authenticateJWT, validateBody(bulkDeleteTracksSchema), bulkDeleteTracks);
 router.post('/bulk-move', authenticateJWT, validateBody(bulkMoveTracksSchema), bulkMoveTracksToAlbum);
 router.get('/', authenticateJWT, getTracks);
