@@ -57,6 +57,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
   const [uploadResults, setUploadResults] = useState<{ success: number; fail: number }>({ success: 0, fail: 0 });
   const [autoCredits, setAutoCredits] = useState(true);
   const [creditsScanning, setCreditsScanning] = useState(false);
+  const [duplicateChecking, setDuplicateChecking] = useState(false);
   const folderInputRef = useRef<HTMLInputElement>(null);
 
   // Steps: 选择文件(0) → Credits预览(1) → 导入(2) → 完成(3)
@@ -127,6 +128,40 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
 
   // Step 0 → Step 1: scan credits via backend API (or skip to step 2)
   const handleGoToCredits = async () => {
+    if (fileItems.length === 0) return;
+
+    let nextItems = fileItems;
+    setDuplicateChecking(true);
+    try {
+      const duplicates = await trackService.precheckDuplicateTracks(
+        fileItems.map((f) => f.originFileObj),
+        {
+          metaOverrides: fileItems.map((f) => ({
+            title: f.editTitle || undefined,
+            album: f.editAlbum || undefined,
+          })),
+        }
+      );
+
+      if (duplicates.length > 0) {
+        const duplicateIndexSet = new Set(duplicates.map((d) => d.index));
+        nextItems = fileItems.filter((_, idx) => !duplicateIndexSet.has(idx));
+        setFileItems(nextItems);
+        toast.warning(`检测到 ${duplicates.length} 首重名，已自动跳过`);
+      }
+    } catch (e: any) {
+      toast.error('重名检查失败：' + (e?.message || '未知错误'));
+      return;
+    } finally {
+      setDuplicateChecking(false);
+    }
+
+    if (nextItems.length === 0) {
+      toast.warning('所有待导入文件均与现有曲目重名，已全部跳过');
+      setCurrentStep(0);
+      return;
+    }
+
     if (!autoCredits) {
       setCurrentStep(2); // skip credits preview, go straight to import
       return;
@@ -136,7 +171,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
     setFileItems(prev => prev.map(f => ({ ...f, creditsLoading: true, credits: undefined })));
     try {
       // 后端一次性解析所有文件，返回 [{filename, credits}]
-      const results = await trackService.previewCredits(fileItems.map(f => f.originFileObj));
+      const results = await trackService.previewCredits(nextItems.map(f => f.originFileObj));
       setFileItems(prev => prev.map(f => {
         const match = results.find(r => r.filename === f.name);
         return { ...f, credits: match ? match.credits : [], creditsLoading: false };
@@ -186,7 +221,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
   const handleClose = () => {
     if (uploading) return;
     setFileItems([]); setCurrentStep(0); setUploadProgress(0);
-    setAutoCredits(true); setCreditsScanning(false);
+    setAutoCredits(true); setCreditsScanning(false); setDuplicateChecking(false);
     onClose();
   };
 
@@ -292,6 +327,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
               <Switch
                 checked={autoCredits}
                 onChange={setAutoCredits}
+                disabled={duplicateChecking}
                 checkedChildren="读取" unCheckedChildren="忽略"
                 style={{ marginLeft: 16, flexShrink: 0 }}
               />
@@ -301,8 +337,12 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
           <div className="upload-footer">
             <Button onClick={handleClose}>取消</Button>
             <Button type="primary" icon={autoCredits ? <TagOutlined /> : <UploadIcon />}
-              disabled={fileItems.length === 0} onClick={handleGoToCredits}>
-              {autoCredits ? `下一步：读取 Credits (${fileItems.length})` : `跳过，直接导入 (${fileItems.length})`}
+              loading={duplicateChecking}
+              disabled={fileItems.length === 0 || duplicateChecking}
+              onClick={handleGoToCredits}>
+              {duplicateChecking
+                ? '检查重名中...'
+                : (autoCredits ? `下一步：读取 Credits (${fileItems.length})` : `跳过，直接导入 (${fileItems.length})`)}
             </Button>
           </div>
         </>

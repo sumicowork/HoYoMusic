@@ -36,6 +36,14 @@ export interface TrackSearchParams {
   limit?: number;
 }
 
+export interface DuplicatePrecheckItem {
+  index: number;
+  file: string;
+  title: string;
+  album: string | null;
+  reason: 'DUPLICATE_IN_DB' | 'DUPLICATE_IN_BATCH';
+}
+
 export const trackService = {
   // Random tracks for homepage recommendations
   async getRandomTracks(count = 10): Promise<Track[]> {
@@ -106,6 +114,32 @@ export const trackService = {
     );
     if (response.data.success && response.data.data) return response.data.data.results;
     throw new Error(response.data.error?.message || '预览失败');
+  },
+
+  async precheckDuplicateTracks(
+    files: File[],
+    options?: { metaOverrides?: Array<{ title?: string; album?: string }> }
+  ): Promise<DuplicatePrecheckItem[]> {
+    const formData = new FormData();
+    files.forEach((file) => formData.append('tracks', file));
+
+    if (options?.metaOverrides) {
+      options.metaOverrides.forEach((meta, idx) => {
+        if (meta.title) formData.append(`title_override_${idx}`, meta.title);
+        if (meta.album !== undefined) formData.append(`album_override_${idx}`, meta.album);
+      });
+    }
+
+    const response = await api.post<ApiResponse<{ duplicates: DuplicatePrecheckItem[] }>>(
+      '/tracks/precheck-duplicates',
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+
+    if (response.data.success && response.data.data) {
+      return response.data.data.duplicates;
+    }
+    throw new Error(response.data.error?.message || '重名检查失败');
   },
 
   async getTracks(page = 1, limit = 20, search = ''): Promise<{ tracks: Track[]; pagination: any }> {

@@ -48,6 +48,35 @@ const CREDIT_SKIP_KEYS = new Set([
   'discogs_master_release_id', 'discogs_votes', 'discogs_rating',
 ]);
 
+type Queryable = {
+  query: (text: string, params?: any[]) => Promise<{ rows: any[] }>;
+};
+
+const findDuplicateTrackByTitleAlbum = async (
+  db: Queryable,
+  title: string,
+  albumTitle: string | null
+): Promise<{ id: number } | null> => {
+  const normalizedTitle = title.trim();
+  const normalizedAlbumTitle = albumTitle ? albumTitle.trim() : null;
+  const duplicateCheck = await db.query(
+    `
+      SELECT t.id
+      FROM tracks t
+      LEFT JOIN albums a ON t.album_id = a.id
+      WHERE LOWER(TRIM(t.title)) = LOWER(TRIM($1))
+        AND (
+          ($2::text IS NULL AND a.title IS NULL)
+          OR ($2::text IS NOT NULL AND LOWER(TRIM(a.title)) = LOWER(TRIM($2::text)))
+        )
+      LIMIT 1
+    `,
+    [normalizedTitle, normalizedAlbumTitle]
+  );
+
+  return duplicateCheck.rows[0] || null;
+};
+
 export const uploadTracks = async (req: Request, res: Response) => {
   try {
     const files = req.files as Express.Multer.File[];
@@ -113,22 +142,9 @@ export const uploadTracks = async (req: Request, res: Response) => {
         const normalizedAlbumTitle = albumTitle ? albumTitle.trim() : null;
 
         // Skip duplicate title+album records before uploading to remote storage.
-        const duplicateCheck = await pool.query(
-          `
-            SELECT t.id
-            FROM tracks t
-            LEFT JOIN albums a ON t.album_id = a.id
-            WHERE LOWER(TRIM(t.title)) = LOWER(TRIM($1))
-              AND (
-                ($2::text IS NULL AND a.title IS NULL)
-                OR ($2::text IS NOT NULL AND LOWER(TRIM(a.title)) = LOWER(TRIM($2::text)))
-              )
-            LIMIT 1
-          `,
-          [normalizedTitle, normalizedAlbumTitle]
-        );
+        const duplicate = await findDuplicateTrackByTitleAlbum(pool, normalizedTitle, normalizedAlbumTitle);
 
-        if (duplicateCheck.rows.length > 0) {
+        if (duplicate) {
           skippedDuplicates.push({
             title: normalizedTitle,
             album: normalizedAlbumTitle,
@@ -376,6 +392,95 @@ export const uploadTracks = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: { code: 'UPLOAD_ERROR', message: 'Failed to upload tracks' }
+    });
+  }
+};
+
+/**
+ * Precheck duplicate tracks by metadata (title + album) before actual upload.
+ * POST /api/tracks/precheck-duplicates
+ */
+export const precheckDuplicateTracks = async (req: Request, res: Response) => {
+  try {
+    const files = req.files as Express.Multer.File[];
+    if (!files || files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'NO_FILES', message: 'No files uploaded' },
+      });
+    }
+
+    const getTitleOverride = (idx: number): string | null =>
+      req.body[`title_override_${idx}`] || req.body.title_override || null;
+    const getAlbumOverride = (idx: number): string | null =>
+      req.body[`album_override_${idx}`] || req.body.album_override || null;
+
+    const duplicates: Array<{ index: number; file: string; title: string; album: string | null; reason: string }> = [];
+    const seenInBatch = new Set<string>();
+
+    for (let fileIdx = 0; fileIdx < files.length; fileIdx++) {
+      const file = files[fileIdx];
+      let fileBuffer: Buffer | null = null;
+      try {
+        fileBuffer = fs.readFileSync(file.path);
+
+        const typeResult = await fileTypeFromBuffer(fileBuffer);
+        if (!typeResult || !['audio/flac', 'audio/x-flac'].includes(typeResult.mime)) {
+          continue;
+        }
+
+        const metadata = await parseBuffer(fileBuffer, { mimeType: file.mimetype || 'audio/flac' });
+        const titleOverride = getTitleOverride(fileIdx);
+        const albumOverride = getAlbumOverride(fileIdx);
+
+        const title = titleOverride || metadata.common.title || path.basename(file.originalname, '.flac');
+        const albumTitle = albumOverride !== null ? (albumOverride || null) : (metadata.common.album || null);
+        const normalizedTitle = title.trim();
+        const normalizedAlbumTitle = albumTitle ? albumTitle.trim() : null;
+
+        const batchKey = `${normalizedTitle.toLowerCase()}||${(normalizedAlbumTitle || '').toLowerCase()}`;
+        if (seenInBatch.has(batchKey)) {
+          duplicates.push({
+            index: fileIdx,
+            file: file.originalname,
+            title: normalizedTitle,
+            album: normalizedAlbumTitle,
+            reason: 'DUPLICATE_IN_BATCH',
+          });
+          continue;
+        }
+        seenInBatch.add(batchKey);
+
+        const duplicate = await findDuplicateTrackByTitleAlbum(pool, normalizedTitle, normalizedAlbumTitle);
+        if (duplicate) {
+          duplicates.push({
+            index: fileIdx,
+            file: file.originalname,
+            title: normalizedTitle,
+            album: normalizedAlbumTitle,
+            reason: 'DUPLICATE_IN_DB',
+          });
+        }
+      } catch (error) {
+        console.error(`Duplicate precheck failed for ${file.originalname}:`, error);
+      } finally {
+        try { if (file.path) fs.unlinkSync(file.path); } catch {}
+        fileBuffer = null;
+      }
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        duplicates,
+        duplicate_total: duplicates.length,
+      },
+    });
+  } catch (error) {
+    console.error('Precheck duplicates error:', error);
+    return res.status(500).json({
+      success: false,
+      error: { code: 'PRECHECK_ERROR', message: 'Failed to precheck duplicates' },
     });
   }
 };
