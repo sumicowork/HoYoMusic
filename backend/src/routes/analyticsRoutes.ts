@@ -14,49 +14,53 @@ router.use(authenticateJWT as any);
 const clampDays = (v: any, max = 90) => Math.min(Math.max(parseInt(v) || 30, 1), max);
 const UNIQUE_VISITOR_EXPR = "COALESCE(NULLIF(visitor_id, ''), ip)";
 const VISITOR_KEY_EXPR = "CASE WHEN visitor_id IS NOT NULL AND visitor_id <> '' THEN 'vid:' || visitor_id ELSE 'ip:' || COALESCE(ip, 'unknown') END";
-const PROVINCE_BUCKET_EXPR = `
-  CASE
-    WHEN country = 'CN' THEN
-      CASE
-        WHEN COALESCE(region, '') ~ '北京' OR COALESCE(city, '') ~ '北京' OR COALESCE(region, '') ~* 'beijing' OR COALESCE(city, '') ~* 'beijing' THEN '北京市'
-        WHEN COALESCE(region, '') ~ '天津' OR COALESCE(city, '') ~ '天津' OR COALESCE(region, '') ~* 'tianjin' OR COALESCE(city, '') ~* 'tianjin' THEN '天津市'
-        WHEN COALESCE(region, '') ~ '上海' OR COALESCE(city, '') ~ '上海' OR COALESCE(region, '') ~* 'shanghai' OR COALESCE(city, '') ~* 'shanghai' THEN '上海市'
-        WHEN COALESCE(region, '') ~ '重庆' OR COALESCE(city, '') ~ '重庆' OR COALESCE(region, '') ~* 'chongqing' OR COALESCE(city, '') ~* 'chongqing' THEN '重庆市'
-        WHEN COALESCE(region, '') ~ '河北' OR COALESCE(region, '') ~* 'hebei' THEN '河北省'
-        WHEN COALESCE(region, '') ~ '山西' OR COALESCE(region, '') ~* 'shanxi' THEN '山西省'
-        WHEN COALESCE(region, '') ~ '辽宁' OR COALESCE(region, '') ~* 'liaoning' THEN '辽宁省'
-        WHEN COALESCE(region, '') ~ '吉林' OR COALESCE(region, '') ~* 'jilin' THEN '吉林省'
-        WHEN COALESCE(region, '') ~ '黑龙江' OR COALESCE(region, '') ~* 'heilongjiang' THEN '黑龙江省'
-        WHEN COALESCE(region, '') ~ '江苏' OR COALESCE(region, '') ~* 'jiangsu' THEN '江苏省'
-        WHEN COALESCE(region, '') ~ '浙江' OR COALESCE(region, '') ~* 'zhejiang' THEN '浙江省'
-        WHEN COALESCE(region, '') ~ '安徽' OR COALESCE(region, '') ~* 'anhui' THEN '安徽省'
-        WHEN COALESCE(region, '') ~ '福建' OR COALESCE(region, '') ~* 'fujian' THEN '福建省'
-        WHEN COALESCE(region, '') ~ '江西' OR COALESCE(region, '') ~* 'jiangxi' THEN '江西省'
-        WHEN COALESCE(region, '') ~ '山东' OR COALESCE(region, '') ~* 'shandong' THEN '山东省'
-        WHEN COALESCE(region, '') ~ '河南' OR COALESCE(region, '') ~* 'henan' THEN '河南省'
-        WHEN COALESCE(region, '') ~ '湖北' OR COALESCE(region, '') ~* 'hubei' THEN '湖北省'
-        WHEN COALESCE(region, '') ~ '湖南' OR COALESCE(region, '') ~* 'hunan' THEN '湖南省'
-        WHEN COALESCE(region, '') ~ '广东' OR COALESCE(region, '') ~* 'guangdong' THEN '广东省'
-        WHEN COALESCE(region, '') ~ '海南' OR COALESCE(region, '') ~* 'hainan' THEN '海南省'
-        WHEN COALESCE(region, '') ~ '四川' OR COALESCE(region, '') ~* 'sichuan' THEN '四川省'
-        WHEN COALESCE(region, '') ~ '贵州' OR COALESCE(region, '') ~* 'guizhou' THEN '贵州省'
-        WHEN COALESCE(region, '') ~ '云南' OR COALESCE(region, '') ~* 'yunnan' THEN '云南省'
-        WHEN COALESCE(region, '') ~ '陕西' OR COALESCE(region, '') ~* 'shaanxi' THEN '陕西省'
-        WHEN COALESCE(region, '') ~ '甘肃' OR COALESCE(region, '') ~* 'gansu' THEN '甘肃省'
-        WHEN COALESCE(region, '') ~ '青海' OR COALESCE(region, '') ~* 'qinghai' THEN '青海省'
-        WHEN COALESCE(region, '') ~ '台湾' OR COALESCE(region, '') ~* 'taiwan' THEN '台湾省'
-        WHEN COALESCE(region, '') ~ '内蒙古' OR COALESCE(region, '') ~* 'inner mongolia' THEN '内蒙古自治区'
-        WHEN COALESCE(region, '') ~ '广西' OR COALESCE(region, '') ~* 'guangxi' THEN '广西壮族自治区'
-        WHEN COALESCE(region, '') ~ '西藏' OR COALESCE(region, '') ~* 'tibet' THEN '西藏自治区'
-        WHEN COALESCE(region, '') ~ '宁夏' OR COALESCE(region, '') ~* 'ningxia' THEN '宁夏回族自治区'
-        WHEN COALESCE(region, '') ~ '新疆' OR COALESCE(region, '') ~* 'xinjiang' THEN '新疆维吾尔自治区'
-        WHEN COALESCE(region, '') ~ '香港' OR COALESCE(city, '') ~ '香港' OR COALESCE(region, '') ~* 'hong kong' THEN '香港特别行政区'
-        WHEN COALESCE(region, '') ~ '澳门' OR COALESCE(city, '') ~ '澳门' OR COALESCE(region, '') ~* 'macao' OR COALESCE(region, '') ~* 'macau' THEN '澳门特别行政区'
-        ELSE '中国其他'
-      END
-    ELSE '其他'
-  END
-`;
+const PROVINCE_KEYWORDS: Array<[string, string[]]> = [
+  ['北京市', ['北京', 'beijing']],
+  ['天津市', ['天津', 'tianjin']],
+  ['上海市', ['上海', 'shanghai']],
+  ['重庆市', ['重庆', 'chongqing']],
+  ['河北省', ['河北', 'hebei']],
+  ['山西省', ['山西', 'shanxi']],
+  ['辽宁省', ['辽宁', 'liaoning']],
+  ['吉林省', ['吉林', 'jilin']],
+  ['黑龙江省', ['黑龙江', 'heilongjiang']],
+  ['江苏省', ['江苏', 'jiangsu']],
+  ['浙江省', ['浙江', 'zhejiang']],
+  ['安徽省', ['安徽', 'anhui']],
+  ['福建省', ['福建', 'fujian']],
+  ['江西省', ['江西', 'jiangxi']],
+  ['山东省', ['山东', 'shandong']],
+  ['河南省', ['河南', 'henan']],
+  ['湖北省', ['湖北', 'hubei']],
+  ['湖南省', ['湖南', 'hunan']],
+  ['广东省', ['广东', 'guangdong']],
+  ['海南省', ['海南', 'hainan']],
+  ['四川省', ['四川', 'sichuan']],
+  ['贵州省', ['贵州', 'guizhou']],
+  ['云南省', ['云南', 'yunnan']],
+  ['陕西省', ['陕西', 'shaanxi']],
+  ['甘肃省', ['甘肃', 'gansu']],
+  ['青海省', ['青海', 'qinghai']],
+  ['台湾省', ['台湾', 'taiwan']],
+  ['内蒙古自治区', ['内蒙古', 'inner mongolia']],
+  ['广西壮族自治区', ['广西', 'guangxi']],
+  ['西藏自治区', ['西藏', 'tibet']],
+  ['宁夏回族自治区', ['宁夏', 'ningxia']],
+  ['新疆维吾尔自治区', ['新疆', 'xinjiang']],
+  ['香港特别行政区', ['香港', 'hong kong']],
+  ['澳门特别行政区', ['澳门', 'macao', 'macau']],
+];
+
+const toProvinceBucket = (country: string | null, region: string | null, city: string | null): string => {
+  if (country !== 'CN') return '其他';
+  const text = `${region || ''} ${city || ''}`.toLowerCase();
+  for (const [province, keywords] of PROVINCE_KEYWORDS) {
+    if (keywords.some((k) => text.includes(k.toLowerCase()))) {
+      return province;
+    }
+  }
+  return '中国其他';
+};
 /** Sanitized error message for production */
 const safeError = (e: any) => {
   const msg = process.env.NODE_ENV === 'production' ? 'Internal server error' : (e?.message || 'Unknown error');
@@ -350,14 +354,27 @@ router.get('/countries', async (req: Request, res: Response) => {
     const d = clampDays(req.query.days);
     const result = await pool.query(`
       SELECT
-        ${PROVINCE_BUCKET_EXPR} AS country,
-        COUNT(*)::int           AS requests,
+        COALESCE(NULLIF(country,''), 'Unknown') AS country,
+        COALESCE(NULLIF(region,''), '') AS region,
+        COALESCE(NULLIF(city,''), '') AS city,
+        COUNT(*)::int AS requests,
         COUNT(DISTINCT ${UNIQUE_VISITOR_EXPR})::int AS visitors
       FROM visit_logs
       WHERE ts >= NOW() - INTERVAL '1 day' * $1
-      GROUP BY 1 ORDER BY 3 DESC LIMIT 40
+      GROUP BY 1,2,3
     `, [d]);
-    res.json({ success: true, data: result.rows });
+
+    const map = new Map<string, { country: string; requests: number; visitors: number }>();
+    for (const row of result.rows) {
+      const bucket = toProvinceBucket(row.country, row.region, row.city);
+      const prev = map.get(bucket) || { country: bucket, requests: 0, visitors: 0 };
+      prev.requests += Number(row.requests || 0);
+      prev.visitors += Number(row.visitors || 0);
+      map.set(bucket, prev);
+    }
+
+    const data = Array.from(map.values()).sort((a, b) => b.visitors - a.visitors).slice(0, 40);
+    res.json({ success: true, data });
   } catch (e: any) { res.status(500).json(safeError(e)); }
 });
 
