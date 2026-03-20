@@ -282,6 +282,7 @@ router.get('/hourly', async (_req: Request, res: Response) => {
       today_logs AS (
         SELECT
           EXTRACT(HOUR FROM ts AT TIME ZONE 'Asia/Shanghai')::int AS hour,
+          visitor_id,
           ip
         FROM visit_logs
         WHERE (ts AT TIME ZONE 'Asia/Shanghai')::date = (NOW() AT TIME ZONE 'Asia/Shanghai')::date
@@ -326,7 +327,7 @@ router.get('/cities', async (req: Request, res: Response) => {
         COALESCE(NULLIF(country,''), '?')    AS country,
         latitude, longitude,
         COUNT(*)::int           AS requests,
-        COUNT(DISTINCT ip)::int AS visitors
+        COUNT(DISTINCT ${UNIQUE_VISITOR_EXPR})::int AS visitors
       FROM visit_logs
       WHERE ts >= NOW() - INTERVAL '1 day' * $1
         AND latitude IS NOT NULL AND longitude IS NOT NULL
