@@ -16,7 +16,7 @@ const downloadDisabled = (_req: Request, res: Response) =>
 
 // All track routes require authentication
 router.post('/upload', authenticateJWT, upload.array('tracks', 20), uploadTracks);
-router.post('/precheck-duplicates', authenticateJWT, upload.array('tracks', 20), precheckDuplicateTracks);
+router.post('/precheck-duplicates', authenticateJWT, precheckDuplicateTracks);
 router.post('/preview-credits', authenticateJWT, upload.array('tracks', 20), previewCredits);
 router.delete('/bulk', authenticateJWT, validateBody(bulkDeleteTracksSchema), bulkDeleteTracks);
 router.post('/bulk-move', authenticateJWT, validateBody(bulkMoveTracksSchema), bulkMoveTracksToAlbum);

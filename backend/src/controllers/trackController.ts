@@ -397,75 +397,49 @@ export const uploadTracks = async (req: Request, res: Response) => {
 };
 
 /**
- * Precheck duplicate tracks by metadata (title + album) before actual upload.
+ * Precheck duplicate tracks by local metadata payload (title + album) before upload.
  * POST /api/tracks/precheck-duplicates
  */
 export const precheckDuplicateTracks = async (req: Request, res: Response) => {
   try {
-    const files = req.files as Express.Multer.File[];
-    if (!files || files.length === 0) {
+    const items = Array.isArray(req.body?.items) ? req.body.items : [];
+    if (items.length === 0) {
       return res.status(400).json({
         success: false,
-        error: { code: 'NO_FILES', message: 'No files uploaded' },
+        error: { code: 'NO_ITEMS', message: 'No metadata items provided' },
       });
     }
 
-    const getTitleOverride = (idx: number): string | null =>
-      req.body[`title_override_${idx}`] || req.body.title_override || null;
-    const getAlbumOverride = (idx: number): string | null =>
-      req.body[`album_override_${idx}`] || req.body.album_override || null;
-
-    const duplicates: Array<{ index: number; file: string; title: string; album: string | null; reason: string }> = [];
+    const duplicates: Array<{
+      index: number;
+      file: string;
+      title: string;
+      album: string | null;
+      reason: 'DUPLICATE_IN_DB' | 'DUPLICATE_IN_BATCH';
+    }> = [];
     const seenInBatch = new Set<string>();
 
-    for (let fileIdx = 0; fileIdx < files.length; fileIdx++) {
-      const file = files[fileIdx];
-      let fileBuffer: Buffer | null = null;
-      try {
-        fileBuffer = fs.readFileSync(file.path);
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i] || {};
+      const index = Number.isInteger(item.index) ? item.index : i;
+      const file = typeof item.file === 'string' ? item.file : `item_${index}`;
+      const titleRaw = typeof item.title === 'string' ? item.title : '';
+      const albumRaw = typeof item.album === 'string' ? item.album : null;
 
-        const typeResult = await fileTypeFromBuffer(fileBuffer);
-        if (!typeResult || !['audio/flac', 'audio/x-flac'].includes(typeResult.mime)) {
-          continue;
-        }
+      const title = titleRaw.trim();
+      const album = albumRaw ? albumRaw.trim() : null;
+      if (!title) continue;
 
-        const metadata = await parseBuffer(fileBuffer, { mimeType: file.mimetype || 'audio/flac' });
-        const titleOverride = getTitleOverride(fileIdx);
-        const albumOverride = getAlbumOverride(fileIdx);
+      const batchKey = `${title.toLowerCase()}||${(album || '').toLowerCase()}`;
+      if (seenInBatch.has(batchKey)) {
+        duplicates.push({ index, file, title, album, reason: 'DUPLICATE_IN_BATCH' });
+        continue;
+      }
+      seenInBatch.add(batchKey);
 
-        const title = titleOverride || metadata.common.title || path.basename(file.originalname, '.flac');
-        const albumTitle = albumOverride !== null ? (albumOverride || null) : (metadata.common.album || null);
-        const normalizedTitle = title.trim();
-        const normalizedAlbumTitle = albumTitle ? albumTitle.trim() : null;
-
-        const batchKey = `${normalizedTitle.toLowerCase()}||${(normalizedAlbumTitle || '').toLowerCase()}`;
-        if (seenInBatch.has(batchKey)) {
-          duplicates.push({
-            index: fileIdx,
-            file: file.originalname,
-            title: normalizedTitle,
-            album: normalizedAlbumTitle,
-            reason: 'DUPLICATE_IN_BATCH',
-          });
-          continue;
-        }
-        seenInBatch.add(batchKey);
-
-        const duplicate = await findDuplicateTrackByTitleAlbum(pool, normalizedTitle, normalizedAlbumTitle);
-        if (duplicate) {
-          duplicates.push({
-            index: fileIdx,
-            file: file.originalname,
-            title: normalizedTitle,
-            album: normalizedAlbumTitle,
-            reason: 'DUPLICATE_IN_DB',
-          });
-        }
-      } catch (error) {
-        console.error(`Duplicate precheck failed for ${file.originalname}:`, error);
-      } finally {
-        try { if (file.path) fs.unlinkSync(file.path); } catch {}
-        fileBuffer = null;
+      const duplicate = await findDuplicateTrackByTitleAlbum(pool, title, album);
+      if (duplicate) {
+        duplicates.push({ index, file, title, album, reason: 'DUPLICATE_IN_DB' });
       }
     }
 

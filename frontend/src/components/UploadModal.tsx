@@ -11,6 +11,7 @@ import {
   FileTextOutlined, TagOutlined, FolderOpenOutlined,
 } from '@ant-design/icons';
 import { trackService } from '../services/trackService';
+import { parseBlob } from 'music-metadata-browser';
 import { toast } from '../utils/toast';
 import './UploadModal.css';
 
@@ -49,6 +50,19 @@ function parseFilename(name: string): { title: string; artist: string; album: st
   return { title, artist: '', album: '' };
 }
 
+async function parseLocalMetadata(file: File): Promise<{ title: string; artist: string; album: string }> {
+  const fallback = parseFilename(file.name);
+  try {
+    const metadata = await parseBlob(file);
+    const title = metadata.common.title?.trim() || fallback.title;
+    const artist = (metadata.common.artists?.join(', ') || metadata.common.artist || '').trim();
+    const album = (metadata.common.album || '').trim();
+    return { title, artist, album };
+  } catch {
+    return fallback;
+  }
+}
+
 const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }) => {
   const [fileItems, setFileItems] = useState<FileItem[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -71,21 +85,39 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
   const formatSize = (b: number) =>
     b < 1024 * 1024 ? `${(b / 1024).toFixed(1)} KB` : `${(b / (1024 * 1024)).toFixed(2)} MB`;
 
-  const addFiles = useCallback((files: File[]) => {
+  const addFiles = useCallback(async (files: File[]) => {
+    const accepted: File[] = [];
+    for (const file of files) {
+      const ok = file.name.toLowerCase().endsWith('.flac') ||
+                 file.type === 'audio/flac' || file.type === 'audio/x-flac';
+      if (!ok) {
+        toast.error(`${file.name} 不是 FLAC 格式，已跳过`);
+        continue;
+      }
+      accepted.push(file);
+    }
+
+    const parsed = await Promise.all(accepted.map(async (file) => ({
+      file,
+      ...(await parseLocalMetadata(file)),
+    })));
+
     setFileItems(prev => {
       const next = [...prev];
-      for (const file of files) {
-        const ok = file.name.toLowerCase().endsWith('.flac') ||
-                   file.type === 'audio/flac' || file.type === 'audio/x-flac';
-        if (!ok) { toast.error(`${file.name} 不是 FLAC 格式，已跳过`); continue; }
-        if (next.some(f => f.name === file.name && f.size === file.size)) continue;
-        const { title, artist, album } = parseFilename(file.name);
+      for (const item of parsed) {
+        if (next.some(f => f.name === item.file.name && f.size === item.file.size)) continue;
         next.push({
           uid: `${Date.now()}-${Math.random()}`,
-          name: file.name, originFileObj: file, size: file.size,
+          name: item.file.name,
+          originFileObj: item.file,
+          size: item.file.size,
           status: 'pending',
-          detectedTitle: title, detectedArtist: artist, detectedAlbum: album,
-          editTitle: title,     editArtist: artist,     editAlbum: album,
+          detectedTitle: item.title,
+          detectedArtist: item.artist,
+          detectedAlbum: item.album,
+          editTitle: item.title,
+          editArtist: item.artist,
+          editAlbum: item.album,
         });
       }
       return next;
@@ -93,13 +125,13 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
   }, []);
 
   const handleBeforeUpload = useCallback((file: File) => {
-    addFiles([file]);
+    void addFiles([file]);
     return false;
   }, [addFiles]);
 
   const handleFolderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    addFiles(files);
+    void addFiles(files);
     // reset so same folder can be selected again
     e.target.value = '';
   };
@@ -134,13 +166,12 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
     setDuplicateChecking(true);
     try {
       const duplicates = await trackService.precheckDuplicateTracks(
-        fileItems.map((f) => f.originFileObj),
-        {
-          metaOverrides: fileItems.map((f) => ({
-            title: f.editTitle || undefined,
-            album: f.editAlbum || undefined,
-          })),
-        }
+        fileItems.map((f, index) => ({
+          index,
+          file: f.name,
+          title: (f.editTitle || f.detectedTitle || '').trim(),
+          album: (f.editAlbum || f.detectedAlbum || '').trim() || null,
+        }))
       );
 
       if (duplicates.length > 0) {
