@@ -93,6 +93,15 @@ interface VisitorBehaviorLog {
   referer: string | null;
 }
 
+interface CountryDebugRow {
+  country: string;
+  region: string;
+  city: string;
+  requests: number;
+  visitors: number;
+  bucket: string;
+}
+
 // ── Storage analytics sub-component ──────────────────────────────
 const StorageAnalytics: React.FC = () => {
   const [data, setData] = useState<any>(null);
@@ -191,6 +200,10 @@ const Analytics: React.FC = () => {
   const [visitorBehaviorLogs, setVisitorBehaviorLogs] = useState<VisitorBehaviorLog[]>([]);
   const [selectedVisitor, setSelectedVisitor] = useState<VisitorRow | null>(null);
   const [visitorBehaviorVisible, setVisitorBehaviorVisible] = useState(false);
+  const [countryDebugVisible, setCountryDebugVisible] = useState(false);
+  const [countryDebugLoading, setCountryDebugLoading] = useState(false);
+  const [countryDebugRows, setCountryDebugRows] = useState<CountryDebugRow[]>([]);
+  const [countryDebugSummary, setCountryDebugSummary] = useState<Array<{ bucket: string; requests: number; visitors: number }>>([]);
   const [loading, setLoading]       = useState(true);
   const [warming, setWarming]       = useState(false);
   const [lastRefresh, setLast]      = useState(new Date());
@@ -330,6 +343,24 @@ const Analytics: React.FC = () => {
     }
   };
 
+  const fetchCountryDebug = async () => {
+    setCountryDebugVisible(true);
+    setCountryDebugLoading(true);
+    try {
+      const resp = await api.get(`/analytics/countries/debug?days=${days}&limit=1500`);
+      const data = resp.data?.data;
+      setCountryDebugRows(data?.unmappedChina || []);
+      setCountryDebugSummary(data?.bucketSummary || []);
+    } catch (e) {
+      console.error('[Analytics countries debug]', e);
+      message.error('地区映射诊断加载失败');
+      setCountryDebugRows([]);
+      setCountryDebugSummary([]);
+    } finally {
+      setCountryDebugLoading(false);
+    }
+  };
+
   const handleWarmup = async () => {
     setWarming(true);
     try {
@@ -432,6 +463,7 @@ const Analytics: React.FC = () => {
             >
               一键刷新预热
             </Button>
+            <Button onClick={fetchCountryDebug}>地区映射诊断</Button>
           </Space>
         </div>
 
@@ -876,6 +908,47 @@ const Analytics: React.FC = () => {
                 { title: 'IP', dataIndex: 'ip', width: 140, render: (v: string | null) => <Text style={{ fontFamily: 'monospace', fontSize: 11 }}>{v || '-'}</Text> },
               ]}
             />
+          </Modal>
+
+          <Modal
+            title="中国省份映射诊断（无需手动查库）"
+            open={countryDebugVisible}
+            onCancel={() => setCountryDebugVisible(false)}
+            footer={<Button onClick={() => setCountryDebugVisible(false)}>关闭</Button>}
+            width={1100}
+          >
+            <Spin spinning={countryDebugLoading}>
+              <Card size="small" title="当前桶汇总（按请求数）" style={{ marginBottom: 12 }}>
+                <Table
+                  size="small"
+                  rowKey="bucket"
+                  pagination={{ pageSize: 6, size: 'small' }}
+                  dataSource={countryDebugSummary}
+                  columns={[
+                    { title: '桶', dataIndex: 'bucket' },
+                    { title: '请求数', dataIndex: 'requests', width: 100, align: 'right' },
+                    { title: '访客数', dataIndex: 'visitors', width: 100, align: 'right' },
+                  ]}
+                />
+              </Card>
+
+              <Card size="small" title="中国其他（未命中映射）样本 Top 200">
+                <Table
+                  size="small"
+                  rowKey={(r: CountryDebugRow, i?: number) => `${r.country}-${r.region}-${r.city}-${i}`}
+                  pagination={{ pageSize: 10, size: 'small' }}
+                  dataSource={countryDebugRows}
+                  columns={[
+                    { title: 'country', dataIndex: 'country', width: 90 },
+                    { title: 'region(原始)', dataIndex: 'region', width: 180, render: (v: string) => <Text code>{v || '(空)'}</Text> },
+                    { title: 'city(原始)', dataIndex: 'city', width: 180, render: (v: string) => <Text code>{v || '(空)'}</Text> },
+                    { title: '映射结果', dataIndex: 'bucket', width: 120 },
+                    { title: '请求数', dataIndex: 'requests', width: 90, align: 'right' },
+                    { title: '访客数', dataIndex: 'visitors', width: 90, align: 'right' },
+                  ]}
+                />
+              </Card>
+            </Spin>
           </Modal>
 
         </Spin>

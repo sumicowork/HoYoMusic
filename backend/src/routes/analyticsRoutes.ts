@@ -51,8 +51,90 @@ const PROVINCE_KEYWORDS: Array<[string, string[]]> = [
   ['澳门特别行政区', ['澳门', 'macao', 'macau']],
 ];
 
+const PROVINCE_CODE_MAP: Record<string, string> = {
+  '11': '北京市',
+  '12': '天津市',
+  '13': '河北省',
+  '14': '山西省',
+  '15': '内蒙古自治区',
+  '21': '辽宁省',
+  '22': '吉林省',
+  '23': '黑龙江省',
+  '31': '上海市',
+  '32': '江苏省',
+  '33': '浙江省',
+  '34': '安徽省',
+  '35': '福建省',
+  '36': '江西省',
+  '37': '山东省',
+  '41': '河南省',
+  '42': '湖北省',
+  '43': '湖南省',
+  '44': '广东省',
+  '45': '广西壮族自治区',
+  '46': '海南省',
+  '50': '重庆市',
+  '51': '四川省',
+  '52': '贵州省',
+  '53': '云南省',
+  '54': '西藏自治区',
+  '61': '陕西省',
+  '62': '甘肃省',
+  '63': '青海省',
+  '64': '宁夏回族自治区',
+  '65': '新疆维吾尔自治区',
+  '71': '台湾省',
+  '81': '香港特别行政区',
+  '82': '澳门特别行政区',
+  // common short codes
+  BJ: '北京市',
+  TJ: '天津市',
+  HE: '河北省',
+  SX: '山西省',
+  NM: '内蒙古自治区',
+  LN: '辽宁省',
+  JL: '吉林省',
+  HL: '黑龙江省',
+  SH: '上海市',
+  JS: '江苏省',
+  ZJ: '浙江省',
+  AH: '安徽省',
+  FJ: '福建省',
+  JX: '江西省',
+  SD: '山东省',
+  HA: '河南省',
+  HB: '湖北省',
+  HN: '湖南省',
+  GD: '广东省',
+  GX: '广西壮族自治区',
+  HI: '海南省',
+  CQ: '重庆市',
+  SC: '四川省',
+  GZ: '贵州省',
+  YN: '云南省',
+  XZ: '西藏自治区',
+  SN: '陕西省',
+  GS: '甘肃省',
+  QH: '青海省',
+  NX: '宁夏回族自治区',
+  XJ: '新疆维吾尔自治区',
+  TW: '台湾省',
+  HK: '香港特别行政区',
+  MO: '澳门特别行政区',
+};
+
 const toProvinceBucket = (country: string | null, region: string | null, city: string | null): string => {
   if (country !== 'CN') return '其他';
+  const rawRegion = (region || '').trim();
+  const regionUpper = rawRegion.toUpperCase();
+  const numericMatch = regionUpper.match(/(?:CN[-_])?(\d{2})/);
+  if (numericMatch && PROVINCE_CODE_MAP[numericMatch[1]]) {
+    return PROVINCE_CODE_MAP[numericMatch[1]];
+  }
+  if (PROVINCE_CODE_MAP[regionUpper]) {
+    return PROVINCE_CODE_MAP[regionUpper];
+  }
+
   const text = `${region || ''} ${city || ''}`.toLowerCase();
   for (const [province, keywords] of PROVINCE_KEYWORDS) {
     if (keywords.some((k) => text.includes(k.toLowerCase()))) {
@@ -376,6 +458,62 @@ router.get('/countries', async (req: Request, res: Response) => {
     const data = Array.from(map.values()).sort((a, b) => b.visitors - a.visitors).slice(0, 40);
     res.json({ success: true, data });
   } catch (e: any) { res.status(500).json(safeError(e)); }
+});
+
+// ── Countries mapping diagnostics (no manual SQL needed) ───────
+router.get('/countries/debug', async (req: Request, res: Response) => {
+  try {
+    const d = clampDays(req.query.days, 180);
+    const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 1000, 100), 5000);
+
+    const result = await pool.query(
+      `SELECT
+         COALESCE(NULLIF(country,''), 'Unknown') AS country,
+         COALESCE(NULLIF(region,''), '') AS region,
+         COALESCE(NULLIF(city,''), '') AS city,
+         COUNT(*)::int AS requests,
+         COUNT(DISTINCT ${UNIQUE_VISITOR_EXPR})::int AS visitors
+       FROM visit_logs
+       WHERE ts >= NOW() - INTERVAL '1 day' * $1
+       GROUP BY 1,2,3
+       ORDER BY requests DESC
+       LIMIT $2`,
+      [d, limit]
+    );
+
+    const mappedRows = result.rows.map((row) => ({
+      ...row,
+      bucket: toProvinceBucket(row.country, row.region, row.city),
+    }));
+
+    const unmappedChina = mappedRows
+      .filter((row) => row.country === 'CN' && row.bucket === '中国其他')
+      .sort((a, b) => b.requests - a.requests)
+      .slice(0, 200);
+
+    const bucketSummaryMap = new Map<string, { bucket: string; requests: number; visitors: number }>();
+    for (const row of mappedRows) {
+      const prev = bucketSummaryMap.get(row.bucket) || { bucket: row.bucket, requests: 0, visitors: 0 };
+      prev.requests += Number(row.requests || 0);
+      prev.visitors += Number(row.visitors || 0);
+      bucketSummaryMap.set(row.bucket, prev);
+    }
+
+    const bucketSummary = Array.from(bucketSummaryMap.values()).sort((a, b) => b.requests - a.requests);
+
+    res.json({
+      success: true,
+      data: {
+        days: d,
+        sampleRows: mappedRows.length,
+        bucketSummary,
+        unmappedChinaCount: unmappedChina.length,
+        unmappedChina,
+      },
+    });
+  } catch (e: any) {
+    res.status(500).json(safeError(e));
+  }
 });
 
 // ── Visitor list ─────────────────────────────────────────────────
