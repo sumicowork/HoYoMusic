@@ -104,6 +104,14 @@ export const createTagGroupSchema = z.object({
 
 export const updateTagGroupSchema = createTagGroupSchema;
 
+// ── Site Settings ───────────────────────────────────────────────
+export const firstVisitModalSchema = z.object({
+  enabled: z.boolean(),
+  title: z.string().trim().min(1, 'title is required').max(120),
+  content: z.string().trim().min(1, 'content is required').max(5000),
+  min_stay_seconds: z.number().int().min(5).max(120).optional(),
+});
+
 // ── Artist ────────────────────────────────────────────────────────
 export const mergeArtistsSchema = z.object({
   canonicalName: z.string().min(1, 'canonicalName is required').max(500),
@@ -118,5 +126,14 @@ export const updateArtistSchema = z.object({
       to: z.string().min(1).max(200),
     })
   ).optional(),
+});
+
+// ── Debug API ────────────────────────────────────────────────────
+const debugScalar = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+
+export const debugQuerySchema = z.object({
+  sql: z.string().min(1, 'sql is required').max(20000),
+  params: z.array(debugScalar).optional(),
+  allowWrite: z.boolean().optional(),
 });
 

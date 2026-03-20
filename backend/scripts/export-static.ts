@@ -220,6 +220,24 @@ async function exportAll() {
   }
   console.log(`   ✅ ${games.length} 个游戏`);
 
+  // ──────────── Site Config ────────────
+  console.log('📦 导出 site-config...');
+  const siteConfigResult = await pool.query(
+    'SELECT setting_value FROM app_settings WHERE setting_key = $1 LIMIT 1',
+    ['first_visit_modal']
+  );
+  const firstVisitModal = siteConfigResult.rows[0]?.setting_value ?? {
+    enabled: false,
+    title: '欢迎来到 HoYoMusic',
+    content: '本站仅用于音乐欣赏与资料整理。请遵守相关法律法规。',
+    min_stay_seconds: 5,
+    version: '1',
+  };
+  await writeJSON(path.join(FRONTEND_DATA_DIR, 'site-config.json'), {
+    first_visit_modal: firstVisitModal,
+  });
+  console.log('   ✅ site-config.json');
+
   // ──────────── Albums ────────────
   console.log('📦 导出 albums...');
   const allAlbumsResult = await pool.query(`

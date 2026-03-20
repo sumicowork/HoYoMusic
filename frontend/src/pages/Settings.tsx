@@ -1,14 +1,35 @@
-import React, { useState } from 'react';
-import { Card, Form, Input, Button, message, Space, Typography, Divider } from 'antd';
+import React, { useEffect, useState } from 'react';
+import { Card, Form, Input, Button, message, Space, Typography, Divider, Switch, InputNumber } from 'antd';
 import { LockOutlined, ExportOutlined, DatabaseOutlined } from '@ant-design/icons';
 import AdminLayout from '../components/AdminLayout';
 import api from '../services/api';
+import { siteConfigService, type FirstVisitModalConfig } from '../services/siteConfigService';
 
 const { Title, Text } = Typography;
 
 const Settings: React.FC = () => {
   const [loading, setLoading] = useState(false);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [modalSaving, setModalSaving] = useState(false);
   const [form] = Form.useForm();
+  const [modalForm] = Form.useForm();
+
+  const loadFirstVisitModalConfig = async () => {
+    setModalLoading(true);
+    try {
+      const config = await siteConfigService.getAdminFirstVisitModal();
+      modalForm.setFieldsValue(config);
+    } catch (err: any) {
+      const msg = err?.response?.data?.error?.message || err?.message || '加载首访弹窗配置失败';
+      message.error(msg);
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadFirstVisitModalConfig();
+  }, []);
 
   const handleChangePassword = async (values: { currentPassword: string; newPassword: string; confirmPassword: string }) => {
     if (values.newPassword !== values.confirmPassword) {
@@ -36,6 +57,25 @@ const Settings: React.FC = () => {
       window.open(url, '_blank');
     } catch {
       message.error('导出失败');
+    }
+  };
+
+  const handleSaveFirstVisitModal = async (values: FirstVisitModalConfig) => {
+    setModalSaving(true);
+    try {
+      const saved = await siteConfigService.updateAdminFirstVisitModal({
+        enabled: values.enabled,
+        title: values.title,
+        content: values.content,
+        min_stay_seconds: values.min_stay_seconds,
+      });
+      modalForm.setFieldsValue(saved);
+      message.success('首访弹窗配置已保存');
+    } catch (err: any) {
+      const msg = err?.response?.data?.error?.message || err?.message || '保存失败';
+      message.error(msg);
+    } finally {
+      setModalSaving(false);
     }
   };
 
@@ -92,6 +132,47 @@ const Settings: React.FC = () => {
           <Text type="secondary">
             API 文档：<a href="/api/docs" target="_blank" rel="noopener noreferrer">打开 Swagger UI</a>
           </Text>
+        </Card>
+
+        <Card title="首访弹窗" loading={modalLoading} style={{ marginTop: 24 }}>
+          <Form
+            form={modalForm}
+            layout="vertical"
+            initialValues={{ enabled: false, min_stay_seconds: 5 }}
+            onFinish={handleSaveFirstVisitModal}
+          >
+            <Form.Item name="enabled" label="启用弹窗" valuePropName="checked">
+              <Switch checkedChildren="开启" unCheckedChildren="关闭" />
+            </Form.Item>
+
+            <Form.Item
+              name="title"
+              label="弹窗标题"
+              rules={[{ required: true, message: '请输入弹窗标题' }, { max: 120, message: '标题最多 120 字' }]}
+            >
+              <Input placeholder="例如：访问须知" maxLength={120} />
+            </Form.Item>
+
+            <Form.Item
+              name="content"
+              label="弹窗内容"
+              rules={[{ required: true, message: '请输入弹窗内容' }, { max: 5000, message: '内容最多 5000 字' }]}
+            >
+              <Input.TextArea rows={5} placeholder="支持换行显示" maxLength={5000} showCount />
+            </Form.Item>
+
+            <Form.Item
+              name="min_stay_seconds"
+              label="最短停留时长（秒）"
+              rules={[{ required: true, message: '请输入最短停留时长' }]}
+            >
+              <InputNumber min={5} max={120} precision={0} style={{ width: 180 }} />
+            </Form.Item>
+
+            <Button type="primary" htmlType="submit" loading={modalSaving}>
+              保存弹窗配置
+            </Button>
+          </Form>
         </Card>
       </div>
     </AdminLayout>

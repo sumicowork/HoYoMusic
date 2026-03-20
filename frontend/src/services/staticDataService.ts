@@ -11,6 +11,26 @@ import type { Track } from '../types';
 // ────────────────────────────────────────────────────────────
 const cache: Record<string, any> = {};
 
+export interface FirstVisitModalConfig {
+  enabled: boolean;
+  title: string;
+  content: string;
+  min_stay_seconds: number;
+  version: string;
+}
+
+interface SiteConfigSnapshot {
+  first_visit_modal?: Partial<FirstVisitModalConfig>;
+}
+
+const DEFAULT_FIRST_VISIT_MODAL_CONFIG: FirstVisitModalConfig = {
+  enabled: false,
+  title: '欢迎来到 HoYoMusic',
+  content: '本站仅用于音乐欣赏与资料整理。请遵守相关法律法规。',
+  min_stay_seconds: 5,
+  version: '1',
+};
+
 async function fetchJSON<T>(path: string): Promise<T> {
   if (cache[path]) return cache[path] as T;
   const resp = await fetch(path);
@@ -29,6 +49,23 @@ export async function getGames() {
 
 export async function getGameById(id: number) {
   return fetchJSON<any>(`/data/games/${id}.json`);
+}
+
+// ────────────────────────────────────────────────────────────
+// Site Config
+// ────────────────────────────────────────────────────────────
+export async function getFirstVisitModalConfig(): Promise<FirstVisitModalConfig> {
+  const snapshot = await fetchJSON<SiteConfigSnapshot>('/data/site-config.json');
+  const raw = snapshot.first_visit_modal ?? {};
+  return {
+    enabled: typeof raw.enabled === 'boolean' ? raw.enabled : DEFAULT_FIRST_VISIT_MODAL_CONFIG.enabled,
+    title: typeof raw.title === 'string' && raw.title.trim() ? raw.title : DEFAULT_FIRST_VISIT_MODAL_CONFIG.title,
+    content: typeof raw.content === 'string' && raw.content.trim() ? raw.content : DEFAULT_FIRST_VISIT_MODAL_CONFIG.content,
+    min_stay_seconds: Number.isFinite(raw.min_stay_seconds)
+      ? Math.max(5, Math.floor(raw.min_stay_seconds as number))
+      : DEFAULT_FIRST_VISIT_MODAL_CONFIG.min_stay_seconds,
+    version: typeof raw.version === 'string' && raw.version.trim() ? raw.version : DEFAULT_FIRST_VISIT_MODAL_CONFIG.version,
+  };
 }
 
 // ────────────────────────────────────────────────────────────

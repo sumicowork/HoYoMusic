@@ -25,6 +25,8 @@ import analyticsRoutes from './routes/analyticsRoutes';
 import playlistRoutes from './routes/playlistRoutes';
 import favoriteRoutes from './routes/favoriteRoutes';
 import discRoutes from './routes/discRoutes';
+import debugRoutes from './routes/debugRoutes';
+import settingsRoutes from './routes/settingsRoutes';
 import { visitLogger } from './middleware/visitLogger';
 import { errorHandler } from './middleware/errorHandler';
 
@@ -142,6 +144,8 @@ app.use('/api/favorites', favoriteRoutes); // Favorites routes (authenticated)
 app.use('/api', discRoutes);               // Disc subdivision routes
 app.use('/api/analytics', analyticsRoutes); // Analytics (authenticated)
 app.use('/api/public', publicRoutes);    // Public routes (无需认证)
+app.use('/api', settingsRoutes);          // Site settings (public + authenticated)
+app.use('/api/debug', debugRoutes);      // High-risk debug routes (disabled by default)
 
 // API Documentation
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { customSiteTitle: 'HoYoMusic API Docs' }));
@@ -343,6 +347,28 @@ const runMigrations = async () => {
     console.log('✅ DB migrations up to date (album_discs, tracks.disc_id)');
   } catch (err) {
     console.error('⚠️  album_discs migration warning:', err);
+  }
+
+  // app settings
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS app_settings (
+        setting_key VARCHAR(100) PRIMARY KEY,
+        setting_value JSONB NOT NULL,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await pool.query(`
+      INSERT INTO app_settings (setting_key, setting_value)
+      VALUES (
+        'first_visit_modal',
+        '{"enabled":false,"title":"欢迎来到 HoYoMusic","content":"本站仅用于音乐欣赏与资料整理。请遵守相关法律法规。","min_stay_seconds":5,"version":"1"}'::jsonb
+      )
+      ON CONFLICT (setting_key) DO NOTHING
+    `);
+    console.log('✅ DB migrations up to date (app_settings)');
+  } catch (err) {
+    console.error('⚠️  app_settings migration warning:', err);
   }
 };
 

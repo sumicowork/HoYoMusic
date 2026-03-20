@@ -8,6 +8,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Player from './components/Player';
 import PageHeader from './components/PageHeader';
 import MobileTabBar from './components/MobileTabBar';
+import FirstVisitModal from './components/FirstVisitModal';
 import { usePlayerStore } from './store/playerStore';
 import { useThemeStore } from './store/themeStore';
 import { useAuthStore } from './store/authStore';
@@ -163,6 +164,7 @@ const App: React.FC = () => {
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Suspense>
+            <FirstVisitModal />
             {currentTrack && <Player />}
           </div>
         </Router>
