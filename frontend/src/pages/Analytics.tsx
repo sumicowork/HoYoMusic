@@ -195,24 +195,31 @@ const Analytics: React.FC = () => {
   const [warming, setWarming]       = useState(false);
   const [lastRefresh, setLast]      = useState(new Date());
   const ANALYTICS_TIMEOUT_MS = 12000;
+  const withHardTimeout = <T,>(promise: Promise<T>, timeoutMs: number) =>
+    Promise.race<T>([
+      promise,
+      new Promise<T>((_, reject) => {
+        setTimeout(() => reject(new Error('REQUEST_TIMEOUT')), timeoutMs);
+      }),
+    ]);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
       const requests = {
-        overview: api.get('/analytics/overview', { timeout: ANALYTICS_TIMEOUT_MS }),
-        trend: api.get(`/analytics/trend?days=${days}`, { timeout: ANALYTICS_TIMEOUT_MS }),
-        hourly: api.get('/analytics/hourly', { timeout: ANALYTICS_TIMEOUT_MS }),
-        countries: api.get(`/analytics/countries?days=${days}`, { timeout: ANALYTICS_TIMEOUT_MS }),
-        pages: api.get(`/analytics/pages?days=${days}`, { timeout: ANALYTICS_TIMEOUT_MS }),
-        devices: api.get(`/analytics/devices?days=${days}`, { timeout: ANALYTICS_TIMEOUT_MS }),
-        statusCodes: api.get(`/analytics/status-codes?days=${days}`, { timeout: ANALYTICS_TIMEOUT_MS }),
-        performance: api.get(`/analytics/performance?days=${days}`, { timeout: ANALYTICS_TIMEOUT_MS }),
-        recent: api.get('/analytics/recent?limit=100', { timeout: ANALYTICS_TIMEOUT_MS }),
-        referers: api.get(`/analytics/referers?days=${days}`, { timeout: ANALYTICS_TIMEOUT_MS }),
-        cache: api.get('/analytics/cache', { timeout: ANALYTICS_TIMEOUT_MS }),
-        hotTracks: api.get(`/analytics/tracks/hot?days=${days}&limit=50`, { timeout: ANALYTICS_TIMEOUT_MS }),
-        visitors: api.get(`/analytics/visitors?days=${days}&page=1&limit=50`, { timeout: ANALYTICS_TIMEOUT_MS }),
+        overview: withHardTimeout(api.get('/analytics/overview', { timeout: ANALYTICS_TIMEOUT_MS }), ANALYTICS_TIMEOUT_MS),
+        trend: withHardTimeout(api.get(`/analytics/trend?days=${days}`, { timeout: ANALYTICS_TIMEOUT_MS }), ANALYTICS_TIMEOUT_MS),
+        hourly: withHardTimeout(api.get('/analytics/hourly', { timeout: ANALYTICS_TIMEOUT_MS }), ANALYTICS_TIMEOUT_MS),
+        countries: withHardTimeout(api.get(`/analytics/countries?days=${days}`, { timeout: ANALYTICS_TIMEOUT_MS }), ANALYTICS_TIMEOUT_MS),
+        pages: withHardTimeout(api.get(`/analytics/pages?days=${days}`, { timeout: ANALYTICS_TIMEOUT_MS }), ANALYTICS_TIMEOUT_MS),
+        devices: withHardTimeout(api.get(`/analytics/devices?days=${days}`, { timeout: ANALYTICS_TIMEOUT_MS }), ANALYTICS_TIMEOUT_MS),
+        statusCodes: withHardTimeout(api.get(`/analytics/status-codes?days=${days}`, { timeout: ANALYTICS_TIMEOUT_MS }), ANALYTICS_TIMEOUT_MS),
+        performance: withHardTimeout(api.get(`/analytics/performance?days=${days}`, { timeout: ANALYTICS_TIMEOUT_MS }), ANALYTICS_TIMEOUT_MS),
+        recent: withHardTimeout(api.get('/analytics/recent?limit=100', { timeout: ANALYTICS_TIMEOUT_MS }), ANALYTICS_TIMEOUT_MS),
+        referers: withHardTimeout(api.get(`/analytics/referers?days=${days}`, { timeout: ANALYTICS_TIMEOUT_MS }), ANALYTICS_TIMEOUT_MS),
+        cache: withHardTimeout(api.get('/analytics/cache', { timeout: ANALYTICS_TIMEOUT_MS }), ANALYTICS_TIMEOUT_MS),
+        hotTracks: withHardTimeout(api.get(`/analytics/tracks/hot?days=${days}&limit=50`, { timeout: ANALYTICS_TIMEOUT_MS }), ANALYTICS_TIMEOUT_MS),
+        visitors: withHardTimeout(api.get(`/analytics/visitors?days=${days}&page=1&limit=50`, { timeout: ANALYTICS_TIMEOUT_MS }), ANALYTICS_TIMEOUT_MS),
       } as const;
 
       const keys = Object.keys(requests) as Array<keyof typeof requests>;
