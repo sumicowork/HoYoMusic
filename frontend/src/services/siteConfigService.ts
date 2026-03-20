@@ -9,6 +9,12 @@ export interface FirstVisitModalConfig {
   version: string;
 }
 
+export interface SiteComplianceConfig {
+  enabled: boolean;
+  icp_number: string;
+  public_security_number: string;
+}
+
 interface ApiResponse<T> {
   success: boolean;
   data?: T;
@@ -24,6 +30,12 @@ export const DEFAULT_FIRST_VISIT_MODAL_CONFIG: FirstVisitModalConfig = {
   content: '本站仅用于音乐欣赏与资料整理。请遵守相关法律法规。',
   min_stay_seconds: 5,
   version: '1',
+};
+
+export const DEFAULT_SITE_COMPLIANCE_CONFIG: SiteComplianceConfig = {
+  enabled: false,
+  icp_number: '',
+  public_security_number: '',
 };
 
 export const siteConfigService = {
@@ -59,5 +71,34 @@ export const siteConfigService = {
     }
     throw new Error(response.data.error?.message || 'Failed to update first-visit modal config');
   },
+
+  async getPublicComplianceConfig(): Promise<SiteComplianceConfig> {
+    if (IS_STATIC) {
+      return staticData.getSiteComplianceConfig();
+    }
+
+    const response = await api.get<ApiResponse<SiteComplianceConfig>>('/public/site-config/compliance');
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data.error?.message || 'Failed to fetch compliance config');
+  },
+
+  async getAdminComplianceConfig(): Promise<SiteComplianceConfig> {
+    const response = await api.get<ApiResponse<SiteComplianceConfig>>('/settings/compliance');
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data.error?.message || 'Failed to fetch compliance config');
+  },
+
+  async updateAdminComplianceConfig(payload: SiteComplianceConfig): Promise<SiteComplianceConfig> {
+    const response = await api.put<ApiResponse<SiteComplianceConfig>>('/settings/compliance', payload);
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data.error?.message || 'Failed to update compliance config');
+  },
 };
+
 

@@ -366,6 +366,14 @@ const runMigrations = async () => {
       )
       ON CONFLICT (setting_key) DO NOTHING
     `);
+    await pool.query(`
+      INSERT INTO app_settings (setting_key, setting_value)
+      VALUES (
+        'site_compliance',
+        '{"enabled":false,"icp_number":"","public_security_number":""}'::jsonb
+      )
+      ON CONFLICT (setting_key) DO NOTHING
+    `);
     console.log('✅ DB migrations up to date (app_settings)');
   } catch (err) {
     console.error('⚠️  app_settings migration warning:', err);

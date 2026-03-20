@@ -3,7 +3,7 @@ import { Card, Form, Input, Button, message, Space, Typography, Divider, Switch,
 import { LockOutlined, ExportOutlined, DatabaseOutlined } from '@ant-design/icons';
 import AdminLayout from '../components/AdminLayout';
 import api from '../services/api';
-import { siteConfigService, type FirstVisitModalConfig } from '../services/siteConfigService';
+import { siteConfigService, type FirstVisitModalConfig, type SiteComplianceConfig } from '../services/siteConfigService';
 
 const { Title, Text } = Typography;
 
@@ -11,8 +11,11 @@ const Settings: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
   const [modalSaving, setModalSaving] = useState(false);
+  const [complianceLoading, setComplianceLoading] = useState(false);
+  const [complianceSaving, setComplianceSaving] = useState(false);
   const [form] = Form.useForm();
   const [modalForm] = Form.useForm();
+  const [complianceForm] = Form.useForm();
 
   const loadFirstVisitModalConfig = async () => {
     setModalLoading(true);
@@ -29,6 +32,23 @@ const Settings: React.FC = () => {
 
   useEffect(() => {
     loadFirstVisitModalConfig();
+  }, []);
+
+  const loadComplianceConfig = async () => {
+    setComplianceLoading(true);
+    try {
+      const config = await siteConfigService.getAdminComplianceConfig();
+      complianceForm.setFieldsValue(config);
+    } catch (err: any) {
+      const msg = err?.response?.data?.error?.message || err?.message || '加载备案配置失败';
+      message.error(msg);
+    } finally {
+      setComplianceLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadComplianceConfig();
   }, []);
 
   const handleChangePassword = async (values: { currentPassword: string; newPassword: string; confirmPassword: string }) => {
@@ -76,6 +96,24 @@ const Settings: React.FC = () => {
       message.error(msg);
     } finally {
       setModalSaving(false);
+    }
+  };
+
+  const handleSaveCompliance = async (values: SiteComplianceConfig) => {
+    setComplianceSaving(true);
+    try {
+      const saved = await siteConfigService.updateAdminComplianceConfig({
+        enabled: values.enabled,
+        icp_number: values.icp_number || '',
+        public_security_number: values.public_security_number || '',
+      });
+      complianceForm.setFieldsValue(saved);
+      message.success('备案配置已保存');
+    } catch (err: any) {
+      const msg = err?.response?.data?.error?.message || err?.message || '保存失败';
+      message.error(msg);
+    } finally {
+      setComplianceSaving(false);
     }
   };
 
@@ -171,6 +209,41 @@ const Settings: React.FC = () => {
 
             <Button type="primary" htmlType="submit" loading={modalSaving}>
               保存弹窗配置
+            </Button>
+          </Form>
+        </Card>
+
+        <Card title="备案信息" loading={complianceLoading} style={{ marginTop: 24 }}>
+          <Form
+            form={complianceForm}
+            layout="vertical"
+            initialValues={{ enabled: false, icp_number: '', public_security_number: '' }}
+            onFinish={handleSaveCompliance}
+          >
+            <Form.Item name="enabled" label="启用备案展示" valuePropName="checked">
+              <Switch checkedChildren="开启" unCheckedChildren="关闭" />
+            </Form.Item>
+
+            <Form.Item
+              name="icp_number"
+              label="ICP备案号"
+              rules={[{ max: 100, message: '备案号最多 100 字' }]}
+              extra="将自动跳转到工信部备案系统。"
+            >
+              <Input placeholder="例如：沪ICP备2026000000号" maxLength={100} />
+            </Form.Item>
+
+            <Form.Item
+              name="public_security_number"
+              label="公网安备号"
+              rules={[{ max: 100, message: '备案号最多 100 字' }]}
+              extra="将自动提取编号并跳转到全国互联网安全管理服务平台。"
+            >
+              <Input placeholder="例如：沪公网安备31010102001234号" maxLength={100} />
+            </Form.Item>
+
+            <Button type="primary" htmlType="submit" loading={complianceSaving}>
+              保存备案配置
             </Button>
           </Form>
         </Card>

@@ -222,19 +222,38 @@ async function exportAll() {
 
   // ──────────── Site Config ────────────
   console.log('📦 导出 site-config...');
-  const siteConfigResult = await pool.query(
-    'SELECT setting_value FROM app_settings WHERE setting_key = $1 LIMIT 1',
-    ['first_visit_modal']
-  );
-  const firstVisitModal = siteConfigResult.rows[0]?.setting_value ?? {
+  let firstVisitModal: any = {
     enabled: false,
     title: '欢迎来到 HoYoMusic',
     content: '本站仅用于音乐欣赏与资料整理。请遵守相关法律法规。',
     min_stay_seconds: 5,
     version: '1',
   };
+  let compliance: any = {
+    enabled: false,
+    icp_number: '',
+    public_security_number: '',
+  };
+
+  try {
+    const siteConfigResult = await pool.query(
+      'SELECT setting_value FROM app_settings WHERE setting_key = $1 LIMIT 1',
+      ['first_visit_modal']
+    );
+    firstVisitModal = siteConfigResult.rows[0]?.setting_value ?? firstVisitModal;
+
+    const complianceResult = await pool.query(
+      'SELECT setting_value FROM app_settings WHERE setting_key = $1 LIMIT 1',
+      ['site_compliance']
+    );
+    compliance = complianceResult.rows[0]?.setting_value ?? compliance;
+  } catch (error: any) {
+    console.warn(`   ⚠️  site-config 读取失败，使用默认值: ${error.message}`);
+  }
+
   await writeJSON(path.join(FRONTEND_DATA_DIR, 'site-config.json'), {
     first_visit_modal: firstVisitModal,
+    compliance,
   });
   console.log('   ✅ site-config.json');
 

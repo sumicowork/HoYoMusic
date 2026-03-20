@@ -112,6 +112,12 @@ export const firstVisitModalSchema = z.object({
   min_stay_seconds: z.number().int().min(5).max(120).optional(),
 });
 
+export const siteComplianceSchema = z.object({
+  enabled: z.boolean(),
+  icp_number: z.string().trim().max(100).optional().default(''),
+  public_security_number: z.string().trim().max(100).optional().default(''),
+});
+
 // ── Artist ────────────────────────────────────────────────────────
 export const mergeArtistsSchema = z.object({
   canonicalName: z.string().min(1, 'canonicalName is required').max(500),

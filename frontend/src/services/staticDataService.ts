@@ -19,8 +19,15 @@ export interface FirstVisitModalConfig {
   version: string;
 }
 
+export interface SiteComplianceConfig {
+  enabled: boolean;
+  icp_number: string;
+  public_security_number: string;
+}
+
 interface SiteConfigSnapshot {
   first_visit_modal?: Partial<FirstVisitModalConfig>;
+  compliance?: Partial<SiteComplianceConfig>;
 }
 
 const DEFAULT_FIRST_VISIT_MODAL_CONFIG: FirstVisitModalConfig = {
@@ -29,6 +36,12 @@ const DEFAULT_FIRST_VISIT_MODAL_CONFIG: FirstVisitModalConfig = {
   content: '本站仅用于音乐欣赏与资料整理。请遵守相关法律法规。',
   min_stay_seconds: 5,
   version: '1',
+};
+
+const DEFAULT_SITE_COMPLIANCE_CONFIG: SiteComplianceConfig = {
+  enabled: false,
+  icp_number: '',
+  public_security_number: '',
 };
 
 async function fetchJSON<T>(path: string): Promise<T> {
@@ -65,6 +78,18 @@ export async function getFirstVisitModalConfig(): Promise<FirstVisitModalConfig>
       ? Math.max(5, Math.floor(raw.min_stay_seconds as number))
       : DEFAULT_FIRST_VISIT_MODAL_CONFIG.min_stay_seconds,
     version: typeof raw.version === 'string' && raw.version.trim() ? raw.version : DEFAULT_FIRST_VISIT_MODAL_CONFIG.version,
+  };
+}
+
+export async function getSiteComplianceConfig(): Promise<SiteComplianceConfig> {
+  const snapshot = await fetchJSON<SiteConfigSnapshot>('/data/site-config.json');
+  const raw = snapshot.compliance ?? {};
+  return {
+    enabled: typeof raw.enabled === 'boolean' ? raw.enabled : DEFAULT_SITE_COMPLIANCE_CONFIG.enabled,
+    icp_number: typeof raw.icp_number === 'string' ? raw.icp_number.trim() : DEFAULT_SITE_COMPLIANCE_CONFIG.icp_number,
+    public_security_number: typeof raw.public_security_number === 'string'
+      ? raw.public_security_number.trim()
+      : DEFAULT_SITE_COMPLIANCE_CONFIG.public_security_number,
   };
 }
 

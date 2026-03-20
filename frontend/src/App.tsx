@@ -9,6 +9,7 @@ import Player from './components/Player';
 import PageHeader from './components/PageHeader';
 import MobileTabBar from './components/MobileTabBar';
 import FirstVisitModal from './components/FirstVisitModal';
+import SiteComplianceFooter from './components/SiteComplianceFooter';
 import { usePlayerStore } from './store/playerStore';
 import { useThemeStore } from './store/themeStore';
 import { useAuthStore } from './store/authStore';
@@ -165,6 +166,7 @@ const App: React.FC = () => {
               </Routes>
             </Suspense>
             <FirstVisitModal />
+            <SiteComplianceFooter />
             {currentTrack && <Player />}
           </div>
         </Router>
