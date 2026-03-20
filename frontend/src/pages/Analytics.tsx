@@ -256,6 +256,10 @@ const Analytics: React.FC = () => {
       render: v => <Text style={{ fontSize: 12 }}>{fmtTime(v)}</Text> },
     { title: 'IP', dataIndex: 'ip', width: 130,
       render: v => <Text copyable style={{ fontSize: 12, fontFamily: 'monospace' }}>{v}</Text> },
+    { title: 'Visitor ID', dataIndex: 'visitor_id', width: 220,
+      render: v => v
+        ? <Text copyable style={{ fontSize: 11, fontFamily: 'monospace' }}>{v}</Text>
+        : <Text type="secondary" style={{ fontSize: 11 }}>未上报（回退IP）</Text> },
     { title: '位置', key: 'loc', width: 120,
       render: (_, r) => <span style={{ fontSize: 12 }}>{flag(r.country)} {r.city || r.country || '-'}</span> },
     { title: '方法', dataIndex: 'method', width: 68,
