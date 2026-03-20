@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  Card, Row, Col, Statistic, Table, Tag, Select, Spin, Typography, Space, Badge, Button, message
+  Card, Row, Col, Statistic, Table, Tag, Select, Spin, Typography, Space, Badge, Button, message, Modal
 } from 'antd';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
@@ -67,6 +67,30 @@ interface HotTrackIpSourceRow {
   effective_plays: number;
   avg_played_seconds: number | null;
   last_played_at: string;
+}
+
+interface VisitorRow {
+  visitor_key: string;
+  visitor_id: string | null;
+  latest_ip: string | null;
+  requests: number;
+  first_seen: string;
+  last_seen: string;
+  unique_paths: number;
+}
+
+interface VisitorBehaviorLog {
+  ts: string;
+  method: string;
+  path: string;
+  status: number;
+  duration_ms: number;
+  ip: string | null;
+  visitor_id: string | null;
+  country: string | null;
+  region: string | null;
+  city: string | null;
+  referer: string | null;
 }
 
 // ── Storage analytics sub-component ──────────────────────────────
@@ -162,6 +186,11 @@ const Analytics: React.FC = () => {
   const [selectedHotTrack, setSelectedHotTrack] = useState<HotTrackRow | null>(null);
   const [hotTrackIps, setHotTrackIps] = useState<HotTrackIpSourceRow[]>([]);
   const [hotTrackIpsLoading, setHotTrackIpsLoading] = useState(false);
+  const [visitors, setVisitors]       = useState<VisitorRow[]>([]);
+  const [visitorBehaviorLoading, setVisitorBehaviorLoading] = useState(false);
+  const [visitorBehaviorLogs, setVisitorBehaviorLogs] = useState<VisitorBehaviorLog[]>([]);
+  const [selectedVisitor, setSelectedVisitor] = useState<VisitorRow | null>(null);
+  const [visitorBehaviorVisible, setVisitorBehaviorVisible] = useState(false);
   const [loading, setLoading]       = useState(true);
   const [warming, setWarming]       = useState(false);
   const [lastRefresh, setLast]      = useState(new Date());
@@ -169,7 +198,7 @@ const Analytics: React.FC = () => {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [ov, tr, hr, cn, pg, dv, sc, pf, rc, rf, ch, ht] = await Promise.all([
+      const [ov, tr, hr, cn, pg, dv, sc, pf, rc, rf, ch, ht, vs] = await Promise.all([
         api.get('/analytics/overview'),
         api.get(`/analytics/trend?days=${days}`),
         api.get('/analytics/hourly'),
@@ -182,6 +211,7 @@ const Analytics: React.FC = () => {
         api.get(`/analytics/referers?days=${days}`),
         api.get('/analytics/cache'),
         api.get(`/analytics/tracks/hot?days=${days}&limit=50`),
+        api.get(`/analytics/visitors?days=${days}&page=1&limit=50`),
       ]);
       setOverview(ov.data.data);
       setTrend(tr.data.data);
@@ -198,6 +228,7 @@ const Analytics: React.FC = () => {
       setReferers(rf.data.data);
       setCacheInfo(ch.data.data);
       setHotTracks(ht.data.data || []);
+      setVisitors(vs.data?.data?.visitors || []);
       setLast(new Date());
     } catch (e) {
       console.error('[Analytics]', e);
@@ -225,6 +256,22 @@ const Analytics: React.FC = () => {
       setHotTrackIps([]);
     } finally {
       setHotTrackIpsLoading(false);
+    }
+  };
+
+  const fetchVisitorBehavior = async (visitor: VisitorRow) => {
+    setSelectedVisitor(visitor);
+    setVisitorBehaviorVisible(true);
+    setVisitorBehaviorLoading(true);
+    try {
+      const response = await api.get(`/analytics/visitors/${encodeURIComponent(visitor.visitor_key)}/behavior?days=${days}&limit=200`);
+      setVisitorBehaviorLogs(response.data?.data?.logs || []);
+    } catch (e) {
+      console.error('[Analytics visitor behavior]', e);
+      message.error('加载访客行为失败');
+      setVisitorBehaviorLogs([]);
+    } finally {
+      setVisitorBehaviorLoading(false);
     }
   };
 
@@ -340,7 +387,7 @@ const Analytics: React.FC = () => {
             {[
               { title: '总请求数',   value: overview?.total,    suffix: '次', icon: <ApiOutlined />,         color: '#667eea' },
               { title: '今日请求',   value: overview?.today,    suffix: '次', icon: <FireOutlined />,         color: '#f093fb' },
-              { title: '7日独立IP', value: overview?.unique7d, suffix: '个', icon: <UserOutlined />,         color: '#4facfe' },
+              { title: '7日独立访客', value: overview?.unique7d, suffix: '个', icon: <UserOutlined />,         color: '#4facfe' },
               { title: '今日错误',   value: overview?.errors,   suffix: '次', icon: <WarningOutlined />,      color: '#ff4d4f' },
               { title: '24h均响应', value: overview?.avgMs,    suffix: 'ms', icon: <ThunderboltOutlined />,  color: '#43e97b' },
             ].map((item, i) => (
@@ -431,7 +478,7 @@ const Analytics: React.FC = () => {
           <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
             {/* ── Countries ── */}
             <Col xs={24} lg={14}>
-              <Card title="🌍 访客国家/地区 TOP 20" className="analytics-card">
+              <Card title="🌍 中国省级行政区 / 其他" className="analytics-card">
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart
                     data={countries.slice(0, 20)}
@@ -443,7 +490,7 @@ const Analytics: React.FC = () => {
                     <YAxis
                       type="category" dataKey="country"
                       tick={{ fontSize: 12 }} width={55}
-                      tickFormatter={(v: string) => `${flag(v)} ${v}`}
+                      tickFormatter={(v: string) => v}
                     />
                     <RechartTooltip />
                     <Legend />
@@ -692,6 +739,50 @@ const Analytics: React.FC = () => {
             </Row>
           </Card>
 
+          <Card title="🧭 Visitor 列表" className="analytics-card" style={{ marginBottom: 16 }}>
+            <Table
+              size="small"
+              rowKey="visitor_key"
+              dataSource={visitors}
+              pagination={{ pageSize: 10, size: 'small', showSizeChanger: false }}
+              columns={[
+                {
+                  title: 'Visitor Key',
+                  dataIndex: 'visitor_key',
+                  width: 220,
+                  render: (v: string) => <Text copyable style={{ fontFamily: 'monospace', fontSize: 11 }}>{v}</Text>,
+                },
+                {
+                  title: '最新IP',
+                  dataIndex: 'latest_ip',
+                  width: 130,
+                  render: (v: string | null) => <Text style={{ fontFamily: 'monospace', fontSize: 12 }}>{v || '-'}</Text>,
+                },
+                { title: '请求数', dataIndex: 'requests', width: 90, align: 'right' },
+                { title: '独立路径', dataIndex: 'unique_paths', width: 90, align: 'right' },
+                {
+                  title: '首次访问',
+                  dataIndex: 'first_seen',
+                  width: 155,
+                  render: (v: string) => <Text style={{ fontSize: 12 }}>{fmtTime(v)}</Text>,
+                },
+                {
+                  title: '最近访问',
+                  dataIndex: 'last_seen',
+                  width: 155,
+                  render: (v: string) => <Text style={{ fontSize: 12 }}>{fmtTime(v)}</Text>,
+                },
+                {
+                  title: '行为',
+                  width: 100,
+                  render: (_: unknown, r: VisitorRow) => (
+                    <Button size="small" onClick={() => fetchVisitorBehavior(r)}>查看行为</Button>
+                  ),
+                },
+              ]}
+            />
+          </Card>
+
           {/* ── Recent Logs ── */}
           <Card title="📋 最近请求记录" className="analytics-card">
             <Table
@@ -707,6 +798,30 @@ const Analytics: React.FC = () => {
 
           {/* ── Storage Analytics ── */}
           <StorageAnalytics />
+
+          <Modal
+            title={selectedVisitor ? `Visitor 行为 - ${selectedVisitor.visitor_key}` : 'Visitor 行为'}
+            open={visitorBehaviorVisible}
+            onCancel={() => setVisitorBehaviorVisible(false)}
+            footer={<Button onClick={() => setVisitorBehaviorVisible(false)}>关闭</Button>}
+            width={980}
+          >
+            <Table
+              size="small"
+              loading={visitorBehaviorLoading}
+              rowKey={(r: VisitorBehaviorLog, i?: number) => `${r.ts}-${r.path}-${i}`}
+              dataSource={visitorBehaviorLogs}
+              pagination={{ pageSize: 12, size: 'small', showSizeChanger: false }}
+              columns={[
+                { title: '时间', dataIndex: 'ts', width: 160, render: (v: string) => fmtTime(v) },
+                { title: '方法', dataIndex: 'method', width: 70 },
+                { title: '路径', dataIndex: 'path', ellipsis: true },
+                { title: '状态', dataIndex: 'status', width: 70, align: 'center' },
+                { title: '耗时', dataIndex: 'duration_ms', width: 80, align: 'right', render: (v: number) => `${v}ms` },
+                { title: 'IP', dataIndex: 'ip', width: 140, render: (v: string | null) => <Text style={{ fontFamily: 'monospace', fontSize: 11 }}>{v || '-'}</Text> },
+              ]}
+            />
+          </Modal>
 
         </Spin>
       </div>

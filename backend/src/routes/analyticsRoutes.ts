@@ -13,6 +13,50 @@ router.use(authenticateJWT as any);
 // ── Helper ────────────────────────────────────────────────────────
 const clampDays = (v: any, max = 90) => Math.min(Math.max(parseInt(v) || 30, 1), max);
 const UNIQUE_VISITOR_EXPR = "COALESCE(NULLIF(visitor_id, ''), ip)";
+const VISITOR_KEY_EXPR = "CASE WHEN visitor_id IS NOT NULL AND visitor_id <> '' THEN 'vid:' || visitor_id ELSE 'ip:' || COALESCE(ip, 'unknown') END";
+const PROVINCE_BUCKET_EXPR = `
+  CASE
+    WHEN country = 'CN' THEN
+      CASE
+        WHEN COALESCE(region, '') ~ '北京' OR COALESCE(city, '') ~ '北京' OR COALESCE(region, '') ~* 'beijing' OR COALESCE(city, '') ~* 'beijing' THEN '北京市'
+        WHEN COALESCE(region, '') ~ '天津' OR COALESCE(city, '') ~ '天津' OR COALESCE(region, '') ~* 'tianjin' OR COALESCE(city, '') ~* 'tianjin' THEN '天津市'
+        WHEN COALESCE(region, '') ~ '上海' OR COALESCE(city, '') ~ '上海' OR COALESCE(region, '') ~* 'shanghai' OR COALESCE(city, '') ~* 'shanghai' THEN '上海市'
+        WHEN COALESCE(region, '') ~ '重庆' OR COALESCE(city, '') ~ '重庆' OR COALESCE(region, '') ~* 'chongqing' OR COALESCE(city, '') ~* 'chongqing' THEN '重庆市'
+        WHEN COALESCE(region, '') ~ '河北' OR COALESCE(region, '') ~* 'hebei' THEN '河北省'
+        WHEN COALESCE(region, '') ~ '山西' OR COALESCE(region, '') ~* 'shanxi' THEN '山西省'
+        WHEN COALESCE(region, '') ~ '辽宁' OR COALESCE(region, '') ~* 'liaoning' THEN '辽宁省'
+        WHEN COALESCE(region, '') ~ '吉林' OR COALESCE(region, '') ~* 'jilin' THEN '吉林省'
+        WHEN COALESCE(region, '') ~ '黑龙江' OR COALESCE(region, '') ~* 'heilongjiang' THEN '黑龙江省'
+        WHEN COALESCE(region, '') ~ '江苏' OR COALESCE(region, '') ~* 'jiangsu' THEN '江苏省'
+        WHEN COALESCE(region, '') ~ '浙江' OR COALESCE(region, '') ~* 'zhejiang' THEN '浙江省'
+        WHEN COALESCE(region, '') ~ '安徽' OR COALESCE(region, '') ~* 'anhui' THEN '安徽省'
+        WHEN COALESCE(region, '') ~ '福建' OR COALESCE(region, '') ~* 'fujian' THEN '福建省'
+        WHEN COALESCE(region, '') ~ '江西' OR COALESCE(region, '') ~* 'jiangxi' THEN '江西省'
+        WHEN COALESCE(region, '') ~ '山东' OR COALESCE(region, '') ~* 'shandong' THEN '山东省'
+        WHEN COALESCE(region, '') ~ '河南' OR COALESCE(region, '') ~* 'henan' THEN '河南省'
+        WHEN COALESCE(region, '') ~ '湖北' OR COALESCE(region, '') ~* 'hubei' THEN '湖北省'
+        WHEN COALESCE(region, '') ~ '湖南' OR COALESCE(region, '') ~* 'hunan' THEN '湖南省'
+        WHEN COALESCE(region, '') ~ '广东' OR COALESCE(region, '') ~* 'guangdong' THEN '广东省'
+        WHEN COALESCE(region, '') ~ '海南' OR COALESCE(region, '') ~* 'hainan' THEN '海南省'
+        WHEN COALESCE(region, '') ~ '四川' OR COALESCE(region, '') ~* 'sichuan' THEN '四川省'
+        WHEN COALESCE(region, '') ~ '贵州' OR COALESCE(region, '') ~* 'guizhou' THEN '贵州省'
+        WHEN COALESCE(region, '') ~ '云南' OR COALESCE(region, '') ~* 'yunnan' THEN '云南省'
+        WHEN COALESCE(region, '') ~ '陕西' OR COALESCE(region, '') ~* 'shaanxi' THEN '陕西省'
+        WHEN COALESCE(region, '') ~ '甘肃' OR COALESCE(region, '') ~* 'gansu' THEN '甘肃省'
+        WHEN COALESCE(region, '') ~ '青海' OR COALESCE(region, '') ~* 'qinghai' THEN '青海省'
+        WHEN COALESCE(region, '') ~ '台湾' OR COALESCE(region, '') ~* 'taiwan' THEN '台湾省'
+        WHEN COALESCE(region, '') ~ '内蒙古' OR COALESCE(region, '') ~* 'inner mongolia' THEN '内蒙古自治区'
+        WHEN COALESCE(region, '') ~ '广西' OR COALESCE(region, '') ~* 'guangxi' THEN '广西壮族自治区'
+        WHEN COALESCE(region, '') ~ '西藏' OR COALESCE(region, '') ~* 'tibet' THEN '西藏自治区'
+        WHEN COALESCE(region, '') ~ '宁夏' OR COALESCE(region, '') ~* 'ningxia' THEN '宁夏回族自治区'
+        WHEN COALESCE(region, '') ~ '新疆' OR COALESCE(region, '') ~* 'xinjiang' THEN '新疆维吾尔自治区'
+        WHEN COALESCE(region, '') ~ '香港' OR COALESCE(city, '') ~ '香港' OR COALESCE(region, '') ~* 'hong kong' THEN '香港特别行政区'
+        WHEN COALESCE(region, '') ~ '澳门' OR COALESCE(city, '') ~ '澳门' OR COALESCE(region, '') ~* 'macao' OR COALESCE(region, '') ~* 'macau' THEN '澳门特别行政区'
+        ELSE '中国其他'
+      END
+    ELSE '其他'
+  END
+`;
 /** Sanitized error message for production */
 const safeError = (e: any) => {
   const msg = process.env.NODE_ENV === 'production' ? 'Internal server error' : (e?.message || 'Unknown error');
@@ -306,15 +350,118 @@ router.get('/countries', async (req: Request, res: Response) => {
     const d = clampDays(req.query.days);
     const result = await pool.query(`
       SELECT
-        COALESCE(NULLIF(country,''), 'Unknown') AS country,
+        ${PROVINCE_BUCKET_EXPR} AS country,
         COUNT(*)::int           AS requests,
         COUNT(DISTINCT ${UNIQUE_VISITOR_EXPR})::int AS visitors
       FROM visit_logs
       WHERE ts >= NOW() - INTERVAL '1 day' * $1
-      GROUP BY 1 ORDER BY 3 DESC LIMIT 50
+      GROUP BY 1 ORDER BY 3 DESC LIMIT 40
     `, [d]);
     res.json({ success: true, data: result.rows });
   } catch (e: any) { res.status(500).json(safeError(e)); }
+});
+
+// ── Visitor list ─────────────────────────────────────────────────
+router.get('/visitors', async (req: Request, res: Response) => {
+  try {
+    const d = clampDays(req.query.days, 180);
+    const page = Math.max(parseInt(req.query.page as string) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 50, 1), 200);
+    const offset = (page - 1) * limit;
+
+    const [countResult, listResult] = await Promise.all([
+      pool.query(
+        `SELECT COUNT(*)::int AS total
+         FROM (
+           SELECT ${VISITOR_KEY_EXPR} AS visitor_key
+           FROM visit_logs
+           WHERE ts >= NOW() - INTERVAL '1 day' * $1
+           GROUP BY 1
+         ) v`,
+        [d]
+      ),
+      pool.query(
+        `SELECT
+           ${VISITOR_KEY_EXPR} AS visitor_key,
+           MAX(visitor_id) FILTER (WHERE visitor_id IS NOT NULL AND visitor_id <> '') AS visitor_id,
+           MAX(ip) AS latest_ip,
+           COUNT(*)::int AS requests,
+           MIN(ts) AS first_seen,
+           MAX(ts) AS last_seen,
+           COUNT(DISTINCT path)::int AS unique_paths
+         FROM visit_logs
+         WHERE ts >= NOW() - INTERVAL '1 day' * $1
+         GROUP BY 1
+         ORDER BY MAX(ts) DESC
+         LIMIT $2 OFFSET $3`,
+        [d, limit, offset]
+      ),
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        visitors: listResult.rows,
+        pagination: {
+          page,
+          limit,
+          total: countResult.rows[0]?.total || 0,
+          totalPages: Math.max(1, Math.ceil((countResult.rows[0]?.total || 0) / limit)),
+        },
+      },
+    });
+  } catch (e: any) {
+    res.status(500).json(safeError(e));
+  }
+});
+
+// ── Visitor behavior ─────────────────────────────────────────────
+router.get('/visitors/:visitorKey/behavior', async (req: Request, res: Response) => {
+  try {
+    const d = clampDays(req.query.days, 180);
+    const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 100, 1), 500);
+    const visitorKey = decodeURIComponent(String(req.params.visitorKey || ''));
+
+    let whereClause = '';
+    let keyValue = '';
+    if (visitorKey.startsWith('vid:')) {
+      whereClause = "visitor_id = $1";
+      keyValue = visitorKey.slice(4);
+    } else if (visitorKey.startsWith('ip:')) {
+      whereClause = "ip = $1";
+      keyValue = visitorKey.slice(3);
+    } else {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'INVALID_VISITOR_KEY', message: 'Invalid visitor key' },
+      });
+    }
+
+    const result = await pool.query(
+      `SELECT
+         ts,
+         method,
+         path,
+         status,
+         duration_ms,
+         ip,
+         visitor_id,
+         country,
+         region,
+         city,
+         referer
+       FROM visit_logs
+       WHERE ${whereClause}
+         AND ts >= NOW() - INTERVAL '1 day' * $2
+       ORDER BY ts DESC
+       LIMIT $3`,
+      [keyValue, d, limit]
+    );
+
+    res.json({ success: true, data: { visitorKey, logs: result.rows } });
+  } catch (e: any) {
+    res.status(500).json(safeError(e));
+  }
 });
 
 // ── Cities (for map) ──────────────────────────────────────────────
