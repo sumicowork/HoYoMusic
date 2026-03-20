@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Table, Button, message, Space, Image, Modal, Form, Input, Card,
   DatePicker, InputNumber, Popconfirm
@@ -56,6 +56,9 @@ const Admin: React.FC = () => {
 
   // Search state
   const [searchText, setSearchText] = useState('');
+  const [noteDraftById, setNoteDraftById] = useState<Record<number, string>>({});
+  const [savingNoteById, setSavingNoteById] = useState<Record<number, boolean>>({});
+  const noteSaveSeqRef = useRef<Record<number, number>>({});
 
   const { playTrackOnly } = usePlayerStore();
 
@@ -82,6 +85,16 @@ const Admin: React.FC = () => {
   useEffect(() => {
     fetchTracks();
   }, []);
+
+  useEffect(() => {
+    setNoteDraftById((prev) => {
+      const next: Record<number, string> = {};
+      tracks.forEach((track) => {
+        next[track.id] = prev[track.id] ?? track.notes ?? '';
+      });
+      return next;
+    });
+  }, [tracks]);
 
   const handlePlay = (track: Track) => {
     playTrackOnly(track);
@@ -142,6 +155,49 @@ const Admin: React.FC = () => {
         }
       },
     });
+  };
+
+  const handleNoteBlurSave = async (track: Track, rawValue: string) => {
+    const normalizedValue = rawValue.trim();
+    const nextNote = normalizedValue ? normalizedValue : null;
+    const currentNote = track.notes ?? null;
+
+    if ((currentNote ?? '') === (nextNote ?? '')) {
+      // 失焦时统一把草稿归一化，避免仅空格造成“未保存”错觉
+      setNoteDraftById(prev => ({ ...prev, [track.id]: nextNote ?? '' }));
+      return;
+    }
+
+    const previousNote = track.notes ?? null;
+    const nextSeq = (noteSaveSeqRef.current[track.id] ?? 0) + 1;
+    noteSaveSeqRef.current[track.id] = nextSeq;
+
+    setSavingNoteById(prev => ({ ...prev, [track.id]: true }));
+    setNoteDraftById(prev => ({ ...prev, [track.id]: nextNote ?? '' }));
+    setTracks(prev => prev.map(item => (
+      item.id === track.id ? { ...item, notes: nextNote } : item
+    )));
+
+    try {
+      await trackService.updateTrack(track.id, {
+        title: track.title,
+        artists: track.artists.map(a => a.name),
+        notes: nextNote,
+      });
+    } catch (error: any) {
+      if (noteSaveSeqRef.current[track.id] !== nextSeq) {
+        return;
+      }
+      setTracks(prev => prev.map(item => (
+        item.id === track.id ? { ...item, notes: previousNote } : item
+      )));
+      setNoteDraftById(prev => ({ ...prev, [track.id]: previousNote ?? '' }));
+      message.error(error.message || '备注保存失败');
+    } finally {
+      if (noteSaveSeqRef.current[track.id] === nextSeq) {
+        setSavingNoteById(prev => ({ ...prev, [track.id]: false }));
+      }
+    }
   };
 
   const handleBulkDelete = async () => {
@@ -211,6 +267,29 @@ const Admin: React.FC = () => {
         if (!record.album_id) return albumTitle;
         return <Link to={`/albums/${record.album_id}`}>{albumTitle}</Link>;
       },
+    },
+    {
+      title: '备注',
+      key: 'notes',
+      width: 220,
+      responsive: ['sm'],
+      render: (_, record: Track) => (
+        <Input
+          value={noteDraftById[record.id] ?? record.notes ?? ''}
+          placeholder="输入备注，失焦自动保存"
+          allowClear
+          maxLength={5000}
+          size="small"
+          disabled={savingNoteById[record.id]}
+          onChange={(e) => {
+            const value = e.target.value;
+            setNoteDraftById(prev => ({ ...prev, [record.id]: value }));
+          }}
+          onBlur={(e) => {
+            void handleNoteBlurSave(record, e.target.value);
+          }}
+        />
+      ),
     },
     {
       title: '时长',
