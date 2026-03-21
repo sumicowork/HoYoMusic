@@ -70,12 +70,12 @@ const queryTrackCandidates = async (normalizedTitle: string): Promise<LyricsImpo
        t.id AS track_id,
        t.title,
        COALESCE(al.title, '') AS album_title,
-       COALESCE(string_agg(DISTINCT ar.name, ' / ' ORDER BY ar.name), '') AS artists
+       COALESCE(array_to_string(array_agg(DISTINCT ar.name), ' / '), '') AS artists
      FROM tracks t
      LEFT JOIN albums al ON t.album_id = al.id
      LEFT JOIN track_artists ta ON t.id = ta.track_id
      LEFT JOIN artists ar ON ta.artist_id = ar.id
-     WHERE LOWER(REGEXP_REPLACE(TRIM(t.title), '[\\s._-]+', ' ', 'g')) = $1
+     WHERE LOWER(REGEXP_REPLACE(TRIM(t.title), '[[:space:]._-]+', ' ', 'g')) = $1
      GROUP BY t.id, t.title, al.title
      ORDER BY t.id ASC`,
     [normalizedTitle]
