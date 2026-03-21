@@ -65,7 +65,7 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ open, onClose }) => {
           label="联系方式（选填）"
           rules={[{ max: 200, message: '联系方式最多 200 字' }]}
         >
-          <Input placeholder="例如：邮箱 / QQ / Telegram" maxLength={200} />
+          <Input placeholder="例如：邮箱 / QQ / 微信" maxLength={200} />
         </Form.Item>
         {IS_STATIC && (
           <div style={{ color: '#ff4d4f', marginTop: 4 }}>静态模式下暂不支持提交反馈。</div>
