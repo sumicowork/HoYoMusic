@@ -1,9 +1,9 @@
+  return `v_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`;
 import axios from 'axios';
 
 /** 静态模式标志 — 由 .env.static 中 VITE_STATIC_MODE=true 控制 */
 export const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
 const VISITOR_ID_KEY = 'visitor_id';
-
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const isUuid = (value: string): boolean => UUID_RE.test(value);
@@ -26,7 +26,7 @@ const createUuidFallback = (): string => {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 };
 
-const createVisitorId = (): string => {
+
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
@@ -38,6 +38,7 @@ export const getOrCreateVisitorId = (): string | null => {
     const current = localStorage.getItem(VISITOR_ID_KEY)?.trim();
     if (current && isUuid(current)) return current;
 
+    if (current) return current;
     const next = createVisitorId();
     localStorage.setItem(VISITOR_ID_KEY, next);
     return next;

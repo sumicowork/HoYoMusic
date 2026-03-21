@@ -80,6 +80,15 @@ export const lyricsUpload = multer({
   },
 });
 
+export const lyricsBatchUpload = multer({
+  storage: lyricsStorage,
+  fileFilter: lyricsFilter,
+  limits: {
+    fileSize: 1 * 1024 * 1024, // 1MB max per LRC file
+    files: 200,
+  },
+});
+
 // JSON import file upload configuration (credits import etc.)
 const jsonStorage = multer.memoryStorage();
 

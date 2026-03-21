@@ -11,6 +11,105 @@ import remoteResourceCache from '../services/remoteResourceCache';
 const LYRICS_DIR = path.join(process.cwd(), 'uploads', 'lyrics');
 const buildLyricsCacheKey = (lyricsPath: string) => `lyrics:${lyricsPath}`;
 
+type LyricsImportStatus = 'matched' | 'ambiguous' | 'not_found' | 'invalid' | 'imported' | 'error';
+
+interface LyricsImportCandidate {
+  track_id: number;
+  title: string;
+  album_title: string;
+  artists: string;
+}
+
+interface LyricsImportItem {
+  file_name: string;
+  inferred_title: string;
+  status: LyricsImportStatus;
+  message?: string;
+  matched_track_id?: number;
+  candidates?: LyricsImportCandidate[];
+}
+
+const normalizeLyricBaseName = (baseName: string): string =>
+  baseName
+    .replace(/[._-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+
+const getUploadedLyricsFiles = (req: Request): Express.Multer.File[] => {
+  const files = req.files;
+  if (!files) return [];
+  if (Array.isArray(files)) return files;
+  return [];
+};
+
+const parseResolutions = (raw: unknown): Record<string, number> => {
+  if (!raw) return {};
+
+  const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return {};
+  }
+
+  const result: Record<string, number> = {};
+  for (const [key, value] of Object.entries(parsed)) {
+    const trackId = Number(value);
+    if (key && Number.isInteger(trackId) && trackId > 0) {
+      result[key] = trackId;
+    }
+  }
+  return result;
+};
+
+const queryTrackCandidates = async (normalizedTitle: string): Promise<LyricsImportCandidate[]> => {
+  const result = await pool.query(
+    `SELECT
+       t.id AS track_id,
+       t.title,
+       COALESCE(al.title, '') AS album_title,
+       COALESCE(string_agg(DISTINCT ar.name, ' / ' ORDER BY ar.name), '') AS artists
+     FROM tracks t
+     LEFT JOIN albums al ON t.album_id = al.id
+     LEFT JOIN track_artists ta ON t.id = ta.track_id
+     LEFT JOIN artists ar ON ta.artist_id = ar.id
+     WHERE LOWER(REGEXP_REPLACE(TRIM(t.title), '[\\s._-]+', ' ', 'g')) = $1
+     GROUP BY t.id, t.title, al.title
+     ORDER BY t.id ASC`,
+    [normalizedTitle]
+  );
+
+  return result.rows.map((row) => ({
+    track_id: Number(row.track_id),
+    title: String(row.title),
+    album_title: String(row.album_title || ''),
+    artists: String(row.artists || ''),
+  }));
+};
+
+const saveLyricsForTrack = async (trackId: number, file: Express.Multer.File): Promise<string> => {
+  const oldResult = await pool.query('SELECT lyrics_path FROM tracks WHERE id = $1', [trackId]);
+  const oldLyricsPath = oldResult.rows[0]?.lyrics_path as string | null | undefined;
+
+  const nextLyricsPath = await storageService.uploadFile(
+    file.buffer,
+    file.originalname,
+    'lyrics',
+    'text/plain; charset=utf-8'
+  );
+
+  await pool.query(
+    'UPDATE tracks SET lyrics_path = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+    [nextLyricsPath, trackId]
+  );
+
+  if (oldLyricsPath) {
+    await remoteResourceCache.deleteBinary('lyrics', buildLyricsCacheKey(oldLyricsPath));
+  }
+  await remoteResourceCache.deleteBinary('lyrics', buildLyricsCacheKey(nextLyricsPath));
+
+  return nextLyricsPath;
+};
+
 // Ensure lyrics directory exists
 fs.mkdir(LYRICS_DIR, { recursive: true }).catch(console.error);
 
@@ -55,6 +154,205 @@ export const uploadLyrics = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: { code: 'UPLOAD_ERROR', message: 'Failed to upload lyrics' }
+    });
+  }
+};
+
+// Preview batch LRC import by matching filename -> track title
+export const previewLyricsBatchImport = async (req: Request, res: Response) => {
+  try {
+    const files = getUploadedLyricsFiles(req);
+
+    if (files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'NO_FILES', message: 'No LRC files uploaded' },
+      });
+    }
+
+    const items: LyricsImportItem[] = [];
+
+    for (const file of files) {
+      const inferredTitle = normalizeLyricBaseName(path.parse(file.originalname).name);
+
+      if (!inferredTitle) {
+        items.push({
+          file_name: file.originalname,
+          inferred_title: '',
+          status: 'invalid',
+          message: 'Filename cannot be parsed to a valid title',
+        });
+        continue;
+      }
+
+      const candidates = await queryTrackCandidates(inferredTitle);
+      if (candidates.length === 0) {
+        items.push({
+          file_name: file.originalname,
+          inferred_title: inferredTitle,
+          status: 'not_found',
+          message: 'No track matched this filename',
+        });
+        continue;
+      }
+
+      if (candidates.length === 1) {
+        items.push({
+          file_name: file.originalname,
+          inferred_title: inferredTitle,
+          status: 'matched',
+          matched_track_id: candidates[0].track_id,
+          candidates,
+        });
+        continue;
+      }
+
+      items.push({
+        file_name: file.originalname,
+        inferred_title: inferredTitle,
+        status: 'ambiguous',
+        message: 'Multiple tracks matched. Please choose one before import.',
+        candidates,
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        summary: {
+          total: items.length,
+          matched: items.filter((item) => item.status === 'matched').length,
+          ambiguous: items.filter((item) => item.status === 'ambiguous').length,
+          not_found: items.filter((item) => item.status === 'not_found').length,
+          invalid: items.filter((item) => item.status === 'invalid').length,
+        },
+        items,
+      },
+    });
+  } catch (error) {
+    console.error('Preview lyrics batch import error:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'PREVIEW_ERROR', message: 'Failed to preview lyrics import' },
+    });
+  }
+};
+
+// Commit batch LRC import, resolving ambiguous matches with user selections
+export const commitLyricsBatchImport = async (req: Request, res: Response) => {
+  try {
+    const files = getUploadedLyricsFiles(req);
+
+    if (files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'NO_FILES', message: 'No LRC files uploaded' },
+      });
+    }
+
+    const resolutions = parseResolutions(req.body?.resolutions);
+    const items: LyricsImportItem[] = [];
+
+    for (const file of files) {
+      const inferredTitle = normalizeLyricBaseName(path.parse(file.originalname).name);
+      if (!inferredTitle) {
+        items.push({
+          file_name: file.originalname,
+          inferred_title: '',
+          status: 'invalid',
+          message: 'Filename cannot be parsed to a valid title',
+        });
+        continue;
+      }
+
+      const candidates = await queryTrackCandidates(inferredTitle);
+      if (candidates.length === 0) {
+        items.push({
+          file_name: file.originalname,
+          inferred_title: inferredTitle,
+          status: 'not_found',
+          message: 'No track matched this filename',
+        });
+        continue;
+      }
+
+      let targetTrackId: number | null = null;
+      if (candidates.length === 1) {
+        targetTrackId = candidates[0].track_id;
+      } else {
+        const selectedTrackId = resolutions[file.originalname];
+        const selectedValid = candidates.some((candidate) => candidate.track_id === selectedTrackId);
+        if (!selectedValid) {
+          items.push({
+            file_name: file.originalname,
+            inferred_title: inferredTitle,
+            status: 'ambiguous',
+            message: 'Multiple tracks matched. Please choose one track.',
+            candidates,
+          });
+          continue;
+        }
+        targetTrackId = selectedTrackId;
+      }
+
+      if (targetTrackId === null) {
+        items.push({
+          file_name: file.originalname,
+          inferred_title: inferredTitle,
+          status: 'error',
+          message: 'Unable to resolve target track',
+          candidates,
+        });
+        continue;
+      }
+
+      try {
+        await saveLyricsForTrack(targetTrackId, file);
+        items.push({
+          file_name: file.originalname,
+          inferred_title: inferredTitle,
+          status: 'imported',
+          matched_track_id: targetTrackId,
+          candidates,
+        });
+      } catch (error) {
+        console.error(`Commit lyrics import failed for ${file.originalname}:`, error);
+        items.push({
+          file_name: file.originalname,
+          inferred_title: inferredTitle,
+          status: 'error',
+          message: 'Failed to save lyrics',
+          matched_track_id: targetTrackId,
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        summary: {
+          total: items.length,
+          imported: items.filter((item) => item.status === 'imported').length,
+          ambiguous: items.filter((item) => item.status === 'ambiguous').length,
+          not_found: items.filter((item) => item.status === 'not_found').length,
+          invalid: items.filter((item) => item.status === 'invalid').length,
+          error: items.filter((item) => item.status === 'error').length,
+        },
+        items,
+      },
+    });
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'INVALID_SELECTIONS', message: 'resolutions must be valid JSON' },
+      });
+    }
+
+    console.error('Commit lyrics batch import error:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'IMPORT_ERROR', message: 'Failed to import lyrics' },
     });
   }
 };
