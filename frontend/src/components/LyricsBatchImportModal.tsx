@@ -216,7 +216,7 @@ const LyricsBatchImportModal: React.FC<LyricsBatchImportModalProps> = ({ visible
       open={visible}
       onCancel={handleClose}
       width={940}
-      destroyOnClose
+      destroyOnHidden
       footer={[
         <Button key="close" onClick={handleClose}>关闭</Button>,
         <Button key="preview" icon={<FileTextOutlined />} loading={previewLoading} onClick={handlePreview}>
@@ -234,12 +234,16 @@ const LyricsBatchImportModal: React.FC<LyricsBatchImportModalProps> = ({ visible
         </Button>,
       ]}
     >
-      <Space direction="vertical" style={{ width: '100%' }} size={12}>
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
         <Alert
           type="info"
           showIcon
-          message="按文件名匹配歌曲名"
-          description="系统会用 LRC 文件名（去扩展名）匹配曲目名；命中多首时需要你手动选择后再导入。"
+          description={(
+            <>
+              <Text strong>按文件名匹配歌曲名</Text>
+              <div>系统会用 LRC 文件名（去扩展名）匹配曲目名；命中多首时需要你手动选择后再导入。</div>
+            </>
+          )}
         />
 
         <Upload
@@ -261,11 +265,17 @@ const LyricsBatchImportModal: React.FC<LyricsBatchImportModalProps> = ({ visible
           <Alert
             type={preview.summary.ambiguous > 0 ? 'warning' : 'success'}
             showIcon
-            message={`预览结果：共 ${preview.summary.total} 个，唯一匹配 ${preview.summary.matched} 个，歧义 ${preview.summary.ambiguous} 个，未找到 ${preview.summary.not_found} 个`}
             description={
-              preview.summary.ambiguous > 0
-                ? `还有 ${unresolvedAmbiguousCount} 个歧义文件待选择目标歌曲。`
-                : '已可直接执行导入。'
+              <>
+                <Text strong>
+                  {`预览结果：共 ${preview.summary.total} 个，唯一匹配 ${preview.summary.matched} 个，歧义 ${preview.summary.ambiguous} 个，未找到 ${preview.summary.not_found} 个`}
+                </Text>
+                <div>
+                  {preview.summary.ambiguous > 0
+                    ? `还有 ${unresolvedAmbiguousCount} 个歧义文件待选择目标歌曲。`
+                    : '已可直接执行导入。'}
+                </div>
+              </>
             }
           />
         )}
@@ -298,11 +308,12 @@ const LyricsBatchImportModal: React.FC<LyricsBatchImportModalProps> = ({ visible
             />
           </>
         )}
-      </Space>
+      </div>
     </Modal>
   );
 };
 
 export default LyricsBatchImportModal;
+
 
 

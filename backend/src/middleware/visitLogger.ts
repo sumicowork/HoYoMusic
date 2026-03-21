@@ -1,11 +1,6 @@
-  if (typeof raw !== 'string') return null;
 import { randomUUID } from 'crypto';
-  const value = raw.trim();
-  if (!value) return null;
-  if (value.length > 128) return null;
-  if (!/^[A-Za-z0-9_-]+$/.test(value)) return null;
-  return value;
 import { Request, Response, NextFunction } from 'express';
+import pool from '../config/database';
 
 type VisitLogEntry = [
   string,
@@ -45,6 +40,85 @@ const MAX_QUEUE_SIZE = Math.max(BATCH_SIZE, parseInt(process.env.VISIT_LOGGER_MA
 
 const queue: VisitLogEntry[] = [];
 let flushing = false;
+
+function sanitizeVisitorId(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const value = raw.trim();
+  if (!value) return null;
+  if (value.length > 128) return null;
+  if (!/^[A-Za-z0-9_-]+$/.test(value)) return null;
+  return value;
+}
+
+function parseCookieValue(req: Request, key: string): string | null {
+  const raw = req.headers.cookie;
+  if (!raw || typeof raw !== 'string') return null;
+
+  const entries = raw.split(';');
+  for (const entry of entries) {
+    const [k, ...v] = entry.trim().split('=');
+    if (k !== key) continue;
+    try {
+      return decodeURIComponent(v.join('='));
+    } catch {
+      return v.join('=');
+    }
+  }
+  return null;
+}
+
+function isUuid(value: string): boolean {
+  return UUID_RE.test(value);
+}
+
+function getVisitorId(req: Request): string | null {
+  const headerRaw = sanitizeVisitorId(req.headers['x-visitor-id']);
+  if (headerRaw && isUuid(headerRaw)) {
+    return headerRaw;
+  }
+
+  const cookieRaw = sanitizeVisitorId(parseCookieValue(req, VISITOR_COOKIE_KEY));
+  if (cookieRaw && isUuid(cookieRaw)) {
+    return cookieRaw;
+  }
+
+  return null;
+}
+
+function ensureVisitorId(req: Request, res: Response): string {
+  const existing = getVisitorId(req);
+  if (existing) return existing;
+
+  const generated = randomUUID();
+  const secure = req.secure || req.headers['x-forwarded-proto'] === 'https';
+  res.cookie(VISITOR_COOKIE_KEY, generated, {
+    httpOnly: false,
+    sameSite: 'lax',
+    secure,
+    maxAge: 1000 * 60 * 60 * 24 * 365,
+    path: '/',
+  });
+  return generated;
+}
+
+function getRealIp(req: Request): string {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string' && forwarded.trim()) {
+    return forwarded.split(',')[0].trim();
+  }
+
+  const realIp = req.headers['x-real-ip'];
+  if (typeof realIp === 'string' && realIp.trim()) {
+    return realIp.trim();
+  }
+
+  const socketIp = req.socket.remoteAddress || req.ip;
+  if (socketIp && typeof socketIp === 'string') {
+    return socketIp;
+  }
+
+  return '0.0.0.0';
+}
 
 async function flushQueue(force = false): Promise<void> {
   if (flushing || queue.length === 0) return;
@@ -96,66 +170,10 @@ function enqueue(entry: VisitLogEntry): void {
   }
 }
 
-function getRealIp(req: Request): string {
-function parseCookieValue(req: Request, key: string): string | null {
-  const raw = req.headers.cookie;
-  if (!raw || typeof raw !== 'string') return null;
-
-  const entries = raw.split(';');
-  for (const entry of entries) {
-    const [k, ...v] = entry.trim().split('=');
-    if (k !== key) continue;
-    try {
-      return decodeURIComponent(v.join('='));
-    } catch {
-      return v.join('=');
-    }
-  }
-  return null;
-}
-
-function isUuid(value: string): boolean {
-  return UUID_RE.test(value);
-}
-
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string') return fwd.split(',')[0].trim();
-  if (typeof raw === 'string') {
-    const headerValue = raw.trim();
-    if (headerValue && isUuid(headerValue)) return headerValue;
-  }
-
-  const cookieValue = parseCookieValue(req, VISITOR_COOKIE_KEY)?.trim();
-  if (cookieValue && isUuid(cookieValue)) return cookieValue;
-
-  return null;
-}
-
-function ensureVisitorId(req: Request, res: Response): string {
-  const existing = getVisitorId(req);
-  if (existing) return existing;
-
-  const generated = randomUUID();
-  const secure = req.secure || req.headers['x-forwarded-proto'] === 'https';
-  res.cookie(VISITOR_COOKIE_KEY, generated, {
-    httpOnly: false,
-    sameSite: 'lax',
-    secure,
-    maxAge: 1000 * 60 * 60 * 24 * 365,
-    path: '/',
-  });
-  return generated;
-  const value = raw.trim();
-  if (!value) return null;
-  if (value.length > 128) return null;
-  if (!/^[A-Za-z0-9_-]+$/.test(value)) return null;
-  return value;
-}
-
 export function visitLogger(req: Request, res: Response, next: NextFunction) {
   if (!VISIT_LOGGER_ENABLED) return next();
 
-  const visitorId = ensureVisitorId(req, res);
+  ensureVisitorId(req, res);
   const urlPath = req.path;
   if (SKIP_PREFIXES.some(p => urlPath.startsWith(p))) return next();
   if (SKIP_PATTERNS.some(p => p.test(urlPath))) return next();
@@ -165,7 +183,6 @@ export function visitLogger(req: Request, res: Response, next: NextFunction) {
     try {
       const duration = Date.now() - startAt;
       const ip = getRealIp(req);
-      const visitorId = getVisitorId(req);
       const visitorId = getVisitorId(req);
       const ua = (req.headers['user-agent'] || '').slice(0, 512);
       const referer = ((req.headers['referer'] || req.headers['referrer'] || '') as string).slice(0, 512);

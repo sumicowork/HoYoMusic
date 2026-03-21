@@ -1,8 +1,8 @@
-  return `v_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`;
 import axios from 'axios';
 
-/** 静态模式标志 — 由 .env.static 中 VITE_STATIC_MODE=true 控制 */
+/** Static-mode flag controlled by VITE_STATIC_MODE=true in .env.static. */
 export const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
+
 const VISITOR_ID_KEY = 'visitor_id';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -18,7 +18,6 @@ const createUuidFallback = (): string => {
     }
   }
 
-  // RFC4122 v4 bits
   bytes[6] = (bytes[6] & 0x0f) | 0x40;
   bytes[8] = (bytes[8] & 0x3f) | 0x80;
 
@@ -26,7 +25,7 @@ const createUuidFallback = (): string => {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 };
 
-
+const createVisitorId = (): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
@@ -36,9 +35,10 @@ const createUuidFallback = (): string => {
 export const getOrCreateVisitorId = (): string | null => {
   try {
     const current = localStorage.getItem(VISITOR_ID_KEY)?.trim();
-    if (current && isUuid(current)) return current;
+    if (current && isUuid(current)) {
+      return current;
+    }
 
-    if (current) return current;
     const next = createVisitorId();
     localStorage.setItem(VISITOR_ID_KEY, next);
     return next;
@@ -56,7 +56,6 @@ const api = axios.create({
   },
 });
 
-// Add token to requests
 api.interceptors.request.use((config) => {
   const visitorId = getOrCreateVisitorId();
   if (visitorId) {
@@ -68,15 +67,14 @@ api.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`;
 
     if (config.method?.toLowerCase() === 'get') {
-      // Force revalidation for admin list/detail reads right after CRUD actions.
       config.headers['Cache-Control'] = 'no-cache';
       config.headers.Pragma = 'no-cache';
     }
   }
+
   return config;
 });
 
-// Handle auth errors
 api.interceptors.response.use(
   (response) => response,
   (error) => {
