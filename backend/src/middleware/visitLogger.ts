@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { randomUUID } from 'crypto';
 import pool from '../config/database';
 
 type VisitLogEntry = [
@@ -34,6 +35,8 @@ const VISIT_LOGGER_ENABLED = process.env.VISIT_LOGGER_ENABLED !== 'false';
 const FLUSH_INTERVAL_MS = Math.max(200, parseInt(process.env.VISIT_LOGGER_FLUSH_MS || '1000', 10));
 const BATCH_SIZE = Math.max(10, parseInt(process.env.VISIT_LOGGER_BATCH_SIZE || '30', 10));
 const MAX_QUEUE_SIZE = Math.max(BATCH_SIZE, parseInt(process.env.VISIT_LOGGER_MAX_QUEUE || '5000', 10));
+const VISITOR_COOKIE_KEY = 'visitor_id';
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const queue: VisitLogEntry[] = [];
 let flushing = false;
@@ -94,14 +97,54 @@ function getRealIp(req: Request): string {
   return (req.socket?.remoteAddress || '0.0.0.0').replace(/^::ffff:/, '');
 }
 
+function parseCookieValue(req: Request, key: string): string | null {
+  const raw = req.headers.cookie;
+  if (!raw || typeof raw !== 'string') return null;
+
+  const entries = raw.split(';');
+  for (const entry of entries) {
+    const [k, ...v] = entry.trim().split('=');
+    if (k !== key) continue;
+    try {
+      return decodeURIComponent(v.join('='));
+    } catch {
+      return v.join('=');
+    }
+  }
+  return null;
+}
+
+function isUuid(value: string): boolean {
+  return UUID_RE.test(value);
+}
+
 function getVisitorId(req: Request): string | null {
   const raw = req.headers['x-visitor-id'];
-  if (typeof raw !== 'string') return null;
-  const value = raw.trim();
-  if (!value) return null;
-  if (value.length > 128) return null;
-  if (!/^[A-Za-z0-9_-]+$/.test(value)) return null;
-  return value;
+  if (typeof raw === 'string') {
+    const headerValue = raw.trim();
+    if (headerValue && isUuid(headerValue)) return headerValue;
+  }
+
+  const cookieValue = parseCookieValue(req, VISITOR_COOKIE_KEY)?.trim();
+  if (cookieValue && isUuid(cookieValue)) return cookieValue;
+
+  return null;
+}
+
+function ensureVisitorId(req: Request, res: Response): string {
+  const existing = getVisitorId(req);
+  if (existing) return existing;
+
+  const generated = randomUUID();
+  const secure = req.secure || req.headers['x-forwarded-proto'] === 'https';
+  res.cookie(VISITOR_COOKIE_KEY, generated, {
+    httpOnly: false,
+    sameSite: 'lax',
+    secure,
+    maxAge: 1000 * 60 * 60 * 24 * 365,
+    path: '/',
+  });
+  return generated;
 }
 
 export function visitLogger(req: Request, res: Response, next: NextFunction) {
@@ -112,12 +155,12 @@ export function visitLogger(req: Request, res: Response, next: NextFunction) {
   if (SKIP_PATTERNS.some(p => p.test(urlPath))) return next();
 
   const startAt = Date.now();
+  const visitorId = ensureVisitorId(req, res);
 
   res.on('finish', () => {
     try {
       const duration = Date.now() - startAt;
       const ip = getRealIp(req);
-      const visitorId = getVisitorId(req);
       const ua = (req.headers['user-agent'] || '').slice(0, 512);
       const referer = ((req.headers['referer'] || req.headers['referrer'] || '') as string).slice(0, 512);
 
