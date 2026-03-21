@@ -118,6 +118,11 @@ export const siteComplianceSchema = z.object({
   public_security_number: z.string().trim().max(100).optional().default(''),
 });
 
+export const feedbackSubmitSchema = z.object({
+  content: z.string().trim().min(1, 'content is required').max(2000),
+  contact: z.string().trim().max(200).optional().default(''),
+});
+
 // ── Artist ────────────────────────────────────────────────────────
 export const mergeArtistsSchema = z.object({
   canonicalName: z.string().min(1, 'canonicalName is required').max(500),

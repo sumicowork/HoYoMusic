@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import pool from '../config/database';
 import { authenticateJWT } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
-import { firstVisitModalSchema, siteComplianceSchema } from '../validators/schemas';
+import { firstVisitModalSchema, siteComplianceSchema, feedbackSubmitSchema } from '../validators/schemas';
 
 const router = Router();
 
@@ -18,6 +18,15 @@ interface SiteComplianceConfig {
   enabled: boolean;
   icp_number: string;
   public_security_number: string;
+}
+
+interface FeedbackRow {
+  id: number;
+  content: string;
+  contact: string | null;
+  ip: string | null;
+  user_agent: string | null;
+  created_at: string;
 }
 
 const DEFAULT_FIRST_VISIT_MODAL: FirstVisitModalConfig = {
@@ -84,6 +93,94 @@ const getSiteComplianceConfig = async (): Promise<SiteComplianceConfig> => {
 
   return normalizeSiteComplianceConfig(result.rows[0].setting_value);
 };
+
+const getRequestIp = (req: Request): string | null => {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string' && forwarded.trim()) {
+    return forwarded.split(',')[0].trim().slice(0, 64);
+  }
+  const realIp = req.headers['x-real-ip'];
+  if (typeof realIp === 'string' && realIp.trim()) {
+    return realIp.trim().slice(0, 64);
+  }
+  return (req.ip || req.socket.remoteAddress || '').toString().slice(0, 64) || null;
+};
+
+router.post('/public/feedback', validateBody(feedbackSubmitSchema), async (req: Request, res: Response) => {
+  try {
+    const body = req.body as { content: string; contact?: string };
+    const content = body.content.trim();
+    const contact = (body.contact || '').trim();
+    const ip = getRequestIp(req);
+    const ua = String(req.headers['user-agent'] || '').slice(0, 512);
+
+    await pool.query(
+      `INSERT INTO feedback_messages (content, contact, ip, user_agent)
+       VALUES ($1, NULLIF($2, ''), $3, NULLIF($4, ''))`,
+      [content, contact, ip, ua]
+    );
+
+    res.json({
+      success: true,
+      data: { message: 'Feedback submitted successfully' },
+    });
+  } catch (error) {
+    console.error('Failed to submit feedback:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'FEEDBACK_SUBMIT_ERROR', message: 'Failed to submit feedback' },
+    });
+  }
+});
+
+router.get('/settings/feedback', authenticateJWT, async (req: Request, res: Response) => {
+  try {
+    const page = Math.max(1, parseInt(String(req.query.page || '1'), 10) || 1);
+    const pageSizeRaw = parseInt(String(req.query.pageSize || '20'), 10) || 20;
+    const pageSize = Math.min(100, Math.max(1, pageSizeRaw));
+    const offset = (page - 1) * pageSize;
+
+    const [countResult, listResult] = await Promise.all([
+      pool.query('SELECT COUNT(*)::int AS total FROM feedback_messages'),
+      pool.query(
+        `SELECT id, content, contact, ip, user_agent, created_at
+         FROM feedback_messages
+         ORDER BY created_at DESC, id DESC
+         LIMIT $1 OFFSET $2`,
+        [pageSize, offset]
+      ),
+    ]);
+
+    const total = Number(countResult.rows[0]?.total || 0);
+    const items = listResult.rows.map((row): FeedbackRow => ({
+      id: Number(row.id),
+      content: String(row.content),
+      contact: row.contact ? String(row.contact) : null,
+      ip: row.ip ? String(row.ip) : null,
+      user_agent: row.user_agent ? String(row.user_agent) : null,
+      created_at: String(row.created_at),
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        items,
+        pagination: {
+          page,
+          pageSize,
+          total,
+          totalPages: Math.max(1, Math.ceil(total / pageSize)),
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Failed to list feedback:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'FEEDBACK_LIST_ERROR', message: 'Failed to load feedback list' },
+    });
+  }
+});
 
 router.get('/public/site-config/first-visit-modal', async (_req: Request, res: Response) => {
   try {

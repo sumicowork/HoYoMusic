@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Form, Input, Button, message, Space, Typography, Divider, Switch, InputNumber } from 'antd';
+import { Card, Form, Input, Button, message, Space, Typography, Divider, Switch, InputNumber, Table, Tag } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import { LockOutlined, ExportOutlined, DatabaseOutlined } from '@ant-design/icons';
 import AdminLayout from '../components/AdminLayout';
 import api from '../services/api';
 import { siteConfigService, type FirstVisitModalConfig, type SiteComplianceConfig } from '../services/siteConfigService';
+import { feedbackService, type FeedbackItem } from '../services/feedbackService';
 
 const { Title, Text } = Typography;
 
@@ -13,9 +15,42 @@ const Settings: React.FC = () => {
   const [modalSaving, setModalSaving] = useState(false);
   const [complianceLoading, setComplianceLoading] = useState(false);
   const [complianceSaving, setComplianceSaving] = useState(false);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackItems, setFeedbackItems] = useState<FeedbackItem[]>([]);
+  const [feedbackPagination, setFeedbackPagination] = useState({ page: 1, pageSize: 10, total: 0 });
   const [form] = Form.useForm();
   const [modalForm] = Form.useForm();
   const [complianceForm] = Form.useForm();
+
+  const feedbackColumns: ColumnsType<FeedbackItem> = [
+    {
+      title: '时间',
+      dataIndex: 'created_at',
+      key: 'created_at',
+      width: 180,
+      render: (value: string) => new Date(value).toLocaleString('zh-CN'),
+    },
+    {
+      title: '反馈内容',
+      dataIndex: 'content',
+      key: 'content',
+      render: (value: string) => <div style={{ whiteSpace: 'pre-wrap' }}>{value}</div>,
+    },
+    {
+      title: '联系方式',
+      dataIndex: 'contact',
+      key: 'contact',
+      width: 180,
+      render: (value: string | null) => value || <Tag>未填写</Tag>,
+    },
+    {
+      title: 'IP',
+      dataIndex: 'ip',
+      key: 'ip',
+      width: 140,
+      render: (value: string | null) => value || '—',
+    },
+  ];
 
   const loadFirstVisitModalConfig = async () => {
     setModalLoading(true);
@@ -49,6 +84,24 @@ const Settings: React.FC = () => {
 
   useEffect(() => {
     loadComplianceConfig();
+  }, []);
+
+  const loadFeedback = async (page = feedbackPagination.page, pageSize = feedbackPagination.pageSize) => {
+    setFeedbackLoading(true);
+    try {
+      const data = await feedbackService.getAdminList(page, pageSize);
+      setFeedbackItems(data.items);
+      setFeedbackPagination({ page: data.pagination.page, pageSize: data.pagination.pageSize, total: data.pagination.total });
+    } catch (err: any) {
+      const msg = err?.response?.data?.error?.message || err?.message || '加载反馈列表失败';
+      message.error(msg);
+    } finally {
+      setFeedbackLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadFeedback();
   }, []);
 
   const handleChangePassword = async (values: { currentPassword: string; newPassword: string; confirmPassword: string }) => {
@@ -246,6 +299,30 @@ const Settings: React.FC = () => {
               保存备案配置
             </Button>
           </Form>
+        </Card>
+
+        <Card
+          title="用户反馈"
+          extra={<Button onClick={() => loadFeedback(1, feedbackPagination.pageSize)} loading={feedbackLoading}>刷新</Button>}
+          style={{ marginTop: 24 }}
+        >
+          <Table
+            rowKey="id"
+            loading={feedbackLoading}
+            dataSource={feedbackItems}
+            columns={feedbackColumns}
+            pagination={{
+              current: feedbackPagination.page,
+              pageSize: feedbackPagination.pageSize,
+              total: feedbackPagination.total,
+              showSizeChanger: true,
+              pageSizeOptions: ['10', '20', '50'],
+              showTotal: (total) => `共 ${total} 条反馈`,
+            }}
+            onChange={(pagination) => {
+              loadFeedback(pagination.current || 1, pagination.pageSize || feedbackPagination.pageSize);
+            }}
+          />
         </Card>
       </div>
     </AdminLayout>

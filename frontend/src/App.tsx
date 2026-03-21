@@ -1,4 +1,4 @@
-import React, { useEffect, Suspense, lazy } from 'react';
+import React, { useEffect, Suspense, lazy, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ConfigProvider, App as AntApp, message, notification, Skeleton } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
@@ -8,6 +8,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Player from './components/Player';
 import PageHeader from './components/PageHeader';
 import MobileTabBar from './components/MobileTabBar';
+import FeedbackModal from './components/FeedbackModal';
 import FirstVisitModal from './components/FirstVisitModal';
 import SiteComplianceFooter from './components/SiteComplianceFooter';
 import { usePlayerStore } from './store/playerStore';
@@ -58,6 +59,7 @@ const App: React.FC = () => {
   const { currentTrack } = usePlayerStore();
   const { mode } = useThemeStore();
   const { initializeAuth } = useAuthStore();
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   // Initialize authentication and theme on app startup
   useEffect(() => {
@@ -73,8 +75,8 @@ const App: React.FC = () => {
       <AntApp>
         <Router>
           <div className={`app${currentTrack ? ' has-player' : ''}`}>
-            <PageHeader />
-            <MobileTabBar />
+            <PageHeader onFeedbackClick={() => setFeedbackOpen(true)} />
+            <MobileTabBar onFeedbackClick={() => setFeedbackOpen(true)} />
             <Suspense fallback={<PageFallback />}>
               <Routes>
                 {/* 公开路由 - 无需登录 */}
@@ -166,6 +168,7 @@ const App: React.FC = () => {
               </Routes>
             </Suspense>
             <FirstVisitModal />
+            <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
             <SiteComplianceFooter />
             {currentTrack && <Player />}
           </div>

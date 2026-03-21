@@ -11,7 +11,7 @@ interface ThemeState {
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set, get) => ({
-      mode: 'dark', // 默认深色主题
+      mode: 'light', // 默认浅色主题
 
       setTheme: (mode) => {
         set({ mode });

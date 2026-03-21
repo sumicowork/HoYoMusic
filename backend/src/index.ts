@@ -387,6 +387,24 @@ const runMigrations = async () => {
   } catch (err) {
     console.error('⚠️  app_settings migration warning:', err);
   }
+
+  // feedback messages
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS feedback_messages (
+        id BIGSERIAL PRIMARY KEY,
+        content TEXT NOT NULL,
+        contact VARCHAR(200),
+        ip VARCHAR(64),
+        user_agent VARCHAR(512),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_feedback_messages_created_at ON feedback_messages (created_at DESC)');
+    console.log('✅ DB migrations up to date (feedback_messages)');
+  } catch (err) {
+    console.error('⚠️  feedback_messages migration warning:', err);
+  }
 };
 
 const startServer = async () => {

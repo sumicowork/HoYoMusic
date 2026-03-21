@@ -8,6 +8,7 @@ import {
   UserOutlined,
   TagsOutlined,
   LoginOutlined,
+  MessageOutlined,
 } from '@ant-design/icons';
 import { IS_STATIC } from '../services/api';
 import ThemeToggle from './ThemeToggle';
@@ -16,29 +17,34 @@ import './PageHeader.css';
 interface NavItem {
   icon: React.ReactNode;
   label: string;
-  path: string;
+  path?: string;
+  key: string;
+  onClick?: () => void;
 }
-
-const navItems: NavItem[] = [
-  { icon: <HomeOutlined />, label: '主页', path: '/' },
-  { icon: <SearchOutlined />, label: '搜索', path: '/search' },
-  { icon: <UnorderedListOutlined />, label: '曲库', path: '/library' },
-  { icon: <AppstoreOutlined />, label: '专辑', path: '/albums' },
-  { icon: <UserOutlined />, label: '创作者', path: '/artists' },
-  { icon: <TagsOutlined />, label: '标签', path: '/tags' },
-  ...(!IS_STATIC ? [{ icon: <LoginOutlined />, label: '管理', path: '/admin/login' } as NavItem] : []),
-];
 
 interface PageHeaderProps {
   /** Optional extra content (e.g. search bar) rendered at the right side */
   extra?: React.ReactNode;
+  onFeedbackClick?: () => void;
 }
 
-const PageHeader: React.FC<PageHeaderProps> = ({ extra }) => {
+const PageHeader: React.FC<PageHeaderProps> = ({ extra, onFeedbackClick }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const isActive = (path: string) => {
+  const navItems: NavItem[] = [
+    { key: 'home', icon: <HomeOutlined />, label: '主页', path: '/' },
+    { key: 'search', icon: <SearchOutlined />, label: '搜索', path: '/search' },
+    { key: 'library', icon: <UnorderedListOutlined />, label: '曲库', path: '/library' },
+    { key: 'albums', icon: <AppstoreOutlined />, label: '专辑', path: '/albums' },
+    { key: 'artists', icon: <UserOutlined />, label: '创作者', path: '/artists' },
+    { key: 'tags', icon: <TagsOutlined />, label: '标签', path: '/tags' },
+    { key: 'feedback', icon: <MessageOutlined />, label: '反馈', onClick: onFeedbackClick },
+    ...(!IS_STATIC ? [{ key: 'admin', icon: <LoginOutlined />, label: '管理', path: '/admin/login' } as NavItem] : []),
+  ];
+
+  const isActive = (path?: string) => {
+    if (!path) return false;
     if (path === '/') return location.pathname === '/';
     return location.pathname.startsWith(path);
   };
@@ -55,9 +61,17 @@ const PageHeader: React.FC<PageHeaderProps> = ({ extra }) => {
         <nav className="page-header-nav">
           {navItems.map((item) => (
             <button
-              key={item.path}
+              key={item.key}
               className={`page-header-nav-item${isActive(item.path) ? ' active' : ''}`}
-              onClick={() => navigate(item.path)}
+              onClick={() => {
+                if (item.onClick) {
+                  item.onClick();
+                  return;
+                }
+                if (item.path) {
+                  navigate(item.path);
+                }
+              }}
             >
               <span className="page-header-nav-icon">{item.icon}</span>
               <span className="page-header-nav-label">{item.label}</span>

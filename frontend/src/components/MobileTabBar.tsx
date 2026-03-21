@@ -6,22 +6,36 @@ import {
   UnorderedListOutlined,
   AppstoreOutlined,
   UserOutlined,
+  MessageOutlined,
 } from '@ant-design/icons';
 import { usePlayerStore } from '../store/playerStore';
 import './MobileTabBar.css';
 
-const tabs = [
-  { icon: <HomeOutlined />, label: '主页', path: '/' },
-  { icon: <SearchOutlined />, label: '搜索', path: '/search' },
-  { icon: <UnorderedListOutlined />, label: '曲库', path: '/library' },
-  { icon: <AppstoreOutlined />, label: '专辑', path: '/albums' },
-  { icon: <UserOutlined />, label: '创作者', path: '/artists' },
-];
+interface TabItem {
+  key: string;
+  icon: React.ReactNode;
+  label: string;
+  path?: string;
+  onClick?: () => void;
+}
 
-const MobileTabBar: React.FC = () => {
+interface MobileTabBarProps {
+  onFeedbackClick?: () => void;
+}
+
+const MobileTabBar: React.FC<MobileTabBarProps> = ({ onFeedbackClick }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { currentTrack } = usePlayerStore();
+
+  const tabs: TabItem[] = [
+    { key: 'home', icon: <HomeOutlined />, label: '主页', path: '/' },
+    { key: 'search', icon: <SearchOutlined />, label: '搜索', path: '/search' },
+    { key: 'library', icon: <UnorderedListOutlined />, label: '曲库', path: '/library' },
+    { key: 'albums', icon: <AppstoreOutlined />, label: '专辑', path: '/albums' },
+    { key: 'feedback', icon: <MessageOutlined />, label: '反馈', onClick: onFeedbackClick },
+    { key: 'artists', icon: <UserOutlined />, label: '创作者', path: '/artists' },
+  ];
 
   return (
     <nav
@@ -32,12 +46,20 @@ const MobileTabBar: React.FC = () => {
       {tabs.map((tab) => {
         const isActive = tab.path === '/'
           ? location.pathname === '/'
-          : location.pathname.startsWith(tab.path);
+          : Boolean(tab.path && location.pathname.startsWith(tab.path));
         return (
           <button
-            key={tab.path}
+            key={tab.key}
             className={`mobile-tab-item${isActive ? ' active' : ''}`}
-            onClick={() => navigate(tab.path)}
+            onClick={() => {
+              if (tab.onClick) {
+                tab.onClick();
+                return;
+              }
+              if (tab.path) {
+                navigate(tab.path);
+              }
+            }}
             aria-current={isActive ? 'page' : undefined}
             aria-label={tab.label}
           >
