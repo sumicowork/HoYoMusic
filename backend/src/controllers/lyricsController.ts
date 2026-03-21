@@ -32,10 +32,10 @@ interface LyricsImportItem {
 
 const normalizeLyricBaseName = (baseName: string): string =>
   baseName
-    .replace(/[._-]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[\s\p{P}\p{S}]+/gu, '')
+    .trim();
 
 const getUploadedLyricsFiles = (req: Request): Express.Multer.File[] => {
   const files = req.files;
@@ -44,7 +44,24 @@ const getUploadedLyricsFiles = (req: Request): Express.Multer.File[] => {
   return [];
 };
 
-const getSafeOriginalName = (originalname: string): string => path.basename(originalname.replace(/\\/g, '/'));
+const decodePossibleMojibake = (name: string): string => {
+  const normalized = name.replace(/\\/g, '/');
+  try {
+    const decoded = Buffer.from(normalized, 'latin1').toString('utf8');
+    const originalHasCjk = /[\u4e00-\u9fff]/.test(normalized);
+    const decodedHasCjk = /[\u4e00-\u9fff]/.test(decoded);
+    if (!originalHasCjk && decodedHasCjk) {
+      return decoded;
+    }
+  } catch {
+    // Keep original value.
+  }
+  return normalized;
+};
+
+const normalizeOriginalPath = (originalname: string): string => decodePossibleMojibake(originalname);
+
+const getSafeOriginalName = (originalname: string): string => path.basename(normalizeOriginalPath(originalname));
 
 const parseResolutions = (raw: unknown): Record<string, number> => {
   if (!raw) return {};
@@ -75,7 +92,7 @@ const queryTrackCandidates = async (normalizedTitle: string): Promise<LyricsImpo
      LEFT JOIN albums al ON t.album_id = al.id
      LEFT JOIN track_artists ta ON t.id = ta.track_id
      LEFT JOIN artists ar ON ta.artist_id = ar.id
-     WHERE LOWER(REGEXP_REPLACE(TRIM(t.title), '[[:space:]._-]+', ' ', 'g')) = $1
+     WHERE LOWER(REGEXP_REPLACE(TRIM(t.title), '[[:space:]._-]+', '', 'g')) = $1
      GROUP BY t.id, t.title, al.title
      ORDER BY t.id ASC`,
     [normalizedTitle]
@@ -176,8 +193,9 @@ export const previewLyricsBatchImport = async (req: Request, res: Response) => {
     const items: LyricsImportItem[] = [];
 
     for (const file of files) {
-      const displayName = getSafeOriginalName(file.originalname);
-      const fileKey = file.originalname;
+      const normalizedPath = normalizeOriginalPath(file.originalname);
+      const displayName = getSafeOriginalName(normalizedPath);
+      const fileKey = normalizedPath;
       const inferredTitle = normalizeLyricBaseName(path.parse(displayName).name);
 
       if (!inferredTitle) {
@@ -263,8 +281,9 @@ export const commitLyricsBatchImport = async (req: Request, res: Response) => {
     const items: LyricsImportItem[] = [];
 
     for (const file of files) {
-      const displayName = getSafeOriginalName(file.originalname);
-      const fileKey = file.originalname;
+      const normalizedPath = normalizeOriginalPath(file.originalname);
+      const displayName = getSafeOriginalName(normalizedPath);
+      const fileKey = normalizedPath;
       const inferredTitle = normalizeLyricBaseName(path.parse(displayName).name);
       if (!inferredTitle) {
         items.push({
@@ -293,7 +312,7 @@ export const commitLyricsBatchImport = async (req: Request, res: Response) => {
       if (candidates.length === 1) {
         targetTrackId = candidates[0].track_id;
       } else {
-        const selectedTrackId = resolutions[fileKey] || resolutions[displayName];
+        const selectedTrackId = resolutions[fileKey] || resolutions[displayName] || resolutions[file.originalname];
         const selectedValid = candidates.some((candidate) => candidate.track_id === selectedTrackId);
         if (!selectedValid) {
           items.push({
