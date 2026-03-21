@@ -10,6 +10,7 @@ export interface LyricsImportCandidate {
 }
 
 export interface LyricsImportItem {
+  file_key: string;
   file_name: string;
   inferred_title: string;
   status: LyricsImportStatus;
@@ -43,7 +44,9 @@ export interface LyricsImportCommitResult {
 
 const appendFiles = (formData: FormData, files: File[]) => {
   files.forEach((file) => {
-    formData.append('files', file, file.name);
+    const relativePath = (file as File & { webkitRelativePath?: string }).webkitRelativePath;
+    const uploadName = relativePath && relativePath.trim() ? relativePath : file.name;
+    formData.append('files', file, uploadName);
   });
 };
 
@@ -87,4 +90,6 @@ export const lyricsImportService = {
     return response.data.data as LyricsImportCommitResult;
   },
 };
+
+
 

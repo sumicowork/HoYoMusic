@@ -42,6 +42,11 @@ const buildLabel = (candidate: LyricsImportCandidate): string => {
   return suffix ? `${candidate.title} (${suffix})` : candidate.title;
 };
 
+const getFileKey = (file: File): string => {
+  const relativePath = (file as File & { webkitRelativePath?: string }).webkitRelativePath;
+  return relativePath && relativePath.trim() ? relativePath : file.name;
+};
+
 const LyricsBatchImportModal: React.FC<LyricsBatchImportModalProps> = ({ visible, onClose, onSuccess }) => {
   const [files, setFiles] = useState<File[]>([]);
   const [preview, setPreview] = useState<LyricsImportPreviewResult | null>(null);
@@ -65,7 +70,7 @@ const LyricsBatchImportModal: React.FC<LyricsBatchImportModalProps> = ({ visible
   };
 
   const uploadList: UploadFile[] = files.map((file) => ({
-    uid: `${file.name}_${file.size}`,
+    uid: `${getFileKey(file)}_${file.size}`,
     name: file.name,
     status: 'done',
     size: file.size,
@@ -77,7 +82,7 @@ const LyricsBatchImportModal: React.FC<LyricsBatchImportModalProps> = ({ visible
   );
 
   const unresolvedAmbiguousCount = useMemo(
-    () => ambiguousItems.filter((item) => !resolutions[item.file_name]).length,
+    () => ambiguousItems.filter((item) => !resolutions[item.file_key]).length,
     [ambiguousItems, resolutions]
   );
 
@@ -95,7 +100,7 @@ const LyricsBatchImportModal: React.FC<LyricsBatchImportModalProps> = ({ visible
       const autoResolutions: Record<string, number> = {};
       data.items.forEach((item) => {
         if (item.status === 'matched' && item.matched_track_id) {
-          autoResolutions[item.file_name] = item.matched_track_id;
+          autoResolutions[item.file_key] = item.matched_track_id;
         }
       });
       setResolutions(autoResolutions);
@@ -173,13 +178,13 @@ const LyricsBatchImportModal: React.FC<LyricsBatchImportModalProps> = ({ visible
           <Select
             style={{ width: '100%' }}
             placeholder="请选择要绑定的歌曲"
-            value={resolutions[row.file_name]}
+            value={resolutions[row.file_key]}
             options={row.candidates.map((candidate) => ({
               value: candidate.track_id,
               label: buildLabel(candidate),
             }))}
             onChange={(value) => {
-              setResolutions((prev) => ({ ...prev, [row.file_name]: value }));
+              setResolutions((prev) => ({ ...prev, [row.file_key]: value }));
             }}
           />
         );
@@ -248,6 +253,7 @@ const LyricsBatchImportModal: React.FC<LyricsBatchImportModalProps> = ({ visible
 
         <Upload
           multiple
+          directory
           accept=".lrc"
           fileList={uploadList}
           beforeUpload={(file) => {
@@ -255,10 +261,13 @@ const LyricsBatchImportModal: React.FC<LyricsBatchImportModalProps> = ({ visible
             return false;
           }}
           onRemove={(file) => {
-            setFiles((prev) => prev.filter((item) => !(item.name === file.name && item.size === file.size)));
+            const targetUid = file.uid;
+            setFiles((prev) => prev.filter((item) => {
+              return `${getFileKey(item)}_${item.size}` !== targetUid;
+            }));
           }}
         >
-          <Button icon={<UploadOutlined />}>选择 LRC 文件</Button>
+          <Button icon={<UploadOutlined />}>选择 LRC 文件或文件夹</Button>
         </Upload>
 
         {preview && (
@@ -282,7 +291,7 @@ const LyricsBatchImportModal: React.FC<LyricsBatchImportModalProps> = ({ visible
 
         {preview && (
           <Table
-            rowKey={(row) => `${row.file_name}_${row.inferred_title}`}
+            rowKey={(row) => `${row.file_key}_${row.inferred_title}`}
             dataSource={preview.items}
             columns={previewColumns}
             pagination={{ pageSize: 8 }}
@@ -299,7 +308,7 @@ const LyricsBatchImportModal: React.FC<LyricsBatchImportModalProps> = ({ visible
               subTitle={`歧义 ${result.summary.ambiguous}，未找到 ${result.summary.not_found}，错误 ${result.summary.error}`}
             />
             <Table
-              rowKey={(row) => `${row.file_name}_${row.status}`}
+              rowKey={(row) => `${row.file_key}_${row.status}`}
               dataSource={result.items}
               columns={resultColumns}
               pagination={{ pageSize: 8 }}
@@ -314,6 +323,10 @@ const LyricsBatchImportModal: React.FC<LyricsBatchImportModalProps> = ({ visible
 };
 
 export default LyricsBatchImportModal;
+
+
+
+
 
 
 

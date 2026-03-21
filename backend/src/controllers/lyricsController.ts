@@ -21,6 +21,7 @@ interface LyricsImportCandidate {
 }
 
 interface LyricsImportItem {
+  file_key: string;
   file_name: string;
   inferred_title: string;
   status: LyricsImportStatus;
@@ -42,6 +43,8 @@ const getUploadedLyricsFiles = (req: Request): Express.Multer.File[] => {
   if (Array.isArray(files)) return files;
   return [];
 };
+
+const getSafeOriginalName = (originalname: string): string => path.basename(originalname.replace(/\\/g, '/'));
 
 const parseResolutions = (raw: unknown): Record<string, number> => {
   if (!raw) return {};
@@ -92,7 +95,7 @@ const saveLyricsForTrack = async (trackId: number, file: Express.Multer.File): P
 
   const nextLyricsPath = await storageService.uploadFile(
     file.buffer,
-    file.originalname,
+    getSafeOriginalName(file.originalname),
     'lyrics',
     'text/plain; charset=utf-8'
   );
@@ -173,11 +176,14 @@ export const previewLyricsBatchImport = async (req: Request, res: Response) => {
     const items: LyricsImportItem[] = [];
 
     for (const file of files) {
-      const inferredTitle = normalizeLyricBaseName(path.parse(file.originalname).name);
+      const displayName = getSafeOriginalName(file.originalname);
+      const fileKey = file.originalname;
+      const inferredTitle = normalizeLyricBaseName(path.parse(displayName).name);
 
       if (!inferredTitle) {
         items.push({
-          file_name: file.originalname,
+          file_key: fileKey,
+          file_name: displayName,
           inferred_title: '',
           status: 'invalid',
           message: 'Filename cannot be parsed to a valid title',
@@ -188,7 +194,8 @@ export const previewLyricsBatchImport = async (req: Request, res: Response) => {
       const candidates = await queryTrackCandidates(inferredTitle);
       if (candidates.length === 0) {
         items.push({
-          file_name: file.originalname,
+          file_key: fileKey,
+          file_name: displayName,
           inferred_title: inferredTitle,
           status: 'not_found',
           message: 'No track matched this filename',
@@ -198,7 +205,8 @@ export const previewLyricsBatchImport = async (req: Request, res: Response) => {
 
       if (candidates.length === 1) {
         items.push({
-          file_name: file.originalname,
+          file_key: fileKey,
+          file_name: displayName,
           inferred_title: inferredTitle,
           status: 'matched',
           matched_track_id: candidates[0].track_id,
@@ -208,7 +216,8 @@ export const previewLyricsBatchImport = async (req: Request, res: Response) => {
       }
 
       items.push({
-        file_name: file.originalname,
+        file_key: fileKey,
+        file_name: displayName,
         inferred_title: inferredTitle,
         status: 'ambiguous',
         message: 'Multiple tracks matched. Please choose one before import.',
@@ -254,10 +263,13 @@ export const commitLyricsBatchImport = async (req: Request, res: Response) => {
     const items: LyricsImportItem[] = [];
 
     for (const file of files) {
-      const inferredTitle = normalizeLyricBaseName(path.parse(file.originalname).name);
+      const displayName = getSafeOriginalName(file.originalname);
+      const fileKey = file.originalname;
+      const inferredTitle = normalizeLyricBaseName(path.parse(displayName).name);
       if (!inferredTitle) {
         items.push({
-          file_name: file.originalname,
+          file_key: fileKey,
+          file_name: displayName,
           inferred_title: '',
           status: 'invalid',
           message: 'Filename cannot be parsed to a valid title',
@@ -268,7 +280,8 @@ export const commitLyricsBatchImport = async (req: Request, res: Response) => {
       const candidates = await queryTrackCandidates(inferredTitle);
       if (candidates.length === 0) {
         items.push({
-          file_name: file.originalname,
+          file_key: fileKey,
+          file_name: displayName,
           inferred_title: inferredTitle,
           status: 'not_found',
           message: 'No track matched this filename',
@@ -280,11 +293,12 @@ export const commitLyricsBatchImport = async (req: Request, res: Response) => {
       if (candidates.length === 1) {
         targetTrackId = candidates[0].track_id;
       } else {
-        const selectedTrackId = resolutions[file.originalname];
+        const selectedTrackId = resolutions[fileKey] || resolutions[displayName];
         const selectedValid = candidates.some((candidate) => candidate.track_id === selectedTrackId);
         if (!selectedValid) {
           items.push({
-            file_name: file.originalname,
+            file_key: fileKey,
+            file_name: displayName,
             inferred_title: inferredTitle,
             status: 'ambiguous',
             message: 'Multiple tracks matched. Please choose one track.',
@@ -297,7 +311,8 @@ export const commitLyricsBatchImport = async (req: Request, res: Response) => {
 
       if (targetTrackId === null) {
         items.push({
-          file_name: file.originalname,
+          file_key: fileKey,
+          file_name: displayName,
           inferred_title: inferredTitle,
           status: 'error',
           message: 'Unable to resolve target track',
@@ -309,16 +324,18 @@ export const commitLyricsBatchImport = async (req: Request, res: Response) => {
       try {
         await saveLyricsForTrack(targetTrackId, file);
         items.push({
-          file_name: file.originalname,
+          file_key: fileKey,
+          file_name: displayName,
           inferred_title: inferredTitle,
           status: 'imported',
           matched_track_id: targetTrackId,
           candidates,
         });
       } catch (error) {
-        console.error(`Commit lyrics import failed for ${file.originalname}:`, error);
+        console.error(`Commit lyrics import failed for ${displayName}:`, error);
         items.push({
-          file_name: file.originalname,
+          file_key: fileKey,
+          file_name: displayName,
           inferred_title: inferredTitle,
           status: 'error',
           message: 'Failed to save lyrics',
