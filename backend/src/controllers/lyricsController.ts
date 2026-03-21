@@ -30,12 +30,8 @@ interface LyricsImportItem {
   candidates?: LyricsImportCandidate[];
 }
 
-const normalizeLyricBaseName = (baseName: string): string =>
-  baseName
-    .normalize('NFKC')
-    .toLowerCase()
-    .replace(/[\s\p{P}\p{S}]+/gu, '')
-    .trim();
+// Keep the original filename text (except extension) for matching.
+const normalizeLyricBaseName = (baseName: string): string => baseName.trim();
 
 const getUploadedLyricsFiles = (req: Request): Express.Multer.File[] => {
   const files = req.files;
@@ -92,7 +88,8 @@ const queryTrackCandidates = async (normalizedTitle: string): Promise<LyricsImpo
      LEFT JOIN albums al ON t.album_id = al.id
      LEFT JOIN track_artists ta ON t.id = ta.track_id
      LEFT JOIN artists ar ON ta.artist_id = ar.id
-     WHERE LOWER(REGEXP_REPLACE(TRIM(t.title), '[[:space:]._-]+', '', 'g')) = $1
+     WHERE TRIM(t.title) = TRIM($1)
+        OR LOWER(TRIM(t.title)) = LOWER(TRIM($1))
      GROUP BY t.id, t.title, al.title
      ORDER BY t.id ASC`,
     [normalizedTitle]
