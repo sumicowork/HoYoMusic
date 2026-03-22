@@ -28,6 +28,7 @@ import discRoutes from './routes/discRoutes';
 import debugRoutes from './routes/debugRoutes';
 import settingsRoutes from './routes/settingsRoutes';
 import { visitLogger } from './middleware/visitLogger';
+import { maintenanceModeGuard } from './middleware/maintenanceMode';
 import { errorHandler } from './middleware/errorHandler';
 
 dotenv.config();
@@ -122,6 +123,9 @@ app.use(passport.initialize());
 
 // Visit logger — records every request for analytics (before routes)
 app.use(visitLogger);
+
+// Maintenance mode gate (logged-in admins are exempted in middleware)
+app.use('/api', maintenanceModeGuard);
 
 // 本地存储模式下，提供静态文件访问（远程存储模式下文件直接从远程 URL 获取）
 const STATIC_STORAGE_MODE = process.env.STORAGE_MODE || 'local';
@@ -380,6 +384,14 @@ const runMigrations = async () => {
       VALUES (
         'site_compliance',
         '{"enabled":false,"icp_number":"","public_security_number":""}'::jsonb
+      )
+      ON CONFLICT (setting_key) DO NOTHING
+    `);
+    await pool.query(`
+      INSERT INTO app_settings (setting_key, setting_value)
+      VALUES (
+        'maintenance_mode',
+        '{"enabled":false,"expected_end_time":null,"version":"1"}'::jsonb
       )
       ON CONFLICT (setting_key) DO NOTHING
     `);

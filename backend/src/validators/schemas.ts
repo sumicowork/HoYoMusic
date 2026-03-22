@@ -118,6 +118,14 @@ export const siteComplianceSchema = z.object({
   public_security_number: z.string().trim().max(100).optional().default(''),
 });
 
+export const maintenanceModeSchema = z.object({
+  enabled: z.boolean(),
+  expected_end_time: z.union([
+    z.string().trim().datetime({ message: 'expected_end_time must be ISO datetime' }),
+    z.null(),
+  ]).optional().default(null),
+});
+
 export const feedbackSubmitSchema = z.object({
   content: z.string().trim().min(1, 'content is required').max(2000),
   contact: z.string().trim().max(200).optional().default(''),

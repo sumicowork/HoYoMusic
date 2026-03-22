@@ -2,7 +2,13 @@ import { Router, Request, Response } from 'express';
 import pool from '../config/database';
 import { authenticateJWT } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
-import { firstVisitModalSchema, siteComplianceSchema, feedbackSubmitSchema, testEmailSchema } from '../validators/schemas';
+import {
+  firstVisitModalSchema,
+  siteComplianceSchema,
+  feedbackSubmitSchema,
+  testEmailSchema,
+  maintenanceModeSchema,
+} from '../validators/schemas';
 import { getMailConfigurationError, sendTestEmail } from '../services/emailService';
 
 const router = Router();
@@ -19,6 +25,12 @@ interface SiteComplianceConfig {
   enabled: boolean;
   icp_number: string;
   public_security_number: string;
+}
+
+interface MaintenanceModeConfig {
+  enabled: boolean;
+  expected_end_time: string | null;
+  version: string;
 }
 
 interface FeedbackRow {
@@ -42,6 +54,12 @@ const DEFAULT_SITE_COMPLIANCE: SiteComplianceConfig = {
   enabled: false,
   icp_number: '',
   public_security_number: '',
+};
+
+const DEFAULT_MAINTENANCE_MODE: MaintenanceModeConfig = {
+  enabled: false,
+  expected_end_time: null,
+  version: '1',
 };
 
 const normalizeFirstVisitModalConfig = (input: unknown): FirstVisitModalConfig => {
@@ -93,6 +111,32 @@ const getSiteComplianceConfig = async (): Promise<SiteComplianceConfig> => {
   }
 
   return normalizeSiteComplianceConfig(result.rows[0].setting_value);
+};
+
+const normalizeMaintenanceModeConfig = (input: unknown): MaintenanceModeConfig => {
+  const raw = (input && typeof input === 'object') ? input as Record<string, unknown> : {};
+  const expectedEnd = typeof raw.expected_end_time === 'string' && raw.expected_end_time.trim()
+    ? raw.expected_end_time.trim()
+    : null;
+
+  return {
+    enabled: typeof raw.enabled === 'boolean' ? raw.enabled : DEFAULT_MAINTENANCE_MODE.enabled,
+    expected_end_time: expectedEnd,
+    version: typeof raw.version === 'string' && raw.version.trim() ? raw.version.trim() : DEFAULT_MAINTENANCE_MODE.version,
+  };
+};
+
+const getMaintenanceModeConfig = async (): Promise<MaintenanceModeConfig> => {
+  const result = await pool.query(
+    'SELECT setting_value FROM app_settings WHERE setting_key = $1 LIMIT 1',
+    ['maintenance_mode']
+  );
+
+  if (result.rows.length === 0) {
+    return DEFAULT_MAINTENANCE_MODE;
+  }
+
+  return normalizeMaintenanceModeConfig(result.rows[0].setting_value);
 };
 
 const getRequestIp = (req: Request): string | null => {
@@ -360,6 +404,67 @@ router.put('/settings/compliance', authenticateJWT, validateBody(siteComplianceS
     res.status(500).json({
       success: false,
       error: { code: 'SETTINGS_UPDATE_ERROR', message: 'Failed to update compliance config' },
+    });
+  }
+});
+
+router.get('/public/site-config/maintenance', async (_req: Request, res: Response) => {
+  try {
+    const config = await getMaintenanceModeConfig();
+    res.json({ success: true, data: config });
+  } catch (error) {
+    console.error('Failed to read maintenance config:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'SETTINGS_READ_ERROR', message: 'Failed to read maintenance config' },
+    });
+  }
+});
+
+router.get('/settings/maintenance', authenticateJWT, async (_req: Request, res: Response) => {
+  try {
+    const config = await getMaintenanceModeConfig();
+    res.json({ success: true, data: config });
+  } catch (error) {
+    console.error('Failed to read maintenance config:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'SETTINGS_READ_ERROR', message: 'Failed to read maintenance config' },
+    });
+  }
+});
+
+router.put('/settings/maintenance', authenticateJWT, validateBody(maintenanceModeSchema), async (req: Request, res: Response) => {
+  try {
+    const body = req.body as { enabled: boolean; expected_end_time?: string | null };
+    const expectedEnd = typeof body.expected_end_time === 'string' && body.expected_end_time.trim()
+      ? body.expected_end_time.trim()
+      : null;
+
+    const nextConfig: MaintenanceModeConfig = {
+      enabled: body.enabled,
+      expected_end_time: expectedEnd,
+      version: new Date().toISOString(),
+    };
+
+    await pool.query(
+      `
+        INSERT INTO app_settings (setting_key, setting_value)
+        VALUES ($1, $2::jsonb)
+        ON CONFLICT (setting_key)
+        DO UPDATE SET
+          setting_value = EXCLUDED.setting_value,
+          updated_at = NOW()
+      `,
+      ['maintenance_mode', JSON.stringify(nextConfig)]
+    );
+
+    res.json({ success: true, data: nextConfig });
+  } catch (error) {
+    console.error('Failed to update maintenance config:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'SETTINGS_UPDATE_ERROR', message: 'Failed to update maintenance config' },
     });
   }
 });

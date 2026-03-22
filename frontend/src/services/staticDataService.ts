@@ -25,9 +25,16 @@ export interface SiteComplianceConfig {
   public_security_number: string;
 }
 
+export interface MaintenanceModeConfig {
+  enabled: boolean;
+  expected_end_time: string | null;
+  version: string;
+}
+
 interface SiteConfigSnapshot {
   first_visit_modal?: Partial<FirstVisitModalConfig>;
   compliance?: Partial<SiteComplianceConfig>;
+  maintenance_mode?: Partial<MaintenanceModeConfig>;
 }
 
 const DEFAULT_FIRST_VISIT_MODAL_CONFIG: FirstVisitModalConfig = {
@@ -42,6 +49,12 @@ const DEFAULT_SITE_COMPLIANCE_CONFIG: SiteComplianceConfig = {
   enabled: false,
   icp_number: '',
   public_security_number: '',
+};
+
+const DEFAULT_MAINTENANCE_MODE_CONFIG: MaintenanceModeConfig = {
+  enabled: false,
+  expected_end_time: null,
+  version: '1',
 };
 
 async function fetchJSON<T>(path: string): Promise<T> {
@@ -90,6 +103,18 @@ export async function getSiteComplianceConfig(): Promise<SiteComplianceConfig> {
     public_security_number: typeof raw.public_security_number === 'string'
       ? raw.public_security_number.trim()
       : DEFAULT_SITE_COMPLIANCE_CONFIG.public_security_number,
+  };
+}
+
+export async function getMaintenanceModeConfig(): Promise<MaintenanceModeConfig> {
+  const snapshot = await fetchJSON<SiteConfigSnapshot>('/data/site-config.json');
+  const raw = snapshot.maintenance_mode ?? {};
+  return {
+    enabled: typeof raw.enabled === 'boolean' ? raw.enabled : DEFAULT_MAINTENANCE_MODE_CONFIG.enabled,
+    expected_end_time: typeof raw.expected_end_time === 'string' && raw.expected_end_time.trim()
+      ? raw.expected_end_time.trim()
+      : DEFAULT_MAINTENANCE_MODE_CONFIG.expected_end_time,
+    version: typeof raw.version === 'string' && raw.version.trim() ? raw.version : DEFAULT_MAINTENANCE_MODE_CONFIG.version,
   };
 }
 

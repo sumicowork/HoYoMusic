@@ -15,6 +15,12 @@ export interface SiteComplianceConfig {
   public_security_number: string;
 }
 
+export interface MaintenanceModeConfig {
+  enabled: boolean;
+  expected_end_time: string | null;
+  version: string;
+}
+
 export interface TestEmailPayload {
   email: string;
 }
@@ -40,6 +46,12 @@ export const DEFAULT_SITE_COMPLIANCE_CONFIG: SiteComplianceConfig = {
   enabled: false,
   icp_number: '',
   public_security_number: '',
+};
+
+export const DEFAULT_MAINTENANCE_MODE_CONFIG: MaintenanceModeConfig = {
+  enabled: false,
+  expected_end_time: null,
+  version: '1',
 };
 
 export const siteConfigService = {
@@ -110,6 +122,37 @@ export const siteConfigService = {
       return response.data.data;
     }
     throw new Error(response.data.error?.message || 'Failed to send test email');
+  },
+
+  async getPublicMaintenanceMode(): Promise<MaintenanceModeConfig> {
+    if (IS_STATIC) {
+      return staticData.getMaintenanceModeConfig();
+    }
+
+    const response = await api.get<ApiResponse<MaintenanceModeConfig>>('/public/site-config/maintenance');
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data.error?.message || 'Failed to fetch maintenance mode config');
+  },
+
+  async getAdminMaintenanceMode(): Promise<MaintenanceModeConfig> {
+    const response = await api.get<ApiResponse<MaintenanceModeConfig>>('/settings/maintenance');
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data.error?.message || 'Failed to fetch maintenance mode config');
+  },
+
+  async updateAdminMaintenanceMode(payload: {
+    enabled: boolean;
+    expected_end_time: string | null;
+  }): Promise<MaintenanceModeConfig> {
+    const response = await api.put<ApiResponse<MaintenanceModeConfig>>('/settings/maintenance', payload);
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data.error?.message || 'Failed to update maintenance mode config');
   },
 };
 

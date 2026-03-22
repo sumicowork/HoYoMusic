@@ -1,10 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Form, Input, Button, message, Space, Typography, Divider, Switch, InputNumber, Table, Tag, Modal } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { LockOutlined, ExportOutlined, DatabaseOutlined, MailOutlined } from '@ant-design/icons';
+import { LockOutlined, ExportOutlined, DatabaseOutlined, MailOutlined, ToolOutlined } from '@ant-design/icons';
 import AdminLayout from '../components/AdminLayout';
 import api from '../services/api';
-import { siteConfigService, type FirstVisitModalConfig, type SiteComplianceConfig } from '../services/siteConfigService';
+import {
+  siteConfigService,
+  type FirstVisitModalConfig,
+  type SiteComplianceConfig,
+  type MaintenanceModeConfig,
+} from '../services/siteConfigService';
 import { feedbackService, type FeedbackItem } from '../services/feedbackService';
 
 const { Title, Text } = Typography;
@@ -15,6 +20,8 @@ const Settings: React.FC = () => {
   const [modalSaving, setModalSaving] = useState(false);
   const [complianceLoading, setComplianceLoading] = useState(false);
   const [complianceSaving, setComplianceSaving] = useState(false);
+  const [maintenanceLoading, setMaintenanceLoading] = useState(false);
+  const [maintenanceSaving, setMaintenanceSaving] = useState(false);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [testEmailVisible, setTestEmailVisible] = useState(false);
   const [testEmailSending, setTestEmailSending] = useState(false);
@@ -23,7 +30,23 @@ const Settings: React.FC = () => {
   const [form] = Form.useForm();
   const [modalForm] = Form.useForm();
   const [complianceForm] = Form.useForm();
+  const [maintenanceForm] = Form.useForm();
   const [testEmailForm] = Form.useForm();
+
+  const toLocalDatetime = (isoValue: string | null | undefined): string | null => {
+    if (!isoValue) return null;
+    const date = new Date(isoValue);
+    if (Number.isNaN(date.getTime())) return null;
+    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 16);
+  };
+
+  const toIsoDatetime = (localValue: string | null | undefined): string | null => {
+    if (!localValue) return null;
+    const date = new Date(localValue);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toISOString();
+  };
 
   const feedbackColumns: ColumnsType<FeedbackItem> = [
     {
@@ -87,6 +110,26 @@ const Settings: React.FC = () => {
 
   useEffect(() => {
     loadComplianceConfig();
+  }, []);
+
+  const loadMaintenanceConfig = async () => {
+    setMaintenanceLoading(true);
+    try {
+      const config = await siteConfigService.getAdminMaintenanceMode();
+      maintenanceForm.setFieldsValue({
+        enabled: config.enabled,
+        expected_end_time: toLocalDatetime(config.expected_end_time),
+      });
+    } catch (err: any) {
+      const msg = err?.response?.data?.error?.message || err?.message || '加载维护配置失败';
+      message.error(msg);
+    } finally {
+      setMaintenanceLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadMaintenanceConfig();
   }, []);
 
   const loadFeedback = async (page = feedbackPagination.page, pageSize = feedbackPagination.pageSize) => {
@@ -170,6 +213,27 @@ const Settings: React.FC = () => {
       message.error(msg);
     } finally {
       setComplianceSaving(false);
+    }
+  };
+
+  const handleSaveMaintenance = async (values: { enabled: boolean; expected_end_time?: string | null }) => {
+    setMaintenanceSaving(true);
+    try {
+      const payload: Pick<MaintenanceModeConfig, 'enabled' | 'expected_end_time'> = {
+        enabled: values.enabled,
+        expected_end_time: toIsoDatetime(values.expected_end_time),
+      };
+      const saved = await siteConfigService.updateAdminMaintenanceMode(payload);
+      maintenanceForm.setFieldsValue({
+        enabled: saved.enabled,
+        expected_end_time: toLocalDatetime(saved.expected_end_time),
+      });
+      message.success('维护配置已保存');
+    } catch (err: any) {
+      const msg = err?.response?.data?.error?.message || err?.message || '保存失败';
+      message.error(msg);
+    } finally {
+      setMaintenanceSaving(false);
     }
   };
 
@@ -322,6 +386,31 @@ const Settings: React.FC = () => {
 
             <Button type="primary" htmlType="submit" loading={complianceSaving}>
               保存备案配置
+            </Button>
+          </Form>
+        </Card>
+
+        <Card title={<><ToolOutlined /> 站点维护</>} loading={maintenanceLoading} style={{ marginTop: 24 }}>
+          <Form
+            form={maintenanceForm}
+            layout="vertical"
+            initialValues={{ enabled: false, expected_end_time: null }}
+            onFinish={handleSaveMaintenance}
+          >
+            <Form.Item name="enabled" label="启用维护模式" valuePropName="checked">
+              <Switch checkedChildren="开启" unCheckedChildren="关闭" />
+            </Form.Item>
+
+            <Form.Item
+              name="expected_end_time"
+              label="预计结束时间"
+              extra="用于维护页展示，可留空。"
+            >
+              <Input type="datetime-local" />
+            </Form.Item>
+
+            <Button type="primary" htmlType="submit" loading={maintenanceSaving}>
+              保存维护配置
             </Button>
           </Form>
         </Card>

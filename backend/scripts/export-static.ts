@@ -234,6 +234,11 @@ async function exportAll() {
     icp_number: '',
     public_security_number: '',
   };
+  let maintenanceMode: any = {
+    enabled: false,
+    expected_end_time: null,
+    version: '1',
+  };
 
   try {
     const siteConfigResult = await pool.query(
@@ -247,6 +252,12 @@ async function exportAll() {
       ['site_compliance']
     );
     compliance = complianceResult.rows[0]?.setting_value ?? compliance;
+
+    const maintenanceResult = await pool.query(
+      'SELECT setting_value FROM app_settings WHERE setting_key = $1 LIMIT 1',
+      ['maintenance_mode']
+    );
+    maintenanceMode = maintenanceResult.rows[0]?.setting_value ?? maintenanceMode;
   } catch (error: any) {
     console.warn(`   ⚠️  site-config 读取失败，使用默认值: ${error.message}`);
   }
@@ -254,6 +265,7 @@ async function exportAll() {
   await writeJSON(path.join(FRONTEND_DATA_DIR, 'site-config.json'), {
     first_visit_modal: firstVisitModal,
     compliance,
+    maintenance_mode: maintenanceMode,
   });
   console.log('   ✅ site-config.json');
 

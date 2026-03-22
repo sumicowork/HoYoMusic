@@ -1,0 +1,17 @@
+.maintenance-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--bg-color, #f5f7fb);
+}
+
+.maintenance-card {
+  width: 100%;
+  max-width: 560px;
+  border-radius: 16px;
+  text-align: center;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+}
+
