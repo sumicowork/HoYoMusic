@@ -318,6 +318,12 @@ const Player: React.FC = () => {
         clearInterval(progressIntervalRef.current);
         progressIntervalRef.current = null;
       }
+      // App conditionally unmounts Player when currentTrack becomes null,
+      // so we must release the current Howl here to prevent ghost playback.
+      if (howlRef.current) {
+        howlRef.current.unload();
+        howlRef.current = null;
+      }
     };
   }, [currentTrack]);
 
