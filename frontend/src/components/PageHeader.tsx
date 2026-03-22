@@ -9,6 +9,7 @@ import {
   TagsOutlined,
   LoginOutlined,
   MessageOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
 import { IS_STATIC } from '../services/api';
 import { useAuthStore } from '../store/authStore';
@@ -84,15 +85,26 @@ const PageHeader: React.FC<PageHeaderProps> = ({ extra, onFeedbackClick }) => {
         <div className="page-header-right">
           {extra}
           {!IS_STATIC && (
-            <button
-              className="page-header-auth-button"
-              onClick={() => navigate(isAuthenticated ? '/me' : '/admin/login')}
-            >
-              <span className="page-header-nav-icon">
-                {isAuthenticated ? <UserOutlined /> : <LoginOutlined />}
-              </span>
-              <span>{isAuthenticated ? (user?.username || '我的') : '登录'}</span>
-            </button>
+            <>
+              <button
+                className="page-header-auth-button"
+                onClick={() => navigate(isAuthenticated ? '/me' : '/admin/login')}
+              >
+                <span className="page-header-nav-icon">
+                  {isAuthenticated ? <UserOutlined /> : <LoginOutlined />}
+                </span>
+                <span>{isAuthenticated ? (user?.username || '我的') : '登录'}</span>
+              </button>
+              {isAuthenticated && user?.is_admin && (
+                <button
+                  className="page-header-auth-button"
+                  onClick={() => navigate('/admin')}
+                >
+                  <span className="page-header-nav-icon"><SettingOutlined /></span>
+                  <span>管理</span>
+                </button>
+              )}
+            </>
           )}
           <ThemeToggle />
         </div>

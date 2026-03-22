@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Col, Row, Space, Statistic, Typography, Button } from 'antd';
-import { HeartFilled, UnorderedListOutlined, UserOutlined } from '@ant-design/icons';
+import { HeartFilled, UnorderedListOutlined, UserOutlined, LogoutOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import favoriteService from '../services/favoriteService';
@@ -10,7 +10,7 @@ const { Title, Text } = Typography;
 
 const Profile: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, logout } = useAuthStore();
   const [favoriteCount, setFavoriteCount] = useState(0);
   const [playlistCount, setPlaylistCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -43,6 +43,11 @@ const Profile: React.FC = () => {
     };
   }, []);
 
+  const handleLogout = () => {
+    logout();
+    navigate('/', { replace: true });
+  };
+
   return (
     <div style={{ padding: 24 }}>
       <Space direction="vertical" size={4} style={{ marginBottom: 20 }}>
@@ -74,6 +79,9 @@ const Profile: React.FC = () => {
             </Button>
             <Button icon={<UnorderedListOutlined />} onClick={() => navigate('/playlists')}>
               打开我的歌单
+            </Button>
+            <Button danger icon={<LogoutOutlined />} onClick={handleLogout}>
+              退出登录
             </Button>
           </Space>
         </Space>
