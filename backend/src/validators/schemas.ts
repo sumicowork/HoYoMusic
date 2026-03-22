@@ -172,3 +172,21 @@ export const debugQuerySchema = z.object({
   allowWrite: z.boolean().optional(),
 });
 
+// ── User Management ─────────────────────────────────────────────
+export const updateUserRoleSchema = z.object({
+  is_admin: z.boolean(),
+});
+
+export const updateUserStatusSchema = z.object({
+  account_status: z.enum(['active', 'disabled']),
+  status_reason: z.string().trim().max(500).nullable().optional().default(null),
+});
+
+export const updateUserEmailVerificationSchema = z.object({
+  email_verified: z.boolean(),
+});
+
+export const resetUserPasswordSchema = z.object({
+  new_password: z.string().min(6, 'new_password must be at least 6 characters').max(200),
+});
+

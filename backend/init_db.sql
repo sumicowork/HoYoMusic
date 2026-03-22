@@ -13,12 +13,17 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(200),
     email_verified BOOLEAN NOT NULL DEFAULT FALSE,
     is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+    account_status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (account_status IN ('active', 'disabled')),
+    status_reason VARCHAR(500),
     password_hash VARCHAR(255) NOT NULL,
+    last_login_at TIMESTAMPTZ,
+    last_login_ip VARCHAR(64),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_lower ON users (LOWER(email)) WHERE email IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_users_account_status ON users (account_status);
 
 CREATE TABLE IF NOT EXISTS auth_verification_codes (
     id BIGSERIAL PRIMARY KEY,

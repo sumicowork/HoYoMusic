@@ -4,6 +4,8 @@ export interface User {
   email?: string | null;
   email_verified?: boolean;
   is_admin?: boolean;
+  account_status?: 'active' | 'disabled';
+  status_reason?: string | null;
 }
 
 export interface Track {

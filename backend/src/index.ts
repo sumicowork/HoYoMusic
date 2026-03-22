@@ -424,6 +424,21 @@ const runMigrations = async () => {
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(200)`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS account_status VARCHAR(20) NOT NULL DEFAULT 'active'`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS status_reason VARCHAR(500)`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_ip VARCHAR(64)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_account_status ON users (account_status)`);
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_account_status_check') THEN
+          ALTER TABLE users
+          ADD CONSTRAINT users_account_status_check CHECK (account_status IN ('active', 'disabled'));
+        END IF;
+      END
+      $$
+    `);
     await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_lower ON users (LOWER(email)) WHERE email IS NOT NULL`);
 
     await pool.query(`
@@ -440,7 +455,7 @@ const runMigrations = async () => {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_auth_codes_expires ON auth_verification_codes (expires_at)`);
     await pool.query(`
       UPDATE users
-      SET email_verified = TRUE, is_admin = TRUE
+      SET email_verified = TRUE, is_admin = TRUE, account_status = 'active', status_reason = NULL
       WHERE username = 'admin'
     `);
     console.log('✅ DB migrations up to date (users auth extensions)');

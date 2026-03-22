@@ -22,11 +22,22 @@ export const login = (req: Request, res: Response, next: NextFunction) => {
     }
 
     if (!user) {
-      return res.status(401).json({
+      const accountDisabled = info?.code === 'ACCOUNT_DISABLED';
+      return res.status(accountDisabled ? 403 : 401).json({
         success: false,
-        error: { code: 'INVALID_CREDENTIALS', message: info?.message || 'Invalid credentials' }
+        error: {
+          code: accountDisabled ? 'ACCOUNT_DISABLED' : 'INVALID_CREDENTIALS',
+          message: info?.message || 'Invalid credentials',
+        }
       });
     }
+
+    void pool.query(
+      'UPDATE users SET last_login_at = NOW(), last_login_ip = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [req.ip || null, user.id]
+    ).catch((error) => {
+      console.error('Failed to update login metadata:', error);
+    });
 
     const signOptions: SignOptions = { expiresIn: JWT_EXPIRES_IN as any };
     const token = jwt.sign(
@@ -45,6 +56,7 @@ export const login = (req: Request, res: Response, next: NextFunction) => {
           email: user.email ?? null,
           email_verified: user.email_verified ?? false,
           is_admin: user.is_admin ?? false,
+          account_status: user.account_status ?? 'active',
         },
       },
     });
@@ -185,9 +197,9 @@ export const register = async (req: Request, res: Response) => {
 
     const passwordHash = await bcrypt.hash(body.password, 10);
     const userInsert = await client.query(
-      `INSERT INTO users (username, email, email_verified, is_admin, password_hash)
-       VALUES ($1, $2, TRUE, FALSE, $3)
-       RETURNING id, username, email, email_verified, is_admin`,
+      `INSERT INTO users (username, email, email_verified, is_admin, account_status, password_hash)
+       VALUES ($1, $2, TRUE, FALSE, 'active', $3)
+       RETURNING id, username, email, email_verified, is_admin, account_status`,
       [username, email, passwordHash]
     );
 

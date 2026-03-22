@@ -16,12 +16,16 @@ passport.use(
   new JwtStrategy(jwtOptions, async (payload, done) => {
     try {
       const result = await pool.query(
-        'SELECT id, username, email, email_verified, is_admin FROM users WHERE id = $1',
+        'SELECT id, username, email, email_verified, is_admin, account_status FROM users WHERE id = $1',
         [payload.id]
       );
 
       if (result.rows.length > 0) {
-        return done(null, result.rows[0]);
+        const user = result.rows[0];
+        if (user.account_status === 'disabled') {
+          return done(null, false);
+        }
+        return done(null, user);
       } else {
         return done(null, false);
       }
@@ -49,6 +53,9 @@ passport.use(
       }
 
       const user = result.rows[0];
+      if (user.account_status === 'disabled') {
+        return done(null, false, { message: '账号已被停用，请联系管理员', code: 'ACCOUNT_DISABLED' } as any);
+      }
       const isMatch = await bcrypt.compare(password, user.password_hash);
 
       if (!isMatch) {
@@ -61,6 +68,7 @@ passport.use(
         email: user.email,
         email_verified: user.email_verified,
         is_admin: user.is_admin,
+        account_status: user.account_status,
       });
     } catch (error) {
       return done(error);
