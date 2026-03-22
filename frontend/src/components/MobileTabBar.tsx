@@ -9,6 +9,7 @@ import {
   MessageOutlined,
 } from '@ant-design/icons';
 import { usePlayerStore } from '../store/playerStore';
+import { useDebugUserFeatures, isTestDebugEnabled } from '../utils/debugFeature';
 import './MobileTabBar.css';
 
 interface TabItem {
@@ -27,6 +28,8 @@ const MobileTabBar: React.FC<MobileTabBarProps> = ({ onFeedbackClick }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { currentTrack } = usePlayerStore();
+  const showDebugUserFeatures = useDebugUserFeatures();
+  const debugQuery = isTestDebugEnabled(location.search) ? '?test_debug=1' : '';
 
   const tabs: TabItem[] = [
     { key: 'home', icon: <HomeOutlined />, label: '主页', path: '/' },
@@ -35,6 +38,7 @@ const MobileTabBar: React.FC<MobileTabBarProps> = ({ onFeedbackClick }) => {
     { key: 'albums', icon: <AppstoreOutlined />, label: '专辑', path: '/albums' },
     { key: 'feedback', icon: <MessageOutlined />, label: '反馈', onClick: onFeedbackClick },
     { key: 'artists', icon: <UserOutlined />, label: '创作者', path: '/artists' },
+    ...(showDebugUserFeatures ? [{ key: 'me', icon: <UserOutlined />, label: '我的', path: `/me${debugQuery}` } as TabItem] : []),
   ];
 
   return (

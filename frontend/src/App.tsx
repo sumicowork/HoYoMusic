@@ -5,12 +5,14 @@ import zhCN from 'antd/locale/zh_CN';
 
 // Eager load essential components
 import ProtectedRoute from './components/ProtectedRoute';
+import DebugUserFeatureGate from './components/DebugUserFeatureGate';
 import Player from './components/Player';
 import PageHeader from './components/PageHeader';
 import MobileTabBar from './components/MobileTabBar';
 import FeedbackModal from './components/FeedbackModal';
 import FirstVisitModal from './components/FirstVisitModal';
 import SiteComplianceFooter from './components/SiteComplianceFooter';
+import TestDebugParamSync from './components/TestDebugParamSync';
 import { usePlayerStore } from './store/playerStore';
 import { useThemeStore } from './store/themeStore';
 import { useAuthStore } from './store/authStore';
@@ -44,6 +46,7 @@ const Playlists = lazy(() => import('./pages/Playlists'));
 const PlaylistDetail = lazy(() => import('./pages/PlaylistDetail'));
 const Favorites = lazy(() => import('./pages/Favorites'));
 const Settings = lazy(() => import('./pages/Settings'));
+const Profile = lazy(() => import('./pages/Profile'));
 
 // 绑定静态实例，使 toast 工具在组件树外也能调用
 message.config({ maxCount: 5, top: 64 });
@@ -74,6 +77,7 @@ const App: React.FC = () => {
     <ConfigProvider theme={mode === 'dark' ? darkTheme : lightTheme} locale={zhCN}>
       <AntApp>
         <Router>
+          <TestDebugParamSync />
           <div className={`app${currentTrack ? ' has-player' : ''}`}>
             <PageHeader onFeedbackClick={() => setFeedbackOpen(true)} />
             <MobileTabBar onFeedbackClick={() => setFeedbackOpen(true)} />
@@ -95,9 +99,22 @@ const App: React.FC = () => {
                 {/* 播放列表和收藏 - 需要登录 */}
                 {!IS_STATIC && (
                   <>
-                    <Route path="/playlists" element={<ProtectedRoute><Playlists /></ProtectedRoute>} />
-                    <Route path="/playlists/:id" element={<ProtectedRoute><PlaylistDetail /></ProtectedRoute>} />
-                    <Route path="/favorites" element={<ProtectedRoute><Favorites /></ProtectedRoute>} />
+                    <Route
+                      path="/playlists"
+                      element={<ProtectedRoute><DebugUserFeatureGate><Playlists /></DebugUserFeatureGate></ProtectedRoute>}
+                    />
+                    <Route
+                      path="/playlists/:id"
+                      element={<ProtectedRoute><DebugUserFeatureGate><PlaylistDetail /></DebugUserFeatureGate></ProtectedRoute>}
+                    />
+                    <Route
+                      path="/favorites"
+                      element={<ProtectedRoute><DebugUserFeatureGate><Favorites /></DebugUserFeatureGate></ProtectedRoute>}
+                    />
+                    <Route
+                      path="/me"
+                      element={<ProtectedRoute><DebugUserFeatureGate><Profile /></DebugUserFeatureGate></ProtectedRoute>}
+                    />
                   </>
                 )}
 

@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { Layout, Table, Button, Space, Image, Input, Tooltip } from 'antd';
-import { PlayCircleOutlined, DownloadOutlined, SearchOutlined } from '@ant-design/icons';
+import { Layout, Table, Button, Space, Image, Input, Tooltip, Modal, Select, message } from 'antd';
+import { PlayCircleOutlined, DownloadOutlined, SearchOutlined, HeartOutlined, HeartFilled, PlusOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { Track } from '../types';
 import { trackService, DOWNLOAD_ENABLED } from '../services/trackService';
 import { usePlayerStore } from '../store/playerStore';
 import { Link } from 'react-router-dom';
 import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
+import favoriteService from '../services/favoriteService';
+import playlistService, { Playlist } from '../services/playlistService';
+import { useDebugUserFeatures } from '../utils/debugFeature';
 import './PublicLibrary.css';
 
 const { Content } = Layout;
@@ -17,6 +20,13 @@ const PublicLibrary: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
   const [searchText, setSearchText] = useState('');
+  const [favoritesMap, setFavoritesMap] = useState<Record<number, boolean>>({});
+  const [playlistModalOpen, setPlaylistModalOpen] = useState(false);
+  const [playlistLoading, setPlaylistLoading] = useState(false);
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState<number | null>(null);
+  const [selectedTrackId, setSelectedTrackId] = useState<number | null>(null);
+  const canUseDebugFeatures = useDebugUserFeatures();
 
   const { playTrackOnly } = usePlayerStore();
 
@@ -43,6 +53,30 @@ const PublicLibrary: React.FC = () => {
     fetchTracks();
   }, []);
 
+  useEffect(() => {
+    if (!canUseDebugFeatures || tracks.length === 0) {
+      setFavoritesMap({});
+      return;
+    }
+
+    let canceled = false;
+    favoriteService.checkFavorites(tracks.map((t) => t.id))
+      .then((map) => {
+        if (!canceled) {
+          setFavoritesMap(map || {});
+        }
+      })
+      .catch(() => {
+        if (!canceled) {
+          setFavoritesMap({});
+        }
+      });
+
+    return () => {
+      canceled = true;
+    };
+  }, [tracks, canUseDebugFeatures]);
+
   const handlePlay = (track: Track) => {
     // Only add this single track to queue
     playTrackOnly(track);
@@ -55,6 +89,47 @@ const PublicLibrary: React.FC = () => {
   const handleSearch = (value: string) => {
     setSearchText(value);
     fetchTracks(1, value);
+  };
+
+  const handleToggleFavorite = async (trackId: number) => {
+    try {
+      const result = await favoriteService.toggle(trackId);
+      setFavoritesMap((prev) => ({ ...prev, [trackId]: result.favorited }));
+      message.success(result.favorited ? '已添加到收藏' : '已取消收藏');
+    } catch (error: any) {
+      const msg = error?.response?.data?.error?.message || '收藏操作失败';
+      message.error(msg);
+    }
+  };
+
+  const openPlaylistModal = async (trackId: number) => {
+    setSelectedTrackId(trackId);
+    setSelectedPlaylistId(null);
+    setPlaylistModalOpen(true);
+    setPlaylistLoading(true);
+    try {
+      const data = await playlistService.getPlaylists();
+      setPlaylists(data);
+    } catch {
+      message.error('加载歌单失败');
+    } finally {
+      setPlaylistLoading(false);
+    }
+  };
+
+  const handleAddToPlaylist = async () => {
+    if (!selectedTrackId || !selectedPlaylistId) {
+      message.warning('请先选择歌单');
+      return;
+    }
+    try {
+      await playlistService.addTrack(selectedPlaylistId, selectedTrackId);
+      message.success('已添加到歌单');
+      setPlaylistModalOpen(false);
+    } catch (error: any) {
+      const msg = error?.response?.data?.error?.message || '添加到歌单失败';
+      message.error(msg);
+    }
   };
 
   const formatDuration = (seconds: number | null) => {
@@ -143,6 +218,22 @@ const PublicLibrary: React.FC = () => {
               disabled={!DOWNLOAD_ENABLED}
             />
           </Tooltip>
+          {canUseDebugFeatures && (
+            <Button
+              type="text"
+              icon={favoritesMap[record.id] ? <HeartFilled style={{ color: '#ff4d6a' }} /> : <HeartOutlined />}
+              onClick={() => handleToggleFavorite(record.id)}
+              title={favoritesMap[record.id] ? '取消喜爱' : '喜爱'}
+            />
+          )}
+          {canUseDebugFeatures && (
+            <Button
+              type="text"
+              icon={<PlusOutlined />}
+              onClick={() => openPlaylistModal(record.id)}
+              title="收藏到歌单"
+            />
+          )}
         </Space>
       ),
     },
@@ -177,6 +268,26 @@ const PublicLibrary: React.FC = () => {
             fetchTracks(newPage, searchText, newSize);
           }}
         />
+
+        <Modal
+          title="收藏到歌单"
+          open={playlistModalOpen}
+          onCancel={() => setPlaylistModalOpen(false)}
+          onOk={handleAddToPlaylist}
+          okText="添加"
+          cancelText="取消"
+          confirmLoading={playlistLoading}
+          destroyOnHidden
+        >
+          <Select
+            style={{ width: '100%' }}
+            placeholder="选择目标歌单"
+            loading={playlistLoading}
+            value={selectedPlaylistId ?? undefined}
+            onChange={(value) => setSelectedPlaylistId(value)}
+            options={playlists.map((p) => ({ value: p.id, label: `${p.name} (${p.track_count} 首)` }))}
+          />
+        </Modal>
       </Content>
     </Layout>
   );

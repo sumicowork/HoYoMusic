@@ -11,6 +11,7 @@ import {
   MessageOutlined,
 } from '@ant-design/icons';
 import { IS_STATIC } from '../services/api';
+import { useDebugUserFeatures, isTestDebugEnabled } from '../utils/debugFeature';
 import ThemeToggle from './ThemeToggle';
 import './PageHeader.css';
 
@@ -31,6 +32,10 @@ interface PageHeaderProps {
 const PageHeader: React.FC<PageHeaderProps> = ({ extra, onFeedbackClick }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const showDebugUserFeatures = useDebugUserFeatures();
+  const debugQuery = isTestDebugEnabled(location.search) ? '?test_debug=1' : '';
+
+  const withDebugQuery = (path: string) => `${path}${debugQuery}`;
 
   const navItems: NavItem[] = [
     { key: 'home', icon: <HomeOutlined />, label: '主页', path: '/' },
@@ -39,6 +44,7 @@ const PageHeader: React.FC<PageHeaderProps> = ({ extra, onFeedbackClick }) => {
     { key: 'albums', icon: <AppstoreOutlined />, label: '专辑', path: '/albums' },
     { key: 'artists', icon: <UserOutlined />, label: '创作者', path: '/artists' },
     { key: 'tags', icon: <TagsOutlined />, label: '标签', path: '/tags' },
+    ...(showDebugUserFeatures ? [{ key: 'me', icon: <UserOutlined />, label: '我的', path: withDebugQuery('/me') } as NavItem] : []),
     { key: 'feedback', icon: <MessageOutlined />, label: '反馈', onClick: onFeedbackClick },
     ...(!IS_STATIC ? [{ key: 'admin', icon: <LoginOutlined />, label: '管理', path: '/admin/login' } as NavItem] : []),
   ];

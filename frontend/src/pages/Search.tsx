@@ -2,13 +2,13 @@ import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import {
   Layout, Input, Button, Form, Select, Slider,
   Table, Tag, Image, Space, Typography, Divider,
-  Badge, Empty, Spin, Tooltip, Drawer, Checkbox, Collapse,
+  Badge, Empty, Spin, Tooltip, Drawer, Checkbox, Collapse, Modal,
 } from 'antd';
 import {
   SearchOutlined, FilterOutlined, PlayCircleOutlined,
   DownloadOutlined, SoundOutlined, CloseOutlined,
   SortAscendingOutlined, ReloadOutlined, InfoCircleOutlined,
-  TagOutlined, FolderOutlined,
+  TagOutlined, FolderOutlined, HeartOutlined, HeartFilled, PlusOutlined,
 } from '@ant-design/icons';
 import { Link, useSearchParams } from 'react-router-dom';
 import type { ColumnsType } from 'antd/es/table';
@@ -21,6 +21,9 @@ import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
 import { useSearchStore } from '../store/searchStore';
 import { toast } from '../utils/toast';
 import { buildTagPathLookup, getTagPathLabel } from '../utils/tagPath';
+import favoriteService from '../services/favoriteService';
+import playlistService, { Playlist } from '../services/playlistService';
+import { useDebugUserFeatures } from '../utils/debugFeature';
 import './Search.css';
 
 const { Content } = Layout;
@@ -71,6 +74,12 @@ const Search: React.FC = () => {
   const [form] = Form.useForm();
 
   const [tracks, setTracks] = useState<Track[]>([]);
+  const [favoritesMap, setFavoritesMap] = useState<Record<number, boolean>>({});
+  const [playlistModalOpen, setPlaylistModalOpen] = useState(false);
+  const [playlistSaving, setPlaylistSaving] = useState(false);
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState<number | null>(null);
+  const [selectedTrackId, setSelectedTrackId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
@@ -78,6 +87,7 @@ const Search: React.FC = () => {
   const [activeFilters, setActiveFilters] = useState(0);
   const [lastParams, setLastParams] = useState<TrackSearchParams>({});
   const abortRef = useRef<AbortController | null>(null);
+  const canUseDebugFeatures = useDebugUserFeatures();
 
   // Tag 数据
   const [allTags, setAllTags] = useState<TagType[]>([]);
@@ -103,6 +113,28 @@ const Search: React.FC = () => {
       }, 0);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!canUseDebugFeatures || tracks.length === 0) {
+      setFavoritesMap({});
+      return;
+    }
+
+    let canceled = false;
+    favoriteService.checkFavorites(tracks.map((t) => t.id)).then((data) => {
+      if (!canceled) {
+        setFavoritesMap(data || {});
+      }
+    }).catch(() => {
+      if (!canceled) {
+        setFavoritesMap({});
+      }
+    });
+
+    return () => {
+      canceled = true;
+    };
+  }, [tracks, canUseDebugFeatures]);
 
   const { grouped, childMap } = organizeTagsByGroup(allTags, tagGroups);
   const tagPathLookup = useMemo(() => buildTagPathLookup(allTags, tagGroups), [allTags, tagGroups]);
@@ -221,6 +253,47 @@ const Search: React.FC = () => {
     );
   };
 
+  const handleToggleFavorite = async (trackId: number) => {
+    try {
+      const result = await favoriteService.toggle(trackId);
+      setFavoritesMap((prev) => ({ ...prev, [trackId]: result.favorited }));
+      toast.success(result.favorited ? '已添加到收藏' : '已取消收藏');
+    } catch (error: any) {
+      const msg = error?.response?.data?.error?.message || '收藏操作失败';
+      toast.error(msg);
+    }
+  };
+
+  const openPlaylistModal = async (trackId: number) => {
+    setSelectedTrackId(trackId);
+    setSelectedPlaylistId(null);
+    setPlaylistModalOpen(true);
+    try {
+      const data = await playlistService.getPlaylists();
+      setPlaylists(data);
+    } catch {
+      toast.error('加载歌单失败');
+    }
+  };
+
+  const handleAddToUserPlaylist = async () => {
+    if (!selectedTrackId || !selectedPlaylistId) {
+      toast.warning('请先选择歌单');
+      return;
+    }
+    setPlaylistSaving(true);
+    try {
+      await playlistService.addTrack(selectedPlaylistId, selectedTrackId);
+      toast.success('已添加到歌单');
+      setPlaylistModalOpen(false);
+    } catch (error: any) {
+      const msg = error?.response?.data?.error?.message || '添加到歌单失败';
+      toast.error(msg);
+    } finally {
+      setPlaylistSaving(false);
+    }
+  };
+
   const formatDuration = (seconds: number | null) => {
     if (!seconds) return '--:--';
     const m = Math.floor(seconds / 60);
@@ -284,7 +357,7 @@ const Search: React.FC = () => {
     {
       title: '操作',
       key: 'actions',
-      width: 100,
+      width: 180,
       render: (_, record) => (
         <Space size={4}>
           <Tooltip title="播放">
@@ -309,6 +382,26 @@ const Search: React.FC = () => {
               onClick={() => DOWNLOAD_ENABLED && window.open(trackService.getDownloadUrlPublic(record.id), '_blank')}
             />
           </Tooltip>
+          {canUseDebugFeatures && (
+            <Tooltip title={favoritesMap[record.id] ? '取消喜爱' : '喜爱'}>
+              <Button
+                size="small"
+                shape="circle"
+                icon={favoritesMap[record.id] ? <HeartFilled style={{ color: '#ff4d6a' }} /> : <HeartOutlined />}
+                onClick={() => handleToggleFavorite(record.id)}
+              />
+            </Tooltip>
+          )}
+          {canUseDebugFeatures && (
+            <Tooltip title="收藏到歌单">
+              <Button
+                size="small"
+                shape="circle"
+                icon={<PlusOutlined />}
+                onClick={() => openPlaylistModal(record.id)}
+              />
+            </Tooltip>
+          )}
         </Space>
       ),
     },
@@ -480,6 +573,25 @@ const Search: React.FC = () => {
             <p>输入关键词或点击快捷标签开始搜索</p>
           </div>
         )}
+
+        <Modal
+          title="收藏到歌单"
+          open={playlistModalOpen}
+          onCancel={() => setPlaylistModalOpen(false)}
+          onOk={handleAddToUserPlaylist}
+          okText="添加"
+          cancelText="取消"
+          confirmLoading={playlistSaving}
+          destroyOnHidden
+        >
+          <Select
+            style={{ width: '100%' }}
+            placeholder="选择目标歌单"
+            value={selectedPlaylistId ?? undefined}
+            onChange={(value) => setSelectedPlaylistId(value)}
+            options={playlists.map((p) => ({ value: p.id, label: `${p.name} (${p.track_count} 首)` }))}
+          />
+        </Modal>
       </Content>
 
       {/* 高级筛选 Drawer */}
