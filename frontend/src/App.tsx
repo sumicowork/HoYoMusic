@@ -82,8 +82,18 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
         if (active) {
           setMaintenanceConfig(config);
         }
-      } catch (error) {
-        console.error('Failed to load maintenance config:', error);
+      } catch (error: any) {
+        // Fallback: if API already reports maintenance, still force maintenance UI.
+        if (active && error?.response?.status === 503 && error?.response?.data?.error?.code === 'MAINTENANCE_MODE') {
+          setMaintenanceConfig((prev) => ({
+            ...prev,
+            enabled: true,
+            expected_end_time: error?.response?.data?.data?.expected_end_time ?? null,
+            version: error?.response?.data?.data?.version ?? prev.version,
+          }));
+        } else {
+          console.error('Failed to load maintenance config:', error);
+        }
       } finally {
         if (active) {
           setMaintenanceLoaded(true);

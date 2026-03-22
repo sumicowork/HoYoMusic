@@ -15,11 +15,11 @@ const DEFAULT_MAINTENANCE: MaintenanceModeConfig = {
 };
 
 const EXEMPT_PATH_PREFIXES = [
-  '/api/health',
-  '/api/docs',
-  '/api/docs.json',
-  '/api/auth/login',
-  '/api/public/site-config/maintenance',
+  '/health',
+  '/docs',
+  '/docs.json',
+  '/auth/login',
+  '/public/site-config/maintenance',
 ];
 
 const CACHE_TTL_MS = 5000;
