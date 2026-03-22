@@ -623,7 +623,7 @@ const Player: React.FC = () => {
         title="点击展开查看歌词"
       />
       <div className="player-content">
-        <div className="player-track-info player-desktop-only">
+        <div className="player-track-info">
           {coverThumbSrc ? (
             <img src={coverThumbSrc} alt={currentTrack.title} className={`player-cover${isPlaying ? ' player-cover-spinning' : ''}`} onClick={() => setExpanded(true)} style={{ cursor: 'pointer' }} />
           ) : null}

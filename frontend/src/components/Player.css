@@ -391,8 +391,9 @@
   .player-content {
     padding: 8px 12px;
     display: flex;
-    justify-content: center;
     align-items: center;
+    justify-content: space-between;
+    gap: 10px;
   }
 
   .player-desktop-only {
@@ -402,20 +403,19 @@
   .player-mobile-actions {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 12px;
-    width: 100%;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-shrink: 0;
   }
 
   /* Left: cover + title — left-aligned, must not grow into centre */
   .player-track-info {
-    flex: unset;
-    max-width: unset;
+    flex: 1;
+    max-width: none;
     gap: 8px;
     min-width: 0;
     overflow: hidden;
-    justify-self: start;
-    width: 100%;
+    width: auto;
   }
 
   /* Ensure title truncates properly in grid cell */
@@ -426,14 +426,15 @@
 
   .player-track-info .player-title {
     font-size: 12px;
+    line-height: 1.3;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .player-cover {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     border-radius: 6px;
     flex-shrink: 0;
   }
