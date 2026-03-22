@@ -15,14 +15,16 @@ import {
   UnorderedListOutlined,
   CompressOutlined,
   ExpandOutlined,
+  HeartOutlined,
+  HeartFilled,
 } from '@ant-design/icons';
 import { usePlayerStore } from '../store/playerStore';
 import { trackService } from '../services/trackService';
 import { IS_STATIC } from '../services/api';
 import { lyricsService } from '../services/lyricsService';
+import favoriteService from '../services/favoriteService';
+import { useDebugUserFeatures } from '../utils/debugFeature';
 import PlayQueue from './PlayQueue';
-import SleepTimer from './SleepTimer';
-import CrossfadeControl from './CrossfadeControl';
 import './Player.css';
 
 // ─── inline LRC parser ────────────────────────────────────────────────
@@ -62,6 +64,8 @@ const Player: React.FC = () => {
   const [queueVisible, setQueueVisible] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [collapsing, setCollapsing] = useState(false);
+  const [isFavorited, setIsFavorited] = useState(false);
+  const canUseDebugUserFeatures = useDebugUserFeatures();
 
   const handleCollapse = () => {
     setCollapsing(true);
@@ -143,6 +147,28 @@ const Player: React.FC = () => {
       canceled = true;
     };
   }, [currentTrack?.id]);
+
+  useEffect(() => {
+    if (!canUseDebugUserFeatures || !currentTrack?.id) {
+      setIsFavorited(false);
+      return;
+    }
+
+    let canceled = false;
+    favoriteService.checkFavorites([currentTrack.id]).then((data) => {
+      if (!canceled) {
+        setIsFavorited(Boolean(data[currentTrack.id]));
+      }
+    }).catch(() => {
+      if (!canceled) {
+        setIsFavorited(false);
+      }
+    });
+
+    return () => {
+      canceled = true;
+    };
+  }, [currentTrack?.id, canUseDebugUserFeatures]);
 
   // Sync active lyric line with progress
   useEffect(() => {
@@ -378,6 +404,16 @@ const Player: React.FC = () => {
     setVolume(value);
   };
 
+  const handleToggleFavorite = async () => {
+    if (!currentTrack || !canUseDebugUserFeatures) return;
+    try {
+      const result = await favoriteService.toggle(currentTrack.id);
+      setIsFavorited(result.favorited);
+    } catch {
+      // Keep player interactions silent for this debug-only shortcut.
+    }
+  };
+
   const formatTime = (seconds: number) => {
     if (!seconds || isNaN(seconds)) return '0:00';
     const mins = Math.floor(seconds / 60);
@@ -554,8 +590,6 @@ const Player: React.FC = () => {
             {controlsBar}
 
             <div className="player-volume">
-              <CrossfadeControl />
-              <SleepTimer />
               <Tooltip title="音量（↑/↓ 调节）"><SoundOutlined /></Tooltip>
               <Slider value={volume} min={0} max={1} step={0.01} onChange={handleVolumeChange} style={{ width: 100, marginLeft: 12 }} aria-label="音量" />
               <Tooltip title="播放队列">
@@ -589,7 +623,7 @@ const Player: React.FC = () => {
         title="点击展开查看歌词"
       />
       <div className="player-content">
-        <div className="player-track-info">
+        <div className="player-track-info player-desktop-only">
           {coverThumbSrc ? (
             <img src={coverThumbSrc} alt={currentTrack.title} className={`player-cover${isPlaying ? ' player-cover-spinning' : ''}`} onClick={() => setExpanded(true)} style={{ cursor: 'pointer' }} />
           ) : null}
@@ -598,11 +632,9 @@ const Player: React.FC = () => {
           </div>
         </div>
 
-        {controlsBar}
+        <div className="player-desktop-only">{controlsBar}</div>
 
-        <div className="player-volume">
-          <CrossfadeControl />
-          <SleepTimer />
+        <div className="player-volume player-desktop-only">
           <Tooltip title="音量（↑/↓ 调节）"><SoundOutlined /></Tooltip>
           <Slider value={volume} min={0} max={1} step={0.01} onChange={handleVolumeChange} style={{ width: 100, marginLeft: 12 }} aria-label="音量" />
           <Tooltip title="播放队列">
@@ -614,20 +646,35 @@ const Player: React.FC = () => {
             <Button type="text" icon={<ExpandOutlined />} onClick={() => setExpanded(true)} size="large" style={{ marginLeft: 4 }} aria-label="展开歌词" />
           </Tooltip>
         </div>
-      </div>
 
-      {/* Mobile-only progress row — sits below the 3-column control row */}
-      <div className="player-mini-progress">
-        <span className="player-time">{formatTime(progress)}</span>
-        <Slider
-          value={progress}
-          max={duration}
-          onChange={handleSeek}
-          tooltip={{ formatter: (value) => formatTime(value || 0) }}
-          className="player-slider"
-          aria-label="播放进度"
-        />
-        <span className="player-time">{formatTime(duration)}</span>
+        <div className="player-mobile-actions">
+          {canUseDebugUserFeatures && (
+            <Tooltip title={isFavorited ? '取消喜爱' : '喜爱'}>
+              <Button
+                type="text"
+                icon={isFavorited ? <HeartFilled style={{ color: '#ff4d6a' }} /> : <HeartOutlined />}
+                onClick={handleToggleFavorite}
+                size="large"
+                aria-label={isFavorited ? '取消喜爱' : '喜爱'}
+              />
+            </Tooltip>
+          )}
+          <Tooltip title={isPlaying ? '暂停（空格）' : '播放（空格）'}>
+            <Button
+              type="primary"
+              shape="circle"
+              icon={isPlaying ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
+              onClick={handleTogglePlay}
+              size="large"
+              aria-label={isPlaying ? '暂停' : '播放'}
+            />
+          </Tooltip>
+          <Tooltip title="播放队列">
+            <Badge count={playlist.length} showZero>
+              <Button type="text" icon={<UnorderedListOutlined />} onClick={() => setQueueVisible(true)} size="large" aria-label="播放队列" />
+            </Badge>
+          </Tooltip>
+        </div>
       </div>
 
       <PlayQueue visible={queueVisible} onClose={() => setQueueVisible(false)} />

@@ -56,7 +56,7 @@ export const usePlayerStore = create<PlayerState>()(
   duration: 0,
   playMode: 'sequence',
   sleepTimerEnd: null,
-  crossfadeDuration: 0,
+  crossfadeDuration: 1,
 
   setCurrentTrack: (track) => set({ currentTrack: track }),
 
