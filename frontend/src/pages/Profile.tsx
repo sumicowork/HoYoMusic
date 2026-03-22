@@ -49,7 +49,7 @@ const Profile: React.FC = () => {
         <Title level={3} style={{ margin: 0 }}>
           <UserOutlined style={{ marginRight: 8 }} />个人主页
         </Title>
-        <Text type="secondary">测试功能：仅管理员 + test_debug 模式可见</Text>
+        <Text type="secondary">查看你的收藏和歌单概览</Text>
       </Space>
 
       <Card loading={loading}>
@@ -69,10 +69,10 @@ const Profile: React.FC = () => {
           </Row>
 
           <Space wrap>
-            <Button type="primary" icon={<HeartFilled />} onClick={() => navigate('/favorites?test_debug=1')}>
+            <Button type="primary" icon={<HeartFilled />} onClick={() => navigate('/favorites')}>
               打开我的收藏
             </Button>
-            <Button icon={<UnorderedListOutlined />} onClick={() => navigate('/playlists?test_debug=1')}>
+            <Button icon={<UnorderedListOutlined />} onClick={() => navigate('/playlists')}>
               打开我的歌单
             </Button>
           </Space>

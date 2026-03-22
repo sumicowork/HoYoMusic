@@ -5,14 +5,12 @@ import zhCN from 'antd/locale/zh_CN';
 
 // Eager load essential components
 import ProtectedRoute from './components/ProtectedRoute';
-import DebugUserFeatureGate from './components/DebugUserFeatureGate';
 import Player from './components/Player';
 import PageHeader from './components/PageHeader';
 import MobileTabBar from './components/MobileTabBar';
 import FeedbackModal from './components/FeedbackModal';
 import FirstVisitModal from './components/FirstVisitModal';
 import SiteComplianceFooter from './components/SiteComplianceFooter';
-import TestDebugParamSync from './components/TestDebugParamSync';
 import { usePlayerStore } from './store/playerStore';
 import { useThemeStore } from './store/themeStore';
 import { useAuthStore } from './store/authStore';
@@ -156,19 +154,19 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
             <>
               <Route
                 path="/playlists"
-                element={<ProtectedRoute><DebugUserFeatureGate><Playlists /></DebugUserFeatureGate></ProtectedRoute>}
+                element={<ProtectedRoute><Playlists /></ProtectedRoute>}
               />
               <Route
                 path="/playlists/:id"
-                element={<ProtectedRoute><DebugUserFeatureGate><PlaylistDetail /></DebugUserFeatureGate></ProtectedRoute>}
+                element={<ProtectedRoute><PlaylistDetail /></ProtectedRoute>}
               />
               <Route
                 path="/favorites"
-                element={<ProtectedRoute><DebugUserFeatureGate><Favorites /></DebugUserFeatureGate></ProtectedRoute>}
+                element={<ProtectedRoute><Favorites /></ProtectedRoute>}
               />
               <Route
                 path="/me"
-                element={<ProtectedRoute><DebugUserFeatureGate><Profile /></DebugUserFeatureGate></ProtectedRoute>}
+                element={<ProtectedRoute><Profile /></ProtectedRoute>}
               />
             </>
           )}
@@ -282,7 +280,6 @@ const App: React.FC = () => {
     <ConfigProvider theme={mode === 'dark' ? darkTheme : lightTheme} locale={zhCN}>
       <AntApp>
         <Router>
-          <TestDebugParamSync />
           <AppRoutes
             feedbackOpen={feedbackOpen}
             onOpenFeedback={() => setFeedbackOpen(true)}

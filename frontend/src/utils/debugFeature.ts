@@ -17,7 +17,7 @@ export const canUseDebugUserFeatures = (opts: {
   username?: string | null;
 }): boolean => {
   if (IS_STATIC) return false;
-  return opts.isAuthenticated && isAdminUser(opts.username) && isTestDebugEnabled(opts.search);
+  return opts.isAuthenticated;
 };
 
 export const useDebugUserFeatures = (): boolean => {
