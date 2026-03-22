@@ -238,6 +238,15 @@
   min-width: 0;
 }
 
+.random-pick-actions {
+  margin-bottom: 12px;
+}
+
+.random-pick-btn {
+  border-radius: 999px !important;
+  font-weight: 600;
+}
+
 [data-theme='light'] .rec-section {
   background: rgba(255, 255, 255, 0.55);
   border: 1px solid rgba(255, 255, 255, 0.75);
@@ -674,6 +683,10 @@
    ============================================================ */
 
 @media (max-width: 480px) {
+  .random-pick-btn {
+    width: 100%;
+  }
+
   .carousel-album-card {
     width: 115px;
   }

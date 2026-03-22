@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Layout, message, Skeleton } from 'antd';
+import { Layout, message, Skeleton, Button, Modal, Radio, Select, Space, Typography } from 'antd';
 import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { IS_STATIC } from '../services/api';
+import * as staticData from '../services/staticDataService';
 
 // Detect mobile viewport
 const useIsMobile = () => {
@@ -28,6 +31,15 @@ import { getCoverUrl, handleImageError } from '../utils/imageUtils';
 import './Home.css';
 
 const { Content } = Layout;
+const { Text } = Typography;
+const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
+
+type RandomPlayMode = 'all' | 'single_game' | 'multi_game' | 'artist';
+
+interface ArtistOption {
+  name: string;
+  track_count?: number;
+}
 
 /* ─── 游戏卡片 ─── */
 const GameCard: React.FC<{
@@ -144,6 +156,13 @@ const Home: React.FC = () => {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [tracks, setTracks] = useState<Track[]>([]);
   const [topTracks, setTopTracks] = useState<Track[]>([]);
+  const [artists, setArtists] = useState<ArtistOption[]>([]);
+  const [randomModalOpen, setRandomModalOpen] = useState(false);
+  const [randomPlayMode, setRandomPlayMode] = useState<RandomPlayMode>('all');
+  const [selectedGameId, setSelectedGameId] = useState<number | undefined>(undefined);
+  const [selectedGameIds, setSelectedGameIds] = useState<number[]>([]);
+  const [selectedArtist, setSelectedArtist] = useState<string | undefined>(undefined);
+  const [randomPlaying, setRandomPlaying] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -151,16 +170,18 @@ const Home: React.FC = () => {
 
   const fetchData = async () => {
     try {
-      const [gamesData, albumsData, tracksData, topData] = await Promise.all([
+      const [gamesData, albumsData, tracksData, topData, artistsData] = await Promise.all([
         gameService.getGames(),
         albumService.getRandomAlbums(12).catch(() => []),
         trackService.getRandomTracks(20).catch(() => []),
         trackService.getTopTracks(10).catch(() => []),
+        fetchArtists().catch(() => []),
       ]);
       setGames(gamesData);
       setAlbums(albumsData);
       setTracks(tracksData);
       setTopTracks(topData);
+      setArtists(artistsData);
     } catch {
       message.error('加载数据失败');
     } finally {
@@ -171,6 +192,86 @@ const Home: React.FC = () => {
   const getGameStatus = (game: Game): 'maintenance' | 'unreleased' | 'active' => {
     return game.status || 'active';
   };
+
+  const fetchArtists = async (): Promise<ArtistOption[]> => {
+    if (IS_STATIC) {
+      const data = await staticData.getArtists(1, 200, '');
+      return data.artists || [];
+    }
+
+    const response = await axios.get(`${API_BASE_URL}/artists`, { params: { limit: 200 } });
+    if (response.data?.success) {
+      return response.data.data.artists || [];
+    }
+    return [];
+  };
+
+  const handleRandomPlay = async () => {
+    try {
+      setRandomPlaying(true);
+
+      let candidateTracks: Track[] = [];
+
+      if (randomPlayMode === 'all') {
+        candidateTracks = await trackService.getRandomTracks(30);
+      } else if (randomPlayMode === 'single_game') {
+        if (!selectedGameId) {
+          message.warning('请先选择一个游戏');
+          return;
+        }
+        const result = await trackService.searchTracksPublic({
+          game_ids: [selectedGameId],
+          page: 1,
+          limit: 100,
+          sort_by: 'created_at',
+          sort_dir: 'DESC',
+        });
+        candidateTracks = result.tracks;
+      } else if (randomPlayMode === 'multi_game') {
+        if (selectedGameIds.length === 0) {
+          message.warning('请至少选择一个游戏');
+          return;
+        }
+        const result = await trackService.searchTracksPublic({
+          game_ids: selectedGameIds,
+          page: 1,
+          limit: 100,
+          sort_by: 'created_at',
+          sort_dir: 'DESC',
+        });
+        candidateTracks = result.tracks;
+      } else {
+        if (!selectedArtist) {
+          message.warning('请先选择一个创作者');
+          return;
+        }
+        const result = await trackService.searchTracksPublic({
+          artist: selectedArtist,
+          page: 1,
+          limit: 100,
+          sort_by: 'created_at',
+          sort_dir: 'DESC',
+        });
+        candidateTracks = result.tracks;
+      }
+
+      if (!candidateTracks || candidateTracks.length === 0) {
+        message.warning('没有找到可播放的歌曲');
+        return;
+      }
+
+      const picked = candidateTracks[Math.floor(Math.random() * candidateTracks.length)];
+      playTrackOnly(picked);
+      message.success(`随机播放：${picked.title}`);
+      setRandomModalOpen(false);
+    } catch {
+      message.error('随机播放失败，请稍后重试');
+    } finally {
+      setRandomPlaying(false);
+    }
+  };
+
+  const activeGames = games.filter((game) => getGameStatus(game) === 'active');
 
   return (
     <Layout className="home-layout">
@@ -219,6 +320,11 @@ const Home: React.FC = () => {
             <aside className="home-recommendations">
               {albums.length > 0 && (
                 <section className="rec-section rec-albums">
+                  <div className="random-pick-actions">
+                    <Button type="primary" className="random-pick-btn" onClick={() => setRandomModalOpen(true)}>
+                      随便听点什么！
+                    </Button>
+                  </div>
                   <h2 className="section-title home-section-title">
                     <AppstoreOutlined /> 随机专辑
                   </h2>
@@ -243,6 +349,68 @@ const Home: React.FC = () => {
                   </div>
                 </section>
               )}
+
+              <Modal
+                title="随便听点什么！"
+                open={randomModalOpen}
+                onCancel={() => setRandomModalOpen(false)}
+                onOk={handleRandomPlay}
+                okText="开始随机播放"
+                cancelText="取消"
+                confirmLoading={randomPlaying}
+                destroyOnHidden
+              >
+                <Space direction="vertical" size={14} style={{ width: '100%' }}>
+                  <Radio.Group
+                    value={randomPlayMode}
+                    onChange={(e) => setRandomPlayMode(e.target.value as RandomPlayMode)}
+                    style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+                  >
+                    <Radio value="all">全部随机</Radio>
+                    <Radio value="single_game">按单个游戏随机</Radio>
+                    <Radio value="multi_game">按多个游戏随机</Radio>
+                    <Radio value="artist">按创作者随机</Radio>
+                  </Radio.Group>
+
+                  {randomPlayMode === 'single_game' && (
+                    <Select
+                      placeholder="选择一个游戏"
+                      value={selectedGameId}
+                      onChange={(value) => setSelectedGameId(value)}
+                      options={activeGames.map((game) => ({ value: game.id, label: game.name }))}
+                      style={{ width: '100%' }}
+                    />
+                  )}
+
+                  {randomPlayMode === 'multi_game' && (
+                    <Select
+                      mode="multiple"
+                      placeholder="选择一个或多个游戏"
+                      value={selectedGameIds}
+                      onChange={(value) => setSelectedGameIds(value)}
+                      options={activeGames.map((game) => ({ value: game.id, label: game.name }))}
+                      style={{ width: '100%' }}
+                    />
+                  )}
+
+                  {randomPlayMode === 'artist' && (
+                    <Select
+                      showSearch
+                      placeholder="选择创作者"
+                      value={selectedArtist}
+                      onChange={(value) => setSelectedArtist(value)}
+                      optionFilterProp="label"
+                      options={artists.map((artist) => ({
+                        value: artist.name,
+                        label: artist.track_count ? `${artist.name} (${artist.track_count} 首)` : artist.name,
+                      }))}
+                      style={{ width: '100%' }}
+                    />
+                  )}
+
+                  <Text type="secondary">将从符合条件的曲目中随机抽取 1 首并立即播放。</Text>
+                </Space>
+              </Modal>
 
               {/* 随机歌曲推荐 — 连续滚动 */}
               {tracks.length > 0 && (
