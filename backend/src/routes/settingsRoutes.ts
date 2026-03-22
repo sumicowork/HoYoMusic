@@ -3,7 +3,7 @@ import pool from '../config/database';
 import { authenticateJWT } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
 import { firstVisitModalSchema, siteComplianceSchema, feedbackSubmitSchema, testEmailSchema } from '../validators/schemas';
-import { isMailConfigured, sendTestEmail } from '../services/emailService';
+import { getMailConfigurationError, sendTestEmail } from '../services/emailService';
 
 const router = Router();
 
@@ -107,6 +107,38 @@ const getRequestIp = (req: Request): string | null => {
   return (req.ip || req.socket.remoteAddress || '').toString().slice(0, 64) || null;
 };
 
+const getReadableEmailError = (error: unknown): string => {
+  if (error instanceof Error && error.message === 'MAIL_NOT_CONFIGURED') {
+    return '邮件服务未配置';
+  }
+
+  const err = error as {
+    code?: string;
+    responseCode?: number;
+    response?: string;
+    command?: string;
+    message?: string;
+  };
+
+  if (err?.code === 'EAUTH' || err?.responseCode === 535) {
+    return 'SMTP 认证失败：请检查 MAIL_USER / MAIL_PASS（通常应使用邮箱授权码）';
+  }
+  if (err?.code === 'ENOTFOUND') {
+    return 'SMTP 服务器地址无法解析：请检查 MAIL_HOST';
+  }
+  if (err?.code === 'ECONNECTION' || err?.code === 'ESOCKET' || err?.code === 'ETIMEDOUT') {
+    return 'SMTP 连接失败：请检查 MAIL_HOST / MAIL_PORT / MAIL_SECURE 及网络连通性';
+  }
+  if (err?.code === 'EENVELOPE' || err?.responseCode === 550 || err?.responseCode === 553) {
+    return '收件邮箱地址被服务器拒绝：请检查收件邮箱是否正确';
+  }
+  if (err?.response && typeof err.response === 'string') {
+    return `邮件服务器返回错误：${err.response.slice(0, 200)}`;
+  }
+
+  return err?.message || '未知错误';
+};
+
 router.post('/public/feedback', validateBody(feedbackSubmitSchema), async (req: Request, res: Response) => {
   try {
     const body = req.body as { content: string; contact?: string };
@@ -136,10 +168,11 @@ router.post('/public/feedback', validateBody(feedbackSubmitSchema), async (req: 
 
 router.post('/settings/test-email', authenticateJWT, validateBody(testEmailSchema), async (req: Request, res: Response) => {
   try {
-    if (!isMailConfigured()) {
+    const configError = getMailConfigurationError();
+    if (configError) {
       return res.status(400).json({
         success: false,
-        error: { code: 'EMAIL_NOT_CONFIGURED', message: '邮件服务未配置，请先设置 MAIL_* 环境变量' },
+        error: { code: 'EMAIL_NOT_CONFIGURED', message: configError },
       });
     }
 
@@ -152,9 +185,10 @@ router.post('/settings/test-email', authenticateJWT, validateBody(testEmailSchem
     });
   } catch (error) {
     console.error('Failed to send test email:', error);
+    const reason = getReadableEmailError(error);
     res.status(500).json({
       success: false,
-      error: { code: 'EMAIL_SEND_FAILED', message: '测试邮件发送失败，请检查 SMTP 配置' },
+      error: { code: 'EMAIL_SEND_FAILED', message: `测试邮件发送失败：${reason}` },
     });
   }
 });

@@ -9,6 +9,11 @@ interface MailEnvConfig {
   from: string;
 }
 
+const getMissingMailEnvKeys = (): string[] => {
+  const required = ['MAIL_HOST', 'MAIL_PORT', 'MAIL_USER', 'MAIL_PASS', 'MAIL_FROM'] as const;
+  return required.filter((key) => !process.env[key] || !String(process.env[key]).trim());
+};
+
 const getMailEnvConfig = (): MailEnvConfig | null => {
   const host = process.env.MAIL_HOST || '';
   const user = process.env.MAIL_USER || '';
@@ -32,6 +37,14 @@ const getMailEnvConfig = (): MailEnvConfig | null => {
 };
 
 export const isMailConfigured = (): boolean => getMailEnvConfig() !== null;
+
+export const getMailConfigurationError = (): string | null => {
+  const missing = getMissingMailEnvKeys();
+  if (missing.length > 0) {
+    return `缺少 SMTP 配置项: ${missing.join(', ')}`;
+  }
+  return null;
+};
 
 export const sendTestEmail = async (to: string): Promise<void> => {
   const config = getMailEnvConfig();
