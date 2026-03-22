@@ -2,7 +2,8 @@ import { Router, Request, Response } from 'express';
 import pool from '../config/database';
 import { authenticateJWT } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
-import { firstVisitModalSchema, siteComplianceSchema, feedbackSubmitSchema } from '../validators/schemas';
+import { firstVisitModalSchema, siteComplianceSchema, feedbackSubmitSchema, testEmailSchema } from '../validators/schemas';
+import { isMailConfigured, sendTestEmail } from '../services/emailService';
 
 const router = Router();
 
@@ -129,6 +130,31 @@ router.post('/public/feedback', validateBody(feedbackSubmitSchema), async (req: 
     res.status(500).json({
       success: false,
       error: { code: 'FEEDBACK_SUBMIT_ERROR', message: 'Failed to submit feedback' },
+    });
+  }
+});
+
+router.post('/settings/test-email', authenticateJWT, validateBody(testEmailSchema), async (req: Request, res: Response) => {
+  try {
+    if (!isMailConfigured()) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'EMAIL_NOT_CONFIGURED', message: '邮件服务未配置，请先设置 MAIL_* 环境变量' },
+      });
+    }
+
+    const { email } = req.body as { email: string };
+    await sendTestEmail(email);
+
+    res.json({
+      success: true,
+      data: { message: `测试邮件已发送到 ${email}` },
+    });
+  } catch (error) {
+    console.error('Failed to send test email:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'EMAIL_SEND_FAILED', message: '测试邮件发送失败，请检查 SMTP 配置' },
     });
   }
 });

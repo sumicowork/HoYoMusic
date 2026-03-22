@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Form, Input, Button, message, Space, Typography, Divider, Switch, InputNumber, Table, Tag } from 'antd';
+import { Card, Form, Input, Button, message, Space, Typography, Divider, Switch, InputNumber, Table, Tag, Modal } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { LockOutlined, ExportOutlined, DatabaseOutlined } from '@ant-design/icons';
+import { LockOutlined, ExportOutlined, DatabaseOutlined, MailOutlined } from '@ant-design/icons';
 import AdminLayout from '../components/AdminLayout';
 import api from '../services/api';
 import { siteConfigService, type FirstVisitModalConfig, type SiteComplianceConfig } from '../services/siteConfigService';
@@ -16,11 +16,14 @@ const Settings: React.FC = () => {
   const [complianceLoading, setComplianceLoading] = useState(false);
   const [complianceSaving, setComplianceSaving] = useState(false);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [testEmailVisible, setTestEmailVisible] = useState(false);
+  const [testEmailSending, setTestEmailSending] = useState(false);
   const [feedbackItems, setFeedbackItems] = useState<FeedbackItem[]>([]);
   const [feedbackPagination, setFeedbackPagination] = useState({ page: 1, pageSize: 10, total: 0 });
   const [form] = Form.useForm();
   const [modalForm] = Form.useForm();
   const [complianceForm] = Form.useForm();
+  const [testEmailForm] = Form.useForm();
 
   const feedbackColumns: ColumnsType<FeedbackItem> = [
     {
@@ -170,6 +173,25 @@ const Settings: React.FC = () => {
     }
   };
 
+  const handleSendTestEmail = async () => {
+    try {
+      const values = await testEmailForm.validateFields();
+      setTestEmailSending(true);
+      const result = await siteConfigService.sendAdminTestEmail({ email: values.email });
+      message.success(result.message || '测试邮件发送成功');
+      setTestEmailVisible(false);
+      testEmailForm.resetFields();
+    } catch (err: any) {
+      if (err?.errorFields) {
+        return;
+      }
+      const msg = err?.response?.data?.error?.message || err?.message || '测试邮件发送失败';
+      message.error(msg);
+    } finally {
+      setTestEmailSending(false);
+    }
+  };
+
   return (
     <AdminLayout>
       <div style={{ padding: 24, maxWidth: 600 }}>
@@ -216,6 +238,9 @@ const Settings: React.FC = () => {
               </Button>
               <Button icon={<ExportOutlined />} onClick={() => handleExport('csv')}>
                 导出 CSV
+              </Button>
+              <Button icon={<MailOutlined />} onClick={() => setTestEmailVisible(true)}>
+                测试邮件
               </Button>
             </Space>
           </Space>
@@ -324,6 +349,34 @@ const Settings: React.FC = () => {
             }}
           />
         </Card>
+
+        <Modal
+          title="发送测试邮件"
+          open={testEmailVisible}
+          onCancel={() => {
+            setTestEmailVisible(false);
+            testEmailForm.resetFields();
+          }}
+          onOk={handleSendTestEmail}
+          confirmLoading={testEmailSending}
+          okText="发送"
+          cancelText="取消"
+          destroyOnHidden
+        >
+          <Form form={testEmailForm} layout="vertical">
+            <Form.Item
+              name="email"
+              label="收件邮箱"
+              rules={[
+                { required: true, message: '请输入收件邮箱' },
+                { type: 'email', message: '请输入有效邮箱地址' },
+              ]}
+            >
+              <Input placeholder="example@domain.com" autoComplete="email" />
+            </Form.Item>
+            <Text type="secondary">使用后台配置的 SMTP 参数发送一封测试邮件。</Text>
+          </Form>
+        </Modal>
       </div>
     </AdminLayout>
   );

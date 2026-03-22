@@ -123,6 +123,10 @@ export const feedbackSubmitSchema = z.object({
   contact: z.string().trim().max(200).optional().default(''),
 });
 
+export const testEmailSchema = z.object({
+  email: z.string().trim().email('invalid email').max(200),
+});
+
 // ── Artist ────────────────────────────────────────────────────────
 export const mergeArtistsSchema = z.object({
   canonicalName: z.string().min(1, 'canonicalName is required').max(500),

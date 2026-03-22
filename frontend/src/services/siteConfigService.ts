@@ -15,6 +15,10 @@ export interface SiteComplianceConfig {
   public_security_number: string;
 }
 
+export interface TestEmailPayload {
+  email: string;
+}
+
 interface ApiResponse<T> {
   success: boolean;
   data?: T;
@@ -98,6 +102,14 @@ export const siteConfigService = {
       return response.data.data;
     }
     throw new Error(response.data.error?.message || 'Failed to update compliance config');
+  },
+
+  async sendAdminTestEmail(payload: TestEmailPayload): Promise<{ message: string }> {
+    const response = await api.post<ApiResponse<{ message: string }>>('/settings/test-email', payload);
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data.error?.message || 'Failed to send test email');
   },
 };
 
