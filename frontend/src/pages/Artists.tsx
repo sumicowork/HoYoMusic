@@ -70,7 +70,7 @@ const Artists: React.FC = () => {
             <span>{artist.album_count || 0} 张专辑</span>
           </div>
           {artist.roles && artist.roles.length > 0 && (
-            <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 4, justifyContent: 'center' }}>
+            <div className="artist-roles">
               {artist.roles.slice(0, 3).map(r => (
                 <Tag key={r} color="purple" style={{ fontSize: 10, margin: 0 }}>{r}</Tag>
               ))}

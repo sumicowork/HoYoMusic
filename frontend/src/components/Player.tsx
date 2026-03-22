@@ -120,12 +120,28 @@ const Player: React.FC = () => {
 
   // Fetch lyrics when track changes
   useEffect(() => {
-    if (!currentTrack) { setLyricsContent(null); setLyricsLines([]); return; }
-    lyricsService.getLyrics(currentTrack.id).then(lrc => {
+    if (!currentTrack) {
+      setLyricsContent(null);
+      setLyricsLines([]);
+      setActiveLyricIdx(-1);
+      return;
+    }
+
+    let canceled = false;
+    const trackId = currentTrack.id;
+
+    lyricsService.getLyrics(trackId).then((lrc) => {
+      if (canceled || usePlayerStore.getState().currentTrack?.id !== trackId) {
+        return;
+      }
       setLyricsContent(lrc);
       setLyricsLines(lrc ? parseLrc(lrc) : []);
       setActiveLyricIdx(-1);
     });
+
+    return () => {
+      canceled = true;
+    };
   }, [currentTrack?.id]);
 
   // Sync active lyric line with progress
@@ -147,7 +163,17 @@ const Player: React.FC = () => {
 
   // Media Session API
   useEffect(() => {
-    if (!currentTrack || !('mediaSession' in navigator)) return;
+    if (!('mediaSession' in navigator)) return;
+
+    if (!currentTrack) {
+      navigator.mediaSession.metadata = null;
+      navigator.mediaSession.setActionHandler('play', null);
+      navigator.mediaSession.setActionHandler('pause', null);
+      navigator.mediaSession.setActionHandler('previoustrack', null);
+      navigator.mediaSession.setActionHandler('nexttrack', null);
+      return;
+    }
+
     const coverSrc = currentTrack.cover_path
       ? trackService.getCoverUrl(currentTrack.cover_path)
       : currentTrack.album_cover
@@ -167,6 +193,13 @@ const Player: React.FC = () => {
     });
     navigator.mediaSession.setActionHandler('previoustrack', () => handlePrevious());
     navigator.mediaSession.setActionHandler('nexttrack', () => handleNext());
+
+    return () => {
+      navigator.mediaSession.setActionHandler('play', null);
+      navigator.mediaSession.setActionHandler('pause', null);
+      navigator.mediaSession.setActionHandler('previoustrack', null);
+      navigator.mediaSession.setActionHandler('nexttrack', null);
+    };
   }, [currentTrack]);
 
   // Global keyboard shortcuts
@@ -216,44 +249,86 @@ const Player: React.FC = () => {
   }, [currentTrack, isPlaying, volume, expanded]);
 
   useEffect(() => {
-    if (currentTrack) {
-      playSessionKeyRef.current = `${currentTrack.id}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    if (!currentTrack) {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+      if (howlRef.current) {
+        howlRef.current.unload();
+        howlRef.current = null;
+      }
+      playSessionKeyRef.current = null;
       effectivePlayReportedRef.current = false;
+      setIsPlaying(false);
+      updateProgress(0);
+      setDuration(0);
+      return;
+    }
 
-      if (howlRef.current) howlRef.current.unload();
-      const streamUrl = (IS_STATIC && currentTrack.audio_url)
-        ? currentTrack.audio_url
-        : trackService.getStreamUrlPublic(currentTrack.id);
-      const newHowl = new Howl({
-        src: [streamUrl],
-        html5: true,
-        format: ['flac'],
-        volume: volume,
-        loop: currentPlayMode === 'single',
-        onload: function () { setDuration(newHowl.duration()); },
-        onplay: function () {
-          if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-          progressIntervalRef.current = window.setInterval(() => {
-            if (newHowl.playing()) updateProgress(newHowl.seek() as number);
-          }, 100);
-        },
-        onpause: function () {
-          if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-        },
-        onend: function () {
-          if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-          tryReportEffectivePlay(newHowl.duration());
-          if (currentPlayMode !== 'single') { setIsPlaying(false); handleNext(); }
-        },
-      });
-      howlRef.current = newHowl;
+    playSessionKeyRef.current = `${currentTrack.id}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    effectivePlayReportedRef.current = false;
+
+    if (howlRef.current) {
+      howlRef.current.unload();
+      howlRef.current = null;
+    }
+    updateProgress(0);
+    const streamUrl = (IS_STATIC && currentTrack.audio_url)
+      ? currentTrack.audio_url
+      : trackService.getStreamUrlPublic(currentTrack.id);
+    const newHowl = new Howl({
+      src: [streamUrl],
+      html5: true,
+      format: ['flac'],
+      volume: volume,
+      loop: currentPlayMode === 'single',
+      onload: function () { setDuration(newHowl.duration()); },
+      onplay: function () {
+        if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = window.setInterval(() => {
+          if (newHowl.playing()) updateProgress(newHowl.seek() as number);
+        }, 100);
+      },
+      onpause: function () {
+        if (progressIntervalRef.current) {
+          clearInterval(progressIntervalRef.current);
+          progressIntervalRef.current = null;
+        }
+      },
+      onend: function () {
+        if (progressIntervalRef.current) {
+          clearInterval(progressIntervalRef.current);
+          progressIntervalRef.current = null;
+        }
+        tryReportEffectivePlay(newHowl.duration());
+        if (usePlayerStore.getState().playMode !== 'single') {
+          setIsPlaying(false);
+          handleNext();
+        }
+      },
+    });
+    howlRef.current = newHowl;
+    if (isPlaying) {
       newHowl.play();
       setIsPlaying(true);
     }
     return () => {
-      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
     };
   }, [currentTrack]);
+
+  useEffect(() => {
+    if (!howlRef.current) return;
+    if (isPlaying && !howlRef.current.playing()) {
+      howlRef.current.play();
+    } else if (!isPlaying && howlRef.current.playing()) {
+      howlRef.current.pause();
+    }
+  }, [isPlaying, currentTrack?.id]);
 
   useEffect(() => {
     tryReportEffectivePlay(progress);
@@ -274,13 +349,18 @@ const Player: React.FC = () => {
   };
 
   const handlePrevious = () => {
-    if (howlRef.current) howlRef.current.unload();
-    previous();
+    const switched = previous();
+    if (!switched && howlRef.current) {
+      howlRef.current.seek(0);
+      updateProgress(0);
+    }
   };
 
   const handleNext = () => {
-    if (howlRef.current) howlRef.current.unload();
-    next();
+    const switched = next();
+    if (!switched && howlRef.current) {
+      setIsPlaying(false);
+    }
   };
 
   const handleSeek = (value: number) => {

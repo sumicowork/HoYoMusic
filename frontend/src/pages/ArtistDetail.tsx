@@ -257,10 +257,10 @@ const ArtistDetail: React.FC = () => {
                     <Card.Meta
                       title={album.title}
                       description={
-                        <div>
+                        <div className="artist-album-meta">
                           <div>{album.track_count || 0} 首</div>
                           {album.release_date && (
-                            <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{new Date(album.release_date).getFullYear()}</div>
+                            <div className="artist-album-year">{new Date(album.release_date).getFullYear()}</div>
                           )}
                         </div>
                       }

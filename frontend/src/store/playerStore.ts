@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Track } from '../types';
-import { Howl } from 'howler';
 
 export type PlayMode = 'sequence' | 'loop' | 'shuffle' | 'single';
 
@@ -12,7 +11,6 @@ interface PlayerState {
   volume: number;
   progress: number;
   duration: number;
-  howl: Howl | null;
   playMode: PlayMode;
 
   // Sleep timer
@@ -28,8 +26,8 @@ interface PlayerState {
   togglePlay: () => void;
   setVolume: (volume: number) => void;
   seek: (position: number) => void;
-  next: () => void;
-  previous: () => void;
+  next: () => boolean;
+  previous: () => boolean;
   updateProgress: (progress: number) => void;
   setDuration: (duration: number) => void;
   setPlayMode: (mode: PlayMode) => void;
@@ -56,7 +54,6 @@ export const usePlayerStore = create<PlayerState>()(
   volume: 0.8,
   progress: 0,
   duration: 0,
-  howl: null,
   playMode: 'sequence',
   sleepTimerEnd: null,
   crossfadeDuration: 0,
@@ -71,14 +68,8 @@ export const usePlayerStore = create<PlayerState>()(
     const state = get();
 
     if (track) {
-      // Stop current howl
-      if (state.howl) {
-        state.howl.unload();
-      }
-
       set({ currentTrack: track, isPlaying: true });
-    } else if (state.howl) {
-      state.howl.play();
+    } else if (state.currentTrack) {
       set({ isPlaying: true });
     }
   },
@@ -91,18 +82,10 @@ export const usePlayerStore = create<PlayerState>()(
       // Add to end of playlist
       set({ playlist: [...state.playlist, track] });
     }
-    // Play the track
-    if (state.howl) {
-      state.howl.unload();
-    }
     set({ currentTrack: track, isPlaying: true });
   },
 
   pause: () => {
-    const state = get();
-    if (state.howl) {
-      state.howl.pause();
-    }
     set({ isPlaying: false });
   },
 
@@ -116,24 +99,20 @@ export const usePlayerStore = create<PlayerState>()(
   },
 
   setVolume: (volume) => {
-    const state = get();
-    if (state.howl) {
-      state.howl.volume(volume);
-    }
     set({ volume });
   },
 
   seek: (position) => {
-    const state = get();
-    if (state.howl) {
-      state.howl.seek(position);
-    }
     set({ progress: position });
   },
 
   next: () => {
     const state = get();
     const currentIndex = state.playlist.findIndex((t) => t.id === state.currentTrack?.id);
+
+    if (state.playlist.length === 0 || currentIndex === -1) {
+      return false;
+    }
 
     if (state.playMode === 'shuffle') {
       // 随机播放：随机选择下一首（排除当前歌曲）
@@ -143,22 +122,31 @@ export const usePlayerStore = create<PlayerState>()(
           randomIndex = Math.floor(Math.random() * state.playlist.length);
         } while (randomIndex === currentIndex);
         state.play(state.playlist[randomIndex]);
+        return true;
       }
+      return false;
     } else if (state.playMode === 'loop') {
       // 列表循环：播放下一首，到末尾时循环到第一首
       const nextIndex = (currentIndex + 1) % state.playlist.length;
       state.play(state.playlist[nextIndex]);
+      return true;
     } else {
       // 顺序播放：播放下一首，到末尾时停止
       if (currentIndex < state.playlist.length - 1) {
         state.play(state.playlist[currentIndex + 1]);
+        return true;
       }
+      return false;
     }
   },
 
   previous: () => {
     const state = get();
     const currentIndex = state.playlist.findIndex((t) => t.id === state.currentTrack?.id);
+
+    if (state.playlist.length === 0 || currentIndex === -1) {
+      return false;
+    }
 
     if (state.playMode === 'shuffle') {
       // 随机播放：随机选择上一首
@@ -168,16 +156,21 @@ export const usePlayerStore = create<PlayerState>()(
           randomIndex = Math.floor(Math.random() * state.playlist.length);
         } while (randomIndex === currentIndex);
         state.play(state.playlist[randomIndex]);
+        return true;
       }
+      return false;
     } else if (state.playMode === 'loop') {
       // 列表循环：播放上一首，到开头时循环到最后一首
       const prevIndex = currentIndex <= 0 ? state.playlist.length - 1 : currentIndex - 1;
       state.play(state.playlist[prevIndex]);
+      return true;
     } else {
       // 顺序播放：播放上一首，到开头时停止
       if (currentIndex > 0) {
         state.play(state.playlist[currentIndex - 1]);
+        return true;
       }
+      return false;
     }
   },
 
@@ -201,15 +194,11 @@ export const usePlayerStore = create<PlayerState>()(
 
     // 如果删除的是当前播放的歌曲，则停止播放
     if (state.currentTrack?.id === trackId) {
-      if (state.howl) {
-        state.howl.unload();
-      }
       // 如果队列中还有其他歌曲，播放下一首
       if (newPlaylist.length > 0) {
         const currentIndex = state.playlist.findIndex((t) => t.id === trackId);
         const nextIndex = currentIndex < newPlaylist.length ? currentIndex : 0;
-        set({ playlist: newPlaylist });
-        state.play(newPlaylist[nextIndex]);
+        set({ playlist: newPlaylist, currentTrack: newPlaylist[nextIndex], isPlaying: true, progress: 0 });
       } else {
         // 队列为空
         set({
@@ -226,17 +215,12 @@ export const usePlayerStore = create<PlayerState>()(
   },
 
   clearPlaylist: () => {
-    const state = get();
-    if (state.howl) {
-      state.howl.unload();
-    }
     set({
       playlist: [],
       currentTrack: null,
       isPlaying: false,
       progress: 0,
-      duration: 0,
-      howl: null
+      duration: 0
     });
   },
 
