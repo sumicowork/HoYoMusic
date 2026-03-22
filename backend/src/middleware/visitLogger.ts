@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import { Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
 import pool from '../config/database';
 
 type VisitLogEntry = [
@@ -32,6 +33,7 @@ try { UAParser = require('ua-parser-js'); } catch { /* optional */ }
 const SKIP_PREFIXES = ['/uploads/', '/api/public/covers/proxy'];
 const VISITOR_COOKIE_KEY = 'visitor_id';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
 const SKIP_PATTERNS = [/\/stream(\?|$)/, /\.(woff2?|ttf|ico|svg|map)(\?|$)/i];
 const VISIT_LOGGER_ENABLED = process.env.VISIT_LOGGER_ENABLED !== 'false';
 const FLUSH_INTERVAL_MS = Math.max(200, parseInt(process.env.VISIT_LOGGER_FLUSH_MS || '1000', 10));
@@ -40,6 +42,7 @@ const MAX_QUEUE_SIZE = Math.max(BATCH_SIZE, parseInt(process.env.VISIT_LOGGER_MA
 
 const queue: VisitLogEntry[] = [];
 let flushing = false;
+const visitorMergeCache = new Set<string>();
 
 function sanitizeVisitorId(raw: unknown): string | null {
   if (typeof raw !== 'string') return null;
@@ -52,7 +55,7 @@ function sanitizeVisitorId(raw: unknown): string | null {
 
 function parseCookieValue(req: Request, key: string): string | null {
   const raw = req.headers.cookie;
-  if (!raw || typeof raw !== 'string') return null;
+  if (!raw) return null;
 
   const entries = raw.split(';');
   for (const entry of entries) {
@@ -83,6 +86,43 @@ function getVisitorId(req: Request): string | null {
   }
 
   return null;
+}
+
+function getAuthUsername(req: Request): string | null {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+
+  const token = authHeader.slice(7).trim();
+  if (!token) return null;
+
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as { username?: unknown };
+    if (typeof payload.username === 'string' && payload.username.trim()) {
+      return payload.username.trim().slice(0, 128);
+    }
+  } catch {
+    // Ignore invalid token for logging enrichment; auth middleware handles authorization.
+  }
+  return null;
+}
+
+function mergeVisitorLogs(fromVisitorId: string, toVisitorId: string): void {
+  if (!fromVisitorId || !toVisitorId || fromVisitorId === toVisitorId) return;
+  const cacheKey = `${fromVisitorId}->${toVisitorId}`;
+  if (visitorMergeCache.has(cacheKey)) return;
+  visitorMergeCache.add(cacheKey);
+
+  pool.query(
+    `UPDATE visit_logs
+     SET visitor_id = $2
+     WHERE visitor_id = $1`,
+    [fromVisitorId, toVisitorId]
+  ).catch((err) => {
+    visitorMergeCache.delete(cacheKey);
+    console.warn('[visitLogger:mergeVisitorLogs]', (err as Error).message || 'unknown error');
+  });
 }
 
 function ensureVisitorId(req: Request, res: Response): string {
@@ -183,7 +223,14 @@ export function visitLogger(req: Request, res: Response, next: NextFunction) {
     try {
       const duration = Date.now() - startAt;
       const ip = getRealIp(req);
-      const visitorId = getVisitorId(req);
+      const rawVisitorId = getVisitorId(req);
+      const authUsername = getAuthUsername(req);
+      const visitorId = authUsername || rawVisitorId;
+
+      if (authUsername && rawVisitorId && rawVisitorId !== authUsername) {
+        // Merge historical anonymous visitor rows into the authenticated username bucket.
+        mergeVisitorLogs(rawVisitorId, authUsername);
+      }
       const ua = (req.headers['user-agent'] || '').slice(0, 512);
       const referer = ((req.headers['referer'] || req.headers['referrer'] || '') as string).slice(0, 512);
 

@@ -7,17 +7,17 @@ import {
   previewLyricsBatchImport,
   commitLyricsBatchImport,
 } from '../controllers/lyricsController';
-import { authenticateJWT } from '../middleware/auth';
+import { authenticateAdmin } from '../middleware/auth';
 import { lyricsBatchUpload } from '../middleware/upload';
 
 const router = Router();
 
 // Admin routes - require authentication
-router.post('/import/preview', authenticateJWT, lyricsBatchUpload.array('files', 200), previewLyricsBatchImport);
-router.post('/import/commit', authenticateJWT, lyricsBatchUpload.array('files', 200), commitLyricsBatchImport);
-router.post('/:id/lyrics', authenticateJWT, uploadLyrics);
-router.put('/:id/lyrics', authenticateJWT, updateLyrics);
-router.delete('/:id/lyrics', authenticateJWT, deleteLyrics);
+router.post('/import/preview', authenticateAdmin, lyricsBatchUpload.array('files', 200), previewLyricsBatchImport);
+router.post('/import/commit', authenticateAdmin, lyricsBatchUpload.array('files', 200), commitLyricsBatchImport);
+router.post('/:id/lyrics', authenticateAdmin, uploadLyrics);
+router.put('/:id/lyrics', authenticateAdmin, updateLyrics);
+router.delete('/:id/lyrics', authenticateAdmin, deleteLyrics);
 
 // Public route - no authentication required
 router.get('/:id/lyrics', getLyrics);

@@ -12,10 +12,10 @@ import {
   getAlbumBpmTask,
 } from '../controllers/albumController';
 import { coverUpload } from '../middleware/upload';
-import passport from 'passport';
 import { validateBody } from '../middleware/validate';
 import { updateAlbumSchema, bulkUpdateGameSchema } from '../validators/schemas';
 import { cacheControl, CACHE_TTL } from '../middleware/cacheHeaders';
+import { authenticateAdmin } from '../middleware/auth';
 
 const router = express.Router();
 
@@ -25,13 +25,13 @@ router.get('/:id', cacheControl(CACHE_TTL.SHORT), getAlbumById);
 router.get('/:id/download', downloadAlbum);
 
 // Protected routes
-router.put('/bulk-game', passport.authenticate('jwt', { session: false }), validateBody(bulkUpdateGameSchema), bulkUpdateGame);
-router.put('/:id', passport.authenticate('jwt', { session: false }), validateBody(updateAlbumSchema), updateAlbum);
-router.post('/:id/cover', passport.authenticate('jwt', { session: false }), coverUpload.single('cover'), uploadCover);
-router.post('/:id/rescan-dates', passport.authenticate('jwt', { session: false }), rescanDates);
-router.post('/:id/detect-bpm', passport.authenticate('jwt', { session: false }), detectAlbumBpm);
-router.post('/:id/detect-bpm/tasks', passport.authenticate('jwt', { session: false }), createAlbumBpmTask);
-router.get('/:id/detect-bpm/tasks/:taskId', passport.authenticate('jwt', { session: false }), getAlbumBpmTask);
+router.put('/bulk-game', authenticateAdmin, validateBody(bulkUpdateGameSchema), bulkUpdateGame);
+router.put('/:id', authenticateAdmin, validateBody(updateAlbumSchema), updateAlbum);
+router.post('/:id/cover', authenticateAdmin, coverUpload.single('cover'), uploadCover);
+router.post('/:id/rescan-dates', authenticateAdmin, rescanDates);
+router.post('/:id/detect-bpm', authenticateAdmin, detectAlbumBpm);
+router.post('/:id/detect-bpm/tasks', authenticateAdmin, createAlbumBpmTask);
+router.get('/:id/detect-bpm/tasks/:taskId', authenticateAdmin, getAlbumBpmTask);
 
 export default router;
 

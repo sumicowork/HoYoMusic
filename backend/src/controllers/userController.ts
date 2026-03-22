@@ -11,7 +11,7 @@ export const listUsers = async (req: Request, res: Response) => {
     const [countResult, listResult] = await Promise.all([
       pool.query('SELECT COUNT(*)::int AS total FROM users'),
       pool.query(
-        `SELECT id, username, email, email_verified, created_at, updated_at
+        `SELECT id, username, email, email_verified, is_admin, created_at, updated_at
          FROM users
          ORDER BY created_at DESC, id DESC
          LIMIT $1 OFFSET $2`,

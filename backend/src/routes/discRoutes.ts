@@ -1,5 +1,5 @@
 import express from 'express';
-import passport from 'passport';
+import { authenticateAdmin } from '../middleware/auth';
 import {
   getDiscsByAlbum,
   createDisc,
@@ -10,7 +10,7 @@ import {
 } from '../controllers/discController';
 
 const router = express.Router();
-const auth = passport.authenticate('jwt', { session: false });
+const auth = authenticateAdmin;
 
 // Public routes
 router.get('/albums/:albumId/discs', getDiscsByAlbum);

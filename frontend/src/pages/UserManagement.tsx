@@ -55,6 +55,13 @@ const UserManagement: React.FC = () => {
       render: (value: boolean) => (value ? <Tag color="green">已验证</Tag> : <Tag color="orange">未验证</Tag>),
     },
     {
+      title: '角色',
+      dataIndex: 'is_admin',
+      key: 'is_admin',
+      width: 120,
+      render: (value: boolean) => (value ? <Tag color="blue">管理员</Tag> : <Tag>普通用户</Tag>),
+    },
+    {
       title: '注册时间',
       dataIndex: 'created_at',
       key: 'created_at',

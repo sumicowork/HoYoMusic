@@ -11,14 +11,14 @@ const { Text } = Typography;
 const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { setUser, setToken, isAuthenticated, isInitialized } = useAuthStore();
+  const { setUser, setToken, isAuthenticated, isInitialized, user } = useAuthStore();
 
   // 若已登录则直接跳转管理后台
   useEffect(() => {
     if (isInitialized && isAuthenticated) {
-      navigate('/admin', { replace: true });
+      navigate(user?.is_admin ? '/admin' : '/', { replace: true });
     }
-  }, [isAuthenticated, isInitialized, navigate]);
+  }, [isAuthenticated, isInitialized, navigate, user]);
 
   // 等待 auth 初始化完成
   if (!isInitialized) {
@@ -35,7 +35,7 @@ const Login: React.FC = () => {
       setToken(data.token);
       setUser(data.user);
       message.success('登录成功！');
-      navigate('/admin', { replace: true });
+      navigate(data.user.is_admin ? '/admin' : '/', { replace: true });
     } catch (error: any) {
       message.error(error.message || '登录失败');
     } finally {

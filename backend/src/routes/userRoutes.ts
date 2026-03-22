@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { authenticateJWT } from '../middleware/auth';
+import { authenticateAdmin } from '../middleware/auth';
 import { listUsers } from '../controllers/userController';
 
 const router = Router();
 
-router.get('/', authenticateJWT, listUsers);
+router.get('/', authenticateAdmin, listUsers);
 
 export default router;
 

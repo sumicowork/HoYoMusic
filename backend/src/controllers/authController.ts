@@ -44,6 +44,7 @@ export const login = (req: Request, res: Response, next: NextFunction) => {
           username: user.username,
           email: user.email ?? null,
           email_verified: user.email_verified ?? false,
+          is_admin: user.is_admin ?? false,
         },
       },
     });
@@ -184,9 +185,9 @@ export const register = async (req: Request, res: Response) => {
 
     const passwordHash = await bcrypt.hash(body.password, 10);
     const userInsert = await client.query(
-      `INSERT INTO users (username, email, email_verified, password_hash)
-       VALUES ($1, $2, TRUE, $3)
-       RETURNING id, username, email, email_verified`,
+      `INSERT INTO users (username, email, email_verified, is_admin, password_hash)
+       VALUES ($1, $2, TRUE, FALSE, $3)
+       RETURNING id, username, email, email_verified, is_admin`,
       [username, email, passwordHash]
     );
 

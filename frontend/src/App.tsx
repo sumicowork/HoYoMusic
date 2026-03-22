@@ -71,7 +71,7 @@ interface AppRoutesProps {
 const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onCloseFeedback }) => {
   const location = useLocation();
   const { currentTrack } = usePlayerStore();
-  const { isAuthenticated, isInitialized } = useAuthStore();
+  const { isAuthenticated, isInitialized, user } = useAuthStore();
   const [maintenanceConfig, setMaintenanceConfig] = useState<MaintenanceModeConfig>(DEFAULT_MAINTENANCE_MODE_CONFIG);
   const [maintenanceLoaded, setMaintenanceLoaded] = useState(false);
 
@@ -112,7 +112,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
     };
   }, []);
 
-  const canBypassMaintenance = !IS_STATIC && isInitialized && isAuthenticated;
+  const canBypassMaintenance = !IS_STATIC && isInitialized && isAuthenticated && !!user?.is_admin;
   const canEvaluateMaintenance = maintenanceLoaded && (IS_STATIC || isInitialized);
   const maintenanceEntryToLogin = location.pathname === '/admin/login'
     && new URLSearchParams(location.search).get('maintenance_entry') === '1';
@@ -181,7 +181,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
               <Route
                 path="/admin"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requireAdmin>
                     <Admin />
                   </ProtectedRoute>
                 }
@@ -189,7 +189,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
               <Route
                 path="/admin/albums"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requireAdmin>
                     <AlbumManagement />
                   </ProtectedRoute>
                 }
@@ -197,7 +197,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
               <Route
                 path="/admin/tags"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requireAdmin>
                     <TagManagement />
                   </ProtectedRoute>
                 }
@@ -205,7 +205,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
               <Route
                 path="/admin/games"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requireAdmin>
                     <GameManagement />
                   </ProtectedRoute>
                 }
@@ -213,7 +213,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
               <Route
                 path="/admin/artists"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requireAdmin>
                     <ArtistManagement />
                   </ProtectedRoute>
                 }
@@ -221,7 +221,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
               <Route
                 path="/admin/users"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requireAdmin>
                     <UserManagement />
                   </ProtectedRoute>
                 }
@@ -229,7 +229,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
               <Route
                 path="/admin/analytics"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requireAdmin>
                     <Analytics />
                   </ProtectedRoute>
                 }
@@ -237,7 +237,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
               <Route
                 path="/admin/settings"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requireAdmin>
                     <Settings />
                   </ProtectedRoute>
                 }

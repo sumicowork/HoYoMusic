@@ -3,6 +3,7 @@ export interface User {
   username: string;
   email?: string | null;
   email_verified?: boolean;
+  is_admin?: boolean;
 }
 
 export interface Track {

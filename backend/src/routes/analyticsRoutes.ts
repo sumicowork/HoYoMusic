@@ -2,13 +2,13 @@ import { Router, Request, Response } from 'express';
 import http from 'http';
 import https from 'https';
 import pool from '../config/database';
-import { authenticateJWT } from '../middleware/auth';
+import { authenticateAdmin } from '../middleware/auth';
 import { cache } from '../utils/cache';
 import remoteResourceCache from '../services/remoteResourceCache';
 import storageService from '../services/storageService';
 
 const router = Router();
-router.use(authenticateJWT as any);
+router.use(authenticateAdmin as any);
 
 // ── Helper ────────────────────────────────────────────────────────
 const clampDays = (v: any, max = 90) => Math.min(Math.max(parseInt(v) || 30, 1), max);

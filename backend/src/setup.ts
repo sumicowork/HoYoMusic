@@ -43,9 +43,12 @@ async function setupDatabase() {
     const hashedPassword = await bcrypt.hash(adminPassword, 10);
 
     await pool.query(
-      `INSERT INTO users (username, password_hash) 
-       VALUES ($1, $2) 
-       ON CONFLICT (username) DO UPDATE SET password_hash = $2`,
+      `INSERT INTO users (username, password_hash, email_verified, is_admin)
+       VALUES ($1, $2, TRUE, TRUE)
+       ON CONFLICT (username) DO UPDATE
+       SET password_hash = $2,
+           email_verified = TRUE,
+           is_admin = TRUE`,
       ['admin', hashedPassword]
     );
 

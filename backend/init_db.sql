@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
     username VARCHAR(50) UNIQUE NOT NULL,
     email VARCHAR(200),
     email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+    is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     password_hash VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -120,8 +121,8 @@ CREATE INDEX IF NOT EXISTS idx_track_play_events_track_effective ON track_play_e
 CREATE INDEX IF NOT EXISTS idx_track_play_events_source_ip ON track_play_events(source_ip);
 
 -- 默认管理员（密码：admin123，请登录后立即修改）
-INSERT INTO users (username, password_hash)
-VALUES ('admin', '$2b$10$XQqZ3zXJH4J4vF7.L0mYHOGKq5x0xVZNY9qW9z3X9X3X9X3X9X3X9e')
+INSERT INTO users (username, password_hash, email_verified, is_admin)
+VALUES ('admin', '$2b$10$XQqZ3zXJH4J4vF7.L0mYHOGKq5x0xVZNY9qW9z3X9X3X9X3X9X3X9e', TRUE, TRUE)
 ON CONFLICT (username) DO NOTHING;
 
 -- ────────────────────────────────────────────────────────────

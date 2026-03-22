@@ -264,8 +264,7 @@ const runMigrations = async () => {
       UPDATE visit_logs
       SET visitor_id = NULL
       WHERE visitor_id IS NOT NULL
-        AND visitor_id <> ''
-        AND visitor_id !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+        AND TRIM(visitor_id) = ''
     `);
     console.log('✅ DB migrations up to date (visit_logs)');
   } catch (err) {
@@ -424,6 +423,7 @@ const runMigrations = async () => {
   try {
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(200)`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE`);
     await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_lower ON users (LOWER(email)) WHERE email IS NOT NULL`);
 
     await pool.query(`
@@ -440,7 +440,7 @@ const runMigrations = async () => {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_auth_codes_expires ON auth_verification_codes (expires_at)`);
     await pool.query(`
       UPDATE users
-      SET email_verified = TRUE
+      SET email_verified = TRUE, is_admin = TRUE
       WHERE username = 'admin'
     `);
     console.log('✅ DB migrations up to date (users auth extensions)');

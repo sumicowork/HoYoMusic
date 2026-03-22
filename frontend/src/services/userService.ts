@@ -6,6 +6,7 @@ export interface AdminUserItem {
   username: string;
   email: string | null;
   email_verified: boolean;
+  is_admin: boolean;
   created_at: string;
   updated_at: string;
 }

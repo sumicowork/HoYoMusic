@@ -18,7 +18,7 @@ const Register: React.FC = () => {
 
   useEffect(() => {
     if (isInitialized && isAuthenticated) {
-      navigate('/admin', { replace: true });
+      navigate('/', { replace: true });
     }
   }, [isAuthenticated, isInitialized, navigate]);
 
@@ -72,7 +72,7 @@ const Register: React.FC = () => {
       setToken(result.token);
       setUser(result.user);
       message.success('注册成功，已自动登录');
-      navigate('/admin', { replace: true });
+      navigate('/', { replace: true });
     } catch (error: any) {
       message.error(error?.message || '注册失败');
     } finally {

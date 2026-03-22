@@ -63,11 +63,12 @@ const isExemptPath = (path: string): boolean => EXEMPT_PATH_PREFIXES.some((prefi
 const isAuthenticatedAdmin = (req: Request, res: Response): Promise<boolean> => {
   return new Promise((resolve) => {
     passport.authenticate('jwt', { session: false }, (err: unknown, user: unknown) => {
-      if (err || !user) {
+      const typedUser = user as { is_admin?: boolean } | null;
+      if (err || !typedUser || !typedUser.is_admin) {
         resolve(false);
         return;
       }
-      req.user = user as any;
+      req.user = typedUser as any;
       resolve(true);
     })(req, res, () => resolve(false));
   });

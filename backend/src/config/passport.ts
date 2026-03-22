@@ -16,7 +16,7 @@ passport.use(
   new JwtStrategy(jwtOptions, async (payload, done) => {
     try {
       const result = await pool.query(
-        'SELECT id, username, email, email_verified FROM users WHERE id = $1',
+        'SELECT id, username, email, email_verified, is_admin FROM users WHERE id = $1',
         [payload.id]
       );
 
@@ -60,6 +60,7 @@ passport.use(
         username: user.username,
         email: user.email,
         email_verified: user.email_verified,
+        is_admin: user.is_admin,
       });
     } catch (error) {
       return done(error);

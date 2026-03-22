@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import pool from '../config/database';
-import { authenticateJWT } from '../middleware/auth';
+import { authenticateAdmin } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
 import {
   firstVisitModalSchema,
@@ -210,7 +210,7 @@ router.post('/public/feedback', validateBody(feedbackSubmitSchema), async (req: 
   }
 });
 
-router.post('/settings/test-email', authenticateJWT, validateBody(testEmailSchema), async (req: Request, res: Response) => {
+router.post('/settings/test-email', authenticateAdmin, validateBody(testEmailSchema), async (req: Request, res: Response) => {
   try {
     const configError = getMailConfigurationError();
     if (configError) {
@@ -237,7 +237,7 @@ router.post('/settings/test-email', authenticateJWT, validateBody(testEmailSchem
   }
 });
 
-router.get('/settings/feedback', authenticateJWT, async (req: Request, res: Response) => {
+router.get('/settings/feedback', authenticateAdmin, async (req: Request, res: Response) => {
   try {
     const page = Math.max(1, parseInt(String(req.query.page || '1'), 10) || 1);
     const pageSizeRaw = parseInt(String(req.query.pageSize || '20'), 10) || 20;
@@ -299,7 +299,7 @@ router.get('/public/site-config/first-visit-modal', async (_req: Request, res: R
   }
 });
 
-router.get('/settings/first-visit-modal', authenticateJWT, async (_req: Request, res: Response) => {
+router.get('/settings/first-visit-modal', authenticateAdmin, async (_req: Request, res: Response) => {
   try {
     const config = await getFirstVisitModalConfig();
     res.json({ success: true, data: config });
@@ -312,7 +312,7 @@ router.get('/settings/first-visit-modal', authenticateJWT, async (_req: Request,
   }
 });
 
-router.put('/settings/first-visit-modal', authenticateJWT, validateBody(firstVisitModalSchema), async (req: Request, res: Response) => {
+router.put('/settings/first-visit-modal', authenticateAdmin, validateBody(firstVisitModalSchema), async (req: Request, res: Response) => {
   try {
     const body = req.body as {
       enabled: boolean;
@@ -364,7 +364,7 @@ router.get('/public/site-config/compliance', async (_req: Request, res: Response
   }
 });
 
-router.get('/settings/compliance', authenticateJWT, async (_req: Request, res: Response) => {
+router.get('/settings/compliance', authenticateAdmin, async (_req: Request, res: Response) => {
   try {
     const config = await getSiteComplianceConfig();
     res.json({ success: true, data: config });
@@ -377,7 +377,7 @@ router.get('/settings/compliance', authenticateJWT, async (_req: Request, res: R
   }
 });
 
-router.put('/settings/compliance', authenticateJWT, validateBody(siteComplianceSchema), async (req: Request, res: Response) => {
+router.put('/settings/compliance', authenticateAdmin, validateBody(siteComplianceSchema), async (req: Request, res: Response) => {
   try {
     const body = req.body as SiteComplianceConfig;
     const nextConfig: SiteComplianceConfig = {
@@ -421,7 +421,7 @@ router.get('/public/site-config/maintenance', async (_req: Request, res: Respons
   }
 });
 
-router.get('/settings/maintenance', authenticateJWT, async (_req: Request, res: Response) => {
+router.get('/settings/maintenance', authenticateAdmin, async (_req: Request, res: Response) => {
   try {
     const config = await getMaintenanceModeConfig();
     res.json({ success: true, data: config });
@@ -434,7 +434,7 @@ router.get('/settings/maintenance', authenticateJWT, async (_req: Request, res: 
   }
 });
 
-router.put('/settings/maintenance', authenticateJWT, validateBody(maintenanceModeSchema), async (req: Request, res: Response) => {
+router.put('/settings/maintenance', authenticateAdmin, validateBody(maintenanceModeSchema), async (req: Request, res: Response) => {
   try {
     const body = req.body as { enabled: boolean; expected_end_time?: string | null };
     const expectedEnd = typeof body.expected_end_time === 'string' && body.expected_end_time.trim()
