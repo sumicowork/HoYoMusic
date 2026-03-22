@@ -20,6 +20,7 @@ const EXEMPT_PATH_PREFIXES = [
   '/docs.json',
   '/auth/login',
   '/public/site-config/maintenance',
+  '/public/covers/proxy',
 ];
 
 const CACHE_TTL_MS = 5000;

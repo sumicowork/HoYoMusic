@@ -11,6 +11,12 @@ publicApi.interceptors.request.use((config) => {
   if (visitorId) {
     config.headers['x-visitor-id'] = visitorId;
   }
+
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
   return config;
 });
 
