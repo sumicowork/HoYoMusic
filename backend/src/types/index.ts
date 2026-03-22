@@ -1,6 +1,8 @@
 export interface User {
   id: number;
   username: string;
+  email?: string | null;
+  email_verified?: boolean;
 }
 
 export interface Track {

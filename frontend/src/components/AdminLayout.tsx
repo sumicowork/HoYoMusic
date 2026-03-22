@@ -64,6 +64,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       onClick: () => navigate('/admin/artists')
     },
     {
+      key: '/admin/users',
+      icon: <UserOutlined />,
+      label: '用户管理',
+      onClick: () => navigate('/admin/users')
+    },
+    {
       key: '/admin/analytics',
       icon: <BarChartOutlined />,
       label: '访问统计',
@@ -93,6 +99,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     if (location.pathname === '/admin/tags') return '/admin/tags';
     if (location.pathname === '/admin/games') return '/admin/games';
     if (location.pathname === '/admin/artists') return '/admin/artists';
+    if (location.pathname === '/admin/users') return '/admin/users';
     if (location.pathname === '/admin/analytics') return '/admin/analytics';
     if (location.pathname === '/admin/settings') return '/admin/settings';
     return '/admin';

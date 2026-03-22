@@ -1,6 +1,8 @@
 export interface User {
   id: number;
   username: string;
+  email?: string | null;
+  email_verified?: boolean;
 }
 
 export interface Track {
@@ -70,8 +72,16 @@ export interface PaginatedResponse<T> {
 }
 
 export interface LoginRequest {
-  username: string;
+  identifier: string;
   password: string;
+}
+
+export interface RegisterRequest {
+  username: string;
+  email: string;
+  verification_code: string;
+  password: string;
+  confirm_password: string;
 }
 
 export interface LoginResponse {

@@ -2,8 +2,20 @@ import { z } from 'zod';
 
 // ── Auth ──────────────────────────────────────────────────────────
 export const loginSchema = z.object({
-  username: z.string().min(1, 'Username is required').max(100),
+  identifier: z.string().trim().min(1, 'Username or email is required').max(200),
   password: z.string().min(1, 'Password is required').max(200),
+});
+
+export const sendVerificationCodeSchema = z.object({
+  email: z.string().trim().email('invalid email').max(200),
+});
+
+export const registerSchema = z.object({
+  username: z.string().trim().min(2, 'username is required').max(100),
+  email: z.string().trim().email('invalid email').max(200),
+  verification_code: z.string().trim().regex(/^\d{6}$/, 'verification_code must be 6 digits'),
+  password: z.string().min(6, 'password must be at least 6 characters').max(200),
+  confirm_password: z.string().min(6).max(200),
 });
 
 // ── Album ─────────────────────────────────────────────────────────

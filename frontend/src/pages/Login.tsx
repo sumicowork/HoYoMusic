@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Button, Card, message, Spin } from 'antd';
+import { Form, Input, Button, Card, message, Spin, Typography } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
 import { useAuthStore } from '../store/authStore';
 import './Login.css';
+
+const { Text } = Typography;
 
 const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -26,7 +28,7 @@ const Login: React.FC = () => {
   // 已认证则不渲染表单（useEffect 会处理跳转）
   if (isAuthenticated) return null;
 
-  const onFinish = async (values: { username: string; password: string }) => {
+  const onFinish = async (values: { identifier: string; password: string }) => {
     setLoading(true);
     try {
       const data = await authService.login(values);
@@ -49,8 +51,8 @@ const Login: React.FC = () => {
           <p>高品质音乐收藏平台</p>
         </div>
         <Form name="login" onFinish={onFinish} autoComplete="off" size="large">
-          <Form.Item name="username" rules={[{ required: true, message: '请输入用户名！' }]}>
-            <Input prefix={<UserOutlined />} placeholder="用户名" />
+          <Form.Item name="identifier" rules={[{ required: true, message: '请输入用户名或邮箱！' }]}>
+            <Input prefix={<UserOutlined />} placeholder="用户名或邮箱" />
           </Form.Item>
           <Form.Item name="password" rules={[{ required: true, message: '请输入密码！' }]}>
             <Input.Password prefix={<LockOutlined />} placeholder="密码" />
@@ -60,6 +62,11 @@ const Login: React.FC = () => {
             <Button type="primary" htmlType="submit" loading={loading} block>
               登录
             </Button>
+          </Form.Item>
+
+          <Form.Item style={{ marginBottom: 0, textAlign: 'center' }}>
+            <Text type="secondary">还没有账号？</Text>
+            <Link to="/admin/register" style={{ marginLeft: 8 }}>立即注册</Link>
           </Form.Item>
         </Form>
       </Card>

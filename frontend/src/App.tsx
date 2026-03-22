@@ -26,6 +26,7 @@ import './App.css';
 
 // Lazy load all pages for performance
 const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
 const Home = lazy(() => import('./pages/Home'));
 const GameDetail = lazy(() => import('./pages/GameDetail'));
 const PublicLibrary = lazy(() => import('./pages/PublicLibrary'));
@@ -48,6 +49,7 @@ const PlaylistDetail = lazy(() => import('./pages/PlaylistDetail'));
 const Favorites = lazy(() => import('./pages/Favorites'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Profile = lazy(() => import('./pages/Profile'));
+const UserManagement = lazy(() => import('./pages/UserManagement'));
 const Maintenance = lazy(() => import('./pages/Maintenance'));
 
 // 绑定静态实例，使 toast 工具在组件树外也能调用
@@ -175,6 +177,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
           {!IS_STATIC && (
             <>
               <Route path="/admin/login" element={<Login />} />
+              <Route path="/admin/register" element={<Register />} />
               <Route
                 path="/admin"
                 element={
@@ -212,6 +215,14 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
                 element={
                   <ProtectedRoute>
                     <ArtistManagement />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/users"
+                element={
+                  <ProtectedRoute>
+                    <UserManagement />
                   </ProtectedRoute>
                 }
               />

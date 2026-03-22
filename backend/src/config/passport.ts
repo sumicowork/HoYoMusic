@@ -15,7 +15,10 @@ const jwtOptions: StrategyOptions = {
 passport.use(
   new JwtStrategy(jwtOptions, async (payload, done) => {
     try {
-      const result = await pool.query('SELECT id, username FROM users WHERE id = $1', [payload.id]);
+      const result = await pool.query(
+        'SELECT id, username, email, email_verified FROM users WHERE id = $1',
+        [payload.id]
+      );
 
       if (result.rows.length > 0) {
         return done(null, result.rows[0]);
@@ -30,9 +33,16 @@ passport.use(
 
 // Local Strategy
 passport.use(
-  new LocalStrategy(async (username, password, done) => {
+  new LocalStrategy({ usernameField: 'identifier' }, async (identifier, password, done) => {
     try {
-      const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+      const lookup = identifier.trim();
+      const result = await pool.query(
+        `SELECT *
+         FROM users
+         WHERE username = $1 OR LOWER(email) = LOWER($1)
+         LIMIT 1`,
+        [lookup]
+      );
 
       if (result.rows.length === 0) {
         return done(null, false, { message: 'Invalid username or password' });
@@ -45,7 +55,12 @@ passport.use(
         return done(null, false, { message: 'Invalid username or password' });
       }
 
-      return done(null, { id: user.id, username: user.username });
+      return done(null, {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        email_verified: user.email_verified,
+      });
     } catch (error) {
       return done(error);
     }

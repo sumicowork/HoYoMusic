@@ -27,6 +27,7 @@ import favoriteRoutes from './routes/favoriteRoutes';
 import discRoutes from './routes/discRoutes';
 import debugRoutes from './routes/debugRoutes';
 import settingsRoutes from './routes/settingsRoutes';
+import userRoutes from './routes/userRoutes';
 import { visitLogger } from './middleware/visitLogger';
 import { maintenanceModeGuard } from './middleware/maintenanceMode';
 import { errorHandler } from './middleware/errorHandler';
@@ -91,6 +92,24 @@ const authLimiter = rateLimit({
 });
 app.use('/api/auth/login', authLimiter);
 
+const registerLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: { code: 'RATE_LIMIT', message: 'Too many registration requests, please try again later.' } },
+});
+app.use('/api/auth/register', registerLimiter);
+
+const verificationLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: { code: 'RATE_LIMIT', message: 'Too many verification requests, please try again later.' } },
+});
+app.use('/api/auth/send-verification-code', verificationLimiter);
+
 // ── CORS Configuration ──────────────────────────────────────────
 const corsOrigins = process.env.CORS_ORIGINS;
 app.use(cors(corsOrigins ? {
@@ -150,6 +169,7 @@ app.use('/api/analytics', analyticsRoutes); // Analytics (authenticated)
 app.use('/api/public', publicRoutes);    // Public routes (无需认证)
 app.use('/api', settingsRoutes);          // Site settings (public + authenticated)
 app.use('/api/debug', debugRoutes);      // High-risk debug routes (disabled by default)
+app.use('/api/users', userRoutes);       // User management (authenticated)
 
 // API Documentation
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { customSiteTitle: 'HoYoMusic API Docs' }));
@@ -398,6 +418,34 @@ const runMigrations = async () => {
     console.log('✅ DB migrations up to date (app_settings)');
   } catch (err) {
     console.error('⚠️  app_settings migration warning:', err);
+  }
+
+  // users auth extensions
+  try {
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(200)`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE`);
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_lower ON users (LOWER(email)) WHERE email IS NOT NULL`);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS auth_verification_codes (
+        id BIGSERIAL PRIMARY KEY,
+        email VARCHAR(200) NOT NULL,
+        code_hash VARCHAR(255) NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL,
+        consumed_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_auth_codes_email ON auth_verification_codes (LOWER(email), created_at DESC)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_auth_codes_expires ON auth_verification_codes (expires_at)`);
+    await pool.query(`
+      UPDATE users
+      SET email_verified = TRUE
+      WHERE username = 'admin'
+    `);
+    console.log('✅ DB migrations up to date (users auth extensions)');
+  } catch (err) {
+    console.error('⚠️  users auth extensions migration warning:', err);
   }
 
   // feedback messages
