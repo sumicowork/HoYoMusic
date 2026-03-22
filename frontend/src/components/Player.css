@@ -374,6 +374,10 @@
   margin: 0 auto;
 }
 
+.player-expanded-mobile-controls {
+  display: none;
+}
+
 /* Ensure controls are above expand-hint */
 .player-content {
   position: relative;
@@ -547,29 +551,61 @@
   }
 
   .player-expanded-controls-inner {
-    padding: 10px 12px;
-    flex-wrap: wrap;
-    gap: 4px;
+    display: none;
+  }
+
+  .player-expanded-mobile-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .player-expanded-mobile-main {
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: 12px;
   }
 
-  .player-expanded-controls-inner .player-track-info {
-    display: none;
+  .player-expanded-mobile-main .ant-btn-lg {
+    width: 38px !important;
+    height: 38px !important;
   }
 
-  .player-expanded-controls-inner .player-volume .ant-slider {
-    display: none;
+  .player-expanded-mobile-progress {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 
-  .player-expanded-controls-inner .player-volume .anticon-sound {
-    display: none;
+  .player-expanded-mobile-progress .player-slider {
+    flex: 1;
+    margin: 0 !important;
   }
 
-  .player-expanded-controls-inner .player-controls .ant-btn-lg {
-    width: 36px !important;
-    height: 36px !important;
+  .player-expanded-mobile-progress .player-time {
+    min-width: 34px;
+    font-size: 11px;
+  }
+
+  .player-expanded-mobile-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .player-expanded-mobile-volume {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+  }
+
+  .player-expanded-mobile-volume .ant-slider {
+    flex: 1;
+    margin: 0 !important;
   }
 
   .player-expanded-close {

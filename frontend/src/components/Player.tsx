@@ -602,6 +602,46 @@ const Player: React.FC = () => {
               </Tooltip>
             </div>
           </div>
+
+          <div className="player-expanded-mobile-controls">
+            <div className="player-expanded-mobile-main">
+              <Button type="text" icon={<StepBackwardOutlined />} onClick={handlePrevious} size="large" aria-label="上一曲" />
+              <Button
+                type="primary"
+                shape="circle"
+                icon={isPlaying ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
+                onClick={handleTogglePlay}
+                size="large"
+                aria-label={isPlaying ? '暂停' : '播放'}
+              />
+              <Button type="text" icon={<StepForwardOutlined />} onClick={handleNext} size="large" aria-label="下一曲" />
+            </div>
+
+            <div className="player-expanded-mobile-progress">
+              <span className="player-time">{formatTime(progress)}</span>
+              <Slider
+                value={progress}
+                max={duration}
+                onChange={handleSeek}
+                tooltip={{ formatter: (value) => formatTime(value || 0) }}
+                className="player-slider"
+                aria-label="播放进度"
+              />
+              <span className="player-time">{formatTime(duration)}</span>
+            </div>
+
+            <div className="player-expanded-mobile-actions">
+              <Button type="text" icon={getPlayModeIcon()} onClick={togglePlayMode} size="large" aria-label={getPlayModeText()} />
+              <div className="player-expanded-mobile-volume">
+                <SoundOutlined />
+                <Slider value={volume} min={0} max={1} step={0.01} onChange={handleVolumeChange} style={{ width: 100 }} aria-label="音量" />
+              </div>
+              <Badge count={playlist.length} showZero>
+                <Button type="text" icon={<UnorderedListOutlined />} onClick={() => setQueueVisible(true)} size="large" aria-label="播放队列" />
+              </Badge>
+              <Button type="text" icon={<CompressOutlined />} onClick={handleCollapse} size="large" aria-label="收起播放器" />
+            </div>
+          </div>
         </div>
 
         <PlayQueue visible={queueVisible} onClose={() => setQueueVisible(false)} />
