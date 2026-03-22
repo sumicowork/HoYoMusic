@@ -1,5 +1,5 @@
 import React, { useEffect, Suspense, lazy, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ConfigProvider, App as AntApp, message, notification, Skeleton } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 
@@ -68,6 +68,7 @@ interface AppRoutesProps {
 
 const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onCloseFeedback }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { currentTrack } = usePlayerStore();
   const { isAuthenticated, isInitialized, user } = useAuthStore();
   const [maintenanceConfig, setMaintenanceConfig] = useState<MaintenanceModeConfig>(DEFAULT_MAINTENANCE_MODE_CONFIG);
@@ -109,6 +110,24 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
       window.clearInterval(timer);
     };
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search || '');
+    if (!params.has('test_debug')) {
+      return;
+    }
+
+    params.delete('test_debug');
+    const nextSearch = params.toString();
+    navigate(
+      {
+        pathname: location.pathname,
+        search: nextSearch ? `?${nextSearch}` : '',
+        hash: location.hash,
+      },
+      { replace: true }
+    );
+  }, [location.pathname, location.search, location.hash, navigate]);
 
   const canBypassMaintenance = !IS_STATIC && isInitialized && isAuthenticated && !!user?.is_admin;
   const canEvaluateMaintenance = maintenanceLoaded && (IS_STATIC || isInitialized);
