@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Layout, message, Skeleton, Button, Modal, Radio, Select, Space, Typography } from 'antd';
+import { Layout, message, Skeleton, Button, Modal, Radio, Select, Space, Typography, InputNumber } from 'antd';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { IS_STATIC } from '../services/api';
@@ -34,7 +34,7 @@ const { Content } = Layout;
 const { Text } = Typography;
 const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
 
-type RandomPlayMode = 'all' | 'single_game' | 'multi_game' | 'artist';
+type RandomPlayMode = 'all' | 'games' | 'artist';
 
 interface ArtistOption {
   name: string;
@@ -149,7 +149,7 @@ const TrackItem: React.FC<{ track: Track; onPlay: () => void }> = ({ track, onPl
 /* ─── 主页组件 ─── */
 const Home: React.FC = () => {
   const navigate = useNavigate();
-  const { playTrackOnly } = usePlayerStore();
+  const { playTrackOnly, setPlaylist, play } = usePlayerStore();
   const isMobile = useIsMobile();
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
@@ -159,9 +159,9 @@ const Home: React.FC = () => {
   const [artists, setArtists] = useState<ArtistOption[]>([]);
   const [randomModalOpen, setRandomModalOpen] = useState(false);
   const [randomPlayMode, setRandomPlayMode] = useState<RandomPlayMode>('all');
-  const [selectedGameId, setSelectedGameId] = useState<number | undefined>(undefined);
   const [selectedGameIds, setSelectedGameIds] = useState<number[]>([]);
   const [selectedArtist, setSelectedArtist] = useState<string | undefined>(undefined);
+  const [randomCount, setRandomCount] = useState(1);
   const [randomPlaying, setRandomPlaying] = useState(false);
 
   useEffect(() => {
@@ -214,20 +214,7 @@ const Home: React.FC = () => {
 
       if (randomPlayMode === 'all') {
         candidateTracks = await trackService.getRandomTracks(30);
-      } else if (randomPlayMode === 'single_game') {
-        if (!selectedGameId) {
-          message.warning('请先选择一个游戏');
-          return;
-        }
-        const result = await trackService.searchTracksPublic({
-          game_ids: [selectedGameId],
-          page: 1,
-          limit: 100,
-          sort_by: 'created_at',
-          sort_dir: 'DESC',
-        });
-        candidateTracks = result.tracks;
-      } else if (randomPlayMode === 'multi_game') {
+      } else if (randomPlayMode === 'games') {
         if (selectedGameIds.length === 0) {
           message.warning('请至少选择一个游戏');
           return;
@@ -260,9 +247,18 @@ const Home: React.FC = () => {
         return;
       }
 
-      const picked = candidateTracks[Math.floor(Math.random() * candidateTracks.length)];
-      playTrackOnly(picked);
-      message.success(`随机播放：${picked.title}`);
+      const count = Math.max(1, Math.min(50, Number(randomCount) || 1));
+      const shuffled = [...candidateTracks].sort(() => Math.random() - 0.5);
+      const pickedTracks = shuffled.slice(0, Math.min(count, shuffled.length));
+
+      if (pickedTracks.length === 1) {
+        playTrackOnly(pickedTracks[0]);
+        message.success(`随机播放：${pickedTracks[0].title}`);
+      } else {
+        setPlaylist(pickedTracks);
+        play(pickedTracks[0]);
+        message.success(`随机播放 ${pickedTracks.length} 首歌曲`);
+      }
       setRandomModalOpen(false);
     } catch {
       message.error('随机播放失败，请稍后重试');
@@ -318,13 +314,14 @@ const Home: React.FC = () => {
 
             {/* ─── 右侧 ─── */}
             <aside className="home-recommendations">
+              <div className="random-pick-actions">
+                <Button type="primary" className="random-pick-btn" onClick={() => setRandomModalOpen(true)}>
+                  随便听点什么！
+                </Button>
+              </div>
+
               {albums.length > 0 && (
                 <section className="rec-section rec-albums">
-                  <div className="random-pick-actions">
-                    <Button type="primary" className="random-pick-btn" onClick={() => setRandomModalOpen(true)}>
-                      随便听点什么！
-                    </Button>
-                  </div>
                   <h2 className="section-title home-section-title">
                     <AppstoreOutlined /> 随机专辑
                   </h2>
@@ -367,22 +364,11 @@ const Home: React.FC = () => {
                     style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
                   >
                     <Radio value="all">全部随机</Radio>
-                    <Radio value="single_game">按单个游戏随机</Radio>
-                    <Radio value="multi_game">按多个游戏随机</Radio>
+                    <Radio value="games">按游戏随机（可多选）</Radio>
                     <Radio value="artist">按创作者随机</Radio>
                   </Radio.Group>
 
-                  {randomPlayMode === 'single_game' && (
-                    <Select
-                      placeholder="选择一个游戏"
-                      value={selectedGameId}
-                      onChange={(value) => setSelectedGameId(value)}
-                      options={activeGames.map((game) => ({ value: game.id, label: game.name }))}
-                      style={{ width: '100%' }}
-                    />
-                  )}
-
-                  {randomPlayMode === 'multi_game' && (
+                  {randomPlayMode === 'games' && (
                     <Select
                       mode="multiple"
                       placeholder="选择一个或多个游戏"
@@ -392,6 +378,17 @@ const Home: React.FC = () => {
                       style={{ width: '100%' }}
                     />
                   )}
+
+                  <div>
+                    <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>播放首数</Text>
+                    <InputNumber
+                      min={1}
+                      max={50}
+                      value={randomCount}
+                      onChange={(value) => setRandomCount(Number(value) || 1)}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
 
                   {randomPlayMode === 'artist' && (
                     <Select
@@ -408,7 +405,7 @@ const Home: React.FC = () => {
                     />
                   )}
 
-                  <Text type="secondary">将从符合条件的曲目中随机抽取 1 首并立即播放。</Text>
+                  <Text type="secondary">将从符合条件的曲目中随机抽取指定首数并立即播放。</Text>
                 </Space>
               </Modal>
 
