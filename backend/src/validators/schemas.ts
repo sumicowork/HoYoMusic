@@ -13,6 +13,7 @@ export const sendVerificationCodeSchema = z.object({
 export const registerSchema = z.object({
   username: z.string().trim().min(2, 'username is required').max(100),
   email: z.string().trim().email('invalid email').max(200),
+  verification_challenge_id: z.string().trim().uuid('verification_challenge_id must be uuid'),
   verification_code: z.string().trim().regex(/^\d{6}$/, 'verification_code must be 6 digits'),
   password: z.string().min(6, 'password must be at least 6 characters').max(200),
   confirm_password: z.string().min(6).max(200),

@@ -83,6 +83,7 @@ export interface LoginRequest {
 export interface RegisterRequest {
   username: string;
   email: string;
+  verification_challenge_id: string;
   verification_code: string;
   password: string;
   confirm_password: string;

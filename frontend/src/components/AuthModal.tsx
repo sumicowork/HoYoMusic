@@ -26,12 +26,14 @@ const AuthModal: React.FC = () => {
   const [registerLoading, setRegisterLoading] = useState(false);
   const [sendingCode, setSendingCode] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const [verificationChallengeId, setVerificationChallengeId] = useState('');
   const registerEmailInputRef = useRef<InputRef>(null);
 
   const [loginForm] = Form.useForm<{ identifier: string; password: string }>();
   const [registerForm] = Form.useForm<{
     username: string;
     email: string;
+    verification_challenge_id: string;
     verification_code: string;
     password: string;
     confirm_password: string;
@@ -56,6 +58,7 @@ const AuthModal: React.FC = () => {
       loginForm.resetFields();
       registerForm.resetFields();
       setCountdown(0);
+      setVerificationChallengeId('');
     }
   }, [open, loginForm, registerForm]);
 
@@ -109,6 +112,15 @@ const AuthModal: React.FC = () => {
 
       setSendingCode(true);
       const result = await authService.sendVerificationCode(normalizedEmail);
+      if (!result.verification_challenge_id) {
+        setVerificationChallengeId('');
+        registerForm.setFieldsValue({ verification_challenge_id: '' });
+        message.error('当前邮箱暂不可用于注册');
+        return;
+      }
+
+      setVerificationChallengeId(result.verification_challenge_id);
+      registerForm.setFieldsValue({ verification_challenge_id: result.verification_challenge_id });
       message.success(result.message || '验证码已发送');
       setCountdown(60);
     } catch (error: any) {
@@ -128,6 +140,13 @@ const AuthModal: React.FC = () => {
       if (normalizedEmail) {
         registerForm.setFieldsValue({ email: normalizedEmail });
       }
+
+      if (!verificationChallengeId) {
+        message.error('请先发送验证码');
+        return;
+      }
+
+      registerForm.setFieldsValue({ verification_challenge_id: verificationChallengeId });
 
       const values = await registerForm.validateFields();
       setRegisterLoading(true);
@@ -212,7 +231,21 @@ const AuthModal: React.FC = () => {
                 normalize={(value) => (typeof value === 'string' ? normalizeEmailInput(value) : value)}
                 rules={[{ required: true, message: '请输入邮箱' }]}
               >
-                <Input ref={registerEmailInputRef} prefix={<MailOutlined />} placeholder="请输入邮箱" />
+                <Input
+                  ref={registerEmailInputRef}
+                  prefix={<MailOutlined />}
+                  placeholder="请输入邮箱"
+                  onChange={() => {
+                    if (verificationChallengeId) {
+                      setVerificationChallengeId('');
+                      registerForm.setFieldsValue({ verification_challenge_id: '' });
+                    }
+                  }}
+                />
+              </Form.Item>
+
+              <Form.Item name="verification_challenge_id" hidden rules={[{ required: true, message: '请先发送验证码' }]}>
+                <Input />
               </Form.Item>
 
               <Form.Item style={{ marginBottom: 12 }}>

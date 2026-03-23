@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt, { SignOptions } from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
+import { randomInt, randomUUID } from 'crypto';
 import passport from '../config/passport';
 import pool from '../config/database';
 import { getMailConfigurationError, sendVerificationCodeEmail } from '../services/emailService';
@@ -19,7 +20,7 @@ const getJwtSecret = (): string => {
   return secret;
 };
 
-const createVerificationCode = (): string => String(Math.floor(100000 + Math.random() * 900000));
+const createVerificationCode = (): string => String(randomInt(0, 1000000)).padStart(6, '0');
 
 export const login = (req: Request, res: Response, next: NextFunction) => {
   passport.authenticate('local', { session: false }, (err: any, user: any, info: any) => {
@@ -94,6 +95,7 @@ export const sendRegistrationVerificationCode = async (req: Request, res: Respon
     }
 
     const verificationCode = createVerificationCode();
+    const verificationChallengeId = randomUUID();
     const codeHash = await bcrypt.hash(verificationCode, 10);
     const expiresAt = new Date(Date.now() + VERIFICATION_EXPIRES_MINUTES * 60 * 1000);
 
@@ -104,16 +106,19 @@ export const sendRegistrationVerificationCode = async (req: Request, res: Respon
     );
 
     await pool.query(
-      `INSERT INTO auth_verification_codes (email, code_hash, expires_at)
-       VALUES ($1, $2, $3)`,
-      [normalizedEmail, codeHash, expiresAt.toISOString()]
+      `INSERT INTO auth_verification_codes (email, challenge_id, code_hash, expires_at)
+       VALUES ($1, $2, $3, $4)`,
+      [normalizedEmail, verificationChallengeId, codeHash, expiresAt.toISOString()]
     );
 
     await sendVerificationCodeEmail(normalizedEmail, verificationCode);
 
     return res.json({
       success: true,
-      data: { message: '如果邮箱可用，验证码将发送到该邮箱' },
+      data: {
+        message: '如果邮箱可用，验证码将发送到该邮箱',
+        verification_challenge_id: verificationChallengeId,
+      },
     });
   } catch (error) {
     console.error('Send verification code error:', error);
@@ -130,6 +135,7 @@ export const register = async (req: Request, res: Response) => {
     const body = req.body as {
       username: string;
       email: string;
+      verification_challenge_id: string;
       verification_code: string;
       password: string;
       confirm_password: string;
@@ -144,6 +150,7 @@ export const register = async (req: Request, res: Response) => {
 
     const username = body.username.trim();
     const email = body.email.trim().toLowerCase();
+    const verificationChallengeId = body.verification_challenge_id.trim();
     const verificationCode = body.verification_code.trim();
 
     await client.query('BEGIN');
@@ -171,17 +178,19 @@ export const register = async (req: Request, res: Response) => {
     const codeResult = await client.query(
       `SELECT id, code_hash, expires_at, attempt_count, locked_until
        FROM auth_verification_codes
-       WHERE LOWER(email) = LOWER($1) AND consumed_at IS NULL
+       WHERE LOWER(email) = LOWER($1)
+         AND challenge_id = $2
+         AND consumed_at IS NULL
        ORDER BY created_at DESC
        LIMIT 1`,
-      [email]
+      [email, verificationChallengeId]
     );
 
     if (codeResult.rows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(400).json({
         success: false,
-        error: { code: 'VERIFICATION_CODE_REQUIRED', message: '请先获取邮箱验证码' },
+        error: { code: 'VERIFICATION_CHALLENGE_INVALID', message: '验证码会话无效，请重新获取验证码' },
       });
     }
 

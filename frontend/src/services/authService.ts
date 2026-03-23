@@ -33,14 +33,14 @@ export const authService = {
     throw new Error('Failed to get current user');
   },
 
-  async sendVerificationCode(email: string): Promise<{ message: string }> {
+  async sendVerificationCode(email: string): Promise<{ message: string; verification_challenge_id?: string }> {
     const normalizedEmail = String(email || '').trim();
     if (!normalizedEmail) {
       throw new Error('请输入有效邮箱地址');
     }
 
     try {
-      const response = await api.post<ApiResponse<{ message: string }>>('/auth/send-verification-code', {
+      const response = await api.post<ApiResponse<{ message: string; verification_challenge_id?: string }>>('/auth/send-verification-code', {
         email: normalizedEmail,
       });
       if (response.data.success && response.data.data) {

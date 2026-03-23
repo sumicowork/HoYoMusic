@@ -447,6 +447,7 @@ const runMigrations = async () => {
       CREATE TABLE IF NOT EXISTS auth_verification_codes (
         id BIGSERIAL PRIMARY KEY,
         email VARCHAR(200) NOT NULL,
+        challenge_id UUID,
         code_hash VARCHAR(255) NOT NULL,
         expires_at TIMESTAMPTZ NOT NULL,
         attempt_count INTEGER NOT NULL DEFAULT 0,
@@ -455,8 +456,10 @@ const runMigrations = async () => {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `);
+    await pool.query(`ALTER TABLE auth_verification_codes ADD COLUMN IF NOT EXISTS challenge_id UUID`);
     await pool.query(`ALTER TABLE auth_verification_codes ADD COLUMN IF NOT EXISTS attempt_count INTEGER NOT NULL DEFAULT 0`);
     await pool.query(`ALTER TABLE auth_verification_codes ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_auth_codes_challenge ON auth_verification_codes (challenge_id)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_auth_codes_email ON auth_verification_codes (LOWER(email), created_at DESC)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_auth_codes_expires ON auth_verification_codes (expires_at)`);
     await pool.query(`

@@ -23,6 +23,7 @@ CREATE INDEX IF NOT EXISTS idx_users_account_status ON users (account_status);
 CREATE TABLE IF NOT EXISTS auth_verification_codes (
     id BIGSERIAL PRIMARY KEY,
     email VARCHAR(200) NOT NULL,
+    challenge_id UUID,
     code_hash VARCHAR(255) NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
     attempt_count INTEGER NOT NULL DEFAULT 0,
@@ -31,6 +32,7 @@ CREATE TABLE IF NOT EXISTS auth_verification_codes (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE INDEX IF NOT EXISTS idx_auth_codes_challenge ON auth_verification_codes(challenge_id);
 CREATE INDEX IF NOT EXISTS idx_auth_codes_email ON auth_verification_codes(LOWER(email), created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_auth_codes_expires ON auth_verification_codes(expires_at);
 

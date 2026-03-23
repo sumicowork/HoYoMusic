@@ -9,6 +9,11 @@ interface MailEnvConfig {
   from: string;
 }
 
+const formatBeijingTime = (date: Date): string => date.toLocaleString('zh-CN', {
+  hour12: false,
+  timeZone: 'Asia/Shanghai',
+});
+
 const getMissingMailEnvKeys = (): string[] => {
   const required = ['MAIL_HOST', 'MAIL_PORT', 'MAIL_USER', 'MAIL_PASS', 'MAIL_FROM'] as const;
   return required.filter((key) => !process.env[key] || !String(process.env[key]).trim());
@@ -63,8 +68,8 @@ export const sendTestEmail = async (to: string): Promise<void> => {
   });
 
   const now = new Date();
-  const issuedAt = now.toLocaleString('zh-CN', { hour12: false });
-  const expiresAt = new Date(now.getTime() + 10 * 60 * 1000).toLocaleString('zh-CN', { hour12: false });
+  const issuedAt = formatBeijingTime(now);
+  const expiresAt = formatBeijingTime(new Date(now.getTime() + 10 * 60 * 1000));
   const verificationCode = String(Math.floor(100000 + Math.random() * 900000));
 
   const textContent = [
@@ -135,8 +140,8 @@ export const sendVerificationCodeEmail = async (to: string, verificationCode: st
   });
 
   const now = new Date();
-  const issuedAt = now.toLocaleString('zh-CN', { hour12: false });
-  const expiresAt = new Date(now.getTime() + 10 * 60 * 1000).toLocaleString('zh-CN', { hour12: false });
+  const issuedAt = formatBeijingTime(now);
+  const expiresAt = formatBeijingTime(new Date(now.getTime() + 10 * 60 * 1000));
 
   const textContent = [
     'HoYoMusic 注册验证码',
