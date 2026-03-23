@@ -39,6 +39,14 @@ const AuthModal: React.FC = () => {
     confirm_password: string;
   }>();
 
+  type RegisterFormValues = {
+    username: string;
+    email: string;
+    verification_code: string;
+    password: string;
+    confirm_password: string;
+  };
+
   useEffect(() => {
     if (countdown <= 0) return;
     const timer = window.setInterval(() => {
@@ -130,13 +138,12 @@ const AuthModal: React.FC = () => {
     }
   };
 
-  const handleRegister = async () => {
+  const handleRegister = async (values: RegisterFormValues) => {
     try {
-      const formEmail = registerForm.getFieldValue('email');
-      const inputEmail = registerEmailInputRef.current?.input?.value;
-      const normalizedEmail = normalizeEmailInput(String(formEmail ?? inputEmail ?? ''));
-      if (normalizedEmail) {
-        registerForm.setFieldsValue({ email: normalizedEmail });
+      const normalizedEmail = normalizeEmailInput(String(values.email || ''));
+      if (!normalizedEmail) {
+        message.error('请输入邮箱');
+        return;
       }
 
       if (!verificationChallengeId) {
@@ -144,10 +151,10 @@ const AuthModal: React.FC = () => {
         return;
       }
 
-      const values = await registerForm.validateFields();
       setRegisterLoading(true);
       const payload: RegisterRequest = {
         ...values,
+        email: normalizedEmail,
         verification_challenge_id: verificationChallengeId,
       };
       const result = await authService.register(payload);
@@ -219,7 +226,7 @@ const AuthModal: React.FC = () => {
             <Form
               form={registerForm}
               layout="vertical"
-              onFinish={() => void handleRegister()}
+              onFinish={(values) => void handleRegister(values as RegisterFormValues)}
               onFinishFailed={({ errorFields }) => {
                 const first = errorFields?.[0]?.errors?.[0];
                 if (first) {
