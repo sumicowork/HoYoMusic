@@ -42,9 +42,7 @@ const GameManagement = lazy(() => import('./pages/GameManagement'));
 const ArtistManagement = lazy(() => import('./pages/ArtistManagement'));
 const Analytics = lazy(() => import('./pages/Analytics'));
 const Search = lazy(() => import('./pages/Search'));
-const Playlists = lazy(() => import('./pages/Playlists'));
 const PlaylistDetail = lazy(() => import('./pages/PlaylistDetail'));
-const Favorites = lazy(() => import('./pages/Favorites'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Profile = lazy(() => import('./pages/Profile'));
 const UserManagement = lazy(() => import('./pages/UserManagement'));
@@ -168,20 +166,12 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
           <Route path="/tags/:id" element={<TagDetail />} />
           <Route path="/search" element={<Search />} />
 
-          {/* 播放列表和收藏 - 需要登录 */}
+          {/* 用户中心相关路由 - 需要登录 */}
           {!IS_STATIC && (
             <>
               <Route
-                path="/playlists"
-                element={<ProtectedRoute><Playlists /></ProtectedRoute>}
-              />
-              <Route
                 path="/playlists/:id"
                 element={<ProtectedRoute><PlaylistDetail /></ProtectedRoute>}
-              />
-              <Route
-                path="/favorites"
-                element={<ProtectedRoute><Favorites /></ProtectedRoute>}
               />
               <Route
                 path="/me"

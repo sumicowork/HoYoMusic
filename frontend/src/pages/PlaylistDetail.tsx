@@ -107,7 +107,7 @@ const PlaylistDetail: React.FC = () => {
 
   return (
     <div style={{ padding: 24 }}>
-      <Button icon={<ArrowLeftOutlined />} type="text" onClick={() => navigate('/playlists')} style={{ marginBottom: 12 }}>
+      <Button icon={<ArrowLeftOutlined />} type="text" onClick={() => navigate('/me')} style={{ marginBottom: 12 }}>
         返回
       </Button>
 

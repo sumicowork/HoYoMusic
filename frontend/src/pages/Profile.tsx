@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Card, Col, Empty, Input, List, Modal, Row, Space, Spin, Statistic, Typography, message } from 'antd';
-import { HeartFilled, LogoutOutlined, PlusOutlined, UnorderedListOutlined, UserOutlined } from '@ant-design/icons';
+import { Avatar, Button, Card, Col, Empty, Input, List, Modal, Row, Space, Spin, Statistic, Tag, Typography, message } from 'antd';
+import { HeartFilled, LogoutOutlined, PlayCircleOutlined, PlusOutlined, UnorderedListOutlined, UserOutlined } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { usePlayerStore } from '../store/playerStore';
 import favoriteService from '../services/favoriteService';
 import playlistService, { type Playlist } from '../services/playlistService';
 import type { Track } from '../types';
+import './Profile.css';
 
 const { Title, Text } = Typography;
 const FAVORITES_PAGE_SIZE = 8;
@@ -99,22 +100,27 @@ const Profile: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: 24 }}>
-      <Space direction="vertical" size={4} style={{ marginBottom: 20 }}>
-        <Title level={3} style={{ margin: 0 }}>
-          <UserOutlined style={{ marginRight: 8 }} />个人主页
-        </Title>
-        <Text type="secondary">左侧显示我的喜爱，右侧显示我的歌单</Text>
-      </Space>
-
-      <Card>
-        <Space direction="vertical" size={16} style={{ width: '100%' }}>
-          <Space style={{ justifyContent: 'space-between', width: '100%' }}>
-            <Text>当前账号：{user?.username || '未知用户'}</Text>
-            <Button danger icon={<LogoutOutlined />} onClick={handleLogout}>
-              退出登录
-            </Button>
+    <div className="profile-page">
+      <Card className="profile-hero" bordered={false}>
+        <div className="profile-hero-inner">
+          <Space align="center" size={12}>
+            <Avatar size={56} icon={<UserOutlined />} className="profile-avatar" />
+            <Space direction="vertical" size={0}>
+              <Title level={3} style={{ margin: 0 }}>
+                {user?.username || '未知用户'}
+              </Title>
+              <Text type="secondary">左侧显示我的喜爱，右侧显示我的歌单</Text>
+            </Space>
           </Space>
+          <Button danger icon={<LogoutOutlined />} onClick={handleLogout}>
+            退出登录
+          </Button>
+        </div>
+      </Card>
+
+      <Card className="profile-main-card">
+        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <Text>当前账号：{user?.username || '未知用户'}</Text>
 
           <Row gutter={16}>
             <Col xs={24} sm={12}>
@@ -131,7 +137,7 @@ const Profile: React.FC = () => {
 
           <Row gutter={16}>
             <Col xs={24} lg={12}>
-              <Card title="我的喜爱" loading={favoriteLoading}>
+              <Card title="我的喜爱" className="profile-module-card" loading={favoriteLoading}>
                 {favoriteLoading ? (
                   <div style={{ textAlign: 'center', padding: 12 }}><Spin /></div>
                 ) : favoriteTracks.length === 0 ? (
@@ -148,16 +154,21 @@ const Profile: React.FC = () => {
                       onChange: (page) => void loadFavorites(page),
                     }}
                     renderItem={(track) => (
-                      <List.Item
+                      <List.Item className="profile-list-item"
                         actions={[
-                          <Button key="play" type="link" size="small" onClick={() => playTrackOnly(track)}>播放</Button>,
+                          <Button key="play" type="link" size="small" icon={<PlayCircleOutlined />} onClick={() => playTrackOnly(track)}>
+                            播放
+                          </Button>,
                         ]}
                       >
-                        <Space direction="vertical" size={0}>
-                          <Link to={`/track/${track.id}`}>{track.title}</Link>
-                          <Text type="secondary" style={{ fontSize: 12 }}>
-                            {track.album_title || '未分类专辑'}
-                          </Text>
+                        <Space direction="vertical" size={2} style={{ width: '100%' }}>
+                          <Link className="profile-primary-link" to={`/track/${track.id}`}>{track.title}</Link>
+                          <Space size={6}>
+                            <Tag className="profile-soft-tag" color="magenta">喜爱</Tag>
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                              {track.album_title || '未分类专辑'}
+                            </Text>
+                          </Space>
                         </Space>
                       </List.Item>
                     )}
@@ -169,6 +180,7 @@ const Profile: React.FC = () => {
             <Col xs={24} lg={12}>
               <Card
                 title="我的歌单"
+                className="profile-module-card"
                 extra={
                   <Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => setCreateModalOpen(true)}>
                     新建歌单
@@ -192,12 +204,15 @@ const Profile: React.FC = () => {
                       onChange: (page) => setPlaylistPage(page),
                     }}
                     renderItem={(playlist) => (
-                      <List.Item>
-                        <Space direction="vertical" size={0} style={{ width: '100%' }}>
-                          <Link to={`/playlists/${playlist.id}`}>{playlist.name}</Link>
-                          <Text type="secondary" style={{ fontSize: 12 }}>
-                            {playlist.track_count} 首 · {Math.floor(playlist.total_duration / 60)} 分钟
-                          </Text>
+                      <List.Item className="profile-list-item">
+                        <Space direction="vertical" size={2} style={{ width: '100%' }}>
+                          <Link className="profile-primary-link" to={`/playlists/${playlist.id}`}>{playlist.name}</Link>
+                          <Space size={6}>
+                            <Tag className="profile-soft-tag" color="blue">歌单</Tag>
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                              {playlist.track_count} 首 · {Math.floor(playlist.total_duration / 60)} 分钟
+                            </Text>
+                          </Space>
                         </Space>
                       </List.Item>
                     )}
