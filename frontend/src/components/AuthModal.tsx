@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Button, Form, Input, Modal, Space, Typography, message } from 'antd';
+import type { InputRef } from 'antd';
 import { LockOutlined, MailOutlined, UserOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
@@ -25,6 +26,7 @@ const AuthModal: React.FC = () => {
   const [registerLoading, setRegisterLoading] = useState(false);
   const [sendingCode, setSendingCode] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const registerEmailInputRef = useRef<InputRef>(null);
 
   const [loginForm] = Form.useForm<{ identifier: string; password: string }>();
   const [registerForm] = Form.useForm<{
@@ -95,14 +97,15 @@ const AuthModal: React.FC = () => {
 
   const handleSendCode = async () => {
     try {
-      const values = await registerForm.validateFields(['email']);
-      const normalizedEmail = normalizeEmailInput(String(values.email || ''));
+      const formEmail = registerForm.getFieldValue('email');
+      const inputEmail = registerEmailInputRef.current?.input?.value;
+      const normalizedEmail = normalizeEmailInput(String(formEmail ?? inputEmail ?? ''));
       if (!normalizedEmail) {
         message.error('请输入邮箱地址');
         return;
       }
 
-      registerForm.setFieldValue('email', normalizedEmail);
+      registerForm.setFieldsValue({ email: normalizedEmail });
 
       setSendingCode(true);
       const result = await authService.sendVerificationCode(normalizedEmail);
@@ -119,6 +122,13 @@ const AuthModal: React.FC = () => {
 
   const handleRegister = async () => {
     try {
+      const formEmail = registerForm.getFieldValue('email');
+      const inputEmail = registerEmailInputRef.current?.input?.value;
+      const normalizedEmail = normalizeEmailInput(String(formEmail ?? inputEmail ?? ''));
+      if (normalizedEmail) {
+        registerForm.setFieldsValue({ email: normalizedEmail });
+      }
+
       const values = await registerForm.validateFields();
       setRegisterLoading(true);
       const result = await authService.register(values);
@@ -202,7 +212,7 @@ const AuthModal: React.FC = () => {
                 normalize={(value) => (typeof value === 'string' ? normalizeEmailInput(value) : value)}
                 rules={[{ required: true, message: '请输入邮箱' }]}
               >
-                <Input prefix={<MailOutlined />} placeholder="请输入邮箱" />
+                <Input ref={registerEmailInputRef} prefix={<MailOutlined />} placeholder="请输入邮箱" />
               </Form.Item>
 
               <Form.Item style={{ marginBottom: 12 }}>
