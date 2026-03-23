@@ -65,6 +65,7 @@ const Player: React.FC = () => {
   const [expanded, setExpanded] = useState(false);
   const [collapsing, setCollapsing] = useState(false);
   const [isFavorited, setIsFavorited] = useState(false);
+  const [favoriteCount, setFavoriteCount] = useState(0);
   const canUseDebugUserFeatures = useDebugUserFeatures();
 
   const handleCollapse = () => {
@@ -147,6 +148,10 @@ const Player: React.FC = () => {
       canceled = true;
     };
   }, [currentTrack?.id]);
+
+  useEffect(() => {
+    setFavoriteCount(Math.max(0, Number(currentTrack?.favorite_count || 0)));
+  }, [currentTrack?.id, currentTrack?.favorite_count]);
 
   useEffect(() => {
     if (!canUseDebugUserFeatures || !currentTrack?.id) {
@@ -409,6 +414,7 @@ const Player: React.FC = () => {
     try {
       const result = await favoriteService.toggle(currentTrack.id);
       setIsFavorited(result.favorited);
+      setFavoriteCount((prev) => Math.max(0, prev + (result.favorited ? 1 : -1)));
     } catch {
       // Keep player interactions silent for this debug-only shortcut.
     }
@@ -538,6 +544,10 @@ const Player: React.FC = () => {
                 {currentTrack.album_title}
               </div>
             )}
+            <div className="player-expanded-likes">
+              <HeartFilled style={{ color: '#ff4d6a', marginRight: 6 }} />
+              {favoriteCount} 人喜爱
+            </div>
           </div>
 
           {/* Right: scrolling lyrics */}
@@ -592,6 +602,18 @@ const Player: React.FC = () => {
             <div className="player-volume">
               <Tooltip title="音量（↑/↓ 调节）"><SoundOutlined /></Tooltip>
               <Slider value={volume} min={0} max={1} step={0.01} onChange={handleVolumeChange} style={{ width: 100, marginLeft: 12 }} aria-label="音量" />
+              {canUseDebugUserFeatures && (
+                <Tooltip title={isFavorited ? '取消喜爱' : '喜爱'}>
+                  <Button
+                    type="text"
+                    icon={isFavorited ? <HeartFilled style={{ color: '#ff4d6a' }} /> : <HeartOutlined />}
+                    onClick={handleToggleFavorite}
+                    size="large"
+                    style={{ marginLeft: 8 }}
+                    aria-label={isFavorited ? '取消喜爱' : '喜爱'}
+                  />
+                </Tooltip>
+              )}
               <Tooltip title="播放队列">
                 <Badge count={playlist.length} showZero>
                   <Button type="text" icon={<UnorderedListOutlined />} onClick={() => setQueueVisible(true)} size="large" style={{ marginLeft: 8 }} aria-label="播放队列" />
@@ -631,6 +653,15 @@ const Player: React.FC = () => {
             </div>
 
             <div className="player-expanded-mobile-actions">
+              {canUseDebugUserFeatures && (
+                <Button
+                  type="text"
+                  icon={isFavorited ? <HeartFilled style={{ color: '#ff4d6a' }} /> : <HeartOutlined />}
+                  onClick={handleToggleFavorite}
+                  size="large"
+                  aria-label={isFavorited ? '取消喜爱' : '喜爱'}
+                />
+              )}
               <Button type="text" icon={getPlayModeIcon()} onClick={togglePlayMode} size="large" aria-label={getPlayModeText()} />
               <div className="player-expanded-mobile-volume">
                 <SoundOutlined />
@@ -669,14 +700,30 @@ const Player: React.FC = () => {
           ) : null}
           <div className="player-text" onClick={() => setExpanded(true)} style={{ cursor: 'pointer' }}>
             <div className="player-title">{currentTrack.title}</div>
+            <div className="player-artist">
+              <HeartFilled style={{ color: '#ff4d6a', marginRight: 4 }} />
+              {favoriteCount}
+            </div>
           </div>
         </div>
 
-        <div className="player-desktop-only">{controlsBar}</div>
+        <div className="player-desktop-only player-controls-wrapper">{controlsBar}</div>
 
         <div className="player-volume player-desktop-only">
           <Tooltip title="音量（↑/↓ 调节）"><SoundOutlined /></Tooltip>
           <Slider value={volume} min={0} max={1} step={0.01} onChange={handleVolumeChange} style={{ width: 100, marginLeft: 12 }} aria-label="音量" />
+          {canUseDebugUserFeatures && (
+            <Tooltip title={isFavorited ? '取消喜爱' : '喜爱'}>
+              <Button
+                type="text"
+                icon={isFavorited ? <HeartFilled style={{ color: '#ff4d6a' }} /> : <HeartOutlined />}
+                onClick={handleToggleFavorite}
+                size="large"
+                style={{ marginLeft: 8 }}
+                aria-label={isFavorited ? '取消喜爱' : '喜爱'}
+              />
+            </Tooltip>
+          )}
           <Tooltip title="播放队列">
             <Badge count={playlist.length} showZero>
               <Button type="text" icon={<UnorderedListOutlined />} onClick={() => setQueueVisible(true)} size="large" style={{ marginLeft: 8 }} aria-label="播放队列" />

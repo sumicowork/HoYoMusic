@@ -99,6 +99,16 @@
   gap: 12px;
 }
 
+.player-controls-wrapper {
+  flex: 2;
+  min-width: 0;
+  display: flex;
+}
+
+.player-controls-wrapper .player-controls {
+  width: 100%;
+}
+
 .player-progress {
   display: flex;
   align-items: center;
@@ -298,6 +308,12 @@
   font-size: 13px;
   color: var(--text-tertiary);
   text-align: center;
+}
+
+.player-expanded-likes {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
 /* Right lyrics panel */

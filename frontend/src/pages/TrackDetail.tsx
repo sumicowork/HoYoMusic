@@ -175,6 +175,10 @@ const TrackDetail: React.FC = () => {
     try {
       const result = await favoriteService.toggle(track.id);
       setFavorited(result.favorited);
+      setTrack((prev) => prev ? {
+        ...prev,
+        favorite_count: Math.max(0, Number(prev.favorite_count || 0) + (result.favorited ? 1 : -1)),
+      } : prev);
       message.success(result.favorited ? '已添加到收藏' : '已取消收藏');
     } catch (error: any) {
       const msg = error?.response?.data?.error?.message || '收藏操作失败';
@@ -299,6 +303,9 @@ const TrackDetail: React.FC = () => {
                     {new Date(track.release_date).toLocaleDateString('zh-CN')}
                   </Descriptions.Item>
                 )}
+                <Descriptions.Item label="喜爱人数">
+                  {Number(track.favorite_count || 0)}
+                </Descriptions.Item>
               </Descriptions>
 
               {track.notes && (

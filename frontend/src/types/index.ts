@@ -28,6 +28,7 @@ export interface Track {
   updated_at: string;
   album_title?: string;
   album_cover?: string | null;
+  favorite_count?: number;
   play_count?: number;
   effective_play_count?: number;
   unique_ips?: number;

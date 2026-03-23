@@ -666,11 +666,13 @@ export const getTracks = async (req: Request, res: Response) => {
         a.title as album_title,
         a.cover_path as album_cover,
         a.release_date as album_release_date,
-        array_agg(json_build_object('id', ar.id, 'name', ar.name)) as artists
+        array_agg(json_build_object('id', ar.id, 'name', ar.name)) as artists,
+        COUNT(DISTINCT fav.user_id)::int AS favorite_count
       FROM tracks t
       LEFT JOIN albums a ON t.album_id = a.id
       LEFT JOIN track_artists ta ON t.id = ta.track_id
       LEFT JOIN artists ar ON ta.artist_id = ar.id
+      LEFT JOIN favorites fav ON t.id = fav.track_id
       ${whereClause}
       GROUP BY t.id, a.title, a.cover_path, a.release_date, a.created_at, a.id
       ORDER BY ${orderBy} ${sortDir}, COALESCE(a.release_date, a.created_at) ${sortDir}, t.track_number ASC NULLS LAST, t.title ASC
@@ -714,11 +716,13 @@ export const getTrackById = async (req: Request, res: Response) => {
         t.*,
         a.title as album_title,
         a.cover_path as album_cover,
-        array_agg(json_build_object('id', ar.id, 'name', ar.name)) as artists
+        array_agg(json_build_object('id', ar.id, 'name', ar.name)) as artists,
+        COUNT(DISTINCT fav.user_id)::int AS favorite_count
       FROM tracks t
       LEFT JOIN albums a ON t.album_id = a.id
       LEFT JOIN track_artists ta ON t.id = ta.track_id
       LEFT JOIN artists ar ON ta.artist_id = ar.id
+      LEFT JOIN favorites fav ON t.id = fav.track_id
       WHERE t.id = $1
       GROUP BY t.id, a.title, a.cover_path`,
       [id]

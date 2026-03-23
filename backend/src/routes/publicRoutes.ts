@@ -202,6 +202,7 @@ router.get('/tracks/random', async (req: Request, res: Response) => {
     const count = Math.min(parseInt(req.query.count as string) || 10, 30);
     const result = await pool.query(`
       SELECT t.*, a.title AS album_title, a.cover_path AS album_cover,
+             COUNT(DISTINCT fav.user_id)::int AS favorite_count,
              COALESCE(
                json_agg(json_build_object('id', ar.id, 'name', ar.name))
                FILTER (WHERE ar.id IS NOT NULL), '[]'
@@ -210,6 +211,7 @@ router.get('/tracks/random', async (req: Request, res: Response) => {
       LEFT JOIN albums a ON t.album_id = a.id
       LEFT JOIN track_artists ta ON t.id = ta.track_id
       LEFT JOIN artists ar ON ta.artist_id = ar.id
+      LEFT JOIN favorites fav ON t.id = fav.track_id
       GROUP BY t.id, a.title, a.cover_path
       ORDER BY RANDOM()
       LIMIT $1
@@ -329,6 +331,7 @@ router.get('/top-tracks', async (req: Request, res: Response) => {
              t.duration,
              t.play_count,
              t.cover_path,
+             COUNT(DISTINCT fav.user_id)::int AS favorite_count,
              COALESCE(tp.effective_play_count, 0)::int AS effective_play_count,
              COALESCE(tp.unique_ips, 0)::int AS unique_ips,
              a.title AS album_title, a.cover_path AS album_cover,
@@ -343,6 +346,7 @@ router.get('/top-tracks', async (req: Request, res: Response) => {
         GROUP BY track_id
       ) tp ON tp.track_id = t.id
       LEFT JOIN albums a ON t.album_id = a.id
+      LEFT JOIN favorites fav ON t.id = fav.track_id
       LEFT JOIN track_artists ta ON t.id = ta.track_id
       LEFT JOIN artists ar ON ta.artist_id = ar.id
       WHERE COALESCE(tp.effective_play_count, 0) > 0
