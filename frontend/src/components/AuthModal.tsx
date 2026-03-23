@@ -4,6 +4,7 @@ import type { InputRef } from 'antd';
 import { LockOutlined, MailOutlined, UserOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
+import type { RegisterRequest } from '../types';
 import { useAuthStore } from '../store/authStore';
 import { useAuthModalStore } from '../store/authModalStore';
 
@@ -33,7 +34,6 @@ const AuthModal: React.FC = () => {
   const [registerForm] = Form.useForm<{
     username: string;
     email: string;
-    verification_challenge_id: string;
     verification_code: string;
     password: string;
     confirm_password: string;
@@ -114,13 +114,11 @@ const AuthModal: React.FC = () => {
       const result = await authService.sendVerificationCode(normalizedEmail);
       if (!result.verification_challenge_id) {
         setVerificationChallengeId('');
-        registerForm.setFieldsValue({ verification_challenge_id: '' });
         message.error('当前邮箱暂不可用于注册');
         return;
       }
 
       setVerificationChallengeId(result.verification_challenge_id);
-      registerForm.setFieldsValue({ verification_challenge_id: result.verification_challenge_id });
       message.success(result.message || '验证码已发送');
       setCountdown(60);
     } catch (error: any) {
@@ -146,11 +144,13 @@ const AuthModal: React.FC = () => {
         return;
       }
 
-      registerForm.setFieldsValue({ verification_challenge_id: verificationChallengeId });
-
       const values = await registerForm.validateFields();
       setRegisterLoading(true);
-      const result = await authService.register(values);
+      const payload: RegisterRequest = {
+        ...values,
+        verification_challenge_id: verificationChallengeId,
+      };
+      const result = await authService.register(payload);
       setToken(result.token);
       setUser(result.user);
       message.success('注册成功，已自动登录');
@@ -216,7 +216,17 @@ const AuthModal: React.FC = () => {
           </>
         ) : (
           <>
-            <Form form={registerForm} layout="vertical" onFinish={() => void handleRegister()}>
+            <Form
+              form={registerForm}
+              layout="vertical"
+              onFinish={() => void handleRegister()}
+              onFinishFailed={({ errorFields }) => {
+                const first = errorFields?.[0]?.errors?.[0];
+                if (first) {
+                  message.error(first);
+                }
+              }}
+            >
               <Form.Item
                 label="用户名"
                 name="username"
@@ -238,14 +248,9 @@ const AuthModal: React.FC = () => {
                   onChange={() => {
                     if (verificationChallengeId) {
                       setVerificationChallengeId('');
-                      registerForm.setFieldsValue({ verification_challenge_id: '' });
                     }
                   }}
                 />
-              </Form.Item>
-
-              <Form.Item name="verification_challenge_id" hidden rules={[{ required: true, message: '请先发送验证码' }]}>
-                <Input />
               </Form.Item>
 
               <Form.Item style={{ marginBottom: 12 }}>
