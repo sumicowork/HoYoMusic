@@ -9,13 +9,12 @@ import { useAuthModalStore } from '../store/authModalStore';
 const { Text } = Typography;
 
 const normalizeEmailInput = (value: string): string => value
+  .replace(/[\u200B-\u200D\uFEFF]/g, '')
+  .replace(/\u3000/g, ' ')
   .trim()
-  .replace(/＠/g, '@')
-  .replace(/。/g, '.')
-  .replace(/，/g, ',')
+  .replace(/[＠﹫]/g, '@')
+  .replace(/[。．｡﹒]/g, '.')
   .toLowerCase();
-
-const isEmailLike = (value: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
 const AuthModal: React.FC = () => {
   const navigate = useNavigate();
@@ -99,7 +98,7 @@ const AuthModal: React.FC = () => {
       const values = await registerForm.validateFields(['email']);
       const normalizedEmail = normalizeEmailInput(String(values.email || ''));
       if (!normalizedEmail) {
-        message.error('请输入有效邮箱地址');
+        message.error('请输入邮箱地址');
         return;
       }
 
@@ -201,18 +200,7 @@ const AuthModal: React.FC = () => {
                 label="邮箱"
                 name="email"
                 normalize={(value) => (typeof value === 'string' ? normalizeEmailInput(value) : value)}
-                rules={[
-                  { required: true, message: '请输入邮箱' },
-                  {
-                    validator: async (_, value) => {
-                      const normalized = normalizeEmailInput(String(value || ''));
-                      if (!normalized || isEmailLike(normalized)) {
-                        return;
-                      }
-                      throw new Error('请输入有效邮箱地址');
-                    },
-                  },
-                ]}
+                rules={[{ required: true, message: '请输入邮箱' }]}
               >
                 <Input prefix={<MailOutlined />} placeholder="请输入邮箱" />
               </Form.Item>
