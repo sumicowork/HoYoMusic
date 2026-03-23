@@ -5,10 +5,19 @@ import passport from '../config/passport';
 import pool from '../config/database';
 import { getMailConfigurationError, sendVerificationCodeEmail } from '../services/emailService';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
 const VERIFICATION_EXPIRES_MINUTES = 10;
+const VERIFICATION_MAX_ATTEMPTS = Math.max(3, parseInt(process.env.VERIFICATION_MAX_ATTEMPTS || '5', 10));
+const VERIFICATION_LOCK_MINUTES = Math.max(1, parseInt(process.env.VERIFICATION_LOCK_MINUTES || '10', 10));
+
+const getJwtSecret = (): string => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET environment variable is required');
+  }
+  return secret;
+};
 
 const createVerificationCode = (): string => String(Math.floor(100000 + Math.random() * 900000));
 
@@ -41,8 +50,8 @@ export const login = (req: Request, res: Response, next: NextFunction) => {
 
     const signOptions: SignOptions = { expiresIn: JWT_EXPIRES_IN as any };
     const token = jwt.sign(
-      { id: user.id, username: user.username },
-      JWT_SECRET,
+      { id: user.id, username: user.username, token_version: Number(user.token_version ?? 0) },
+      getJwtSecret(),
       signOptions
     );
 
@@ -78,9 +87,9 @@ export const sendRegistrationVerificationCode = async (req: Request, res: Respon
 
     const existing = await pool.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1', [normalizedEmail]);
     if (existing.rows.length > 0) {
-      return res.status(409).json({
-        success: false,
-        error: { code: 'EMAIL_ALREADY_EXISTS', message: '该邮箱已被注册' },
+      return res.json({
+        success: true,
+        data: { message: '如果邮箱可用，验证码将发送到该邮箱' },
       });
     }
 
@@ -104,7 +113,7 @@ export const sendRegistrationVerificationCode = async (req: Request, res: Respon
 
     return res.json({
       success: true,
-      data: { message: '验证码已发送，请查收邮箱' },
+      data: { message: '如果邮箱可用，验证码将发送到该邮箱' },
     });
   } catch (error) {
     console.error('Send verification code error:', error);
@@ -160,7 +169,7 @@ export const register = async (req: Request, res: Response) => {
     }
 
     const codeResult = await client.query(
-      `SELECT id, code_hash, expires_at
+      `SELECT id, code_hash, expires_at, attempt_count, locked_until
        FROM auth_verification_codes
        WHERE LOWER(email) = LOWER($1) AND consumed_at IS NULL
        ORDER BY created_at DESC
@@ -177,6 +186,14 @@ export const register = async (req: Request, res: Response) => {
     }
 
     const codeRow = codeResult.rows[0];
+    if (codeRow.locked_until && new Date(codeRow.locked_until).getTime() > Date.now()) {
+      await client.query('ROLLBACK');
+      return res.status(429).json({
+        success: false,
+        error: { code: 'VERIFICATION_CODE_LOCKED', message: '验证码尝试次数过多，请稍后再试' },
+      });
+    }
+
     const expired = new Date(codeRow.expires_at).getTime() < Date.now();
     if (expired) {
       await client.query('ROLLBACK');
@@ -188,6 +205,17 @@ export const register = async (req: Request, res: Response) => {
 
     const codeMatched = await bcrypt.compare(verificationCode, String(codeRow.code_hash));
     if (!codeMatched) {
+      const nextAttemptCount = Number(codeRow.attempt_count || 0) + 1;
+      const lockUntil = nextAttemptCount >= VERIFICATION_MAX_ATTEMPTS
+        ? new Date(Date.now() + VERIFICATION_LOCK_MINUTES * 60 * 1000).toISOString()
+        : null;
+      await client.query(
+        `UPDATE auth_verification_codes
+         SET attempt_count = $1,
+             locked_until = COALESCE($2::timestamptz, locked_until)
+         WHERE id = $3`,
+        [nextAttemptCount, lockUntil, codeRow.id]
+      );
       await client.query('ROLLBACK');
       return res.status(400).json({
         success: false,
@@ -204,7 +232,7 @@ export const register = async (req: Request, res: Response) => {
     );
 
     await client.query(
-      'UPDATE auth_verification_codes SET consumed_at = NOW() WHERE id = $1',
+      'UPDATE auth_verification_codes SET consumed_at = NOW(), attempt_count = 0, locked_until = NULL WHERE id = $1',
       [codeRow.id]
     );
 
@@ -212,7 +240,11 @@ export const register = async (req: Request, res: Response) => {
 
     const user = userInsert.rows[0];
     const signOptions: SignOptions = { expiresIn: JWT_EXPIRES_IN as any };
-    const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, signOptions);
+    const token = jwt.sign(
+      { id: user.id, username: user.username, token_version: Number(user.token_version ?? 0) },
+      getJwtSecret(),
+      signOptions
+    );
 
     return res.status(201).json({
       success: true,
@@ -281,7 +313,14 @@ export const changePassword = async (req: Request, res: Response) => {
 
     // Hash and update
     const hash = await bcrypt.hash(newPassword, 10);
-    await pool.query('UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [hash, user.id]);
+    await pool.query(
+      `UPDATE users
+       SET password_hash = $1,
+           token_version = token_version + 1,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2`,
+      [hash, user.id]
+    );
 
     res.json({ success: true, data: { message: 'Password changed successfully' } });
   } catch (error) {

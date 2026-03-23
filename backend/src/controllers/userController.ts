@@ -286,7 +286,9 @@ export const resetUserPassword = async (req: Request, res: Response) => {
 
     const result = await pool.query(
       `UPDATE users
-       SET password_hash = $1, updated_at = CURRENT_TIMESTAMP
+       SET password_hash = $1,
+           token_version = token_version + 1,
+           updated_at = CURRENT_TIMESTAMP
        WHERE id = $2
        RETURNING id, username, email, email_verified, is_admin, account_status, status_reason, last_login_at, last_login_ip, created_at, updated_at`,
       [passwordHash, targetUserId]

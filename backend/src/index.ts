@@ -426,6 +426,7 @@ const runMigrations = async () => {
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS account_status VARCHAR(20) NOT NULL DEFAULT 'active'`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS status_reason VARCHAR(500)`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_ip VARCHAR(64)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_account_status ON users (account_status)`);
@@ -447,10 +448,14 @@ const runMigrations = async () => {
         email VARCHAR(200) NOT NULL,
         code_hash VARCHAR(255) NOT NULL,
         expires_at TIMESTAMPTZ NOT NULL,
+        attempt_count INTEGER NOT NULL DEFAULT 0,
+        locked_until TIMESTAMPTZ,
         consumed_at TIMESTAMPTZ,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `);
+    await pool.query(`ALTER TABLE auth_verification_codes ADD COLUMN IF NOT EXISTS attempt_count INTEGER NOT NULL DEFAULT 0`);
+    await pool.query(`ALTER TABLE auth_verification_codes ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_auth_codes_email ON auth_verification_codes (LOWER(email), created_at DESC)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_auth_codes_expires ON auth_verification_codes (expires_at)`);
     await pool.query(`
@@ -484,6 +489,11 @@ const runMigrations = async () => {
 
 const startServer = async () => {
   try {
+    if (!process.env.JWT_SECRET) {
+      console.error('❌ JWT_SECRET is required. Refusing to start with insecure JWT configuration.');
+      process.exit(1);
+    }
+
     const STORAGE_MODE = process.env.STORAGE_MODE || 'local';
 
     if (STORAGE_MODE === 'oss') {

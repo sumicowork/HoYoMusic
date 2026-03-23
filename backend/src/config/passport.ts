@@ -4,25 +4,35 @@ import { Strategy as LocalStrategy } from 'passport-local';
 import bcrypt from 'bcrypt';
 import pool from './database';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
-
 // JWT Strategy
 const jwtOptions: StrategyOptions = {
   jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-  secretOrKey: JWT_SECRET,
+  secretOrKeyProvider: (_req, _rawJwtToken, done) => {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      done(new Error('JWT_SECRET environment variable is required'), undefined);
+      return;
+    }
+    done(null, secret);
+  },
 };
 
 passport.use(
   new JwtStrategy(jwtOptions, async (payload, done) => {
     try {
       const result = await pool.query(
-        'SELECT id, username, email, email_verified, is_admin, account_status FROM users WHERE id = $1',
+        'SELECT id, username, email, email_verified, is_admin, account_status, token_version FROM users WHERE id = $1',
         [payload.id]
       );
 
       if (result.rows.length > 0) {
         const user = result.rows[0];
         if (user.account_status === 'disabled') {
+          return done(null, false);
+        }
+        const payloadTokenVersion = Number((payload as any).token_version ?? 0);
+        const currentTokenVersion = Number(user.token_version ?? 0);
+        if (payloadTokenVersion !== currentTokenVersion) {
           return done(null, false);
         }
         return done(null, user);
@@ -69,6 +79,7 @@ passport.use(
         email_verified: user.email_verified,
         is_admin: user.is_admin,
         account_status: user.account_status,
+        token_version: user.token_version,
       });
     } catch (error) {
       return done(error);

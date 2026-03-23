@@ -109,7 +109,6 @@ const Profile: React.FC = () => {
               <Title level={3} style={{ margin: 0 }}>
                 {user?.username || '未知用户'}
               </Title>
-              <Text type="secondary">左侧显示我的喜爱，右侧显示我的歌单</Text>
             </Space>
           </Space>
           <Button danger icon={<LogoutOutlined />} onClick={handleLogout}>
@@ -120,7 +119,6 @@ const Profile: React.FC = () => {
 
       <Card className="profile-main-card">
         <Space direction="vertical" size={16} style={{ width: '100%' }}>
-          <Text>当前账号：{user?.username || '未知用户'}</Text>
 
           <Row gutter={16}>
             <Col xs={24} sm={12}>

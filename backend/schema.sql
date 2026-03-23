@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
     is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     account_status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (account_status IN ('active', 'disabled')),
     status_reason VARCHAR(500),
+    token_version INTEGER NOT NULL DEFAULT 0,
     password_hash VARCHAR(255) NOT NULL,
     last_login_at TIMESTAMPTZ,
     last_login_ip VARCHAR(64),
@@ -24,6 +25,8 @@ CREATE TABLE IF NOT EXISTS auth_verification_codes (
     email VARCHAR(200) NOT NULL,
     code_hash VARCHAR(255) NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    locked_until TIMESTAMPTZ,
     consumed_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
