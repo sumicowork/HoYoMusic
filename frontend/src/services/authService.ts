@@ -1,14 +1,28 @@
 import api from './api';
+import axios from 'axios';
 import { ApiResponse, LoginRequest, LoginResponse, RegisterRequest, User } from '../types';
+
+const getApiErrorMessage = (error: unknown, fallback: string): string => {
+  if (axios.isAxiosError(error)) {
+    const responseData = error.response?.data as any;
+    const detailMessage = responseData?.error?.details?.[0]?.message;
+    return detailMessage || responseData?.error?.message || error.message || fallback;
+  }
+  return error instanceof Error ? error.message : fallback;
+};
 
 export const authService = {
   async login(credentials: LoginRequest): Promise<LoginResponse> {
-    const response = await api.post<ApiResponse<LoginResponse>>('/auth/login', credentials);
-    if (response.data.success && response.data.data) {
-      localStorage.setItem('token', response.data.data.token);
-      return response.data.data;
+    try {
+      const response = await api.post<ApiResponse<LoginResponse>>('/auth/login', credentials);
+      if (response.data.success && response.data.data) {
+        localStorage.setItem('token', response.data.data.token);
+        return response.data.data;
+      }
+      throw new Error(response.data.error?.message || 'Login failed');
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error, 'Login failed'));
     }
-    throw new Error(response.data.error?.message || 'Login failed');
   },
 
   async getCurrentUser(): Promise<User> {
@@ -20,20 +34,35 @@ export const authService = {
   },
 
   async sendVerificationCode(email: string): Promise<{ message: string }> {
-    const response = await api.post<ApiResponse<{ message: string }>>('/auth/send-verification-code', { email });
-    if (response.data.success && response.data.data) {
-      return response.data.data;
+    const normalizedEmail = String(email || '').trim();
+    if (!normalizedEmail) {
+      throw new Error('请输入有效邮箱地址');
     }
-    throw new Error(response.data.error?.message || 'Failed to send verification code');
+
+    try {
+      const response = await api.post<ApiResponse<{ message: string }>>('/auth/send-verification-code', {
+        email: normalizedEmail,
+      });
+      if (response.data.success && response.data.data) {
+        return response.data.data;
+      }
+      throw new Error(response.data.error?.message || 'Failed to send verification code');
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error, 'Failed to send verification code'));
+    }
   },
 
   async register(payload: RegisterRequest): Promise<LoginResponse> {
-    const response = await api.post<ApiResponse<LoginResponse>>('/auth/register', payload);
-    if (response.data.success && response.data.data) {
-      localStorage.setItem('token', response.data.data.token);
-      return response.data.data;
+    try {
+      const response = await api.post<ApiResponse<LoginResponse>>('/auth/register', payload);
+      if (response.data.success && response.data.data) {
+        localStorage.setItem('token', response.data.data.token);
+        return response.data.data;
+      }
+      throw new Error(response.data.error?.message || 'Registration failed');
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error, 'Registration failed'));
     }
-    throw new Error(response.data.error?.message || 'Registration failed');
   },
 
   logout() {

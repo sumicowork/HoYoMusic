@@ -88,8 +88,14 @@ const AuthModal: React.FC = () => {
   const handleSendCode = async () => {
     try {
       const values = await registerForm.validateFields(['email']);
+      const normalizedEmail = String(values.email || '').trim();
+      if (!normalizedEmail) {
+        message.error('请输入有效邮箱地址');
+        return;
+      }
+
       setSendingCode(true);
-      const result = await authService.sendVerificationCode(values.email);
+      const result = await authService.sendVerificationCode(normalizedEmail);
       message.success(result.message || '验证码已发送');
       setCountdown(60);
     } catch (error: any) {
