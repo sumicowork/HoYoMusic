@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { useAuthModalStore } from '../store/authModalStore';
 
 /** Static-mode flag controlled by VITE_STATIC_MODE=true in .env.static. */
 export const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
@@ -80,7 +81,8 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
-      window.location.href = '/admin/login';
+      const pathname = typeof window !== 'undefined' ? window.location.pathname + window.location.search + window.location.hash : null;
+      useAuthModalStore.getState().openLogin(pathname || null);
     }
     return Promise.reject(error);
   }

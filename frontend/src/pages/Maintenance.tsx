@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button, Card, Typography } from 'antd';
-import { Link } from 'react-router-dom';
 import type { MaintenanceModeConfig } from '../services/siteConfigService';
+import { useAuthModalStore } from '../store/authModalStore';
 import './Maintenance.css';
 
 const { Title, Paragraph, Text } = Typography;
@@ -18,6 +18,7 @@ const formatExpectedEndTime = (value: string | null | undefined): string | null 
 };
 
 const Maintenance: React.FC<MaintenanceProps> = ({ config }) => {
+  const { openLogin } = useAuthModalStore();
   const expectedTime = formatExpectedEndTime(config?.expected_end_time);
 
   return (
@@ -33,8 +34,8 @@ const Maintenance: React.FC<MaintenanceProps> = ({ config }) => {
             <Text>{expectedTime}</Text>
           </Paragraph>
         )}
-        <Button type="primary" size="large">
-          <Link to="/admin/login?maintenance_entry=1">管理入口</Link>
+        <Button type="primary" size="large" onClick={() => openLogin('/admin')}>
+          管理入口
         </Button>
       </Card>
     </div>

@@ -14,6 +14,8 @@ import {
   HeartOutlined,
 } from '@ant-design/icons';
 import { useThemeStore } from '../store/themeStore';
+import { useAuthStore } from '../store/authStore';
+import { useAuthModalStore } from '../store/authModalStore';
 import { IS_STATIC } from '../services/api';
 import './SideNav.css';
 
@@ -29,6 +31,8 @@ const SideNav: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { mode, toggleTheme } = useThemeStore();
+  const { isAuthenticated } = useAuthStore();
+  const { openLogin } = useAuthModalStore();
 
   const navItems: NavItem[] = [
     { icon: <HomeOutlined />, label: '主页', path: '/', color: '#667eea' },
@@ -39,7 +43,18 @@ const SideNav: React.FC = () => {
     { icon: <TagsOutlined />, label: '标签', path: '/tags', color: '#10b981' },
     ...(!IS_STATIC ? [
       { icon: <HeartOutlined />, label: '我的', path: '/me', color: '#ec4899' } as NavItem,
-      { icon: <LoginOutlined />, label: '管理', path: '/admin/login', color: '#ef4444' } as NavItem,
+      {
+        icon: <LoginOutlined />,
+        label: '管理',
+        action: () => {
+          if (isAuthenticated) {
+            navigate('/admin');
+            return;
+          }
+          openLogin('/admin');
+        },
+        color: '#ef4444',
+      } as NavItem,
     ] : []),
     {
       icon: mode === 'light' ? <MoonOutlined /> : <SunOutlined />,

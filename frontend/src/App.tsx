@@ -8,6 +8,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Player from './components/Player';
 import PageHeader from './components/PageHeader';
 import MobileTabBar from './components/MobileTabBar';
+import AuthModal from './components/AuthModal';
 import FeedbackModal from './components/FeedbackModal';
 import FirstVisitModal from './components/FirstVisitModal';
 import SiteComplianceFooter from './components/SiteComplianceFooter';
@@ -23,8 +24,6 @@ import './theme/aurora-glass.css';
 import './App.css';
 
 // Lazy load all pages for performance
-const Login = lazy(() => import('./pages/Login'));
-const Register = lazy(() => import('./pages/Register'));
 const Home = lazy(() => import('./pages/Home'));
 const GameDetail = lazy(() => import('./pages/GameDetail'));
 const PublicLibrary = lazy(() => import('./pages/PublicLibrary'));
@@ -129,12 +128,10 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
 
   const canBypassMaintenance = !IS_STATIC && isInitialized && isAuthenticated && !!user?.is_admin;
   const canEvaluateMaintenance = maintenanceLoaded && (IS_STATIC || isInitialized);
-  const maintenanceEntryToLogin = location.pathname === '/admin/login'
-    && new URLSearchParams(location.search).get('maintenance_entry') === '1';
   const forceMaintenancePage = canEvaluateMaintenance
     && maintenanceConfig.enabled
     && !canBypassMaintenance
-    && !maintenanceEntryToLogin;
+    && location.pathname !== '/admin';
 
   if (forceMaintenancePage) {
     return (
@@ -183,8 +180,6 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
           {/* 管理后台路由 - 需要登录（静态模式下不渲染） */}
           {!IS_STATIC && (
             <>
-              <Route path="/admin/login" element={<Login />} />
-              <Route path="/admin/register" element={<Register />} />
               <Route
                 path="/admin"
                 element={
@@ -266,6 +261,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
       <FirstVisitModal />
       <FeedbackModal open={feedbackOpen} onClose={onCloseFeedback} />
       <SiteComplianceFooter />
+      <AuthModal />
       {currentTrack && <Player />}
     </div>
   );

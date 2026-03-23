@@ -13,6 +13,7 @@ import {
 } from '@ant-design/icons';
 import { IS_STATIC } from '../services/api';
 import { useAuthStore } from '../store/authStore';
+import { useAuthModalStore } from '../store/authModalStore';
 import ThemeToggle from './ThemeToggle';
 import './PageHeader.css';
 
@@ -34,6 +35,7 @@ const PageHeader: React.FC<PageHeaderProps> = ({ extra, onFeedbackClick }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated, user } = useAuthStore();
+  const { openLogin } = useAuthModalStore();
 
   const navItems: NavItem[] = [
     { key: 'home', icon: <HomeOutlined />, label: '主页', path: '/' },
@@ -88,7 +90,13 @@ const PageHeader: React.FC<PageHeaderProps> = ({ extra, onFeedbackClick }) => {
             <>
               <button
                 className="page-header-auth-button"
-                onClick={() => navigate(isAuthenticated ? '/me' : '/admin/login')}
+                onClick={() => {
+                  if (isAuthenticated) {
+                    navigate('/me');
+                    return;
+                  }
+                  openLogin(`${location.pathname}${location.search}${location.hash}`);
+                }}
               >
                 <span className="page-header-nav-icon">
                   {isAuthenticated ? <UserOutlined /> : <LoginOutlined />}

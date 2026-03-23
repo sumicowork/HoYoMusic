@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import {
   Layout, Input, Button, Form, Select, Slider,
   Table, Tag, Image, Space, Typography, Divider,
-  Badge, Empty, Spin, Tooltip, Drawer, Checkbox, Collapse, Modal,
+  Badge, Empty, Spin, Tooltip, Drawer, Checkbox, Collapse,
 } from 'antd';
 import {
   SearchOutlined, FilterOutlined, PlayCircleOutlined,
@@ -22,7 +22,8 @@ import { useSearchStore } from '../store/searchStore';
 import { toast } from '../utils/toast';
 import { buildTagPathLookup, getTagPathLabel } from '../utils/tagPath';
 import favoriteService from '../services/favoriteService';
-import playlistService, { Playlist } from '../services/playlistService';
+import playlistService from '../services/playlistService';
+import PlaylistPickerModal from '../components/PlaylistPickerModal';
 import { useDebugUserFeatures } from '../utils/debugFeature';
 import './Search.css';
 
@@ -76,12 +77,7 @@ const Search: React.FC = () => {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [favoritesMap, setFavoritesMap] = useState<Record<number, boolean>>({});
   const [playlistModalOpen, setPlaylistModalOpen] = useState(false);
-  const [playlistSaving, setPlaylistSaving] = useState(false);
-  const [playlistCreating, setPlaylistCreating] = useState(false);
-  const [playlists, setPlaylists] = useState<Playlist[]>([]);
-  const [selectedPlaylistId, setSelectedPlaylistId] = useState<number | null>(null);
   const [selectedTrackId, setSelectedTrackId] = useState<number | null>(null);
-  const [newPlaylistName, setNewPlaylistName] = useState('');
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
@@ -268,55 +264,19 @@ const Search: React.FC = () => {
 
   const openPlaylistModal = async (trackId: number) => {
     setSelectedTrackId(trackId);
-    setSelectedPlaylistId(null);
-    setNewPlaylistName('');
     setPlaylistModalOpen(true);
-    try {
-      const data = await playlistService.getPlaylists();
-      setPlaylists(data);
-    } catch {
-      toast.error('加载歌单失败');
-    }
   };
 
-  const handleCreatePlaylistInline = async () => {
-    const name = newPlaylistName.trim();
-    if (!name) {
-      toast.warning('请输入歌单名称');
+  const handleAddToUserPlaylist = async (playlistId: number) => {
+    if (!selectedTrackId) {
       return;
     }
-
-    setPlaylistCreating(true);
     try {
-      const created = await playlistService.createPlaylist(name);
-      const data = await playlistService.getPlaylists();
-      setPlaylists(data);
-      setSelectedPlaylistId(created.id);
-      setNewPlaylistName('');
-      toast.success('歌单创建成功，已自动选中');
-    } catch (error: any) {
-      const msg = error?.response?.data?.error?.message || '创建歌单失败';
-      toast.error(msg);
-    } finally {
-      setPlaylistCreating(false);
-    }
-  };
-
-  const handleAddToUserPlaylist = async () => {
-    if (!selectedTrackId || !selectedPlaylistId) {
-      toast.warning('请先选择歌单');
-      return;
-    }
-    setPlaylistSaving(true);
-    try {
-      await playlistService.addTrack(selectedPlaylistId, selectedTrackId);
+      await playlistService.addTrack(playlistId, selectedTrackId);
       toast.success('已添加到歌单');
-      setPlaylistModalOpen(false);
     } catch (error: any) {
       const msg = error?.response?.data?.error?.message || '添加到歌单失败';
       toast.error(msg);
-    } finally {
-      setPlaylistSaving(false);
     }
   };
 
@@ -600,37 +560,12 @@ const Search: React.FC = () => {
           </div>
         )}
 
-        <Modal
+        <PlaylistPickerModal
           title="收藏到歌单"
           open={playlistModalOpen}
           onCancel={() => setPlaylistModalOpen(false)}
-          onOk={handleAddToUserPlaylist}
-          okText="添加"
-          cancelText="取消"
-          confirmLoading={playlistSaving}
-          destroyOnHidden
-        >
-          <Select
-            style={{ width: '100%' }}
-            placeholder="选择目标歌单"
-            value={selectedPlaylistId ?? undefined}
-            onChange={(value) => setSelectedPlaylistId(value)}
-            options={playlists.map((p) => ({ value: p.id, label: `${p.name} (${p.track_count} 首)` }))}
-          />
-          <Divider style={{ margin: '16px 0 12px' }}>或新建歌单</Divider>
-          <Space.Compact style={{ width: '100%' }}>
-            <Input
-              placeholder="输入新歌单名称"
-              value={newPlaylistName}
-              maxLength={100}
-              onChange={(event) => setNewPlaylistName(event.target.value)}
-              onPressEnter={() => void handleCreatePlaylistInline()}
-            />
-            <Button loading={playlistCreating} onClick={() => void handleCreatePlaylistInline()}>
-              新建
-            </Button>
-          </Space.Compact>
-        </Modal>
+          onSubmit={handleAddToUserPlaylist}
+        />
       </Content>
 
       {/* 高级筛选 Drawer */}

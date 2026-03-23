@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Layout, Card, Button, Space, Image, Tag, Skeleton, Descriptions, message, Tooltip, Typography, Modal, Select, Divider, Input } from 'antd';
+import { Layout, Card, Button, Space, Image, Tag, Skeleton, Descriptions, message, Tooltip, Typography } from 'antd';
 import { ArrowLeftOutlined, PlayCircleOutlined, DownloadOutlined, HeartOutlined, HeartFilled, PlusOutlined } from '@ant-design/icons';
 import { IS_STATIC } from '../services/api';
 import * as staticData from '../services/staticDataService';
@@ -14,7 +14,8 @@ import { getTagGroups, getTags, getTrackTags, Tag as TagType, TagGroup } from '.
 import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
 import { buildTagPathLookup, getTagPathLabel } from '../utils/tagPath';
 import favoriteService from '../services/favoriteService';
-import playlistService, { Playlist } from '../services/playlistService';
+import playlistService from '../services/playlistService';
+import PlaylistPickerModal from '../components/PlaylistPickerModal';
 import { useDebugUserFeatures } from '../utils/debugFeature';
 import './TrackDetail.css';
 
@@ -40,12 +41,6 @@ const TrackDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [favorited, setFavorited] = useState(false);
   const [playlistModalOpen, setPlaylistModalOpen] = useState(false);
-  const [playlistLoading, setPlaylistLoading] = useState(false);
-  const [playlistSaving, setPlaylistSaving] = useState(false);
-  const [playlistCreating, setPlaylistCreating] = useState(false);
-  const [playlists, setPlaylists] = useState<Playlist[]>([]);
-  const [selectedPlaylistId, setSelectedPlaylistId] = useState<number | null>(null);
-  const [newPlaylistName, setNewPlaylistName] = useState('');
   const tagPathLookup = useMemo(
     () => buildTagPathLookup(allTags.length > 0 ? allTags : tags, tagGroups),
     [allTags, tags, tagGroups]
@@ -189,57 +184,18 @@ const TrackDetail: React.FC = () => {
 
   const handleOpenPlaylistModal = async () => {
     setPlaylistModalOpen(true);
-    setSelectedPlaylistId(null);
-    setNewPlaylistName('');
-    setPlaylistLoading(true);
-    try {
-      const data = await playlistService.getPlaylists();
-      setPlaylists(data);
-    } catch {
-      message.error('加载歌单失败');
-    } finally {
-      setPlaylistLoading(false);
-    }
   };
 
-  const handleCreatePlaylistInline = async () => {
-    const name = newPlaylistName.trim();
-    if (!name) {
-      message.warning('请输入歌单名称');
+  const handleAddToPlaylist = async (playlistId: number) => {
+    if (!track) {
       return;
     }
-
-    setPlaylistCreating(true);
     try {
-      const created = await playlistService.createPlaylist(name);
-      const data = await playlistService.getPlaylists();
-      setPlaylists(data);
-      setSelectedPlaylistId(created.id);
-      setNewPlaylistName('');
-      message.success('歌单创建成功，已自动选中');
-    } catch (error: any) {
-      const msg = error?.response?.data?.error?.message || '创建歌单失败';
-      message.error(msg);
-    } finally {
-      setPlaylistCreating(false);
-    }
-  };
-
-  const handleAddToPlaylist = async () => {
-    if (!track || !selectedPlaylistId) {
-      message.warning('请先选择歌单');
-      return;
-    }
-    setPlaylistSaving(true);
-    try {
-      await playlistService.addTrack(selectedPlaylistId, track.id);
+      await playlistService.addTrack(playlistId, track.id);
       message.success('已添加到歌单');
-      setPlaylistModalOpen(false);
     } catch (error: any) {
       const msg = error?.response?.data?.error?.message || '添加到歌单失败';
       message.error(msg);
-    } finally {
-      setPlaylistSaving(false);
     }
   };
 
@@ -395,38 +351,12 @@ const TrackDetail: React.FC = () => {
           </div>
         </Card>
 
-        <Modal
+        <PlaylistPickerModal
           title="收藏到歌单"
           open={playlistModalOpen}
           onCancel={() => setPlaylistModalOpen(false)}
-          onOk={handleAddToPlaylist}
-          okText="添加"
-          cancelText="取消"
-          confirmLoading={playlistSaving}
-          destroyOnHidden
-        >
-          <Select
-            style={{ width: '100%' }}
-            placeholder="选择目标歌单"
-            loading={playlistLoading}
-            value={selectedPlaylistId ?? undefined}
-            onChange={(value) => setSelectedPlaylistId(value)}
-            options={playlists.map((p) => ({ value: p.id, label: `${p.name} (${p.track_count} 首)` }))}
-          />
-          <Divider style={{ margin: '16px 0 12px' }}>或新建歌单</Divider>
-          <Space.Compact style={{ width: '100%' }}>
-            <Input
-              placeholder="输入新歌单名称"
-              value={newPlaylistName}
-              maxLength={100}
-              onChange={(event) => setNewPlaylistName(event.target.value)}
-              onPressEnter={() => void handleCreatePlaylistInline()}
-            />
-            <Button loading={playlistCreating} onClick={() => void handleCreatePlaylistInline()}>
-              新建
-            </Button>
-          </Space.Compact>
-        </Modal>
+          onSubmit={handleAddToPlaylist}
+        />
 
         {/* Lyrics Section */}
         {lyrics && (
