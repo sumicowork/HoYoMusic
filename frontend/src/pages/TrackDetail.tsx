@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Layout, Card, Button, Space, Image, Tag, Skeleton, Descriptions, message, Tooltip, Typography, Modal, Select } from 'antd';
+import { Layout, Card, Button, Space, Image, Tag, Skeleton, Descriptions, message, Tooltip, Typography, Modal, Select, Divider, Input } from 'antd';
 import { ArrowLeftOutlined, PlayCircleOutlined, DownloadOutlined, HeartOutlined, HeartFilled, PlusOutlined } from '@ant-design/icons';
 import { IS_STATIC } from '../services/api';
 import * as staticData from '../services/staticDataService';
@@ -42,8 +42,10 @@ const TrackDetail: React.FC = () => {
   const [playlistModalOpen, setPlaylistModalOpen] = useState(false);
   const [playlistLoading, setPlaylistLoading] = useState(false);
   const [playlistSaving, setPlaylistSaving] = useState(false);
+  const [playlistCreating, setPlaylistCreating] = useState(false);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<number | null>(null);
+  const [newPlaylistName, setNewPlaylistName] = useState('');
   const tagPathLookup = useMemo(
     () => buildTagPathLookup(allTags.length > 0 ? allTags : tags, tagGroups),
     [allTags, tags, tagGroups]
@@ -188,6 +190,7 @@ const TrackDetail: React.FC = () => {
   const handleOpenPlaylistModal = async () => {
     setPlaylistModalOpen(true);
     setSelectedPlaylistId(null);
+    setNewPlaylistName('');
     setPlaylistLoading(true);
     try {
       const data = await playlistService.getPlaylists();
@@ -196,6 +199,29 @@ const TrackDetail: React.FC = () => {
       message.error('加载歌单失败');
     } finally {
       setPlaylistLoading(false);
+    }
+  };
+
+  const handleCreatePlaylistInline = async () => {
+    const name = newPlaylistName.trim();
+    if (!name) {
+      message.warning('请输入歌单名称');
+      return;
+    }
+
+    setPlaylistCreating(true);
+    try {
+      const created = await playlistService.createPlaylist(name);
+      const data = await playlistService.getPlaylists();
+      setPlaylists(data);
+      setSelectedPlaylistId(created.id);
+      setNewPlaylistName('');
+      message.success('歌单创建成功，已自动选中');
+    } catch (error: any) {
+      const msg = error?.response?.data?.error?.message || '创建歌单失败';
+      message.error(msg);
+    } finally {
+      setPlaylistCreating(false);
     }
   };
 
@@ -387,6 +413,19 @@ const TrackDetail: React.FC = () => {
             onChange={(value) => setSelectedPlaylistId(value)}
             options={playlists.map((p) => ({ value: p.id, label: `${p.name} (${p.track_count} 首)` }))}
           />
+          <Divider style={{ margin: '16px 0 12px' }}>或新建歌单</Divider>
+          <Space.Compact style={{ width: '100%' }}>
+            <Input
+              placeholder="输入新歌单名称"
+              value={newPlaylistName}
+              maxLength={100}
+              onChange={(event) => setNewPlaylistName(event.target.value)}
+              onPressEnter={() => void handleCreatePlaylistInline()}
+            />
+            <Button loading={playlistCreating} onClick={() => void handleCreatePlaylistInline()}>
+              新建
+            </Button>
+          </Space.Compact>
         </Modal>
 
         {/* Lyrics Section */}

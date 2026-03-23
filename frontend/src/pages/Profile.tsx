@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { Button, Card, Col, Empty, List, Row, Space, Spin, Statistic, Typography } from 'antd';
-import { HeartFilled, LogoutOutlined, UnorderedListOutlined, UserOutlined } from '@ant-design/icons';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Button, Card, Col, Empty, Input, List, Modal, Row, Space, Spin, Statistic, Typography, message } from 'antd';
+import { HeartFilled, LogoutOutlined, PlusOutlined, UnorderedListOutlined, UserOutlined } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { usePlayerStore } from '../store/playerStore';
@@ -9,6 +9,8 @@ import playlistService, { type Playlist } from '../services/playlistService';
 import type { Track } from '../types';
 
 const { Title, Text } = Typography;
+const FAVORITES_PAGE_SIZE = 8;
+const PLAYLISTS_PAGE_SIZE = 8;
 
 const Profile: React.FC = () => {
   const navigate = useNavigate();
@@ -18,37 +20,78 @@ const Profile: React.FC = () => {
   const [playlistCount, setPlaylistCount] = useState(0);
   const [favoriteTracks, setFavoriteTracks] = useState<Track[]>([]);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [favoritePage, setFavoritePage] = useState(1);
+  const [playlistPage, setPlaylistPage] = useState(1);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const [playlistLoading, setPlaylistLoading] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createSubmitting, setCreateSubmitting] = useState(false);
+  const [newPlaylistName, setNewPlaylistName] = useState('');
+  const [newPlaylistDesc, setNewPlaylistDesc] = useState('');
+
+  const pagedPlaylists = useMemo(() => {
+    const start = (playlistPage - 1) * PLAYLISTS_PAGE_SIZE;
+    return playlists.slice(start, start + PLAYLISTS_PAGE_SIZE);
+  }, [playlists, playlistPage]);
+
+  const loadFavorites = async (page = 1) => {
+    setFavoriteLoading(true);
+    try {
+      const favoriteData = await favoriteService.getFavorites(page, FAVORITES_PAGE_SIZE);
+      setFavoriteTracks(favoriteData.tracks || []);
+      setFavoriteCount(favoriteData.pagination?.total || 0);
+      setFavoritePage(favoriteData.pagination?.page || page);
+    } catch {
+      message.error('加载收藏失败');
+    } finally {
+      setFavoriteLoading(false);
+    }
+  };
+
+  const loadPlaylists = async () => {
+    setPlaylistLoading(true);
+    try {
+      const data = await playlistService.getPlaylists();
+      setPlaylists(data);
+      setPlaylistCount(data.length);
+      const maxPage = Math.max(1, Math.ceil(data.length / PLAYLISTS_PAGE_SIZE));
+      setPlaylistPage((prev) => Math.min(prev, maxPage));
+    } catch {
+      message.error('加载歌单失败');
+    } finally {
+      setPlaylistLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let mounted = true;
-    const load = async () => {
-      setLoading(true);
-      try {
-        const [favoriteData, playlists] = await Promise.all([
-          favoriteService.getFavorites(1, 8),
-          playlistService.getPlaylists(),
-        ]);
-        if (!mounted) return;
-        setFavoriteCount(favoriteData.pagination?.total || 0);
-        setFavoriteTracks(favoriteData.tracks || []);
-        setPlaylistCount(playlists.length);
-        setPlaylists(playlists);
-      } catch {
-        if (!mounted) return;
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    load();
-
-    return () => {
-      mounted = false;
-    };
+    void Promise.all([loadFavorites(1), loadPlaylists()]);
   }, []);
+
+  const handleCreatePlaylist = async () => {
+    const name = newPlaylistName.trim();
+    if (!name) {
+      message.warning('请输入歌单名称');
+      return;
+    }
+
+    setCreateSubmitting(true);
+    try {
+      const created = await playlistService.createPlaylist(name, newPlaylistDesc.trim() || undefined, false);
+      message.success('歌单创建成功');
+      setCreateModalOpen(false);
+      setNewPlaylistName('');
+      setNewPlaylistDesc('');
+      const data = await playlistService.getPlaylists();
+      setPlaylists(data);
+      setPlaylistCount(data.length);
+      setPlaylistPage(Math.max(1, Math.ceil(data.length / PLAYLISTS_PAGE_SIZE)));
+      navigate(`/playlists/${created.id}`);
+    } catch {
+      message.error('创建歌单失败');
+    } finally {
+      setCreateSubmitting(false);
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -88,14 +131,22 @@ const Profile: React.FC = () => {
 
           <Row gutter={16}>
             <Col xs={24} lg={12}>
-              <Card title="我的喜爱" loading={loading}>
-                {loading ? (
+              <Card title="我的喜爱" loading={favoriteLoading}>
+                {favoriteLoading ? (
                   <div style={{ textAlign: 'center', padding: 12 }}><Spin /></div>
                 ) : favoriteTracks.length === 0 ? (
                   <Empty description="还没有收藏任何曲目" />
                 ) : (
                   <List
                     dataSource={favoriteTracks}
+                    pagination={{
+                      current: favoritePage,
+                      pageSize: FAVORITES_PAGE_SIZE,
+                      total: favoriteCount,
+                      size: 'small',
+                      showSizeChanger: false,
+                      onChange: (page) => void loadFavorites(page),
+                    }}
                     renderItem={(track) => (
                       <List.Item
                         actions={[
@@ -116,14 +167,30 @@ const Profile: React.FC = () => {
             </Col>
 
             <Col xs={24} lg={12}>
-              <Card title="我的歌单" loading={loading}>
-                {loading ? (
+              <Card
+                title="我的歌单"
+                extra={
+                  <Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => setCreateModalOpen(true)}>
+                    新建歌单
+                  </Button>
+                }
+                loading={playlistLoading}
+              >
+                {playlistLoading ? (
                   <div style={{ textAlign: 'center', padding: 12 }}><Spin /></div>
                 ) : playlists.length === 0 ? (
                   <Empty description="还没有歌单" />
                 ) : (
                   <List
-                    dataSource={playlists}
+                    dataSource={pagedPlaylists}
+                    pagination={{
+                      current: playlistPage,
+                      pageSize: PLAYLISTS_PAGE_SIZE,
+                      total: playlistCount,
+                      size: 'small',
+                      showSizeChanger: false,
+                      onChange: (page) => setPlaylistPage(page),
+                    }}
                     renderItem={(playlist) => (
                       <List.Item>
                         <Space direction="vertical" size={0} style={{ width: '100%' }}>
@@ -141,6 +208,32 @@ const Profile: React.FC = () => {
           </Row>
         </Space>
       </Card>
+
+      <Modal
+        title="新建歌单"
+        open={createModalOpen}
+        onCancel={() => setCreateModalOpen(false)}
+        onOk={() => void handleCreatePlaylist()}
+        okText="创建"
+        cancelText="取消"
+        confirmLoading={createSubmitting}
+      >
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <Input
+            placeholder="歌单名称"
+            value={newPlaylistName}
+            onChange={(event) => setNewPlaylistName(event.target.value)}
+            maxLength={100}
+          />
+          <Input.TextArea
+            placeholder="歌单描述（可选）"
+            value={newPlaylistDesc}
+            onChange={(event) => setNewPlaylistDesc(event.target.value)}
+            rows={3}
+            maxLength={500}
+          />
+        </Space>
+      </Modal>
     </div>
   );
 };
