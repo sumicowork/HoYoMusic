@@ -77,7 +77,7 @@ const Profile: React.FC = () => {
 
     setCreateSubmitting(true);
     try {
-      const created = await playlistService.createPlaylist(name, newPlaylistDesc.trim() || undefined, false);
+      const created = await playlistService.createPlaylist(name, newPlaylistDesc.trim() || undefined);
       message.success('歌单创建成功');
       setCreateModalOpen(false);
       setNewPlaylistName('');

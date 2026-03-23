@@ -5,7 +5,7 @@ import pool from '../config/database';
 export const createPlaylist = async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
-    const { name, description, is_public } = req.body;
+    const { name, description } = req.body;
 
     if (!name || !name.trim()) {
       return res.status(400).json({
@@ -18,7 +18,7 @@ export const createPlaylist = async (req: Request, res: Response) => {
       `INSERT INTO playlists (user_id, name, description, is_public)
        VALUES ($1, $2, $3, $4)
        RETURNING *`,
-      [user.id, name.trim(), description || null, is_public || false]
+      [user.id, name.trim(), description || null, false]
     );
 
     res.status(201).json({ success: true, data: { playlist: result.rows[0] } });
@@ -66,7 +66,7 @@ export const getPlaylistById = async (req: Request, res: Response) => {
        FROM playlists p
        LEFT JOIN playlist_tracks pt ON p.id = pt.playlist_id
        LEFT JOIN tracks t ON pt.track_id = t.id
-       WHERE p.id = $1 AND (p.user_id = $2 OR p.is_public = true)
+       WHERE p.id = $1 AND p.user_id = $2
        GROUP BY p.id`,
       [id, user.id]
     );
@@ -116,17 +116,17 @@ export const updatePlaylist = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const user = req.user as any;
-    const { name, description, is_public } = req.body;
+    const { name, description } = req.body;
 
     const result = await pool.query(
       `UPDATE playlists
        SET name = COALESCE($1, name),
            description = COALESCE($2, description),
-           is_public = COALESCE($3, is_public),
+           is_public = FALSE,
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $4 AND user_id = $5
+       WHERE id = $3 AND user_id = $4
        RETURNING *`,
-      [name, description, is_public, id, user.id]
+      [name, description, id, user.id]
     );
 
     if (result.rows.length === 0) {

@@ -68,7 +68,11 @@ const options: swaggerJsdoc.Options = {
             id: { type: 'integer' },
             name: { type: 'string' },
             description: { type: 'string', nullable: true },
-            is_public: { type: 'boolean' },
+            is_public: {
+              type: 'boolean',
+              deprecated: true,
+              description: 'Deprecated. Playlists are private-only and this field is always false.',
+            },
             track_count: { type: 'integer' },
             total_duration: { type: 'integer' },
           },

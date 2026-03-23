@@ -296,6 +296,7 @@ const runMigrations = async () => {
     `);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_playlists_user ON playlists(user_id)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_playlist_tracks_playlist ON playlist_tracks(playlist_id)`);
+    await pool.query(`UPDATE playlists SET is_public = FALSE WHERE is_public = TRUE`);
     console.log('✅ DB migrations up to date (playlists)');
   } catch (err) {
     console.error('⚠️  playlists migration warning:', err);

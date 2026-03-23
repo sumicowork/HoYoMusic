@@ -6,6 +6,7 @@ export interface Playlist {
   name: string;
   description: string | null;
   cover_path: string | null;
+  /** @deprecated Playlists are private-only now. This field is always false. */
   is_public: boolean;
   track_count: number;
   total_duration: number;
@@ -19,10 +20,10 @@ export const playlistService = {
   getPlaylistById: (id: number) =>
     api.get(`/playlists/${id}`).then(r => r.data.data),
 
-  createPlaylist: (name: string, description?: string, is_public?: boolean) =>
-    api.post('/playlists', { name, description, is_public }).then(r => r.data.data.playlist as Playlist),
+  createPlaylist: (name: string, description?: string) =>
+    api.post('/playlists', { name, description }).then(r => r.data.data.playlist as Playlist),
 
-  updatePlaylist: (id: number, data: { name?: string; description?: string; is_public?: boolean }) =>
+  updatePlaylist: (id: number, data: { name?: string; description?: string }) =>
     api.put(`/playlists/${id}`, data).then(r => r.data.data.playlist as Playlist),
 
   deletePlaylist: (id: number) =>

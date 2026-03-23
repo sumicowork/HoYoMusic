@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Divider, Empty, Form, Input, List, Modal, Select, Space, Switch, Tag, Typography, message } from 'antd';
+import { Alert, Button, Divider, Empty, Form, Input, List, Modal, Select, Space, Typography, message } from 'antd';
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import playlistService, { type Playlist } from '../services/playlistService';
 
@@ -24,7 +24,7 @@ const PlaylistPickerModal: React.FC<PlaylistPickerModalProps> = ({ open, onCance
   const [saving, setSaving] = useState(false);
   const [creating, setCreating] = useState(false);
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<number | null>(null);
-  const [createForm] = Form.useForm<{ name: string; description: string; isPublic: boolean }>();
+  const [createForm] = Form.useForm<{ name: string; description: string }>();
 
   const selectedPlaylist = useMemo(
     () => playlists.find((item) => item.id === selectedPlaylistId) || null,
@@ -61,8 +61,7 @@ const PlaylistPickerModal: React.FC<PlaylistPickerModalProps> = ({ open, onCance
       setCreating(true);
       const created = await playlistService.createPlaylist(
         values.name.trim(),
-        values.description?.trim() || undefined,
-        Boolean(values.isPublic)
+        values.description?.trim() || undefined
       );
       await loadPlaylists();
       setSelectedPlaylistId(created.id);
@@ -139,7 +138,6 @@ const PlaylistPickerModal: React.FC<PlaylistPickerModalProps> = ({ open, onCance
                 <Space direction="vertical" size={2} style={{ width: '100%' }}>
                   <Space>
                     <Text strong>{playlist.name}</Text>
-                    {playlist.is_public ? <Tag color="blue">公开</Tag> : <Tag>私有</Tag>}
                   </Space>
                   <Text type="secondary" style={{ fontSize: 12 }}>
                     {playlist.track_count} 首 · {fmtDuration(playlist.total_duration)}
@@ -160,7 +158,6 @@ const PlaylistPickerModal: React.FC<PlaylistPickerModalProps> = ({ open, onCance
         <Form
           form={createForm}
           layout="vertical"
-          initialValues={{ isPublic: false }}
           onFinish={() => void handleCreate()}
         >
           <Space direction="vertical" style={{ width: '100%' }} size={8}>
@@ -174,9 +171,6 @@ const PlaylistPickerModal: React.FC<PlaylistPickerModalProps> = ({ open, onCance
             </Form.Item>
             <Form.Item name="description" style={{ marginBottom: 0 }}>
               <Input.TextArea rows={2} placeholder="歌单描述（可选）" maxLength={500} />
-            </Form.Item>
-            <Form.Item name="isPublic" valuePropName="checked" style={{ marginBottom: 0 }}>
-              <Switch checkedChildren="公开" unCheckedChildren="私有" />
             </Form.Item>
             <Button
               icon={<PlusOutlined />}
