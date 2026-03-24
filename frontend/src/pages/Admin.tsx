@@ -21,7 +21,7 @@ import type { TableRowSelection } from 'antd/es/table/interface';
 import dayjs from 'dayjs';
 import { Link } from 'react-router-dom';
 import { Track } from '../types';
-import { trackService, type SameAlbumDuplicateGroup } from '../services/trackService';
+import { trackService, type AdminTrackFilters, type SameAlbumDuplicateGroup } from '../services/trackService';
 import { usePlayerStore } from '../store/playerStore';
 import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
 import LyricsEditor from '../components/LyricsEditor';
@@ -34,7 +34,6 @@ import AdminLayout from '../components/AdminLayout';
 import UploadModal from '../components/UploadModal';
 import LyricsBatchImportModal from '../components/LyricsBatchImportModal';
 import './Admin.css';
-
 
 const Admin: React.FC = () => {
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -62,18 +61,22 @@ const Admin: React.FC = () => {
 
   // Search state
   const [searchText, setSearchText] = useState('');
+  const [columnFilters, setColumnFilters] = useState<Record<string, React.Key[] | null>>({});
+  const [serverFilters, setServerFilters] = useState<AdminTrackFilters>({});
+  const [filterOptions, setFilterOptions] = useState<{ titles: string[]; albums: string[] }>({ titles: [], albums: [] });
   const [noteDraftById, setNoteDraftById] = useState<Record<number, string>>({});
   const [savingNoteById, setSavingNoteById] = useState<Record<number, boolean>>({});
   const noteSaveSeqRef = useRef<Record<number, number>>({});
 
   const { playTrackOnly } = usePlayerStore();
 
-  const fetchTracks = async (page = 1, search?: string, pageSize?: number) => {
+  const fetchTracks = async (page = 1, search?: string, pageSize?: number, filters?: AdminTrackFilters) => {
     const searchVal = search !== undefined ? search : searchText;
     const size = pageSize ?? pagination.pageSize;
+    const activeFilters = filters ?? serverFilters;
     setLoading(true);
     try {
-      const data = await trackService.getTracks(page, size, searchVal);
+      const data = await trackService.getTracks(page, size, searchVal, activeFilters);
       setTracks(data.tracks);
       setPagination(prev => ({
         ...prev,
@@ -88,8 +91,18 @@ const Admin: React.FC = () => {
     }
   };
 
+  const loadTrackFilterOptions = async () => {
+    try {
+      const options = await trackService.getTrackFilterOptions();
+      setFilterOptions(options);
+    } catch (error: any) {
+      message.error(error.message || '获取筛选候选失败');
+    }
+  };
+
   useEffect(() => {
     fetchTracks();
+    loadTrackFilterOptions();
   }, []);
 
   useEffect(() => {
@@ -138,6 +151,7 @@ const Admin: React.FC = () => {
         message.success('曲目信息已更新');
         setEditModalVisible(false);
         fetchTracks(pagination.current);
+        loadTrackFilterOptions();
       }
     } catch (error: any) {
       message.error(error.message || '更新失败');
@@ -156,6 +170,7 @@ const Admin: React.FC = () => {
           await trackService.deleteTrack(track.id);
           message.success('曲目已删除');
           fetchTracks(pagination.current);
+          loadTrackFilterOptions();
         } catch (error: any) {
           message.error(error.message || '删除失败');
         }
@@ -212,6 +227,7 @@ const Admin: React.FC = () => {
       message.success(`成功删除 ${selectedRowKeys.length} 首曲目`);
       setSelectedRowKeys([]);
       fetchTracks(pagination.current);
+      loadTrackFilterOptions();
     } catch (error: any) {
       message.error(error.message || '批量删除失败');
     }
@@ -223,6 +239,44 @@ const Admin: React.FC = () => {
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  const hasLyrics = (track: Track) => {
+    const fromPath = typeof track.lyrics_path === 'string' && track.lyrics_path.trim().length > 0;
+    const fromInline = typeof track.lyrics === 'string' && track.lyrics.trim().length > 0;
+    return fromPath || fromInline;
+  };
+
+  const getUniqueFilters = (values: Array<string | null | undefined>) => {
+    const unique = Array.from(new Set(values.map((item) => (item || '').trim()).filter(Boolean)));
+    return unique
+      .sort((a, b) => a.localeCompare(b, 'zh-CN'))
+      .map((value) => ({ text: value, value }));
+  };
+
+  const normalizeTableFilters = (filters: Record<string, React.Key[] | null>): AdminTrackFilters => {
+    const title = filters.title?.[0] ? String(filters.title[0]) : undefined;
+    const album = filters.album?.[0] ? String(filters.album[0]) : undefined;
+    const durationBucketRaw = filters.duration?.[0] ? String(filters.duration[0]) : undefined;
+    const durationBucket = durationBucketRaw === 'short' || durationBucketRaw === 'medium' || durationBucketRaw === 'long'
+      ? durationBucketRaw
+      : undefined;
+    const lyricsRaw = filters.lyrics?.[0] ? String(filters.lyrics[0]) : undefined;
+    const hasLyrics = lyricsRaw === 'has' ? true : lyricsRaw === 'missing' ? false : undefined;
+
+    return {
+      title,
+      album,
+      durationBucket,
+      hasLyrics,
+    };
+  };
+
+  const areServerFiltersEqual = (a: AdminTrackFilters, b: AdminTrackFilters) => (
+    a.title === b.title
+    && a.album === b.album
+    && a.durationBucket === b.durationBucket
+    && a.hasLyrics === b.hasLyrics
+  );
 
   const handleScanDuplicates = async () => {
     setDuplicateScanLoading(true);
@@ -276,6 +330,10 @@ const Admin: React.FC = () => {
       dataIndex: 'title',
       key: 'title',
       ellipsis: true,
+      filters: getUniqueFilters(filterOptions.titles),
+      filteredValue: columnFilters.title || null,
+      filterMultiple: false,
+      filterSearch: true,
       render: (title: string, record: Track) => <Link to={`/track/${record.id}`}>{title}</Link>,
     },
     {
@@ -284,6 +342,10 @@ const Admin: React.FC = () => {
       key: 'album',
       ellipsis: true,
       responsive: ['sm'],
+      filters: getUniqueFilters(filterOptions.albums),
+      filteredValue: columnFilters.album || null,
+      filterMultiple: false,
+      filterSearch: true,
       render: (albumTitle: string, record: Track) => {
         if (!albumTitle) return '—';
         if (!record.album_id) return albumTitle;
@@ -319,12 +381,46 @@ const Admin: React.FC = () => {
       key: 'duration',
       width: 70,
       responsive: ['sm'],
+      filters: [
+        { text: '< 3 分钟', value: 'short' },
+        { text: '3-5 分钟', value: 'medium' },
+        { text: '> 5 分钟', value: 'long' },
+      ],
+      filteredValue: columnFilters.duration || null,
+      filterMultiple: false,
       render: formatDuration,
+    },
+    {
+      title: '歌词',
+      key: 'lyrics',
+      width: 92,
+      filters: [
+        { text: '已写入', value: 'has' },
+        { text: '未写入', value: 'missing' },
+      ],
+      filteredValue: columnFilters.lyrics || null,
+      filterMultiple: false,
+      render: (_, record) => {
+        const written = hasLyrics(record);
+        return (
+          <Button
+            icon={<FileTextOutlined />}
+            className={`admin-lyrics-btn ${written ? 'admin-lyrics-btn--has' : 'admin-lyrics-btn--missing'}`}
+            onClick={() => {
+              setCurrentTrackId(record.id);
+              setLyricsEditorVisible(true);
+            }}
+            size="small"
+          >
+            歌词
+          </Button>
+        );
+      },
     },
     {
       title: '操作',
       key: 'actions',
-      width: 280,
+      width: 230,
       render: (_, record) => (
         <Space wrap>
           <Button
@@ -341,16 +437,6 @@ const Admin: React.FC = () => {
             size="small"
           >
             编辑
-          </Button>
-          <Button
-            icon={<FileTextOutlined />}
-            onClick={() => {
-              setCurrentTrackId(record.id);
-              setLyricsEditorVisible(true);
-            }}
-            size="small"
-          >
-            歌词
           </Button>
           <Button
             icon={<TeamOutlined />}
@@ -403,7 +489,7 @@ const Admin: React.FC = () => {
               style={{ width: 240 }}
               value={searchText}
               onChange={e => setSearchText(e.target.value)}
-              onSearch={(val) => { setSearchText(val); fetchTracks(1, val); }}
+              onSearch={(val) => { setSearchText(val); fetchTracks(1, val, undefined, serverFilters); }}
               enterButton={<SearchOutlined />}
             />
             {hasSelection && (
@@ -471,10 +557,18 @@ const Admin: React.FC = () => {
             pageSizeOptions: ['10', '20', '50', '100'],
             showTotal: (total: number) => `共 ${total} 首曲目`,
           }}
-          onChange={(newPagination) => {
+          onChange={(newPagination, filters) => {
+            const nextColumnFilters = filters as Record<string, React.Key[] | null>;
+            const nextServerFilters = normalizeTableFilters(nextColumnFilters);
+            const filterChanged = !areServerFiltersEqual(serverFilters, nextServerFilters);
+
+            setColumnFilters(nextColumnFilters);
+            setServerFilters(nextServerFilters);
+
             const newSize = newPagination.pageSize || pagination.pageSize;
-            const newPage = newPagination.pageSize !== pagination.pageSize ? 1 : (newPagination.current || 1);
-            fetchTracks(newPage, undefined, newSize);
+            const shouldResetPage = filterChanged || newPagination.pageSize !== pagination.pageSize;
+            const targetPage = shouldResetPage ? 1 : (newPagination.current || 1);
+            fetchTracks(targetPage, undefined, newSize, nextServerFilters);
           }}
         />
       </Card>
@@ -552,6 +646,7 @@ const Admin: React.FC = () => {
         onSuccess={() => {
           setUploadModalVisible(false);
           fetchTracks(pagination.current);
+          loadTrackFilterOptions();
         }}
       />
 
@@ -595,6 +690,7 @@ const Admin: React.FC = () => {
           message.success('批量移动专辑成功');
           setBulkMoveModalVisible(false);
           fetchTracks(pagination.current);
+          loadTrackFilterOptions();
         }}
       />
 

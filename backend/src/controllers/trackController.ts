@@ -537,6 +537,14 @@ export const getTracks = async (req: Request, res: Response) => {
       : [];
     // artist: 艺术家名称模糊匹配
     const artistFilter = (req.query.artist as string || '').trim();
+    const titleExact = (req.query.title_exact as string || '').trim();
+    const albumExact = (req.query.album_exact as string || '').trim();
+    const durationBucketRaw = (req.query.duration_bucket as string || '').trim().toLowerCase();
+    const durationBucket = durationBucketRaw === 'short' || durationBucketRaw === 'medium' || durationBucketRaw === 'long'
+      ? durationBucketRaw
+      : null;
+    const hasLyricsRaw = (req.query.has_lyrics as string || '').trim().toLowerCase();
+    const hasLyrics = hasLyricsRaw === 'true' ? true : hasLyricsRaw === 'false' ? false : null;
 
     const sortBy  = (req.query.sort_by as string) || 'release_date';
     const sortDir = (req.query.sort_dir as string)?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
@@ -568,6 +576,29 @@ export const getTracks = async (req: Request, res: Response) => {
       )`);
       queryParams.push(`%${search}%`);
       pIdx++;
+    }
+    if (titleExact) {
+      conditions.push(`t.title = $${pIdx++}`);
+      queryParams.push(titleExact);
+    }
+    if (albumExact) {
+      conditions.push(`COALESCE(a.title, '') = $${pIdx++}`);
+      queryParams.push(albumExact);
+    }
+    if (durationBucket === 'short') {
+      conditions.push(`t.duration > 0 AND t.duration < 180`);
+    }
+    if (durationBucket === 'medium') {
+      conditions.push(`t.duration >= 180 AND t.duration <= 300`);
+    }
+    if (durationBucket === 'long') {
+      conditions.push(`t.duration > 300`);
+    }
+    if (hasLyrics === true) {
+      conditions.push(`t.lyrics_path IS NOT NULL AND BTRIM(t.lyrics_path) <> ''`);
+    }
+    if (hasLyrics === false) {
+      conditions.push(`(t.lyrics_path IS NULL OR BTRIM(t.lyrics_path) = '')`);
     }
     if (sampleRateMin !== null) {
       conditions.push(`t.sample_rate >= $${pIdx++}`);
@@ -703,6 +734,40 @@ export const getTracks = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: { code: 'FETCH_ERROR', message: 'Failed to fetch tracks' }
+    });
+  }
+};
+
+export const getTrackFilterOptions = async (_req: Request, res: Response) => {
+  try {
+    const [titleResult, albumResult] = await Promise.all([
+      pool.query(
+        `SELECT DISTINCT BTRIM(t.title) AS value
+         FROM tracks t
+         WHERE t.title IS NOT NULL AND BTRIM(t.title) <> ''
+         ORDER BY value ASC`
+      ),
+      pool.query(
+        `SELECT DISTINCT BTRIM(a.title) AS value
+         FROM tracks t
+         JOIN albums a ON t.album_id = a.id
+         WHERE a.title IS NOT NULL AND BTRIM(a.title) <> ''
+         ORDER BY value ASC`
+      ),
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        titles: titleResult.rows.map((row) => String(row.value)),
+        albums: albumResult.rows.map((row) => String(row.value)),
+      },
+    });
+  } catch (error) {
+    console.error('Get track filter options error:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'FETCH_ERROR', message: 'Failed to fetch track filter options' },
     });
   }
 };

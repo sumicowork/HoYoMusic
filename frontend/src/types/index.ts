@@ -35,6 +35,8 @@ export interface Track {
   artists: Artist[];
   /** 静态模式：CDN 音频直链 */
   audio_url?: string;
+  /** 动态模式：后端歌词文件路径 */
+  lyrics_path?: string | null;
   /** 静态模式：内嵌歌词文本 */
   lyrics?: string | null;
   /** 静态模式：内嵌 credits */

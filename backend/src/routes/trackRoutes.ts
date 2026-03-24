@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { uploadTracks, getTracks, getTrackById, streamTrack, downloadTrack, updateTrack, deleteTrack, uploadTrackCover, bulkDeleteTracks, bulkMoveTracksToAlbum, previewCredits, precheckDuplicateTracks, scanSameAlbumDuplicateTracks } from '../controllers/trackController';
+import { uploadTracks, getTracks, getTrackFilterOptions, getTrackById, streamTrack, downloadTrack, updateTrack, deleteTrack, uploadTrackCover, bulkDeleteTracks, bulkMoveTracksToAlbum, previewCredits, precheckDuplicateTracks, scanSameAlbumDuplicateTracks } from '../controllers/trackController';
 import { authenticateAdmin } from '../middleware/auth';
 import { authenticateStream } from '../middleware/authenticateStream';
 import upload, { coverUpload } from '../middleware/upload';
@@ -22,6 +22,7 @@ router.get('/duplicates/same-album-title', authenticateAdmin, scanSameAlbumDupli
 router.delete('/bulk', authenticateAdmin, validateBody(bulkDeleteTracksSchema), bulkDeleteTracks);
 router.post('/bulk-move', authenticateAdmin, validateBody(bulkMoveTracksSchema), bulkMoveTracksToAlbum);
 router.get('/', authenticateAdmin, getTracks);
+router.get('/filter-options', authenticateAdmin, getTrackFilterOptions);
 router.get('/:id', authenticateAdmin, getTrackById);
 router.put('/:id', authenticateAdmin, validateBody(updateTrackSchema), updateTrack);
 router.delete('/:id', authenticateAdmin, deleteTrack);

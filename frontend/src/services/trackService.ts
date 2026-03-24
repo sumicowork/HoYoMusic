@@ -50,6 +50,18 @@ export interface TrackSearchParams {
   limit?: number;
 }
 
+export interface AdminTrackFilters {
+  title?: string;
+  album?: string;
+  durationBucket?: 'short' | 'medium' | 'long';
+  hasLyrics?: boolean;
+}
+
+export interface AdminTrackFilterOptions {
+  titles: string[];
+  albums: string[];
+}
+
 export interface DuplicatePrecheckItem {
   index: number;
   file: string;
@@ -169,14 +181,38 @@ export const trackService = {
     throw new Error(response.data.error?.message || '重复检查失败');
   },
 
-  async getTracks(page = 1, limit = 20, search = ''): Promise<{ tracks: Track[]; pagination: any }> {
+  async getTracks(page = 1, limit = 20, search = '', filters: AdminTrackFilters = {}): Promise<{ tracks: Track[]; pagination: any }> {
+    const query = new URLSearchParams();
+    query.set('page', String(page));
+    query.set('limit', String(limit));
+    query.set('search', search);
+    query.set('sort_by', 'release_date');
+    query.set('sort_dir', 'DESC');
+
+    if (filters.title) query.set('title_exact', filters.title);
+    if (filters.album) query.set('album_exact', filters.album);
+    if (filters.durationBucket) query.set('duration_bucket', filters.durationBucket);
+    if (typeof filters.hasLyrics === 'boolean') query.set('has_lyrics', String(filters.hasLyrics));
+
     const response = await api.get<ApiResponse<{ tracks: Track[]; pagination: any }>>(
-      `/tracks?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}&sort_by=release_date&sort_dir=DESC`
+      `/tracks?${query.toString()}`
     );
     if (response.data.success && response.data.data) {
       return response.data.data;
     }
     throw new Error('获取曲目列表失败');
+  },
+
+  async getTrackFilterOptions(): Promise<AdminTrackFilterOptions> {
+    if (IS_STATIC) {
+      return { titles: [], albums: [] };
+    }
+
+    const response = await api.get<ApiResponse<AdminTrackFilterOptions>>('/tracks/filter-options');
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error('获取筛选候选失败');
   },
 
   // Public APIs (无需认证)
