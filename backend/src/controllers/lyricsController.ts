@@ -8,7 +8,6 @@ import { v4 as uuidv4 } from 'uuid';
 import storageService from '../services/storageService';
 import remoteResourceCache from '../services/remoteResourceCache';
 
-const LYRICS_DIR = path.join(process.cwd(), 'uploads', 'lyrics');
 const buildLyricsCacheKey = (lyricsPath: string) => `lyrics:${lyricsPath}`;
 
 type LyricsImportStatus = 'matched' | 'ambiguous' | 'not_found' | 'invalid' | 'imported' | 'error';
@@ -58,6 +57,42 @@ const decodePossibleMojibake = (name: string): string => {
 const normalizeOriginalPath = (originalname: string): string => decodePossibleMojibake(originalname);
 
 const getSafeOriginalName = (originalname: string): string => path.basename(normalizeOriginalPath(originalname));
+
+const resolveLyricsFileName = (lyricsPath: string | null | undefined): string => {
+  const fallback = `${uuidv4()}.lrc`;
+  if (!lyricsPath) return fallback;
+
+  try {
+    if (lyricsPath.startsWith('http://') || lyricsPath.startsWith('https://')) {
+      const parsed = new URL(lyricsPath);
+      const fromUrl = path.basename(parsed.pathname);
+      if (fromUrl) return fromUrl;
+      return fallback;
+    }
+  } catch {
+    // Fallback to generic basename parsing.
+  }
+
+  const fileName = path.basename(lyricsPath);
+  if (!fileName) return fallback;
+  if (!path.extname(fileName)) return `${fileName}.lrc`;
+  return fileName;
+};
+
+const getLyricsUpdateErrorMessage = (error: unknown): string => {
+  const maybeErr = error as { code?: string; message?: string };
+
+  if (maybeErr?.code === 'ENOENT') {
+    return 'Original lyrics file was not found on storage. Please re-upload lyrics.';
+  }
+  if (maybeErr?.code === 'EACCES' || maybeErr?.code === 'EPERM') {
+    return 'Storage permission denied while updating lyrics.';
+  }
+  if (typeof maybeErr?.message === 'string' && maybeErr.message.trim()) {
+    return `Lyrics update failed: ${maybeErr.message}`;
+  }
+  return 'Failed to update lyrics due to a storage or database error.';
+};
 
 const parseResolutions = (raw: unknown): Record<string, number> => {
   if (!raw) return {};
@@ -127,9 +162,6 @@ const saveLyricsForTrack = async (trackId: number, file: Express.Multer.File): P
   return nextLyricsPath;
 };
 
-// Ensure lyrics directory exists
-fs.mkdir(LYRICS_DIR, { recursive: true }).catch(console.error);
-
 // Upload lyrics file
 export const uploadLyrics = async (req: Request, res: Response) => {
   try {
@@ -143,26 +175,25 @@ export const uploadLyrics = async (req: Request, res: Response) => {
       });
     }
 
-    // Generate unique filename
-    const filename = `${uuidv4()}.lrc`;
-    const filePath = path.join(LYRICS_DIR, filename);
-    const relativePath = `/lyrics/${filename}`;
-
-    // Save lyrics file
-    await fs.writeFile(filePath, lyricsContent, 'utf-8');
+    const lyricsPath = await storageService.uploadFile(
+      Buffer.from(lyricsContent, 'utf-8'),
+      `${uuidv4()}.lrc`,
+      'lyrics',
+      'text/plain; charset=utf-8'
+    );
 
     // Update track record
     await pool.query(
       'UPDATE tracks SET lyrics_path = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-      [relativePath, id]
+      [lyricsPath, id]
     );
 
-    await remoteResourceCache.deleteBinary('lyrics', buildLyricsCacheKey(relativePath));
+    await remoteResourceCache.deleteBinary('lyrics', buildLyricsCacheKey(lyricsPath));
 
     res.json({
       success: true,
       data: {
-        lyrics_path: relativePath,
+        lyrics_path: lyricsPath,
         message: 'Lyrics uploaded successfully'
       }
     });
@@ -447,7 +478,7 @@ export const getLyrics = async (req: Request, res: Response) => {
       }
     } else {
       // 本地存储模式：读取本地文件
-      const filePath = path.join(process.cwd(), 'uploads', lyrics_path);
+      const filePath = storageService.getFullPath(lyrics_path);
       lyricsContent = await fs.readFile(filePath, 'utf-8');
     }
 
@@ -499,21 +530,55 @@ export const updateLyrics = async (req: Request, res: Response) => {
       return uploadLyrics(req, res);
     }
 
-    // Update existing file
-    const filePath = path.join(process.cwd(), 'uploads', lyrics_path);
-    await fs.writeFile(filePath, lyricsContent, 'utf-8');
+    if (storageService.isLocal()) {
+      // Local mode updates in place to keep path stable.
+      const filePath = storageService.getFullPath(lyrics_path);
+      await fs.mkdir(path.dirname(filePath), { recursive: true });
+      await fs.writeFile(filePath, lyricsContent, 'utf-8');
 
-    await remoteResourceCache.deleteBinary('lyrics', buildLyricsCacheKey(lyrics_path));
+      await remoteResourceCache.deleteBinary('lyrics', buildLyricsCacheKey(lyrics_path));
+      await pool.query(
+        'UPDATE tracks SET updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+        [id]
+      );
+
+      return res.json({
+        success: true,
+        data: {
+          lyrics_path,
+          message: 'Lyrics updated successfully'
+        }
+      });
+    }
+
+    // Remote storage mode re-uploads content and updates DB path safely.
+    const nextLyricsPath = await storageService.uploadFile(
+      Buffer.from(lyricsContent, 'utf-8'),
+      resolveLyricsFileName(lyrics_path),
+      'lyrics',
+      'text/plain; charset=utf-8'
+    );
 
     await pool.query(
-      'UPDATE tracks SET updated_at = CURRENT_TIMESTAMP WHERE id = $1',
-      [id]
+      'UPDATE tracks SET lyrics_path = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [nextLyricsPath, id]
     );
+
+    if (lyrics_path && lyrics_path !== nextLyricsPath) {
+      await storageService.deleteFile(lyrics_path).catch((deleteError) => {
+        console.warn('Delete old lyrics file failed after remote update:', deleteError);
+      });
+    }
+
+    if (lyrics_path) {
+      await remoteResourceCache.deleteBinary('lyrics', buildLyricsCacheKey(lyrics_path));
+    }
+    await remoteResourceCache.deleteBinary('lyrics', buildLyricsCacheKey(nextLyricsPath));
 
     res.json({
       success: true,
       data: {
-        lyrics_path,
+        lyrics_path: nextLyricsPath,
         message: 'Lyrics updated successfully'
       }
     });
@@ -521,7 +586,10 @@ export const updateLyrics = async (req: Request, res: Response) => {
     console.error('Update lyrics error:', error);
     res.status(500).json({
       success: false,
-      error: { code: 'UPDATE_ERROR', message: 'Failed to update lyrics' }
+      error: {
+        code: 'UPDATE_ERROR',
+        message: getLyricsUpdateErrorMessage(error)
+      }
     });
   }
 };
@@ -550,8 +618,7 @@ export const deleteLyrics = async (req: Request, res: Response) => {
 
       // Delete file
       try {
-        const filePath = path.join(process.cwd(), 'uploads', lyrics_path);
-        await fs.unlink(filePath);
+        await storageService.deleteFile(lyrics_path);
       } catch (fileError) {
         console.error('Error deleting lyrics file:', fileError);
       }
