@@ -99,12 +99,27 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
       }
     };
 
+    const refreshMaintenanceOnActive = () => {
+      if (document.hidden) {
+        return;
+      }
+      void loadMaintenanceConfig();
+    };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        void loadMaintenanceConfig();
+      }
+    };
+
     loadMaintenanceConfig();
-    const timer = window.setInterval(loadMaintenanceConfig, 60000);
+    window.addEventListener('focus', refreshMaintenanceOnActive);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       active = false;
-      window.clearInterval(timer);
+      window.removeEventListener('focus', refreshMaintenanceOnActive);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 

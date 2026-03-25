@@ -411,6 +411,7 @@ router.put('/settings/compliance', authenticateAdmin, validateBody(siteComplianc
 router.get('/public/site-config/maintenance', async (_req: Request, res: Response) => {
   try {
     const config = await getMaintenanceModeConfig();
+    res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=120');
     res.json({ success: true, data: config });
   } catch (error) {
     console.error('Failed to read maintenance config:', error);

@@ -30,7 +30,7 @@ try { geoip = require('geoip-lite'); } catch { /* optional */ }
 try { UAParser = require('ua-parser-js'); } catch { /* optional */ }
 
 // Skip recording for these path prefixes / patterns
-const SKIP_PREFIXES = ['/uploads/', '/api/public/covers/proxy'];
+const SKIP_PREFIXES = ['/uploads/', '/api/public/covers/proxy', '/api/public/site-config/maintenance'];
 const VISITOR_COOKIE_KEY = 'visitor_id';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
