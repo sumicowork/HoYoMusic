@@ -1037,6 +1037,7 @@ export const getTracks = async (req: Request, res: Response) => {
       conditions.push(`(
         LOWER(t.title) LIKE LOWER($${pIdx})
         OR LOWER(a.title) LIKE LOWER($${pIdx})
+        OR LOWER(COALESCE(t.notes, '')) LIKE LOWER($${pIdx})
         OR EXISTS (
           SELECT 1 FROM track_artists ta2
           JOIN artists ar2 ON ta2.artist_id = ar2.id

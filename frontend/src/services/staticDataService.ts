@@ -160,6 +160,7 @@ function getFuse(tracks: Track[]): Fuse<Track> {
       { name: 'title', weight: 3 },
       { name: 'album_title', weight: 2 },
       { name: 'artists.name', weight: 2 },
+      { name: 'notes', weight: 1 },
     ],
     threshold: 0.35,
     includeScore: false,

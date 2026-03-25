@@ -408,14 +408,14 @@ const Search: React.FC = () => {
         {/* Hero 搜索区 */}
         <div className="search-hero">
           <h2 className="search-hero-title">搜索音乐</h2>
-          <p className="search-hero-sub">支持曲名、艺术家、专辑、标签多维度精准搜索</p>
+          <p className="search-hero-sub">支持曲名、艺术家、专辑、备注、标签多维度精准搜索</p>
 
           <Form form={form} className="search-main-form">
             <div className="search-main-bar">
               <Form.Item name="keyword" noStyle>
                 <Input
                   size="large"
-                  placeholder="搜索曲名、艺术家、专辑..."
+                  placeholder="搜索曲名、艺术家、专辑、备注..."
                   prefix={<SearchOutlined style={{ color: '#667eea' }} />}
                   allowClear
                   className="search-main-input"
