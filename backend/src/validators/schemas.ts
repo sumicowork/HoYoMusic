@@ -54,8 +54,10 @@ export const bulkMoveTracksSchema = z.object({
 const trackNotesImportEntrySchema = z.object({
   row_key: z.string().trim().min(1, 'row_key is required').max(120),
   song_name: z.string().trim().min(1, 'song_name is required').max(500),
-  song_number: z.union([z.string().trim().max(50), z.number(), z.null()]).optional(),
-  note_lines: z.array(z.string().trim().min(1).max(1000)).min(1, 'note_lines is required').max(300),
+  // Allow long/dirty values here; per-item matcher will normalize and mark invalid when needed.
+  song_number: z.union([z.string().trim().max(5000), z.number(), z.null()]).optional(),
+  // Keep batch import tolerant: missing/empty lines become per-item invalid instead of request-level failure.
+  note_lines: z.array(z.string().trim().max(1000)).max(300).optional().default([]),
 });
 
 export const previewTrackNotesImportSchema = z.object({
