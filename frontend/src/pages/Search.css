@@ -119,6 +119,24 @@
   color: #667eea !important;
 }
 
+.search-track-title-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.search-track-notes {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.search-hit {
+  background: rgba(250, 173, 20, 0.28);
+  color: inherit;
+  padding: 0 2px;
+  border-radius: 3px;
+}
+
 .search-artist-link {
   color: var(--text-secondary) !important;
   font-size: 13px;

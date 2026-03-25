@@ -40,6 +40,22 @@ const SORT_OPTIONS = [
 
 const currentYear = new Date().getFullYear();
 
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+function getNotesSnippet(notes: string, keyword: string, windowSize = 44): string {
+  if (!keyword.trim()) return notes;
+  const lowerNotes = notes.toLowerCase();
+  const lowerKeyword = keyword.toLowerCase();
+  const hitIndex = lowerNotes.indexOf(lowerKeyword);
+  if (hitIndex < 0) return notes;
+
+  const start = Math.max(0, hitIndex - windowSize);
+  const end = Math.min(notes.length, hitIndex + keyword.length + windowSize);
+  const prefix = start > 0 ? '...' : '';
+  const suffix = end < notes.length ? '...' : '';
+  return `${prefix}${notes.slice(start, end)}${suffix}`;
+}
+
 // 将平铺的 tag 列表按 group + parent/child 层级组织
 function organizeTagsByGroup(tags: TagType[], groups: TagGroup[]) {
   const grouped: { group: TagGroup | null; tags: TagType[] }[] = [];
@@ -165,6 +181,27 @@ const Search: React.FC = () => {
   const [durationRange, setDurationRange] = useState<[number, number]>([0, 60]);
   const [yearFilterEnabled, setYearFilterEnabled] = useState(false);
   const [durationFilterEnabled, setDurationFilterEnabled] = useState(false);
+
+  const searchKeyword = useMemo(() => (lastParams.search || '').trim(), [lastParams.search]);
+
+  const highlightText = useCallback((value: string | null | undefined) => {
+    if (!value) return null;
+    if (!searchKeyword) return value;
+
+    const pattern = new RegExp(`(${escapeRegExp(searchKeyword)})`, 'ig');
+    const segments = value.split(pattern);
+    if (segments.length === 1) return value;
+
+    return (
+      <>
+        {segments.map((segment, index) => (
+          segment.toLowerCase() === searchKeyword.toLowerCase()
+            ? <mark key={`${segment}-${index}`} className="search-hit">{segment}</mark>
+            : <React.Fragment key={`${segment}-${index}`}>{segment}</React.Fragment>
+        ))}
+      </>
+    );
+  }, [searchKeyword]);
 
   const buildParams = (page = 1): TrackSearchParams => {
     const values = form.getFieldsValue();
@@ -314,11 +351,24 @@ const Search: React.FC = () => {
       dataIndex: 'title',
       key: 'title',
       ellipsis: true,
-      render: (title, record) => (
-        <Link className="search-track-title" to={`/track/${record.id}`}>
-          {title}
-        </Link>
-      ),
+      render: (title, record) => {
+        const notes = (record.notes || '').trim();
+        const notesMatched = Boolean(searchKeyword) && notes.toLowerCase().includes(searchKeyword.toLowerCase());
+        const notesSnippet = notesMatched ? getNotesSnippet(notes, searchKeyword) : '';
+
+        return (
+          <div className="search-track-title-cell">
+            <Link className="search-track-title" to={`/track/${record.id}`}>
+              {highlightText(title)}
+            </Link>
+            {notesSnippet && (
+              <Text type="secondary" className="search-track-notes">
+                备注：{highlightText(notesSnippet)}
+              </Text>
+            )}
+          </div>
+        );
+      },
     },
     {
       title: '专辑',
@@ -328,8 +378,8 @@ const Search: React.FC = () => {
       responsive: ['sm'],
       render: (t: string, record: Track) => {
         if (!t) return '—';
-        if (!record.album_id) return <Text type="secondary">{t}</Text>;
-        return <Link to={`/albums/${record.album_id}`}>{t}</Link>;
+        if (!record.album_id) return <Text type="secondary">{highlightText(t)}</Text>;
+        return <Link to={`/albums/${record.album_id}`}>{highlightText(t)}</Link>;
       },
     },
     {
