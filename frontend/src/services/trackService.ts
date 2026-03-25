@@ -144,6 +144,39 @@ export interface TrackNotesImportCommitResult {
   items: TrackNotesImportItem[];
 }
 
+interface ExportTrackNotesResult {
+  blob: Blob;
+  fileName: string;
+}
+
+const DEFAULT_TRACK_NOTES_EXPORT_FILE_NAME = 'track-notes-export.json';
+
+const parseDownloadFileName = (contentDisposition?: string, fallback = DEFAULT_TRACK_NOTES_EXPORT_FILE_NAME): string => {
+  if (!contentDisposition) return fallback;
+
+  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    return decodeURIComponent(utf8Match[1]).replace(/(^"|"$)/g, '');
+  }
+
+  const plainMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+  if (plainMatch?.[1]) {
+    return plainMatch[1].trim();
+  }
+
+  return fallback;
+};
+
+const extractBlobErrorMessage = async (blob: Blob): Promise<string | null> => {
+  try {
+    const text = await blob.text();
+    const parsed = JSON.parse(text) as { error?: { message?: string } };
+    return parsed.error?.message || null;
+  } catch {
+    return null;
+  }
+};
+
 export const trackService = {
   // Random tracks for homepage recommendations
   async getRandomTracks(count = 10): Promise<Track[]> {
@@ -251,6 +284,25 @@ export const trackService = {
     });
     if (response.data.success && response.data.data) return response.data.data.candidates;
     throw new Error(response.data.error?.message || '候选曲目搜索失败');
+  },
+
+  async exportAllTrackNotes(): Promise<ExportTrackNotesResult> {
+    if (IS_STATIC) throw new Error('静态模式不支持备注导出');
+
+    try {
+      const response = await api.get('/tracks/notes-export', { responseType: 'blob' });
+      const fileName = parseDownloadFileName(
+        response.headers['content-disposition'] as string | undefined,
+        DEFAULT_TRACK_NOTES_EXPORT_FILE_NAME
+      );
+      return { blob: response.data as Blob, fileName };
+    } catch (error: any) {
+      if (error?.response?.data instanceof Blob) {
+        const serverMessage = await extractBlobErrorMessage(error.response.data as Blob);
+        throw new Error(serverMessage || '导出备注失败');
+      }
+      throw new Error(error?.message || '导出备注失败');
+    }
   },
 
   async precheckDuplicateTracks(items: Array<{ index: number; file: string; title: string }>): Promise<DuplicatePrecheckItem[]> {

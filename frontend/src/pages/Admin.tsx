@@ -57,6 +57,7 @@ const Admin: React.FC = () => {
   const [creditsImportModalVisible, setCreditsImportModalVisible] = useState(false);
   const [lyricsImportModalVisible, setLyricsImportModalVisible] = useState(false);
   const [trackNotesImportModalVisible, setTrackNotesImportModalVisible] = useState(false);
+  const [exportingTrackNotes, setExportingTrackNotes] = useState(false);
   const [duplicateModalVisible, setDuplicateModalVisible] = useState(false);
   const [duplicateScanLoading, setDuplicateScanLoading] = useState(false);
   const [duplicateGroups, setDuplicateGroups] = useState<SameAlbumDuplicateGroup[]>([]);
@@ -293,6 +294,26 @@ const Admin: React.FC = () => {
       message.error(error.message || '重复检查失败');
     } finally {
       setDuplicateScanLoading(false);
+    }
+  };
+
+  const handleExportTrackNotes = async () => {
+    setExportingTrackNotes(true);
+    try {
+      const { blob, fileName } = await trackService.exportAllTrackNotes();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = downloadUrl;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      window.URL.revokeObjectURL(downloadUrl);
+      message.success('备注导出成功');
+    } catch (error: any) {
+      message.error(error.message || '导出备注失败');
+    } finally {
+      setExportingTrackNotes(false);
     }
   };
 
@@ -546,6 +567,13 @@ const Admin: React.FC = () => {
               onClick={() => setTrackNotesImportModalVisible(true)}
             >
               批量导入备注
+            </Button>
+            <Button
+              icon={<DownloadOutlined />}
+              loading={exportingTrackNotes}
+              onClick={handleExportTrackNotes}
+            >
+              导出所有备注
             </Button>
             <Button loading={duplicateScanLoading} onClick={handleScanDuplicates}>
               重复检查

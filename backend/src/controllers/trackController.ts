@@ -80,6 +80,14 @@ interface TrackNotesImportItem {
   candidates?: TrackNotesImportCandidate[];
 }
 
+interface ExportTrackNotesRow {
+  track_id: number;
+  album_title: string | null;
+  track_title: string;
+  track_number: number | null;
+  notes: string;
+}
+
 const normalizeTrackNumber = (raw: unknown): number | null => {
   if (typeof raw === 'number' && Number.isInteger(raw) && raw > 0) return raw;
   if (typeof raw !== 'string') return null;
@@ -920,6 +928,51 @@ export const getTrackNotesImportCandidates = async (req: Request, res: Response)
     return res.status(500).json({
       success: false,
       error: { code: 'CANDIDATE_SEARCH_ERROR', message: 'Failed to search track candidates' },
+    });
+  }
+};
+
+export const exportAllTrackNotes = async (_req: Request, res: Response) => {
+  try {
+    const rows = await pool.query<ExportTrackNotesRow>(
+      `SELECT
+         t.id AS track_id,
+         a.title AS album_title,
+         t.title AS track_title,
+         t.track_number,
+         t.notes
+       FROM tracks t
+       LEFT JOIN albums a ON a.id = t.album_id
+       WHERE t.notes IS NOT NULL
+         AND BTRIM(t.notes) <> ''
+       ORDER BY COALESCE(a.title, '') ASC, t.track_number ASC NULLS LAST, t.id ASC`
+    );
+
+    const payload = rows.rows.map((row) => {
+      const noteLines = String(row.notes || '')
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+      return {
+        '专辑名': row.album_title || '',
+        '歌曲名': row.track_title,
+        '歌曲编号': row.track_number != null ? String(row.track_number).padStart(2, '0') : '',
+        'soundtrack usage': noteLines.map((location) => ({ location })),
+      };
+    });
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `track-notes-export-${timestamp}.json`;
+
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return res.status(200).send(JSON.stringify(payload, null, 2));
+  } catch (error) {
+    console.error('Export track notes error:', error);
+    return res.status(500).json({
+      success: false,
+      error: { code: 'EXPORT_ERROR', message: 'Failed to export track notes' },
     });
   }
 };
