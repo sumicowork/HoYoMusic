@@ -153,6 +153,28 @@ const queryManualTrackCandidates = async (songName: string, trackNumber: number 
   return result.rows.map(mapTrackCandidateRow);
 };
 
+const queryTrackCandidateById = async (trackId: number): Promise<TrackNotesImportCandidate | null> => {
+  const result = await pool.query(
+    `SELECT
+       t.id AS track_id,
+       t.title,
+       t.track_number,
+       COALESCE(al.title, '') AS album_title,
+       COALESCE(array_to_string(array_agg(DISTINCT ar.name), ' / '), '') AS artists
+     FROM tracks t
+     LEFT JOIN albums al ON al.id = t.album_id
+     LEFT JOIN track_artists ta ON ta.track_id = t.id
+     LEFT JOIN artists ar ON ar.id = ta.artist_id
+     WHERE t.id = $1
+     GROUP BY t.id, t.title, t.track_number, al.title
+     LIMIT 1`,
+    [trackId]
+  );
+
+  if (result.rows.length === 0) return null;
+  return mapTrackCandidateRow(result.rows[0]);
+};
+
 const searchTrackCandidatesForNotesImport = async (keyword: string, limit: number): Promise<TrackNotesImportCandidate[]> => {
   const normalizedKeyword = keyword.trim();
   const numericKeyword = Number.parseInt(normalizedKeyword, 10);
@@ -235,6 +257,21 @@ const resolveTrackForNotesImport = async (
     };
   }
 
+  const selectedTrackId = Number(resolutions[entry.row_key]);
+  if (Number.isInteger(selectedTrackId) && selectedTrackId > 0) {
+    const selectedCandidate = await queryTrackCandidateById(selectedTrackId);
+    if (selectedCandidate) {
+      return {
+        status: 'matched',
+        matched_track_id: selectedCandidate.track_id,
+        candidates: [selectedCandidate],
+        trackNumber,
+        notesText,
+        noteLinesCount: noteLines.length,
+      };
+    }
+  }
+
   const strictCandidates = await queryStrictTrackMatch(songName, trackNumber);
   if (strictCandidates.length === 1) {
     return {
@@ -248,7 +285,7 @@ const resolveTrackForNotesImport = async (
   }
 
   if (strictCandidates.length > 1) {
-    const selected = resolutions[entry.row_key];
+    const selected = Number(resolutions[entry.row_key]);
     const selectedCandidate = strictCandidates.find((candidate) => candidate.track_id === selected);
     if (selectedCandidate) {
       return {
@@ -282,7 +319,7 @@ const resolveTrackForNotesImport = async (
     };
   }
 
-  const selected = resolutions[entry.row_key];
+  const selected = Number(resolutions[entry.row_key]);
   const selectedCandidate = manualCandidates.find((candidate) => candidate.track_id === selected);
   if (selectedCandidate) {
     return {
