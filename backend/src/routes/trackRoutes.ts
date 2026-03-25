@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { uploadTracks, getTracks, getTrackFilterOptions, getTrackById, streamTrack, downloadTrack, updateTrack, deleteTrack, uploadTrackCover, bulkDeleteTracks, bulkMoveTracksToAlbum, previewCredits, precheckDuplicateTracks, scanSameAlbumDuplicateTracks, previewTrackNotesImport, commitTrackNotesImport } from '../controllers/trackController';
+import { uploadTracks, getTracks, getTrackFilterOptions, getTrackById, streamTrack, downloadTrack, updateTrack, deleteTrack, uploadTrackCover, bulkDeleteTracks, bulkMoveTracksToAlbum, previewCredits, precheckDuplicateTracks, scanSameAlbumDuplicateTracks, previewTrackNotesImport, commitTrackNotesImport, getTrackNotesImportCandidates } from '../controllers/trackController';
 import { authenticateAdmin } from '../middleware/auth';
 import { authenticateStream } from '../middleware/authenticateStream';
 import upload, { coverUpload } from '../middleware/upload';
@@ -20,6 +20,7 @@ router.post('/precheck-duplicates', authenticateAdmin, precheckDuplicateTracks);
 router.post('/preview-credits', authenticateAdmin, upload.array('tracks', 20), previewCredits);
 router.post('/notes-import/preview', authenticateAdmin, validateBody(previewTrackNotesImportSchema), previewTrackNotesImport);
 router.post('/notes-import/commit', authenticateAdmin, validateBody(commitTrackNotesImportSchema), commitTrackNotesImport);
+router.get('/notes-import/candidates', authenticateAdmin, getTrackNotesImportCandidates);
 router.get('/duplicates/same-album-title', authenticateAdmin, scanSameAlbumDuplicateTracks);
 router.delete('/bulk', authenticateAdmin, validateBody(bulkDeleteTracksSchema), bulkDeleteTracks);
 router.post('/bulk-move', authenticateAdmin, validateBody(bulkMoveTracksSchema), bulkMoveTracksToAlbum);

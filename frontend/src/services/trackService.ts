@@ -240,6 +240,19 @@ export const trackService = {
     throw new Error(response.data.error?.message || '备注导入失败');
   },
 
+  async searchTrackNotesImportCandidates(keyword: string, limit = 30): Promise<TrackNotesImportCandidate[]> {
+    if (IS_STATIC) throw new Error('静态模式不支持备注导入');
+
+    const normalizedKeyword = keyword.trim();
+    if (!normalizedKeyword) return [];
+
+    const response = await api.get<ApiResponse<{ candidates: TrackNotesImportCandidate[] }>>('/tracks/notes-import/candidates', {
+      params: { keyword: normalizedKeyword, limit },
+    });
+    if (response.data.success && response.data.data) return response.data.data.candidates;
+    throw new Error(response.data.error?.message || '候选曲目搜索失败');
+  },
+
   async precheckDuplicateTracks(items: Array<{ index: number; file: string; title: string }>): Promise<DuplicatePrecheckItem[]> {
     const response = await api.post<ApiResponse<{ duplicates: DuplicatePrecheckItem[] }>>('/tracks/precheck-duplicates', { items });
 

@@ -153,6 +153,42 @@ const queryManualTrackCandidates = async (songName: string, trackNumber: number 
   return result.rows.map(mapTrackCandidateRow);
 };
 
+const searchTrackCandidatesForNotesImport = async (keyword: string, limit: number): Promise<TrackNotesImportCandidate[]> => {
+  const normalizedKeyword = keyword.trim();
+  const numericKeyword = Number.parseInt(normalizedKeyword, 10);
+  const hasNumericKeyword = Number.isInteger(numericKeyword) && numericKeyword > 0;
+
+  const result = await pool.query(
+    `SELECT
+       t.id AS track_id,
+       t.title,
+       t.track_number,
+       COALESCE(al.title, '') AS album_title,
+       COALESCE(array_to_string(array_agg(DISTINCT ar.name), ' / '), '') AS artists,
+       CASE
+         WHEN LOWER(TRIM(t.title)) = LOWER(TRIM($1)) THEN 0
+         WHEN $3::boolean AND t.id = $4 THEN 1
+         WHEN $3::boolean AND t.track_number = $4 THEN 2
+         ELSE 3
+       END AS match_rank
+     FROM tracks t
+     LEFT JOIN albums al ON al.id = t.album_id
+     LEFT JOIN track_artists ta ON ta.track_id = t.id
+     LEFT JOIN artists ar ON ar.id = ta.artist_id
+     WHERE LOWER(t.title) LIKE LOWER($2)
+        OR LOWER(COALESCE(al.title, '')) LIKE LOWER($2)
+        OR LOWER(COALESCE(ar.name, '')) LIKE LOWER($2)
+        OR ($3::boolean AND t.id = $4)
+        OR ($3::boolean AND t.track_number = $4)
+     GROUP BY t.id, t.title, t.track_number, al.title
+     ORDER BY match_rank ASC, t.id ASC
+     LIMIT $5`,
+    [normalizedKeyword, `%${normalizedKeyword}%`, hasNumericKeyword, hasNumericKeyword ? numericKeyword : null, limit]
+  );
+
+  return result.rows.map(mapTrackCandidateRow);
+};
+
 const resolveTrackForNotesImport = async (
   entry: TrackNotesImportEntry,
   resolutions: Record<string, number>
@@ -818,6 +854,35 @@ export const commitTrackNotesImport = async (req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       error: { code: 'IMPORT_ERROR', message: 'Failed to import track notes' },
+    });
+  }
+};
+
+export const getTrackNotesImportCandidates = async (req: Request, res: Response) => {
+  try {
+    const keyword = String(req.query.keyword || '').trim();
+    const requestedLimit = Number.parseInt(String(req.query.limit || '30'), 10);
+    const limit = Number.isInteger(requestedLimit)
+      ? Math.min(Math.max(requestedLimit, 1), 100)
+      : 30;
+
+    if (!keyword) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'MISSING_KEYWORD', message: 'keyword is required' },
+      });
+    }
+
+    const candidates = await searchTrackCandidatesForNotesImport(keyword, limit);
+    return res.json({
+      success: true,
+      data: { candidates },
+    });
+  } catch (error) {
+    console.error('Get track notes import candidates error:', error);
+    return res.status(500).json({
+      success: false,
+      error: { code: 'CANDIDATE_SEARCH_ERROR', message: 'Failed to search track candidates' },
     });
   }
 };
