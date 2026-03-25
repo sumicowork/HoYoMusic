@@ -92,6 +92,58 @@ export interface SameAlbumDuplicateGroup {
   }>;
 }
 
+export type TrackNotesImportStatus = 'matched' | 'needs_manual' | 'not_found' | 'invalid' | 'imported' | 'skipped' | 'error';
+
+export interface TrackNotesImportEntry {
+  row_key: string;
+  song_name: string;
+  song_number?: string | number | null;
+  note_lines: string[];
+}
+
+export interface TrackNotesImportCandidate {
+  track_id: number;
+  title: string;
+  track_number: number | null;
+  album_title: string;
+  artists: string;
+}
+
+export interface TrackNotesImportItem {
+  row_key: string;
+  song_name: string;
+  song_number_raw: string;
+  status: TrackNotesImportStatus;
+  message?: string;
+  matched_track_id?: number;
+  note_lines_count: number;
+  candidates?: TrackNotesImportCandidate[];
+}
+
+export interface TrackNotesImportPreviewResult {
+  summary: {
+    total: number;
+    matched: number;
+    needs_manual: number;
+    not_found: number;
+    invalid: number;
+  };
+  items: TrackNotesImportItem[];
+}
+
+export interface TrackNotesImportCommitResult {
+  summary: {
+    total: number;
+    imported: number;
+    skipped: number;
+    needs_manual: number;
+    not_found: number;
+    invalid: number;
+    error: number;
+  };
+  items: TrackNotesImportItem[];
+}
+
 export const trackService = {
   // Random tracks for homepage recommendations
   async getRandomTracks(count = 10): Promise<Track[]> {
@@ -162,6 +214,30 @@ export const trackService = {
     );
     if (response.data.success && response.data.data) return response.data.data.results;
     throw new Error(response.data.error?.message || '预览失败');
+  },
+
+  async previewTrackNotesImport(entries: TrackNotesImportEntry[]): Promise<TrackNotesImportPreviewResult> {
+    if (IS_STATIC) throw new Error('静态模式不支持备注导入');
+
+    const response = await api.post<ApiResponse<TrackNotesImportPreviewResult>>('/tracks/notes-import/preview', { entries });
+    if (response.data.success && response.data.data) return response.data.data;
+    throw new Error(response.data.error?.message || '备注导入预览失败');
+  },
+
+  async commitTrackNotesImport(
+    entries: TrackNotesImportEntry[],
+    resolutions: Record<string, number>,
+    conflictMode: 'overwrite' | 'append' | 'skip'
+  ): Promise<TrackNotesImportCommitResult> {
+    if (IS_STATIC) throw new Error('静态模式不支持备注导入');
+
+    const response = await api.post<ApiResponse<TrackNotesImportCommitResult>>('/tracks/notes-import/commit', {
+      entries,
+      resolutions,
+      conflict_mode: conflictMode,
+    });
+    if (response.data.success && response.data.data) return response.data.data;
+    throw new Error(response.data.error?.message || '备注导入失败');
   },
 
   async precheckDuplicateTracks(items: Array<{ index: number; file: string; title: string }>): Promise<DuplicatePrecheckItem[]> {

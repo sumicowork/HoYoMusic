@@ -1,10 +1,10 @@
 import { Router, Request, Response } from 'express';
-import { uploadTracks, getTracks, getTrackFilterOptions, getTrackById, streamTrack, downloadTrack, updateTrack, deleteTrack, uploadTrackCover, bulkDeleteTracks, bulkMoveTracksToAlbum, previewCredits, precheckDuplicateTracks, scanSameAlbumDuplicateTracks } from '../controllers/trackController';
+import { uploadTracks, getTracks, getTrackFilterOptions, getTrackById, streamTrack, downloadTrack, updateTrack, deleteTrack, uploadTrackCover, bulkDeleteTracks, bulkMoveTracksToAlbum, previewCredits, precheckDuplicateTracks, scanSameAlbumDuplicateTracks, previewTrackNotesImport, commitTrackNotesImport } from '../controllers/trackController';
 import { authenticateAdmin } from '../middleware/auth';
 import { authenticateStream } from '../middleware/authenticateStream';
 import upload, { coverUpload } from '../middleware/upload';
 import { validateBody } from '../middleware/validate';
-import { updateTrackSchema, bulkDeleteTracksSchema, bulkMoveTracksSchema } from '../validators/schemas';
+import { updateTrackSchema, bulkDeleteTracksSchema, bulkMoveTracksSchema, previewTrackNotesImportSchema, commitTrackNotesImportSchema } from '../validators/schemas';
 
 const router = Router();
 
@@ -18,6 +18,8 @@ const downloadDisabled = (_req: Request, res: Response) =>
 router.post('/upload', authenticateAdmin, upload.array('tracks', 20), uploadTracks);
 router.post('/precheck-duplicates', authenticateAdmin, precheckDuplicateTracks);
 router.post('/preview-credits', authenticateAdmin, upload.array('tracks', 20), previewCredits);
+router.post('/notes-import/preview', authenticateAdmin, validateBody(previewTrackNotesImportSchema), previewTrackNotesImport);
+router.post('/notes-import/commit', authenticateAdmin, validateBody(commitTrackNotesImportSchema), commitTrackNotesImport);
 router.get('/duplicates/same-album-title', authenticateAdmin, scanSameAlbumDuplicateTracks);
 router.delete('/bulk', authenticateAdmin, validateBody(bulkDeleteTracksSchema), bulkDeleteTracks);
 router.post('/bulk-move', authenticateAdmin, validateBody(bulkMoveTracksSchema), bulkMoveTracksToAlbum);

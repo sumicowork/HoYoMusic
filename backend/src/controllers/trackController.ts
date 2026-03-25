@@ -52,6 +52,223 @@ type Queryable = {
   query: (text: string, params?: any[]) => Promise<{ rows: any[] }>;
 };
 
+type TrackNotesImportStatus = 'matched' | 'needs_manual' | 'not_found' | 'invalid' | 'imported' | 'skipped' | 'error';
+
+interface TrackNotesImportCandidate {
+  track_id: number;
+  title: string;
+  track_number: number | null;
+  album_title: string;
+  artists: string;
+}
+
+interface TrackNotesImportEntry {
+  row_key: string;
+  song_name: string;
+  song_number?: string | number | null;
+  note_lines: string[];
+}
+
+interface TrackNotesImportItem {
+  row_key: string;
+  song_name: string;
+  song_number_raw: string;
+  status: TrackNotesImportStatus;
+  message?: string;
+  matched_track_id?: number;
+  note_lines_count: number;
+  candidates?: TrackNotesImportCandidate[];
+}
+
+const normalizeTrackNumber = (raw: unknown): number | null => {
+  if (typeof raw === 'number' && Number.isInteger(raw) && raw > 0) return raw;
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const digits = trimmed.match(/\d+/)?.[0];
+  if (!digits) return null;
+  const parsed = Number.parseInt(digits, 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+};
+
+const normalizeNotesText = (lines: string[]): string => lines.map((line) => line.trim()).filter(Boolean).join('\n');
+
+const mapTrackCandidateRow = (row: any): TrackNotesImportCandidate => ({
+  track_id: Number(row.track_id),
+  title: String(row.title),
+  track_number: row.track_number === null || row.track_number === undefined ? null : Number(row.track_number),
+  album_title: String(row.album_title || ''),
+  artists: String(row.artists || ''),
+});
+
+const queryStrictTrackMatch = async (songName: string, trackNumber: number): Promise<TrackNotesImportCandidate[]> => {
+  const result = await pool.query(
+    `SELECT
+       t.id AS track_id,
+       t.title,
+       t.track_number,
+       COALESCE(al.title, '') AS album_title,
+       COALESCE(array_to_string(array_agg(DISTINCT ar.name), ' / '), '') AS artists
+     FROM tracks t
+     LEFT JOIN albums al ON al.id = t.album_id
+     LEFT JOIN track_artists ta ON ta.track_id = t.id
+     LEFT JOIN artists ar ON ar.id = ta.artist_id
+     WHERE LOWER(TRIM(t.title)) = LOWER(TRIM($1))
+       AND t.track_number = $2
+     GROUP BY t.id, t.title, t.track_number, al.title
+     ORDER BY t.id ASC`,
+    [songName, trackNumber]
+  );
+
+  return result.rows.map(mapTrackCandidateRow);
+};
+
+const queryManualTrackCandidates = async (songName: string, trackNumber: number | null): Promise<TrackNotesImportCandidate[]> => {
+  const useTrackNumber = Number.isInteger(trackNumber) && (trackNumber as number) > 0;
+  const result = await pool.query(
+    `SELECT
+       t.id AS track_id,
+       t.title,
+       t.track_number,
+       COALESCE(al.title, '') AS album_title,
+       COALESCE(array_to_string(array_agg(DISTINCT ar.name), ' / '), '') AS artists,
+       CASE
+         WHEN LOWER(TRIM(t.title)) = LOWER(TRIM($1)) AND t.track_number = $2 THEN 0
+         WHEN LOWER(TRIM(t.title)) = LOWER(TRIM($1)) THEN 1
+         WHEN $3::boolean AND t.track_number = $2 THEN 2
+         ELSE 3
+       END AS match_rank
+     FROM tracks t
+     LEFT JOIN albums al ON al.id = t.album_id
+     LEFT JOIN track_artists ta ON ta.track_id = t.id
+     LEFT JOIN artists ar ON ar.id = ta.artist_id
+     WHERE LOWER(TRIM(t.title)) = LOWER(TRIM($1))
+        OR ($3::boolean AND t.track_number = $2)
+     GROUP BY t.id, t.title, t.track_number, al.title
+     ORDER BY match_rank ASC, t.id ASC
+     LIMIT 30`,
+    [songName, trackNumber, useTrackNumber]
+  );
+
+  return result.rows.map(mapTrackCandidateRow);
+};
+
+const resolveTrackForNotesImport = async (
+  entry: TrackNotesImportEntry,
+  resolutions: Record<string, number>
+): Promise<{ status: 'matched' | 'needs_manual' | 'not_found' | 'invalid'; matched_track_id?: number; message?: string; candidates?: TrackNotesImportCandidate[]; trackNumber: number | null; notesText: string; noteLinesCount: number }> => {
+  const songName = String(entry.song_name || '').trim();
+  const trackNumber = normalizeTrackNumber(entry.song_number);
+  const noteLines = Array.isArray(entry.note_lines) ? entry.note_lines : [];
+  const notesText = normalizeNotesText(noteLines);
+
+  if (!songName) {
+    return {
+      status: 'invalid',
+      message: 'song_name is required',
+      trackNumber,
+      notesText,
+      noteLinesCount: noteLines.length,
+    };
+  }
+  if (!trackNumber) {
+    return {
+      status: 'invalid',
+      message: 'song_number is required for automatic matching',
+      trackNumber,
+      notesText,
+      noteLinesCount: noteLines.length,
+    };
+  }
+  if (!notesText) {
+    return {
+      status: 'invalid',
+      message: 'note_lines cannot be empty',
+      trackNumber,
+      notesText,
+      noteLinesCount: noteLines.length,
+    };
+  }
+  if (notesText.length > 5000) {
+    return {
+      status: 'invalid',
+      message: 'notes length exceeds 5000 characters',
+      trackNumber,
+      notesText,
+      noteLinesCount: noteLines.length,
+    };
+  }
+
+  const strictCandidates = await queryStrictTrackMatch(songName, trackNumber);
+  if (strictCandidates.length === 1) {
+    return {
+      status: 'matched',
+      matched_track_id: strictCandidates[0].track_id,
+      candidates: strictCandidates,
+      trackNumber,
+      notesText,
+      noteLinesCount: noteLines.length,
+    };
+  }
+
+  if (strictCandidates.length > 1) {
+    const selected = resolutions[entry.row_key];
+    const selectedCandidate = strictCandidates.find((candidate) => candidate.track_id === selected);
+    if (selectedCandidate) {
+      return {
+        status: 'matched',
+        matched_track_id: selectedCandidate.track_id,
+        candidates: strictCandidates,
+        trackNumber,
+        notesText,
+        noteLinesCount: noteLines.length,
+      };
+    }
+
+    return {
+      status: 'needs_manual',
+      message: 'Multiple strict matches found. Please choose one track manually.',
+      candidates: strictCandidates,
+      trackNumber,
+      notesText,
+      noteLinesCount: noteLines.length,
+    };
+  }
+
+  const manualCandidates = await queryManualTrackCandidates(songName, trackNumber);
+  if (manualCandidates.length === 0) {
+    return {
+      status: 'not_found',
+      message: 'No track candidates found for this entry',
+      trackNumber,
+      notesText,
+      noteLinesCount: noteLines.length,
+    };
+  }
+
+  const selected = resolutions[entry.row_key];
+  const selectedCandidate = manualCandidates.find((candidate) => candidate.track_id === selected);
+  if (selectedCandidate) {
+    return {
+      status: 'matched',
+      matched_track_id: selectedCandidate.track_id,
+      candidates: manualCandidates,
+      trackNumber,
+      notesText,
+      noteLinesCount: noteLines.length,
+    };
+  }
+
+  return {
+    status: 'needs_manual',
+    message: 'No strict match found. Please select a target track manually.',
+    candidates: manualCandidates,
+    trackNumber,
+    notesText,
+    noteLinesCount: noteLines.length,
+  };
+};
+
 const findTracksByTitle = async (
   db: Queryable,
   title: string
@@ -450,6 +667,157 @@ export const precheckDuplicateTracks = async (req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       error: { code: 'PRECHECK_ERROR', message: 'Failed to precheck duplicates' },
+    });
+  }
+};
+
+export const previewTrackNotesImport = async (req: Request, res: Response) => {
+  try {
+    const entries = Array.isArray(req.body?.entries) ? (req.body.entries as TrackNotesImportEntry[]) : [];
+    if (entries.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'NO_ENTRIES', message: 'No import entries provided' },
+      });
+    }
+
+    const items: TrackNotesImportItem[] = [];
+    for (const entry of entries) {
+      const resolution = await resolveTrackForNotesImport(entry, {});
+      items.push({
+        row_key: entry.row_key,
+        song_name: String(entry.song_name || '').trim(),
+        song_number_raw: entry.song_number == null ? '' : String(entry.song_number).trim(),
+        status: resolution.status,
+        message: resolution.message,
+        matched_track_id: resolution.matched_track_id,
+        note_lines_count: resolution.noteLinesCount,
+        candidates: resolution.candidates,
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        summary: {
+          total: items.length,
+          matched: items.filter((item) => item.status === 'matched').length,
+          needs_manual: items.filter((item) => item.status === 'needs_manual').length,
+          not_found: items.filter((item) => item.status === 'not_found').length,
+          invalid: items.filter((item) => item.status === 'invalid').length,
+        },
+        items,
+      },
+    });
+  } catch (error) {
+    console.error('Preview track notes import error:', error);
+    return res.status(500).json({
+      success: false,
+      error: { code: 'PREVIEW_ERROR', message: 'Failed to preview track notes import' },
+    });
+  }
+};
+
+export const commitTrackNotesImport = async (req: Request, res: Response) => {
+  try {
+    const entries = Array.isArray(req.body?.entries) ? (req.body.entries as TrackNotesImportEntry[]) : [];
+    const resolutions = req.body?.resolutions && typeof req.body.resolutions === 'object'
+      ? (req.body.resolutions as Record<string, number>)
+      : {};
+    const conflictMode = req.body?.conflict_mode === 'append' || req.body?.conflict_mode === 'skip'
+      ? req.body.conflict_mode
+      : 'overwrite';
+
+    if (entries.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'NO_ENTRIES', message: 'No import entries provided' },
+      });
+    }
+
+    const items: TrackNotesImportItem[] = [];
+
+    for (const entry of entries) {
+      const resolved = await resolveTrackForNotesImport(entry, resolutions);
+      const baseItem: TrackNotesImportItem = {
+        row_key: entry.row_key,
+        song_name: String(entry.song_name || '').trim(),
+        song_number_raw: entry.song_number == null ? '' : String(entry.song_number).trim(),
+        status: resolved.status,
+        message: resolved.message,
+        matched_track_id: resolved.matched_track_id,
+        note_lines_count: resolved.noteLinesCount,
+        candidates: resolved.candidates,
+      };
+
+      if (resolved.status === 'invalid' || resolved.status === 'not_found' || resolved.status === 'needs_manual') {
+        items.push(baseItem);
+        continue;
+      }
+
+      if (!resolved.matched_track_id) {
+        items.push({ ...baseItem, status: 'error', message: 'Resolved track id is missing' });
+        continue;
+      }
+
+      try {
+        const currentTrackResult = await pool.query(
+          'SELECT notes FROM tracks WHERE id = $1',
+          [resolved.matched_track_id]
+        );
+
+        if (currentTrackResult.rows.length === 0) {
+          items.push({ ...baseItem, status: 'error', message: 'Target track not found' });
+          continue;
+        }
+
+        const currentNotes = String(currentTrackResult.rows[0].notes || '').trim();
+        if (conflictMode === 'skip' && currentNotes) {
+          items.push({ ...baseItem, status: 'skipped', message: 'Track already has notes, skipped by conflict mode' });
+          continue;
+        }
+
+        const nextNotes = conflictMode === 'append' && currentNotes
+          ? `${currentNotes}\n${resolved.notesText}`
+          : resolved.notesText;
+
+        if (nextNotes.length > 5000) {
+          items.push({ ...baseItem, status: 'error', message: 'Resulting notes exceed 5000 characters' });
+          continue;
+        }
+
+        await pool.query(
+          'UPDATE tracks SET notes = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+          [nextNotes, resolved.matched_track_id]
+        );
+
+        items.push({ ...baseItem, status: 'imported', message: 'Notes imported successfully' });
+      } catch (error) {
+        console.error('Commit track notes import item error:', error);
+        items.push({ ...baseItem, status: 'error', message: 'Failed to save notes to database' });
+      }
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        summary: {
+          total: items.length,
+          imported: items.filter((item) => item.status === 'imported').length,
+          skipped: items.filter((item) => item.status === 'skipped').length,
+          needs_manual: items.filter((item) => item.status === 'needs_manual').length,
+          not_found: items.filter((item) => item.status === 'not_found').length,
+          invalid: items.filter((item) => item.status === 'invalid').length,
+          error: items.filter((item) => item.status === 'error').length,
+        },
+        items,
+      },
+    });
+  } catch (error) {
+    console.error('Commit track notes import error:', error);
+    return res.status(500).json({
+      success: false,
+      error: { code: 'IMPORT_ERROR', message: 'Failed to import track notes' },
     });
   }
 };

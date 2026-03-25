@@ -51,6 +51,23 @@ export const bulkMoveTracksSchema = z.object({
   albumId: z.union([z.number().int().positive(), z.null()]).optional(),
 });
 
+const trackNotesImportEntrySchema = z.object({
+  row_key: z.string().trim().min(1, 'row_key is required').max(120),
+  song_name: z.string().trim().min(1, 'song_name is required').max(500),
+  song_number: z.union([z.string().trim().max(50), z.number(), z.null()]).optional(),
+  note_lines: z.array(z.string().trim().min(1).max(1000)).min(1, 'note_lines is required').max(300),
+});
+
+export const previewTrackNotesImportSchema = z.object({
+  entries: z.array(trackNotesImportEntrySchema).min(1, 'entries is required').max(5000),
+});
+
+export const commitTrackNotesImportSchema = z.object({
+  entries: z.array(trackNotesImportEntrySchema).min(1, 'entries is required').max(5000),
+  resolutions: z.record(z.string(), z.number().int().positive()).optional().default({}),
+  conflict_mode: z.enum(['overwrite', 'append', 'skip']).optional().default('overwrite'),
+});
+
 // ── Game ──────────────────────────────────────────────────────────
 export const createGameSchema = z.object({
   name: z.string().min(1, 'Game name is required').max(200),

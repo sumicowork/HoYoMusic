@@ -33,6 +33,7 @@ import BulkMoveAlbumModal from '../components/BulkMoveAlbumModal';
 import AdminLayout from '../components/AdminLayout';
 import UploadModal from '../components/UploadModal';
 import LyricsBatchImportModal from '../components/LyricsBatchImportModal';
+import TrackNotesImportModal from '../components/TrackNotesImportModal';
 import './Admin.css';
 
 const Admin: React.FC = () => {
@@ -55,6 +56,7 @@ const Admin: React.FC = () => {
   const [bulkMoveModalVisible, setBulkMoveModalVisible] = useState(false);
   const [creditsImportModalVisible, setCreditsImportModalVisible] = useState(false);
   const [lyricsImportModalVisible, setLyricsImportModalVisible] = useState(false);
+  const [trackNotesImportModalVisible, setTrackNotesImportModalVisible] = useState(false);
   const [duplicateModalVisible, setDuplicateModalVisible] = useState(false);
   const [duplicateScanLoading, setDuplicateScanLoading] = useState(false);
   const [duplicateGroups, setDuplicateGroups] = useState<SameAlbumDuplicateGroup[]>([]);
@@ -539,6 +541,12 @@ const Admin: React.FC = () => {
             >
               批量导入 LRC
             </Button>
+            <Button
+              icon={<ImportOutlined />}
+              onClick={() => setTrackNotesImportModalVisible(true)}
+            >
+              批量导入备注
+            </Button>
             <Button loading={duplicateScanLoading} onClick={handleScanDuplicates}>
               重复检查
             </Button>
@@ -665,6 +673,15 @@ const Admin: React.FC = () => {
         onClose={() => setLyricsImportModalVisible(false)}
         onSuccess={() => {
           message.success('LRC 导入成功');
+          fetchTracks(pagination.current);
+        }}
+      />
+
+      <TrackNotesImportModal
+        visible={trackNotesImportModalVisible}
+        onClose={() => setTrackNotesImportModalVisible(false)}
+        onSuccess={() => {
+          message.success('备注导入成功');
           fetchTracks(pagination.current);
         }}
       />
