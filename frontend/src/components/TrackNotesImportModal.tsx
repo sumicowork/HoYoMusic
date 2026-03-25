@@ -22,6 +22,7 @@ import {
   type TrackNotesImportItem,
   type TrackNotesImportPreviewResult,
 } from '../services/trackService';
+import { SearchOutlined } from '@ant-design/icons';
 
 const { Text } = Typography;
 
@@ -83,6 +84,32 @@ const sortManualFirst = (items: TrackNotesImportItem[]): TrackNotesImportItem[] 
 
 const normalizeForCompare = (value: string): string => value.trim().toLowerCase();
 
+const extractEnglishPhrase = (value: string): string => {
+  const chunks = value.match(/[A-Za-z][A-Za-z0-9'&\-.: ]*/g) || [];
+  const cleaned = chunks
+    .map((chunk) => chunk.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length);
+  return cleaned[0] ? cleaned[0].toLowerCase() : '';
+};
+
+const englishMatchScore = (candidateTitle: string, songName: string): number => {
+  const phrase = extractEnglishPhrase(songName);
+  if (!phrase) return 0;
+
+  const title = normalizeForCompare(candidateTitle);
+  let score = 0;
+
+  if (title.includes(phrase)) score += 120;
+
+  const tokens = phrase.split(/[^a-z0-9]+/).filter((token) => token.length >= 2);
+  for (const token of tokens) {
+    if (title.includes(token)) score += 20;
+  }
+
+  return score;
+};
+
 const sortCandidatesForRow = (
   candidates: TrackNotesImportCandidate[],
   songName: string,
@@ -100,6 +127,9 @@ const sortCandidatesForRow = (
 
     const aTitle = normalizeForCompare(a.title);
     const bTitle = normalizeForCompare(b.title);
+
+    const englishScoreDiff = englishMatchScore(b.title, songName) - englishMatchScore(a.title, songName);
+    if (englishScoreDiff !== 0) return englishScoreDiff;
 
     const aExact = normalizedSongName && aTitle === normalizedSongName ? 0 : 1;
     const bExact = normalizedSongName && bTitle === normalizedSongName ? 0 : 1;
@@ -148,23 +178,13 @@ const TrackNotesImportModal: React.FC<TrackNotesImportModalProps> = ({ visible, 
   const [result, setResult] = useState<TrackNotesImportCommitResult | null>(null);
   const [resolutions, setResolutions] = useState<Record<string, number>>({});
   const [manualOptionsByRow, setManualOptionsByRow] = useState<Record<string, TrackNotesImportCandidate[]>>({});
+  const [searchKeywordByRow, setSearchKeywordByRow] = useState<Record<string, string>>({});
   const [searchingRows, setSearchingRows] = useState<Record<string, boolean>>({});
   const [conflictMode, setConflictMode] = useState<ConflictMode>('overwrite');
   const [previewLoading, setPreviewLoading] = useState(false);
   const [commitLoading, setCommitLoading] = useState(false);
   const searchTimerRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-
-  const mergeUniqueCandidates = (
-    base: TrackNotesImportCandidate[],
-    incoming: TrackNotesImportCandidate[]
-  ): TrackNotesImportCandidate[] => {
-    const map = new Map<number, TrackNotesImportCandidate>();
-    // Incoming (searched) candidates should override list order over initial seed candidates.
-    [...incoming, ...base].forEach((candidate) => {
-      map.set(candidate.track_id, candidate);
-    });
-    return Array.from(map.values());
-  };
+  const searchSeqRef = useRef<Record<string, number>>({});
 
   const resetState = () => {
     setFile(null);
@@ -173,12 +193,14 @@ const TrackNotesImportModal: React.FC<TrackNotesImportModalProps> = ({ visible, 
     setResult(null);
     setResolutions({});
     setManualOptionsByRow({});
+    setSearchKeywordByRow({});
     setSearchingRows({});
     setConflictMode('overwrite');
     setPreviewLoading(false);
     setCommitLoading(false);
     Object.values(searchTimerRef.current).forEach((timer) => clearTimeout(timer));
     searchTimerRef.current = {};
+    searchSeqRef.current = {};
   };
 
   const handleClose = () => {
@@ -210,31 +232,42 @@ const TrackNotesImportModal: React.FC<TrackNotesImportModalProps> = ({ visible, 
     ? [{ uid: `${file.name}_${file.size}`, name: file.name, status: 'done', size: file.size }]
     : [];
 
-  const handleManualSearch = (rowKey: string, seedCandidates: TrackNotesImportCandidate[], keyword: string) => {
+  const handleManualSearch = (rowKey: string, songName: string, keyword: string) => {
     const normalized = keyword.trim();
+    setSearchKeywordByRow((prev) => ({ ...prev, [rowKey]: keyword }));
     const existingTimer = searchTimerRef.current[rowKey];
     if (existingTimer) clearTimeout(existingTimer);
 
     if (!normalized) {
-      setManualOptionsByRow((prev) => ({ ...prev, [rowKey]: seedCandidates }));
+      setManualOptionsByRow((prev) => ({ ...prev, [rowKey]: [] }));
       setSearchingRows((prev) => ({ ...prev, [rowKey]: false }));
       return;
     }
+
+    const nextSeq = (searchSeqRef.current[rowKey] || 0) + 1;
+    searchSeqRef.current[rowKey] = nextSeq;
 
     searchTimerRef.current[rowKey] = setTimeout(async () => {
       setSearchingRows((prev) => ({ ...prev, [rowKey]: true }));
       try {
         const fetched = await trackService.searchTrackNotesImportCandidates(normalized, 40);
+        if (searchSeqRef.current[rowKey] !== nextSeq) return;
         setManualOptionsByRow((prev) => ({
           ...prev,
-          [rowKey]: mergeUniqueCandidates(seedCandidates, fetched),
+          [rowKey]: sortCandidatesForRow(fetched, songName),
         }));
       } catch {
         // Keep existing options if search request fails.
       } finally {
-        setSearchingRows((prev) => ({ ...prev, [rowKey]: false }));
+        if (searchSeqRef.current[rowKey] === nextSeq) {
+          setSearchingRows((prev) => ({ ...prev, [rowKey]: false }));
+        }
       }
     }, 250);
+  };
+
+  const handleQuickSearchCurrentSongName = (row: TrackNotesImportItem) => {
+    handleManualSearch(row.row_key, row.song_name, row.song_name);
   };
 
   const handlePreview = async () => {
@@ -259,13 +292,8 @@ const TrackNotesImportModal: React.FC<TrackNotesImportModalProps> = ({ visible, 
         }
       });
       setResolutions(autoResolved);
-      const nextManualOptions: Record<string, TrackNotesImportCandidate[]> = {};
-      data.items.forEach((item) => {
-        if (item.status === 'needs_manual' && item.candidates) {
-          nextManualOptions[item.row_key] = item.candidates;
-        }
-      });
-      setManualOptionsByRow(nextManualOptions);
+      setManualOptionsByRow({});
+      setSearchKeywordByRow({});
       message.success(`预览完成，共 ${parsedEntries.length} 条`);
     } catch (error: any) {
       message.error(error?.message || '预览失败');
@@ -325,25 +353,36 @@ const TrackNotesImportModal: React.FC<TrackNotesImportModalProps> = ({ visible, 
         }
 
         if (row.status === 'needs_manual') {
-          const optionsSource = manualOptionsByRow[row.row_key] || row.candidates;
+          const searchKeyword = (searchKeywordByRow[row.row_key] || '').trim();
+          const optionsSource = searchKeyword ? (manualOptionsByRow[row.row_key] || []) : row.candidates;
           const sortedOptions = sortCandidatesForRow(optionsSource, row.song_name, resolutions[row.row_key]);
           return (
-            <Select
-              style={{ width: '100%' }}
-              placeholder="请选择目标曲目"
-              value={resolutions[row.row_key]}
-              showSearch
-              filterOption={false}
-              onSearch={(value) => handleManualSearch(row.row_key, row.candidates || [], value)}
-              notFoundContent={searchingRows[row.row_key] ? '搜索中...' : '无匹配结果'}
-              options={sortedOptions.map((candidate) => ({
-                value: candidate.track_id,
-                label: buildCandidateLabel(candidate),
-              }))}
-              onChange={(value) => {
-                setResolutions((prev) => ({ ...prev, [row.row_key]: value }));
-              }}
-            />
+            <Space.Compact style={{ width: '100%' }}>
+              <Select
+                style={{ width: '100%' }}
+                placeholder="请选择目标曲目（可输入搜索）"
+                value={resolutions[row.row_key]}
+                showSearch
+                filterOption={false}
+                searchValue={searchKeywordByRow[row.row_key] || ''}
+                onSearch={(value) => handleManualSearch(row.row_key, row.song_name, value)}
+                notFoundContent={searchingRows[row.row_key] ? '搜索中...' : '无匹配结果'}
+                options={sortedOptions.map((candidate) => ({
+                  value: candidate.track_id,
+                  label: buildCandidateLabel(candidate),
+                }))}
+                onChange={(value) => {
+                  setResolutions((prev) => ({ ...prev, [row.row_key]: value }));
+                }}
+              />
+              <Button
+                icon={<SearchOutlined />}
+                title="一键用本行导入曲名搜索"
+                onClick={() => handleQuickSearchCurrentSongName(row)}
+              >
+                曲名搜
+              </Button>
+            </Space.Compact>
           );
         }
 
