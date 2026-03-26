@@ -289,6 +289,12 @@ const TrackNotesImportModal: React.FC<TrackNotesImportModalProps> = ({ visible, 
       data.items.forEach((item) => {
         if (item.status === 'matched' && item.matched_track_id) {
           autoResolved[item.row_key] = item.matched_track_id;
+          return;
+        }
+
+        if (item.status === 'needs_manual' && item.candidates && item.candidates.length > 0) {
+          const rankedCandidates = sortCandidatesForRow(item.candidates, item.song_name);
+          autoResolved[item.row_key] = rankedCandidates[0].track_id;
         }
       });
       setResolutions(autoResolved);
