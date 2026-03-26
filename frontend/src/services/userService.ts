@@ -32,6 +32,54 @@ export interface AdminUserListResponse {
   };
 }
 
+export interface UserInsightActionItem {
+  action_key: string;
+  action_label: string;
+  module: string;
+  requests: number;
+  last_seen: string | null;
+}
+
+export interface UserInsightBehaviorItem {
+  ts: string;
+  method: string;
+  path: string;
+  status: number;
+  duration_ms: number;
+  ip: string | null;
+  referer: string | null;
+  action_key: string;
+  action_label: string;
+  module: string;
+  resource_type: string | null;
+  resource_id: number | null;
+  summary: string;
+}
+
+export interface UserInsightsResponse {
+  user: {
+    id: number;
+    username: string;
+    email: string | null;
+    is_admin: boolean;
+    account_status: 'active' | 'disabled';
+    created_at: string;
+  };
+  window_days: number;
+  overview: {
+    total_requests: number;
+    error_requests: number;
+    error_rate: number;
+    unique_paths: number;
+    active_days: number;
+    avg_duration_ms: number;
+    first_seen: string | null;
+    last_seen: string | null;
+  };
+  top_actions: UserInsightActionItem[];
+  recent_behaviors: UserInsightBehaviorItem[];
+}
+
 export const userService = {
   async getUsers(page = 1, pageSize = 20, filters: UserListFilters = {}): Promise<AdminUserListResponse> {
     const searchParams = new URLSearchParams();
@@ -88,6 +136,14 @@ export const userService = {
     if (!response.data.success) {
       throw new Error(response.data.error?.message || 'Failed to reset password');
     }
+  },
+
+  async getUserInsights(userId: number, days = 30): Promise<UserInsightsResponse> {
+    const response = await api.get<ApiResponse<UserInsightsResponse>>(`/users/${userId}/insights?days=${days}`);
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data.error?.message || 'Failed to fetch user insights');
   },
 };
 

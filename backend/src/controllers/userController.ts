@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import pool from '../config/database';
+import { withReadableBehavior } from '../utils/behaviorAnalysis';
 
 const USER_STATUS = {
   ACTIVE: 'active',
@@ -27,6 +28,14 @@ const countOtherAdmins = async (userIdToExclude: number): Promise<number> => {
 const sanitizeStatusReason = (value: unknown): string | null => {
   const reason = typeof value === 'string' ? value.trim() : '';
   return reason ? reason : null;
+};
+
+const clampInsightDays = (value: unknown): number => {
+  const parsed = Number.parseInt(String(value || '30'), 10);
+  if (!Number.isFinite(parsed)) {
+    return 30;
+  }
+  return Math.min(180, Math.max(1, parsed));
 };
 
 export const listUsers = async (req: Request, res: Response) => {
@@ -313,6 +322,136 @@ export const resetUserPassword = async (req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       error: { code: 'USER_PASSWORD_RESET_ERROR', message: 'Failed to reset user password' },
+    });
+  }
+};
+
+export const getUserInsights = async (req: Request, res: Response) => {
+  try {
+    const targetUserId = parseUserId(req);
+    if (!targetUserId) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Invalid user id' },
+      });
+    }
+
+    const days = clampInsightDays(req.query.days);
+    const userResult = await pool.query(
+      `SELECT id, username, email, is_admin, account_status, created_at
+       FROM users
+       WHERE id = $1
+       LIMIT 1`,
+      [targetUserId]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'USER_NOT_FOUND', message: 'User not found' },
+      });
+    }
+
+    const user = userResult.rows[0];
+    const key = String(user.username || '');
+
+    const [overviewResult, groupedResult, recentResult] = await Promise.all([
+      pool.query(
+        `SELECT
+           COUNT(*)::int AS total_requests,
+           COUNT(*) FILTER (WHERE status >= 400)::int AS error_requests,
+           COUNT(DISTINCT path)::int AS unique_paths,
+           COUNT(DISTINCT DATE(ts))::int AS active_days,
+           ROUND(AVG(duration_ms))::int AS avg_duration_ms,
+           MIN(ts) AS first_seen,
+           MAX(ts) AS last_seen
+         FROM visit_logs
+         WHERE visitor_id = $1
+           AND ts >= NOW() - INTERVAL '1 day' * $2`,
+        [key, days]
+      ),
+      pool.query(
+        `SELECT method, path, MAX(ts) AS last_seen, COUNT(*)::int AS requests
+         FROM visit_logs
+         WHERE visitor_id = $1
+           AND ts >= NOW() - INTERVAL '1 day' * $2
+         GROUP BY method, path
+         ORDER BY requests DESC
+         LIMIT 300`,
+        [key, days]
+      ),
+      pool.query(
+        `SELECT ts, method, path, status, duration_ms, ip, referer
+         FROM visit_logs
+         WHERE visitor_id = $1
+           AND ts >= NOW() - INTERVAL '1 day' * $2
+         ORDER BY ts DESC
+         LIMIT 25`,
+        [key, days]
+      ),
+    ]);
+
+    const overviewRow = overviewResult.rows[0] || {};
+    const totalRequests = Number(overviewRow.total_requests || 0);
+    const errorRequests = Number(overviewRow.error_requests || 0);
+
+    const topMap = new Map<string, { action_key: string; action_label: string; module: string; requests: number; last_seen: string | null }>();
+    for (const row of groupedResult.rows) {
+      const behavior = withReadableBehavior({
+        method: String(row.method || 'GET'),
+        path: String(row.path || '/'),
+      });
+      const keyOfAction = String(behavior.action_key);
+      const existing = topMap.get(keyOfAction);
+      const rowRequests = Number(row.requests || 0);
+      const rowLastSeen = row.last_seen || null;
+
+      if (existing) {
+        existing.requests += rowRequests;
+        if (!existing.last_seen || (rowLastSeen && new Date(rowLastSeen).getTime() > new Date(existing.last_seen).getTime())) {
+          existing.last_seen = rowLastSeen;
+        }
+      } else {
+        topMap.set(keyOfAction, {
+          action_key: behavior.action_key,
+          action_label: behavior.action_label,
+          module: behavior.module,
+          requests: rowRequests,
+          last_seen: rowLastSeen,
+        });
+      }
+    }
+
+    const topActions = Array.from(topMap.values())
+      .sort((a, b) => b.requests - a.requests)
+      .slice(0, 8);
+
+    const recentBehaviors = recentResult.rows.map((row) => withReadableBehavior(row));
+
+    return res.json({
+      success: true,
+      data: {
+        user,
+        window_days: days,
+        overview: {
+          total_requests: totalRequests,
+          error_requests: errorRequests,
+          error_rate: totalRequests > 0 ? Number(((errorRequests / totalRequests) * 100).toFixed(1)) : 0,
+          unique_paths: Number(overviewRow.unique_paths || 0),
+          active_days: Number(overviewRow.active_days || 0),
+          avg_duration_ms: Number(overviewRow.avg_duration_ms || 0),
+          first_seen: overviewRow.first_seen || null,
+          last_seen: overviewRow.last_seen || null,
+        },
+        top_actions: topActions,
+        recent_behaviors: recentBehaviors,
+      },
+    });
+  } catch (error) {
+    console.error('Failed to load user insights:', error);
+    return res.status(500).json({
+      success: false,
+      error: { code: 'USER_INSIGHTS_ERROR', message: 'Failed to load user insights' },
     });
   }
 };

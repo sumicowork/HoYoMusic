@@ -91,6 +91,19 @@ interface VisitorBehaviorLog {
   region: string | null;
   city: string | null;
   referer: string | null;
+  action_key: string;
+  action_label: string;
+  module: string;
+  resource_type: string | null;
+  resource_id: number | null;
+  summary: string;
+}
+
+interface VisitorBehaviorSummary {
+  totalRequests: number;
+  errorRequests: number;
+  errorRate: number;
+  topActions: Array<{ action_key: string; action_label: string; count: number }>;
 }
 
 interface CountryDebugRow {
@@ -198,6 +211,7 @@ const Analytics: React.FC = () => {
   const [visitors, setVisitors]       = useState<VisitorRow[]>([]);
   const [visitorBehaviorLoading, setVisitorBehaviorLoading] = useState(false);
   const [visitorBehaviorLogs, setVisitorBehaviorLogs] = useState<VisitorBehaviorLog[]>([]);
+  const [visitorBehaviorSummary, setVisitorBehaviorSummary] = useState<VisitorBehaviorSummary | null>(null);
   const [selectedVisitor, setSelectedVisitor] = useState<VisitorRow | null>(null);
   const [visitorBehaviorVisible, setVisitorBehaviorVisible] = useState(false);
   const [countryDebugVisible, setCountryDebugVisible] = useState(false);
@@ -334,10 +348,12 @@ const Analytics: React.FC = () => {
     try {
       const response = await api.get(`/analytics/visitors/${encodeURIComponent(visitor.visitor_key)}/behavior?days=${days}&limit=200`);
       setVisitorBehaviorLogs(response.data?.data?.logs || []);
+      setVisitorBehaviorSummary(response.data?.data?.summary || null);
     } catch (e) {
       console.error('[Analytics visitor behavior]', e);
       message.error('加载访客行为失败');
       setVisitorBehaviorLogs([]);
+      setVisitorBehaviorSummary(null);
     } finally {
       setVisitorBehaviorLoading(false);
     }
@@ -889,10 +905,27 @@ const Analytics: React.FC = () => {
           <Modal
             title={selectedVisitor ? `Visitor 行为 - ${selectedVisitor.visitor_key}` : 'Visitor 行为'}
             open={visitorBehaviorVisible}
-            onCancel={() => setVisitorBehaviorVisible(false)}
+            onCancel={() => {
+              setVisitorBehaviorVisible(false);
+              setVisitorBehaviorSummary(null);
+            }}
             footer={<Button onClick={() => setVisitorBehaviorVisible(false)}>关闭</Button>}
             width={980}
           >
+            {visitorBehaviorSummary && (
+              <Row gutter={12} style={{ marginBottom: 12 }}>
+                <Col span={8}><Statistic title="总请求" value={visitorBehaviorSummary.totalRequests} /></Col>
+                <Col span={8}><Statistic title="异常请求" value={visitorBehaviorSummary.errorRequests} /></Col>
+                <Col span={8}><Statistic title="异常率" value={`${visitorBehaviorSummary.errorRate}%`} /></Col>
+                <Col span={24}>
+                  <Space wrap>
+                    {(visitorBehaviorSummary.topActions || []).map((item) => (
+                      <Tag key={item.action_key} color="blue">{item.action_label} x {item.count}</Tag>
+                    ))}
+                  </Space>
+                </Col>
+              </Row>
+            )}
             <Table
               size="small"
               loading={visitorBehaviorLoading}
@@ -901,8 +934,10 @@ const Analytics: React.FC = () => {
               pagination={{ pageSize: 12, size: 'small', showSizeChanger: false }}
               columns={[
                 { title: '时间', dataIndex: 'ts', width: 160, render: (v: string) => fmtTime(v) },
+                { title: '行为', dataIndex: 'summary', width: 220, ellipsis: true },
+                { title: '模块', dataIndex: 'module', width: 100 },
+                { title: '路径', dataIndex: 'path', width: 260, ellipsis: true },
                 { title: '方法', dataIndex: 'method', width: 70 },
-                { title: '路径', dataIndex: 'path', ellipsis: true },
                 { title: '状态', dataIndex: 'status', width: 70, align: 'center' },
                 { title: '耗时', dataIndex: 'duration_ms', width: 80, align: 'right', render: (v: number) => `${v}ms` },
                 { title: 'IP', dataIndex: 'ip', width: 140, render: (v: string | null) => <Text style={{ fontFamily: 'monospace', fontSize: 11 }}>{v || '-'}</Text> },

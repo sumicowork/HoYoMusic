@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authenticateAdmin } from '../middleware/auth';
 import {
+  getUserInsights,
   listUsers,
   resetUserPassword,
   updateUserEmailVerification,
@@ -18,6 +19,7 @@ import {
 const router = Router();
 
 router.get('/', authenticateAdmin, listUsers);
+router.get('/:id/insights', authenticateAdmin, getUserInsights);
 router.patch('/:id/role', authenticateAdmin, validateBody(updateUserRoleSchema), updateUserRole);
 router.patch('/:id/status', authenticateAdmin, validateBody(updateUserStatusSchema), updateUserStatus);
 router.patch('/:id/email-verification', authenticateAdmin, validateBody(updateUserEmailVerificationSchema), updateUserEmailVerification);

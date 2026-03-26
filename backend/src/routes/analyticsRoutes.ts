@@ -6,6 +6,7 @@ import { authenticateAdmin } from '../middleware/auth';
 import { cache } from '../utils/cache';
 import remoteResourceCache from '../services/remoteResourceCache';
 import storageService from '../services/storageService';
+import { withReadableBehavior } from '../utils/behaviorAnalysis';
 
 const router = Router();
 router.use(authenticateAdmin as any);
@@ -613,7 +614,44 @@ router.get('/visitors/:visitorKey/behavior', async (req: Request, res: Response)
       [keyValue, d, limit]
     );
 
-    res.json({ success: true, data: { visitorKey, logs: result.rows } });
+    const logs = result.rows.map((row) => withReadableBehavior(row));
+    const actionCounter = new Map<string, { action_label: string; count: number }>();
+    let errorRequests = 0;
+
+    for (const row of logs) {
+      if (Number(row.status) >= 400) {
+        errorRequests += 1;
+      }
+      const key = String(row.action_key || 'api.generic');
+      const existing = actionCounter.get(key);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        actionCounter.set(key, {
+          action_label: String(row.action_label || '未知行为'),
+          count: 1,
+        });
+      }
+    }
+
+    const topActions = Array.from(actionCounter.entries())
+      .map(([action_key, value]) => ({ action_key, action_label: value.action_label, count: value.count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 6);
+
+    res.json({
+      success: true,
+      data: {
+        visitorKey,
+        summary: {
+          totalRequests: logs.length,
+          errorRequests,
+          errorRate: logs.length > 0 ? Number(((errorRequests / logs.length) * 100).toFixed(1)) : 0,
+          topActions,
+        },
+        logs,
+      },
+    });
   } catch (e: any) {
     res.status(500).json(safeError(e));
   }

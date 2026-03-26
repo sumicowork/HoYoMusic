@@ -1,9 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Card, Form, Input, Modal, Popconfirm, Select, Space, Table, Tag, Typography, message } from 'antd';
+import { Button, Card, Descriptions, Form, Input, Modal, Popconfirm, Select, Space, Statistic, Table, Tag, Typography, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import AdminLayout from '../components/AdminLayout';
 import { useAuthStore } from '../store/authStore';
-import { userService, type AdminUserItem, type UserListFilters } from '../services/userService';
+import {
+  userService,
+  type AdminUserItem,
+  type UserInsightBehaviorItem,
+  type UserInsightsResponse,
+  type UserListFilters,
+} from '../services/userService';
 
 const { Title } = Typography;
 
@@ -23,6 +29,10 @@ const UserManagement: React.FC = () => {
   const [targetUser, setTargetUser] = useState<AdminUserItem | null>(null);
   const [passwordSubmitting, setPasswordSubmitting] = useState(false);
   const [passwordForm] = Form.useForm<{ newPassword: string; confirmPassword: string }>();
+  const [insightsModalOpen, setInsightsModalOpen] = useState(false);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [insightsDays, setInsightsDays] = useState(30);
+  const [userInsights, setUserInsights] = useState<UserInsightsResponse | null>(null);
 
   const loadUsers = async (
     page = pagination.page,
@@ -139,6 +149,36 @@ const UserManagement: React.FC = () => {
     }
   };
 
+  const openUserInsights = async (record: AdminUserItem) => {
+    setTargetUser(record);
+    setInsightsModalOpen(true);
+    setInsightsLoading(true);
+    try {
+      const data = await userService.getUserInsights(record.id, insightsDays);
+      setUserInsights(data);
+    } catch (error: any) {
+      message.error(error?.message || '加载用户分析失败');
+      setUserInsights(null);
+    } finally {
+      setInsightsLoading(false);
+    }
+  };
+
+  const reloadInsights = async (days: number) => {
+    if (!targetUser) {
+      return;
+    }
+    setInsightsLoading(true);
+    try {
+      const data = await userService.getUserInsights(targetUser.id, days);
+      setUserInsights(data);
+    } catch (error: any) {
+      message.error(error?.message || '刷新用户分析失败');
+    } finally {
+      setInsightsLoading(false);
+    }
+  };
+
   const applyFilters = () => {
     setSelectedRowKeys([]);
     void loadUsers(1, pagination.pageSize, filters);
@@ -248,6 +288,10 @@ const UserManagement: React.FC = () => {
 
             <Button size="small" onClick={() => openResetPasswordModal(record)}>
               重置密码
+            </Button>
+
+            <Button size="small" onClick={() => void openUserInsights(record)}>
+              行为分析
             </Button>
           </Space>
         );
@@ -390,6 +434,93 @@ const UserManagement: React.FC = () => {
             <Input.Password autoComplete="new-password" />
           </Form.Item>
         </Form>
+      </Modal>
+
+      <Modal
+        title={targetUser ? `用户行为分析 - ${targetUser.username}` : '用户行为分析'}
+        open={insightsModalOpen}
+        onCancel={() => {
+          setInsightsModalOpen(false);
+          setUserInsights(null);
+        }}
+        footer={<Button onClick={() => setInsightsModalOpen(false)}>关闭</Button>}
+        width={980}
+      >
+        <Space style={{ marginBottom: 12 }}>
+          <Select
+            value={insightsDays}
+            style={{ width: 140 }}
+            onChange={(value) => {
+              setInsightsDays(value);
+              void reloadInsights(value);
+            }}
+            options={[
+              { label: '近 7 天', value: 7 },
+              { label: '近 30 天', value: 30 },
+              { label: '近 90 天', value: 90 },
+            ]}
+          />
+          <Button onClick={() => void reloadInsights(insightsDays)} loading={insightsLoading}>刷新</Button>
+        </Space>
+
+        <Descriptions size="small" bordered column={3} style={{ marginBottom: 12 }}>
+          <Descriptions.Item label="请求总数">
+            <Statistic value={userInsights?.overview?.total_requests || 0} />
+          </Descriptions.Item>
+          <Descriptions.Item label="异常率">
+            <Statistic value={userInsights?.overview?.error_rate || 0} suffix="%" />
+          </Descriptions.Item>
+          <Descriptions.Item label="活跃天数">
+            <Statistic value={userInsights?.overview?.active_days || 0} suffix="天" />
+          </Descriptions.Item>
+          <Descriptions.Item label="独立路径">
+            <Statistic value={userInsights?.overview?.unique_paths || 0} />
+          </Descriptions.Item>
+          <Descriptions.Item label="平均耗时">
+            <Statistic value={userInsights?.overview?.avg_duration_ms || 0} suffix="ms" />
+          </Descriptions.Item>
+          <Descriptions.Item label="最近行为">
+            {userInsights?.overview?.last_seen ? new Date(userInsights.overview.last_seen).toLocaleString('zh-CN') : '暂无'}
+          </Descriptions.Item>
+        </Descriptions>
+
+        <Card size="small" title="高频行为（可读）" style={{ marginBottom: 12 }}>
+          <Table
+            size="small"
+            loading={insightsLoading}
+            rowKey="action_key"
+            pagination={false}
+            dataSource={userInsights?.top_actions || []}
+            columns={[
+              { title: '行为', dataIndex: 'action_label', width: 220 },
+              { title: '模块', dataIndex: 'module', width: 120 },
+              { title: '次数', dataIndex: 'requests', width: 90, align: 'right' },
+              {
+                title: '最近发生',
+                dataIndex: 'last_seen',
+                render: (value: string | null) => (value ? new Date(value).toLocaleString('zh-CN') : '—'),
+              },
+            ]}
+          />
+        </Card>
+
+        <Card size="small" title="最近行为时间线">
+          <Table<UserInsightBehaviorItem>
+            size="small"
+            loading={insightsLoading}
+            rowKey={(record, index) => `${record.ts}-${record.path}-${index}`}
+            dataSource={userInsights?.recent_behaviors || []}
+            pagination={{ pageSize: 8, size: 'small', showSizeChanger: false }}
+            columns={[
+              { title: '时间', dataIndex: 'ts', width: 165, render: (value: string) => new Date(value).toLocaleString('zh-CN') },
+              { title: '行为摘要', dataIndex: 'summary', width: 260, ellipsis: true },
+              { title: '模块', dataIndex: 'module', width: 100 },
+              { title: '状态', dataIndex: 'status', width: 80, align: 'center' },
+              { title: '耗时', dataIndex: 'duration_ms', width: 80, align: 'right', render: (value: number) => `${value}ms` },
+              { title: '路径', dataIndex: 'path', ellipsis: true },
+            ]}
+          />
+        </Card>
       </Modal>
     </AdminLayout>
   );
