@@ -17,6 +17,8 @@ export interface Track {
   sample_rate: number | null;
   bit_depth: number | null;
   file_size: number | null;
+  lyrics_path?: string | null;
+  lyrics_status?: 'none' | 'has' | 'instrumental';
   release_date: Date | null;
   created_at: Date;
   updated_at: Date;

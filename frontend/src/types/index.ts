@@ -37,6 +37,8 @@ export interface Track {
   audio_url?: string;
   /** 动态模式：后端歌词文件路径 */
   lyrics_path?: string | null;
+  /** 歌词状态：none=无歌词, has=有歌词, instrumental=纯音乐 */
+  lyrics_status?: 'none' | 'has' | 'instrumental';
   /** 静态模式：内嵌歌词文本 */
   lyrics?: string | null;
   /** 静态模式：内嵌 credits */

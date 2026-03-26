@@ -399,6 +399,31 @@ const runMigrations = async () => {
     console.error('⚠️  notes column migration warning:', err);
   }
 
+  // Three-state lyrics status: none | has | instrumental
+  try {
+    await pool.query(`ALTER TABLE tracks ADD COLUMN IF NOT EXISTS lyrics_status VARCHAR(20)`);
+    await pool.query(`
+      UPDATE tracks
+      SET lyrics_status = CASE
+        WHEN lyrics_path IS NOT NULL AND BTRIM(lyrics_path) <> '' THEN 'has'
+        ELSE 'none'
+      END
+      WHERE lyrics_status IS NULL OR BTRIM(lyrics_status) = ''
+    `);
+    await pool.query(`ALTER TABLE tracks ALTER COLUMN lyrics_status SET DEFAULT 'none'`);
+    await pool.query(`ALTER TABLE tracks ALTER COLUMN lyrics_status SET NOT NULL`);
+    await pool.query(`ALTER TABLE tracks DROP CONSTRAINT IF EXISTS chk_tracks_lyrics_status`);
+    await pool.query(`
+      ALTER TABLE tracks
+      ADD CONSTRAINT chk_tracks_lyrics_status
+      CHECK (lyrics_status IN ('none', 'has', 'instrumental'))
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_tracks_lyrics_status ON tracks(lyrics_status)`);
+    console.log('✅ DB migrations up to date (tracks: lyrics_status)');
+  } catch (err) {
+    console.error('⚠️  lyrics status migration warning:', err);
+  }
+
   // Album disc subdivision
   try {
     await pool.query(`

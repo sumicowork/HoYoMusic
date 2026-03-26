@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS tracks (
     bit_depth INTEGER,
     file_size BIGINT,
     play_count INTEGER DEFAULT 0,
+    lyrics_status VARCHAR(20) NOT NULL DEFAULT 'none' CHECK (lyrics_status IN ('none', 'has', 'instrumental')),
     release_date DATE,
     notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -195,8 +196,24 @@ CREATE INDEX IF NOT EXISTS idx_track_credits_order ON track_credits(track_id, di
 -- ────────────────────────────────────────────────────────────
 
 ALTER TABLE tracks ADD COLUMN IF NOT EXISTS lyrics_path VARCHAR(500);
+ALTER TABLE tracks ADD COLUMN IF NOT EXISTS lyrics_status VARCHAR(20);
+
+UPDATE tracks
+SET lyrics_status = CASE
+  WHEN lyrics_path IS NOT NULL AND BTRIM(lyrics_path) <> '' THEN 'has'
+  ELSE 'none'
+END
+WHERE lyrics_status IS NULL OR BTRIM(lyrics_status) = '';
+
+ALTER TABLE tracks ALTER COLUMN lyrics_status SET DEFAULT 'none';
+ALTER TABLE tracks ALTER COLUMN lyrics_status SET NOT NULL;
+ALTER TABLE tracks DROP CONSTRAINT IF EXISTS chk_tracks_lyrics_status;
+ALTER TABLE tracks
+ADD CONSTRAINT chk_tracks_lyrics_status
+CHECK (lyrics_status IN ('none', 'has', 'instrumental'));
 
 CREATE INDEX IF NOT EXISTS idx_tracks_lyrics ON tracks(lyrics_path) WHERE lyrics_path IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_tracks_lyrics_status ON tracks(lyrics_status);
 
 -- ────────────────────────────────────────────────────────────
 -- 5. 标签基础表（schema_tags.sql）—— 必须在 enhanced 之前

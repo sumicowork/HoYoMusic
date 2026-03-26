@@ -1068,6 +1068,10 @@ export const getTracks = async (req: Request, res: Response) => {
       : null;
     const hasLyricsRaw = (req.query.has_lyrics as string || '').trim().toLowerCase();
     const hasLyrics = hasLyricsRaw === 'true' ? true : hasLyricsRaw === 'false' ? false : null;
+    const lyricsStatusRaw = (req.query.lyrics_status as string || '').trim().toLowerCase();
+    const lyricsStatus = lyricsStatusRaw === 'none' || lyricsStatusRaw === 'has' || lyricsStatusRaw === 'instrumental'
+      ? lyricsStatusRaw
+      : null;
 
     const sortBy  = (req.query.sort_by as string) || 'release_date';
     const sortDir = (req.query.sort_dir as string)?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
@@ -1118,10 +1122,12 @@ export const getTracks = async (req: Request, res: Response) => {
     if (durationBucket === 'long') {
       conditions.push(`t.duration > 300`);
     }
-    if (hasLyrics === true) {
+    if (lyricsStatus) {
+      conditions.push(`COALESCE(NULLIF(BTRIM(t.lyrics_status), ''), CASE WHEN t.lyrics_path IS NOT NULL AND BTRIM(t.lyrics_path) <> '' THEN 'has' ELSE 'none' END) = $${pIdx++}`);
+      queryParams.push(lyricsStatus);
+    } else if (hasLyrics === true) {
       conditions.push(`t.lyrics_path IS NOT NULL AND BTRIM(t.lyrics_path) <> ''`);
-    }
-    if (hasLyrics === false) {
+    } else if (hasLyrics === false) {
       conditions.push(`(t.lyrics_path IS NULL OR BTRIM(t.lyrics_path) = '')`);
     }
     if (sampleRateMin !== null) {

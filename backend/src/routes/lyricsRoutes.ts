@@ -4,6 +4,7 @@ import {
   getLyrics,
   updateLyrics,
   deleteLyrics,
+  markTrackInstrumental,
   previewLyricsBatchImport,
   commitLyricsBatchImport,
 } from '../controllers/lyricsController';
@@ -18,6 +19,7 @@ router.post('/import/commit', authenticateAdmin, lyricsBatchUpload.array('files'
 router.post('/:id/lyrics', authenticateAdmin, uploadLyrics);
 router.put('/:id/lyrics', authenticateAdmin, updateLyrics);
 router.delete('/:id/lyrics', authenticateAdmin, deleteLyrics);
+router.post('/:id/instrumental', authenticateAdmin, markTrackInstrumental);
 
 // Public route - no authentication required
 router.get('/:id/lyrics', getLyrics);

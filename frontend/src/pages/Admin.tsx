@@ -243,10 +243,13 @@ const Admin: React.FC = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const hasLyrics = (track: Track) => {
+  const getLyricsStatus = (track: Track): 'none' | 'has' | 'instrumental' => {
+    if (track.lyrics_status === 'has' || track.lyrics_status === 'instrumental' || track.lyrics_status === 'none') {
+      return track.lyrics_status;
+    }
     const fromPath = typeof track.lyrics_path === 'string' && track.lyrics_path.trim().length > 0;
     const fromInline = typeof track.lyrics === 'string' && track.lyrics.trim().length > 0;
-    return fromPath || fromInline;
+    return fromPath || fromInline ? 'has' : 'none';
   };
 
   const getUniqueFilters = (values: Array<string | null | undefined>) => {
@@ -264,13 +267,17 @@ const Admin: React.FC = () => {
       ? durationBucketRaw
       : undefined;
     const lyricsRaw = filters.lyrics?.[0] ? String(filters.lyrics[0]) : undefined;
-    const hasLyrics = lyricsRaw === 'has' ? true : lyricsRaw === 'missing' ? false : undefined;
+    const lyricsStatus = lyricsRaw === 'has' || lyricsRaw === 'instrumental' || lyricsRaw === 'none'
+      ? lyricsRaw
+      : undefined;
+    const hasLyrics = lyricsRaw === 'has' ? true : lyricsRaw === 'none' ? false : undefined;
 
     return {
       title,
       album,
       durationBucket,
       hasLyrics,
+      lyricsStatus,
     };
   };
 
@@ -279,6 +286,7 @@ const Admin: React.FC = () => {
     && a.album === b.album
     && a.durationBucket === b.durationBucket
     && a.hasLyrics === b.hasLyrics
+    && a.lyricsStatus === b.lyricsStatus
   );
 
   const handleScanDuplicates = async () => {
@@ -418,24 +426,25 @@ const Admin: React.FC = () => {
       key: 'lyrics',
       width: 92,
       filters: [
-        { text: '已写入', value: 'has' },
-        { text: '未写入', value: 'missing' },
+        { text: '有歌词', value: 'has' },
+        { text: '无歌词', value: 'none' },
+        { text: '纯音乐', value: 'instrumental' },
       ],
       filteredValue: columnFilters.lyrics || null,
       filterMultiple: false,
       render: (_, record) => {
-        const written = hasLyrics(record);
+        const status = getLyricsStatus(record);
         return (
           <Button
             icon={<FileTextOutlined />}
-            className={`admin-lyrics-btn ${written ? 'admin-lyrics-btn--has' : 'admin-lyrics-btn--missing'}`}
+            className={`admin-lyrics-btn admin-lyrics-btn--${status}`}
             onClick={() => {
               setCurrentTrackId(record.id);
               setLyricsEditorVisible(true);
             }}
             size="small"
           >
-            歌词
+            {status === 'instrumental' ? '纯音乐' : '歌词'}
           </Button>
         );
       },
@@ -645,6 +654,7 @@ const Admin: React.FC = () => {
           onClose={() => setLyricsEditorVisible(false)}
           onSuccess={() => {
             message.success('歌词已更新');
+            fetchTracks(pagination.current);
           }}
         />
       )}

@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS tracks (
     bit_depth INTEGER,
     file_size BIGINT,
     play_count INTEGER DEFAULT 0,
+    lyrics_status VARCHAR(20) NOT NULL DEFAULT 'none' CHECK (lyrics_status IN ('none', 'has', 'instrumental')),
     release_date DATE,
     notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -122,6 +123,7 @@ CREATE TABLE IF NOT EXISTS track_artists (
 -- Indexes for better query performance
 CREATE INDEX IF NOT EXISTS idx_tracks_album_id ON tracks(album_id);
 CREATE INDEX IF NOT EXISTS idx_tracks_title ON tracks(title);
+CREATE INDEX IF NOT EXISTS idx_tracks_lyrics_status ON tracks(lyrics_status);
 CREATE INDEX IF NOT EXISTS idx_artists_name ON artists(name);
 CREATE INDEX IF NOT EXISTS idx_albums_title ON albums(title);
 CREATE INDEX IF NOT EXISTS idx_track_artists_track_id ON track_artists(track_id);

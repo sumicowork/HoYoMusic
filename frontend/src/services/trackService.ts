@@ -55,6 +55,7 @@ export interface AdminTrackFilters {
   album?: string;
   durationBucket?: 'short' | 'medium' | 'long';
   hasLyrics?: boolean;
+  lyricsStatus?: 'none' | 'has' | 'instrumental';
 }
 
 export interface AdminTrackFilterOptions {
@@ -333,7 +334,11 @@ export const trackService = {
     if (filters.title) query.set('title_exact', filters.title);
     if (filters.album) query.set('album_exact', filters.album);
     if (filters.durationBucket) query.set('duration_bucket', filters.durationBucket);
-    if (typeof filters.hasLyrics === 'boolean') query.set('has_lyrics', String(filters.hasLyrics));
+    if (filters.lyricsStatus) {
+      query.set('lyrics_status', filters.lyricsStatus);
+    } else if (typeof filters.hasLyrics === 'boolean') {
+      query.set('has_lyrics', String(filters.hasLyrics));
+    }
 
     const response = await api.get<ApiResponse<{ tracks: Track[]; pagination: any }>>(
       `/tracks?${query.toString()}`

@@ -9,6 +9,19 @@ import storageService from '../services/storageService';
 import remoteResourceCache from '../services/remoteResourceCache';
 
 const buildLyricsCacheKey = (lyricsPath: string) => `lyrics:${lyricsPath}`;
+type LyricsStatus = 'none' | 'has' | 'instrumental';
+const LYRICS_STATUS = {
+  NONE: 'none' as LyricsStatus,
+  HAS: 'has' as LyricsStatus,
+  INSTRUMENTAL: 'instrumental' as LyricsStatus,
+};
+
+const normalizeLyricsStatus = (raw: unknown): LyricsStatus => {
+  if (raw === LYRICS_STATUS.HAS || raw === LYRICS_STATUS.INSTRUMENTAL || raw === LYRICS_STATUS.NONE) {
+    return raw as LyricsStatus;
+  }
+  return LYRICS_STATUS.NONE;
+};
 
 type LyricsImportStatus = 'matched' | 'ambiguous' | 'not_found' | 'invalid' | 'imported' | 'error';
 
@@ -150,8 +163,8 @@ const saveLyricsForTrack = async (trackId: number, file: Express.Multer.File): P
   );
 
   await pool.query(
-    'UPDATE tracks SET lyrics_path = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-    [nextLyricsPath, trackId]
+    'UPDATE tracks SET lyrics_path = $1, lyrics_status = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
+    [nextLyricsPath, LYRICS_STATUS.HAS, trackId]
   );
 
   if (oldLyricsPath) {
@@ -184,8 +197,8 @@ export const uploadLyrics = async (req: Request, res: Response) => {
 
     // Update track record
     await pool.query(
-      'UPDATE tracks SET lyrics_path = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-      [lyricsPath, id]
+      'UPDATE tracks SET lyrics_path = $1, lyrics_status = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
+      [lyricsPath, LYRICS_STATUS.HAS, id]
     );
 
     await remoteResourceCache.deleteBinary('lyrics', buildLyricsCacheKey(lyricsPath));
@@ -427,7 +440,7 @@ export const getLyrics = async (req: Request, res: Response) => {
     const { id } = req.params;
 
     const trackResult = await pool.query(
-      'SELECT lyrics_path FROM tracks WHERE id = $1',
+      'SELECT lyrics_path, lyrics_status FROM tracks WHERE id = $1',
       [id]
     );
 
@@ -439,11 +452,17 @@ export const getLyrics = async (req: Request, res: Response) => {
     }
 
     const { lyrics_path } = trackResult.rows[0];
+    const lyricsStatus = normalizeLyricsStatus(trackResult.rows[0].lyrics_status);
 
     if (!lyrics_path) {
       return res.status(404).json({
         success: false,
-        error: { code: 'NO_LYRICS', message: 'No lyrics available for this track' }
+        error: {
+          code: lyricsStatus === LYRICS_STATUS.INSTRUMENTAL ? 'INSTRUMENTAL_TRACK' : 'NO_LYRICS',
+          message: lyricsStatus === LYRICS_STATUS.INSTRUMENTAL
+            ? 'This track is marked as instrumental'
+            : 'No lyrics available for this track'
+        }
       });
     }
 
@@ -486,7 +505,8 @@ export const getLyrics = async (req: Request, res: Response) => {
       success: true,
       data: {
         lyrics: lyricsContent,
-        lyrics_path
+        lyrics_path,
+        lyrics_status: lyricsStatus,
       }
     });
   } catch (error) {
@@ -538,14 +558,15 @@ export const updateLyrics = async (req: Request, res: Response) => {
 
       await remoteResourceCache.deleteBinary('lyrics', buildLyricsCacheKey(lyrics_path));
       await pool.query(
-        'UPDATE tracks SET updated_at = CURRENT_TIMESTAMP WHERE id = $1',
-        [id]
+        'UPDATE tracks SET lyrics_status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+        [LYRICS_STATUS.HAS, id]
       );
 
       return res.json({
         success: true,
         data: {
           lyrics_path,
+          lyrics_status: LYRICS_STATUS.HAS,
           message: 'Lyrics updated successfully'
         }
       });
@@ -560,8 +581,8 @@ export const updateLyrics = async (req: Request, res: Response) => {
     );
 
     await pool.query(
-      'UPDATE tracks SET lyrics_path = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-      [nextLyricsPath, id]
+      'UPDATE tracks SET lyrics_path = $1, lyrics_status = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
+      [nextLyricsPath, LYRICS_STATUS.HAS, id]
     );
 
     if (lyrics_path && lyrics_path !== nextLyricsPath) {
@@ -579,6 +600,7 @@ export const updateLyrics = async (req: Request, res: Response) => {
       success: true,
       data: {
         lyrics_path: nextLyricsPath,
+        lyrics_status: LYRICS_STATUS.HAS,
         message: 'Lyrics updated successfully'
       }
     });
@@ -626,19 +648,65 @@ export const deleteLyrics = async (req: Request, res: Response) => {
 
     // Update database
     await pool.query(
-      'UPDATE tracks SET lyrics_path = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
-      [id]
+      'UPDATE tracks SET lyrics_path = NULL, lyrics_status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [LYRICS_STATUS.NONE, id]
     );
 
     res.json({
       success: true,
-      data: { message: 'Lyrics deleted successfully' }
+      data: { message: 'Lyrics deleted successfully', lyrics_status: LYRICS_STATUS.NONE }
     });
   } catch (error) {
     console.error('Delete lyrics error:', error);
     res.status(500).json({
       success: false,
       error: { code: 'DELETE_ERROR', message: 'Failed to delete lyrics' }
+    });
+  }
+};
+
+// Mark track as instrumental (no lyrics expected)
+export const markTrackInstrumental = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const trackResult = await pool.query(
+      'SELECT lyrics_path FROM tracks WHERE id = $1',
+      [id]
+    );
+
+    if (trackResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Track not found' }
+      });
+    }
+
+    const { lyrics_path } = trackResult.rows[0];
+    if (lyrics_path) {
+      await remoteResourceCache.deleteBinary('lyrics', buildLyricsCacheKey(lyrics_path));
+      await storageService.deleteFile(lyrics_path).catch((fileError) => {
+        console.warn('Delete lyrics file failed while marking instrumental:', fileError);
+      });
+    }
+
+    await pool.query(
+      'UPDATE tracks SET lyrics_path = NULL, lyrics_status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [LYRICS_STATUS.INSTRUMENTAL, id]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        message: 'Track marked as instrumental',
+        lyrics_status: LYRICS_STATUS.INSTRUMENTAL,
+      },
+    });
+  } catch (error) {
+    console.error('Mark track instrumental error:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'INSTRUMENTAL_MARK_ERROR', message: 'Failed to mark track as instrumental' },
     });
   }
 };

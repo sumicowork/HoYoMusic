@@ -121,6 +121,14 @@ function toCoverPath(coverPath: string | null): string | null {
   return `/data/covers/${filename}`;
 }
 
+function toLyricsStatus(track: any): 'none' | 'has' | 'instrumental' {
+  if (track?.lyrics_status === 'has' || track?.lyrics_status === 'instrumental' || track?.lyrics_status === 'none') {
+    return track.lyrics_status;
+  }
+  const hasLyricsPath = typeof track?.lyrics_path === 'string' && track.lyrics_path.trim().length > 0;
+  return hasLyricsPath ? 'has' : 'none';
+}
+
 /** 复制/下载封面文件到 public/data/covers/ */
 async function copyCover(originalCoverPath: string | null) {
   if (!originalCoverPath || COVER_MODE === 'cdn') return;
@@ -345,6 +353,7 @@ async function exportAll() {
 
   const allTracks = allTracksResult.rows.map((t: any) => ({
     ...t,
+    lyrics_status: toLyricsStatus(t),
     artists: (t.artists || []).filter((a: any) => a.id !== null),
     audio_url: toAudioUrl(t.file_path),
     cover_path: toCoverPath(t.cover_path),
