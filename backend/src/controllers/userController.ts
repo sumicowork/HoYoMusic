@@ -366,28 +366,28 @@ export const getUserInsights = async (req: Request, res: Response) => {
            MIN(ts) AS first_seen,
            MAX(ts) AS last_seen
          FROM visit_logs
-         WHERE visitor_id = $1
-           AND ts >= NOW() - INTERVAL '1 day' * $2`,
-        [key, days]
+         WHERE (actor_user_id = $1 OR visitor_id = $2 OR actor_username = $2)
+           AND ts >= NOW() - INTERVAL '1 day' * $3`,
+        [targetUserId, key, days]
       ),
       pool.query(
         `SELECT method, path, MAX(ts) AS last_seen, COUNT(*)::int AS requests
          FROM visit_logs
-         WHERE visitor_id = $1
-           AND ts >= NOW() - INTERVAL '1 day' * $2
+         WHERE (actor_user_id = $1 OR visitor_id = $2 OR actor_username = $2)
+           AND ts >= NOW() - INTERVAL '1 day' * $3
          GROUP BY method, path
          ORDER BY requests DESC
          LIMIT 300`,
-        [key, days]
+        [targetUserId, key, days]
       ),
       pool.query(
         `SELECT ts, method, path, status, duration_ms, ip, referer
          FROM visit_logs
-         WHERE visitor_id = $1
-           AND ts >= NOW() - INTERVAL '1 day' * $2
+         WHERE (actor_user_id = $1 OR visitor_id = $2 OR actor_username = $2)
+           AND ts >= NOW() - INTERVAL '1 day' * $3
          ORDER BY ts DESC
          LIMIT 25`,
-        [key, days]
+        [targetUserId, key, days]
       ),
     ]);
 
@@ -452,6 +452,133 @@ export const getUserInsights = async (req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       error: { code: 'USER_INSIGHTS_ERROR', message: 'Failed to load user insights' },
+    });
+  }
+};
+
+export const getUserFullProfile = async (req: Request, res: Response) => {
+  try {
+    const targetUserId = parseUserId(req);
+    if (!targetUserId) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Invalid user id' },
+      });
+    }
+
+    const userResult = await pool.query(
+      `SELECT id, username, email, email_verified, is_admin, account_status, status_reason, last_login_at, last_login_ip, created_at, updated_at
+       FROM users
+       WHERE id = $1
+       LIMIT 1`,
+      [targetUserId]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'USER_NOT_FOUND', message: 'User not found' },
+      });
+    }
+
+    const user = userResult.rows[0];
+
+    const [favoritesResult, playlistsResult, playlistTracksResult, recentVisitsResult] = await Promise.all([
+      pool.query(
+        `SELECT
+           f.track_id,
+           f.created_at AS favorited_at,
+           t.title AS track_title,
+           a.id AS album_id,
+           a.title AS album_title
+         FROM favorites f
+         JOIN tracks t ON t.id = f.track_id
+         LEFT JOIN albums a ON a.id = t.album_id
+         WHERE f.user_id = $1
+         ORDER BY f.created_at DESC
+         LIMIT 300`,
+        [targetUserId]
+      ),
+      pool.query(
+        `SELECT
+           p.id,
+           p.name,
+           p.description,
+           p.created_at,
+           p.updated_at,
+           COUNT(pt.track_id)::int AS track_count,
+           COALESCE(SUM(t.duration), 0)::int AS total_duration
+         FROM playlists p
+         LEFT JOIN playlist_tracks pt ON pt.playlist_id = p.id
+         LEFT JOIN tracks t ON t.id = pt.track_id
+         WHERE p.user_id = $1
+         GROUP BY p.id
+         ORDER BY p.updated_at DESC
+         LIMIT 200`,
+        [targetUserId]
+      ),
+      pool.query(
+        `SELECT
+           pt.playlist_id,
+           pt.track_id,
+           pt.position,
+           pt.added_at,
+           t.title AS track_title
+         FROM playlist_tracks pt
+         JOIN playlists p ON p.id = pt.playlist_id
+         JOIN tracks t ON t.id = pt.track_id
+         WHERE p.user_id = $1
+         ORDER BY pt.playlist_id ASC, pt.position ASC, pt.added_at ASC
+         LIMIT 1000`,
+        [targetUserId]
+      ),
+      pool.query(
+        `SELECT ts, method, path, status, duration_ms, ip, referer
+         FROM visit_logs
+         WHERE actor_user_id = $1 OR visitor_id = $2 OR actor_username = $2
+         ORDER BY ts DESC
+         LIMIT 40`,
+        [targetUserId, String(user.username || '')]
+      ),
+    ]);
+
+    const tracksByPlaylist = new Map<number, Array<{ track_id: number; track_title: string; position: number; added_at: string }>>();
+    for (const row of playlistTracksResult.rows) {
+      const playlistId = Number(row.playlist_id);
+      const bucket = tracksByPlaylist.get(playlistId) || [];
+      bucket.push({
+        track_id: Number(row.track_id),
+        track_title: String(row.track_title || ''),
+        position: Number(row.position || 0),
+        added_at: row.added_at,
+      });
+      tracksByPlaylist.set(playlistId, bucket);
+    }
+
+    const playlists = playlistsResult.rows.map((row) => ({
+      ...row,
+      tracks: tracksByPlaylist.get(Number(row.id)) || [],
+    }));
+
+    return res.json({
+      success: true,
+      data: {
+        user,
+        favorites: favoritesResult.rows,
+        playlists,
+        recent_behaviors: recentVisitsResult.rows.map((row) => withReadableBehavior(row)),
+        summary: {
+          favorite_count: favoritesResult.rows.length,
+          playlist_count: playlists.length,
+          playlist_track_count: playlistTracksResult.rows.length,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Failed to load user full profile:', error);
+    return res.status(500).json({
+      success: false,
+      error: { code: 'USER_FULL_PROFILE_ERROR', message: 'Failed to load user full profile' },
     });
   }
 };

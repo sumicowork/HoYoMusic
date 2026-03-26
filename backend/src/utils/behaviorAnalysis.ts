@@ -12,6 +12,10 @@ const TRACK_PLAY_REPORT_RE = /^\/api\/public\/tracks\/(\d+)\/play(?:$|\?|\/)/i;
 const TRACK_DETAIL_RE = /^\/api\/public\/tracks\/(\d+)(?:$|\?|\/)/i;
 const ALBUM_DETAIL_RE = /^\/api\/public\/albums\/(\d+)(?:$|\?|\/)/i;
 const GAME_DETAIL_RE = /^\/api\/public\/games\/(\d+)(?:$|\?|\/)/i;
+const ARTIST_DETAIL_RE = /^\/api\/public\/artists\/(\d+)(?:$|\?|\/)/i;
+const TAG_DETAIL_RE = /^\/api\/public\/tags\/(\d+)(?:$|\?|\/)/i;
+const PLAYLIST_DETAIL_RE = /^\/api\/playlists\/(\d+)(?:$|\?|\/)/i;
+const USER_DETAIL_ADMIN_RE = /^\/api\/users\/(\d+)(?:$|\?|\/)/i;
 
 const sanitizePath = (path: string): string => {
   const raw = String(path || '');
@@ -46,6 +50,14 @@ export const resolveBehaviorMeta = (method: string, path: string, status?: numbe
     actionKey = 'auth.register';
     actionLabel = '注册账号';
     module = '账户';
+  } else if (normalizedMethod === 'GET' && normalizedPath === '/api/auth/me') {
+    actionKey = 'auth.me';
+    actionLabel = '读取当前用户';
+    module = '账户';
+  } else if (normalizedMethod === 'POST' && normalizedPath === '/api/auth/change-password') {
+    actionKey = 'auth.change_password';
+    actionLabel = '修改密码';
+    module = '账户';
   } else if (TRACK_STREAM_RE.test(normalizedPath) && normalizedMethod === 'GET') {
     actionKey = 'track.stream';
     actionLabel = '播放曲目';
@@ -76,21 +88,109 @@ export const resolveBehaviorMeta = (method: string, path: string, status?: numbe
     module = '内容浏览';
     resourceType = 'game';
     resourceId = extractId(normalizedPath, GAME_DETAIL_RE);
+  } else if (ARTIST_DETAIL_RE.test(normalizedPath) && normalizedMethod === 'GET') {
+    actionKey = 'artist.detail';
+    actionLabel = '查看创作者详情';
+    module = '内容浏览';
+    resourceType = 'artist';
+    resourceId = extractId(normalizedPath, ARTIST_DETAIL_RE);
+  } else if (TAG_DETAIL_RE.test(normalizedPath) && normalizedMethod === 'GET') {
+    actionKey = 'tag.detail';
+    actionLabel = '查看标签详情';
+    module = '内容浏览';
+    resourceType = 'tag';
+    resourceId = extractId(normalizedPath, TAG_DETAIL_RE);
   } else if (normalizedMethod === 'POST' && normalizedPath === '/api/tracks/upload') {
     actionKey = 'track.upload';
     actionLabel = '上传曲目';
     module = '后台管理';
+  } else if (normalizedPath === '/api/favorites' && normalizedMethod === 'GET') {
+    actionKey = 'favorite.list';
+    actionLabel = '查看收藏列表';
+    module = '收藏';
+  } else if (normalizedPath === '/api/favorites/toggle' && normalizedMethod === 'POST') {
+    actionKey = 'favorite.toggle';
+    actionLabel = '切换收藏状态';
+    module = '收藏';
+  } else if (normalizedPath === '/api/favorites/check' && normalizedMethod === 'POST') {
+    actionKey = 'favorite.check';
+    actionLabel = '批量检查收藏';
+    module = '收藏';
   } else if (normalizedPath.startsWith('/api/favorites')) {
     actionKey = 'favorite.manage';
     actionLabel = normalizedMethod === 'GET' ? '查看收藏' : '管理收藏';
     module = '收藏';
+  } else if (normalizedPath === '/api/playlists' && normalizedMethod === 'GET') {
+    actionKey = 'playlist.list';
+    actionLabel = '查看我的歌单';
+    module = '歌单';
+  } else if (normalizedPath === '/api/playlists' && normalizedMethod === 'POST') {
+    actionKey = 'playlist.create';
+    actionLabel = '创建歌单';
+    module = '歌单';
+  } else if (PLAYLIST_DETAIL_RE.test(normalizedPath) && normalizedMethod === 'GET') {
+    actionKey = 'playlist.detail';
+    actionLabel = '查看歌单详情';
+    module = '歌单';
+    resourceType = 'playlist';
+    resourceId = extractId(normalizedPath, PLAYLIST_DETAIL_RE);
+  } else if (PLAYLIST_DETAIL_RE.test(normalizedPath) && normalizedMethod === 'PUT') {
+    actionKey = 'playlist.update';
+    actionLabel = '编辑歌单';
+    module = '歌单';
+    resourceType = 'playlist';
+    resourceId = extractId(normalizedPath, PLAYLIST_DETAIL_RE);
+  } else if (PLAYLIST_DETAIL_RE.test(normalizedPath) && normalizedMethod === 'DELETE') {
+    actionKey = 'playlist.delete';
+    actionLabel = '删除歌单';
+    module = '歌单';
+    resourceType = 'playlist';
+    resourceId = extractId(normalizedPath, PLAYLIST_DETAIL_RE);
   } else if (normalizedPath.startsWith('/api/playlists')) {
     actionKey = 'playlist.manage';
     actionLabel = normalizedMethod === 'GET' ? '查看歌单' : '管理歌单';
     module = '歌单';
+  } else if (normalizedPath === '/api/messages/inbox' && normalizedMethod === 'GET') {
+    actionKey = 'message.inbox';
+    actionLabel = '查看站内信';
+    module = '站内信';
+  } else if (normalizedPath === '/api/messages/unread-count' && normalizedMethod === 'GET') {
+    actionKey = 'message.unread_count';
+    actionLabel = '读取站内信未读数';
+    module = '站内信';
+  } else if (normalizedPath === '/api/messages/read-all' && normalizedMethod === 'POST') {
+    actionKey = 'message.read_all';
+    actionLabel = '全部站内信标记已读';
+    module = '站内信';
+  } else if (normalizedPath.startsWith('/api/messages/admin/send') && normalizedMethod === 'POST') {
+    actionKey = 'message.admin_send';
+    actionLabel = '发送站内信';
+    module = '后台管理';
+  } else if (normalizedPath.startsWith('/api/messages/admin/sent') && normalizedMethod === 'GET') {
+    actionKey = 'message.admin_sent';
+    actionLabel = '查看站内信发送记录';
+    module = '后台管理';
+  } else if (normalizedPath.startsWith('/api/messages/')) {
+    actionKey = 'message.manage';
+    actionLabel = '处理站内信';
+    module = '站内信';
   } else if (normalizedPath.startsWith('/api/analytics')) {
     actionKey = 'admin.analytics';
     actionLabel = '查看统计看板';
+    module = '后台管理';
+  } else if (normalizedPath === '/api/users' && normalizedMethod === 'GET') {
+    actionKey = 'admin.user_list';
+    actionLabel = '查看用户列表';
+    module = '后台管理';
+  } else if (USER_DETAIL_ADMIN_RE.test(normalizedPath) && normalizedMethod === 'GET') {
+    actionKey = 'admin.user_detail';
+    actionLabel = '查看用户详情';
+    module = '后台管理';
+    resourceType = 'user';
+    resourceId = extractId(normalizedPath, USER_DETAIL_ADMIN_RE);
+  } else if (normalizedPath.startsWith('/api/users') && (normalizedMethod === 'PATCH' || normalizedMethod === 'POST')) {
+    actionKey = 'admin.user_update';
+    actionLabel = '更新用户状态';
     module = '后台管理';
   } else if (normalizedPath.startsWith('/api/public/')) {
     actionKey = 'public.browse';
@@ -121,4 +221,5 @@ export const withReadableBehavior = <T extends { method: string; path: string; s
     ...resolveBehaviorMeta(row.method, row.path, row.status),
   };
 };
+
 

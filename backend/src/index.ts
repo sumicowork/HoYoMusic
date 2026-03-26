@@ -28,6 +28,7 @@ import discRoutes from './routes/discRoutes';
 import debugRoutes from './routes/debugRoutes';
 import settingsRoutes from './routes/settingsRoutes';
 import userRoutes from './routes/userRoutes';
+import messageRoutes from './routes/messageRoutes';
 import { visitLogger } from './middleware/visitLogger';
 import { maintenanceModeGuard } from './middleware/maintenanceMode';
 import { errorHandler } from './middleware/errorHandler';
@@ -170,6 +171,7 @@ app.use('/api/public', publicRoutes);    // Public routes (无需认证)
 app.use('/api', settingsRoutes);          // Site settings (public + authenticated)
 app.use('/api/debug', debugRoutes);      // High-risk debug routes (disabled by default)
 app.use('/api/users', userRoutes);       // User management (authenticated)
+app.use('/api/messages', messageRoutes); // Site messages (authenticated)
 
 // API Documentation
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { customSiteTitle: 'HoYoMusic API Docs' }));
@@ -259,7 +261,11 @@ const runMigrations = async () => {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_visit_logs_country ON visit_logs (country)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_visit_logs_path    ON visit_logs (path text_pattern_ops)`);
     await pool.query(`ALTER TABLE visit_logs ADD COLUMN IF NOT EXISTS visitor_id VARCHAR(128)`);
+    await pool.query(`ALTER TABLE visit_logs ADD COLUMN IF NOT EXISTS actor_user_id INTEGER`);
+    await pool.query(`ALTER TABLE visit_logs ADD COLUMN IF NOT EXISTS actor_username VARCHAR(128)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_visit_logs_visitor_id ON visit_logs (visitor_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_visit_logs_actor_user_id ON visit_logs (actor_user_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_visit_logs_actor_username ON visit_logs (actor_username)`);
     await pool.query(`
       UPDATE visit_logs
       SET visitor_id = NULL
@@ -316,6 +322,37 @@ const runMigrations = async () => {
     console.log('✅ DB migrations up to date (favorites)');
   } catch (err) {
     console.error('⚠️  favorites migration warning:', err);
+  }
+
+  // site messages
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS site_messages (
+        id BIGSERIAL PRIMARY KEY,
+        sender_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        title VARCHAR(200) NOT NULL,
+        content TEXT NOT NULL,
+        is_broadcast BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        expires_at TIMESTAMPTZ
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS site_message_deliveries (
+        id BIGSERIAL PRIMARY KEY,
+        message_id BIGINT NOT NULL REFERENCES site_messages(id) ON DELETE CASCADE,
+        recipient_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        delivered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        is_read BOOLEAN NOT NULL DEFAULT FALSE,
+        read_at TIMESTAMPTZ,
+        UNIQUE(message_id, recipient_user_id)
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_site_message_deliveries_user ON site_message_deliveries(recipient_user_id, delivered_at DESC)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_site_message_deliveries_unread ON site_message_deliveries(recipient_user_id, is_read)`);
+    console.log('✅ DB migrations up to date (site_messages)');
+  } catch (err) {
+    console.error('⚠️  site_messages migration warning:', err);
   }
 
   // Add sha256_hash and play_count columns to tracks

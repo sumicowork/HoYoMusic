@@ -80,6 +80,38 @@ export interface UserInsightsResponse {
   recent_behaviors: UserInsightBehaviorItem[];
 }
 
+export interface UserFullProfileResponse {
+  user: AdminUserItem;
+  favorites: Array<{
+    track_id: number;
+    favorited_at: string;
+    track_title: string;
+    album_id: number | null;
+    album_title: string | null;
+  }>;
+  playlists: Array<{
+    id: number;
+    name: string;
+    description: string | null;
+    created_at: string;
+    updated_at: string;
+    track_count: number;
+    total_duration: number;
+    tracks: Array<{
+      track_id: number;
+      track_title: string;
+      position: number;
+      added_at: string;
+    }>;
+  }>;
+  recent_behaviors: UserInsightBehaviorItem[];
+  summary: {
+    favorite_count: number;
+    playlist_count: number;
+    playlist_track_count: number;
+  };
+}
+
 export const userService = {
   async getUsers(page = 1, pageSize = 20, filters: UserListFilters = {}): Promise<AdminUserListResponse> {
     const searchParams = new URLSearchParams();
@@ -144,6 +176,14 @@ export const userService = {
       return response.data.data;
     }
     throw new Error(response.data.error?.message || 'Failed to fetch user insights');
+  },
+
+  async getUserFullProfile(userId: number): Promise<UserFullProfileResponse> {
+    const response = await api.get<ApiResponse<UserFullProfileResponse>>(`/users/${userId}/full-profile`);
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data.error?.message || 'Failed to fetch user full profile');
   },
 };
 

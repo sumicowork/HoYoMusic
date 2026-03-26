@@ -115,6 +115,18 @@ interface CountryDebugRow {
   bucket: string;
 }
 
+interface BehaviorCoverageData {
+  inventory: {
+    total_routes: number;
+    uncovered_count: number;
+    uncovered_routes: Array<{ method: string; path: string; source: string }>;
+  };
+  behavior: {
+    action_distribution: Array<{ action_key: string; action_label: string; module: string; count: number }>;
+    unmapped_top: Array<{ method: string; path: string; count: number }>;
+  };
+}
+
 // ── Storage analytics sub-component ──────────────────────────────
 const StorageAnalytics: React.FC = () => {
   const [data, setData] = useState<any>(null);
@@ -218,6 +230,7 @@ const Analytics: React.FC = () => {
   const [countryDebugLoading, setCountryDebugLoading] = useState(false);
   const [countryDebugRows, setCountryDebugRows] = useState<CountryDebugRow[]>([]);
   const [countryDebugSummary, setCountryDebugSummary] = useState<Array<{ bucket: string; requests: number; visitors: number }>>([]);
+  const [behaviorCoverage, setBehaviorCoverage] = useState<BehaviorCoverageData | null>(null);
   const [loading, setLoading]       = useState(true);
   const [warming, setWarming]       = useState(false);
   const [lastRefresh, setLast]      = useState(new Date());
@@ -247,6 +260,7 @@ const Analytics: React.FC = () => {
         cache: withHardTimeout(api.get('/analytics/cache', { timeout: ANALYTICS_TIMEOUT_MS }), ANALYTICS_TIMEOUT_MS),
         hotTracks: withHardTimeout(api.get(`/analytics/tracks/hot?days=${days}&limit=50`, { timeout: ANALYTICS_TIMEOUT_MS }), ANALYTICS_TIMEOUT_MS),
         visitors: withHardTimeout(api.get(`/analytics/visitors?days=${days}&page=1&limit=50`, { timeout: ANALYTICS_TIMEOUT_MS }), ANALYTICS_TIMEOUT_MS),
+        behaviorCoverage: withHardTimeout(api.get('/analytics/behavior/coverage', { timeout: ANALYTICS_TIMEOUT_MS }), ANALYTICS_TIMEOUT_MS),
       } as const;
 
       const keys = Object.keys(requests) as Array<keyof typeof requests>;
@@ -306,6 +320,9 @@ const Analytics: React.FC = () => {
 
       const visitorsData = getData('visitors');
       if (visitorsData) setVisitors(visitorsData?.visitors || []);
+
+      const behaviorCoverageData = getData('behaviorCoverage');
+      if (behaviorCoverageData) setBehaviorCoverage(behaviorCoverageData);
 
       if (failedKeys.length > 0) {
         message.warning(`部分统计加载失败：${failedKeys.join(', ')}`);
@@ -884,6 +901,42 @@ const Analytics: React.FC = () => {
                 },
               ]}
             />
+          </Card>
+
+          <Card title="🧪 行为分类覆盖诊断" className="analytics-card" style={{ marginBottom: 16 }}>
+            <Row gutter={12} style={{ marginBottom: 12 }}>
+              <Col span={8}><Statistic title="接口总数" value={behaviorCoverage?.inventory?.total_routes || 0} /></Col>
+              <Col span={8}><Statistic title="未命中接口" value={behaviorCoverage?.inventory?.uncovered_count || 0} /></Col>
+              <Col span={8}><Statistic title="未映射行为样本" value={(behaviorCoverage?.behavior?.unmapped_top || []).length} /></Col>
+            </Row>
+            <Row gutter={12}>
+              <Col span={12}>
+                <Table
+                  size="small"
+                  rowKey={(r: any, i?: number) => `${r.method}-${r.path}-${i}`}
+                  pagination={{ pageSize: 6, size: 'small' }}
+                  dataSource={behaviorCoverage?.behavior?.unmapped_top || []}
+                  columns={[
+                    { title: 'Method', dataIndex: 'method', width: 90 },
+                    { title: 'Path', dataIndex: 'path', ellipsis: true },
+                    { title: '次数', dataIndex: 'count', width: 80, align: 'right' },
+                  ]}
+                />
+              </Col>
+              <Col span={12}>
+                <Table
+                  size="small"
+                  rowKey={(r: any, i?: number) => `${r.method}-${r.path}-${r.source}-${i}`}
+                  pagination={{ pageSize: 6, size: 'small' }}
+                  dataSource={behaviorCoverage?.inventory?.uncovered_routes || []}
+                  columns={[
+                    { title: 'Method', dataIndex: 'method', width: 90 },
+                    { title: 'Path', dataIndex: 'path', ellipsis: true },
+                    { title: '来源', dataIndex: 'source', width: 130, ellipsis: true },
+                  ]}
+                />
+              </Col>
+            </Row>
           </Card>
 
           {/* ── Recent Logs ── */}

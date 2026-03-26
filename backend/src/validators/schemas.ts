@@ -210,3 +210,15 @@ export const resetUserPasswordSchema = z.object({
   new_password: z.string().min(6, 'new_password must be at least 6 characters').max(200),
 });
 
+// ── Site Messages ─────────────────────────────────────────────
+export const sendSiteMessageSchema = z.object({
+  title: z.string().trim().min(1, 'title is required').max(200),
+  content: z.string().trim().min(1, 'content is required').max(10000),
+  is_broadcast: z.boolean().optional().default(false),
+  recipient_user_ids: z.array(z.number().int().positive()).optional().default([]),
+  expires_at: z.union([
+    z.string().trim().datetime({ message: 'expires_at must be ISO datetime' }),
+    z.null(),
+  ]).optional().default(null),
+});
+

@@ -21,6 +21,8 @@ type VisitLogEntry = [
   string,
   string,
   number,
+  number | null,
+  string | null,
 ];
 
 // Lazily load geoip-lite and ua-parser-js so startup isn't blocked
@@ -88,24 +90,27 @@ function getVisitorId(req: Request): string | null {
   return null;
 }
 
-function getAuthUsername(req: Request): string | null {
+function getAuthIdentity(req: Request): { userId: number | null; username: string | null } {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return null;
+    return { userId: null, username: null };
   }
 
   const token = authHeader.slice(7).trim();
-  if (!token) return null;
+  if (!token) return { userId: null, username: null };
 
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as { username?: unknown };
-    if (typeof payload.username === 'string' && payload.username.trim()) {
-      return payload.username.trim().slice(0, 128);
-    }
+    const payload = jwt.verify(token, JWT_SECRET) as { id?: unknown; userId?: unknown; username?: unknown };
+    const username = typeof payload.username === 'string' && payload.username.trim()
+      ? payload.username.trim().slice(0, 128)
+      : null;
+    const idRaw = payload.id ?? payload.userId;
+    const userId = Number.isFinite(Number(idRaw)) ? Number(idRaw) : null;
+    return { userId, username };
   } catch {
     // Ignore invalid token for logging enrichment; auth middleware handles authorization.
   }
-  return null;
+  return { userId: null, username: null };
 }
 
 function mergeVisitorLogs(fromVisitorId: string, toVisitorId: string): void {
@@ -169,8 +174,8 @@ async function flushQueue(force = false): Promise<void> {
 
   try {
     const placeholders = batch.map((_, i) => {
-      const base = i * 17;
-      return `($${base + 1},$${base + 2},$${base + 3},$${base + 4},$${base + 5},$${base + 6},$${base + 7},$${base + 8},$${base + 9},$${base + 10},$${base + 11},$${base + 12},$${base + 13},$${base + 14},$${base + 15},$${base + 16},$${base + 17})`;
+      const base = i * 19;
+      return `($${base + 1},$${base + 2},$${base + 3},$${base + 4},$${base + 5},$${base + 6},$${base + 7},$${base + 8},$${base + 9},$${base + 10},$${base + 11},$${base + 12},$${base + 13},$${base + 14},$${base + 15},$${base + 16},$${base + 17},$${base + 18},$${base + 19})`;
     }).join(',');
     const values = batch.flat();
 
@@ -179,7 +184,7 @@ async function flushQueue(force = false): Promise<void> {
         (ip, visitor_id, country, region, city, latitude, longitude,
          method, path, status, duration_ms,
          user_agent, ua_browser, ua_os, ua_device,
-         referer, bytes_sent)
+         referer, bytes_sent, actor_user_id, actor_username)
        VALUES ${placeholders}`,
       values
     );
@@ -224,7 +229,8 @@ export function visitLogger(req: Request, res: Response, next: NextFunction) {
       const duration = Date.now() - startAt;
       const ip = getRealIp(req);
       const rawVisitorId = getVisitorId(req);
-      const authUsername = getAuthUsername(req);
+      const authIdentity = getAuthIdentity(req);
+      const authUsername = authIdentity.username;
       const visitorId = authUsername || rawVisitorId;
 
       if (authUsername && rawVisitorId && rawVisitorId !== authUsername) {
@@ -265,6 +271,8 @@ export function visitLogger(req: Request, res: Response, next: NextFunction) {
         req.method, urlPath.slice(0, 1024), res.statusCode, duration,
         ua, uaBrowser.slice(0, 128), uaOs.slice(0, 128), uaDevice.slice(0, 64),
         referer, bytes,
+        authIdentity.userId,
+        authIdentity.username,
       ]);
     } catch { /* never crash the app */ }
   });

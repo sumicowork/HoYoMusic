@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import http from 'http';
 import https from 'https';
+import fs from 'fs/promises';
+import path from 'path';
 import pool from '../config/database';
 import { authenticateAdmin } from '../middleware/auth';
 import { cache } from '../utils/cache';
@@ -148,6 +150,64 @@ const toProvinceBucket = (country: string | null, region: string | null, city: s
 const safeError = (e: any) => {
   const msg = process.env.NODE_ENV === 'production' ? 'Internal server error' : (e?.message || 'Unknown error');
   return { success: false, error: { code: 'ANALYTICS_ERROR', message: msg } };
+};
+
+const ROUTE_FILE_MOUNTS: Array<{ file: string; prefix: string }> = [
+  { file: 'authRoutes.ts', prefix: '/api/auth' },
+  { file: 'trackRoutes.ts', prefix: '/api/tracks' },
+  { file: 'lyricsRoutes.ts', prefix: '/api/lyrics' },
+  { file: 'creditsRoutes.ts', prefix: '/api/credits' },
+  { file: 'albumRoutes.ts', prefix: '/api/albums' },
+  { file: 'artistRoutes.ts', prefix: '/api/artists' },
+  { file: 'gameRoutes.ts', prefix: '/api/games' },
+  { file: 'tagRoutes.ts', prefix: '/api/tags' },
+  { file: 'playlistRoutes.ts', prefix: '/api/playlists' },
+  { file: 'favoriteRoutes.ts', prefix: '/api/favorites' },
+  { file: 'discRoutes.ts', prefix: '/api' },
+  { file: 'analyticsRoutes.ts', prefix: '/api/analytics' },
+  { file: 'publicRoutes.ts', prefix: '/api/public' },
+  { file: 'settingsRoutes.ts', prefix: '/api' },
+  { file: 'userRoutes.ts', prefix: '/api/users' },
+  { file: 'messageRoutes.ts', prefix: '/api/messages' },
+];
+
+const toCombinedPath = (prefix: string, routePath: string): string => {
+  const left = prefix.endsWith('/') ? prefix.slice(0, -1) : prefix;
+  const right = routePath.startsWith('/') ? routePath : `/${routePath}`;
+  return `${left}${right}`.replace(/\/+/g, '/');
+};
+
+const loadRouteInventory = async () => {
+  const routesDir = path.join(__dirname);
+  const out: Array<{ method: string; path: string; source: string }> = [];
+
+  for (const item of ROUTE_FILE_MOUNTS) {
+    let content = '';
+    try {
+      const targetTs = path.join(routesDir, item.file);
+      content = await fs.readFile(targetTs, 'utf-8');
+    } catch {
+      try {
+        const targetJs = path.join(routesDir, item.file.replace(/\.ts$/i, '.js'));
+        content = await fs.readFile(targetJs, 'utf-8');
+      } catch {
+        continue;
+      }
+    }
+
+    const regex = /router\.(get|post|put|patch|delete)\(\s*['"]([^'"]+)['"]/g;
+    let match: RegExpExecArray | null = regex.exec(content);
+    while (match) {
+      out.push({
+        method: String(match[1] || '').toUpperCase(),
+        path: toCombinedPath(item.prefix, String(match[2] || '')),
+        source: item.file,
+      });
+      match = regex.exec(content);
+    }
+  }
+
+  return out;
 };
 
 const fetchUrlBuffer = async (url: string): Promise<{ statusCode: number; buffer: Buffer; contentType: string }> => {
@@ -654,6 +714,134 @@ router.get('/visitors/:visitorKey/behavior', async (req: Request, res: Response)
     });
   } catch (e: any) {
     res.status(500).json(safeError(e));
+  }
+});
+
+router.get('/behavior/coverage', async (_req: Request, res: Response) => {
+  try {
+    const [inventory, genericResult, actionResult] = await Promise.all([
+      loadRouteInventory(),
+      pool.query(
+        `SELECT method, path, COUNT(*)::int AS requests
+         FROM visit_logs
+         WHERE ts >= NOW() - INTERVAL '30 days'
+         GROUP BY method, path
+         ORDER BY COUNT(*) DESC
+         LIMIT 800`
+      ),
+      pool.query(
+        `SELECT method, path, status
+         FROM visit_logs
+         WHERE ts >= NOW() - INTERVAL '30 days'
+         ORDER BY ts DESC
+         LIMIT 2000`
+      ),
+    ]);
+
+    const coveredSet = new Set<string>();
+    for (const row of genericResult.rows) {
+      coveredSet.add(`${String(row.method).toUpperCase()} ${String(row.path)}`);
+    }
+
+    const uncoveredRoutes = inventory
+      .filter((route) => !coveredSet.has(`${route.method} ${route.path}`))
+      .slice(0, 500);
+
+    const actionCounter = new Map<string, { action_key: string; action_label: string; module: string; count: number }>();
+    const unmappedCounter = new Map<string, { method: string; path: string; count: number }>();
+    for (const row of actionResult.rows) {
+      const behavior = withReadableBehavior(row);
+      const key = behavior.action_key;
+      const existing = actionCounter.get(key);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        actionCounter.set(key, {
+          action_key: behavior.action_key,
+          action_label: behavior.action_label,
+          module: behavior.module,
+          count: 1,
+        });
+      }
+
+      if (behavior.action_key === 'api.generic') {
+        const routeKey = `${String(row.method).toUpperCase()} ${String(row.path)}`;
+        const unmapped = unmappedCounter.get(routeKey);
+        if (unmapped) {
+          unmapped.count += 1;
+        } else {
+          unmappedCounter.set(routeKey, {
+            method: String(row.method || 'GET').toUpperCase(),
+            path: String(row.path || '/'),
+            count: 1,
+          });
+        }
+      }
+    }
+
+    const actionDistribution = Array.from(actionCounter.values()).sort((a, b) => b.count - a.count);
+    const unmappedTop = Array.from(unmappedCounter.values()).sort((a, b) => b.count - a.count).slice(0, 80);
+
+    return res.json({
+      success: true,
+      data: {
+        inventory: {
+          total_routes: inventory.length,
+          uncovered_count: uncoveredRoutes.length,
+          uncovered_routes: uncoveredRoutes,
+        },
+        behavior: {
+          action_distribution: actionDistribution,
+          unmapped_top: unmappedTop,
+        },
+      },
+    });
+  } catch (e: any) {
+    return res.status(500).json(safeError(e));
+  }
+});
+
+router.get('/behavior/export', async (req: Request, res: Response) => {
+  try {
+    const d = clampDays(req.query.days, 180);
+    const page = Math.max(parseInt(req.query.page as string) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 500, 1), 2000);
+    const offset = (page - 1) * limit;
+    const method = String(req.query.method || '').trim().toUpperCase();
+
+    const conditions: string[] = [`ts >= NOW() - INTERVAL '1 day' * $1`];
+    const params: Array<number | string> = [d];
+
+    if (method) {
+      params.push(method);
+      conditions.push(`method = $${params.length}`);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    params.push(limit);
+    params.push(offset);
+
+    const result = await pool.query(
+      `SELECT ts, method, path, status, duration_ms, ip, visitor_id, actor_user_id, actor_username, referer
+       FROM visit_logs
+       ${whereClause}
+       ORDER BY ts DESC
+       LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      params
+    );
+
+    const logs = result.rows.map((row) => withReadableBehavior(row));
+    return res.json({
+      success: true,
+      data: {
+        page,
+        limit,
+        days: d,
+        logs,
+      },
+    });
+  } catch (e: any) {
+    return res.status(500).json(safeError(e));
   }
 });
 

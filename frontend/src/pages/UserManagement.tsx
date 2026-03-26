@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Card, Descriptions, Form, Input, Modal, Popconfirm, Select, Space, Statistic, Table, Tag, Typography, message } from 'antd';
+import { Button, Card, Descriptions, Form, Input, Modal, Popconfirm, Select, Space, Statistic, Table, Tabs, Tag, Typography, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import AdminLayout from '../components/AdminLayout';
 import { useAuthStore } from '../store/authStore';
@@ -7,9 +7,11 @@ import {
   userService,
   type AdminUserItem,
   type UserInsightBehaviorItem,
+  type UserFullProfileResponse,
   type UserInsightsResponse,
   type UserListFilters,
 } from '../services/userService';
+import { messageService } from '../services/messageService';
 
 const { Title } = Typography;
 
@@ -33,6 +35,10 @@ const UserManagement: React.FC = () => {
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [insightsDays, setInsightsDays] = useState(30);
   const [userInsights, setUserInsights] = useState<UserInsightsResponse | null>(null);
+  const [userFullProfile, setUserFullProfile] = useState<UserFullProfileResponse | null>(null);
+  const [siteMessageModalOpen, setSiteMessageModalOpen] = useState(false);
+  const [siteMessageSubmitting, setSiteMessageSubmitting] = useState(false);
+  const [messageForm] = Form.useForm<{ title: string; content: string; scope: 'broadcast' | 'selected'; recipient_user_ids: number[] }>();
 
   const loadUsers = async (
     page = pagination.page,
@@ -154,11 +160,16 @@ const UserManagement: React.FC = () => {
     setInsightsModalOpen(true);
     setInsightsLoading(true);
     try {
-      const data = await userService.getUserInsights(record.id, insightsDays);
-      setUserInsights(data);
+      const [insightData, profileData] = await Promise.all([
+        userService.getUserInsights(record.id, insightsDays),
+        userService.getUserFullProfile(record.id),
+      ]);
+      setUserInsights(insightData);
+      setUserFullProfile(profileData);
     } catch (error: any) {
       message.error(error?.message || '加载用户分析失败');
       setUserInsights(null);
+      setUserFullProfile(null);
     } finally {
       setInsightsLoading(false);
     }
@@ -170,12 +181,55 @@ const UserManagement: React.FC = () => {
     }
     setInsightsLoading(true);
     try {
-      const data = await userService.getUserInsights(targetUser.id, days);
-      setUserInsights(data);
+      const [insightData, profileData] = await Promise.all([
+        userService.getUserInsights(targetUser.id, days),
+        userService.getUserFullProfile(targetUser.id),
+      ]);
+      setUserInsights(insightData);
+      setUserFullProfile(profileData);
     } catch (error: any) {
       message.error(error?.message || '刷新用户分析失败');
     } finally {
       setInsightsLoading(false);
+    }
+  };
+
+  const openSiteMessageModal = (initialRecipientIds?: number[]) => {
+    const selectedIds = initialRecipientIds && initialRecipientIds.length > 0
+      ? initialRecipientIds
+      : selectedUsers.map((item) => item.id);
+
+    setSiteMessageModalOpen(true);
+    messageForm.setFieldsValue({
+      title: '',
+      content: '',
+      scope: selectedIds.length > 0 ? 'selected' : 'broadcast',
+      recipient_user_ids: selectedIds,
+    });
+  };
+
+  const handleSendSiteMessage = async () => {
+    try {
+      const values = await messageForm.validateFields();
+      const isBroadcast = values.scope === 'broadcast';
+      setSiteMessageSubmitting(true);
+      const result = await messageService.sendByAdmin({
+        title: values.title,
+        content: values.content,
+        is_broadcast: isBroadcast,
+        recipient_user_ids: isBroadcast ? [] : values.recipient_user_ids,
+      });
+
+      message.success(`站内信发送成功，投递 ${result.delivery_count} 人`);
+      setSiteMessageModalOpen(false);
+      messageForm.resetFields();
+    } catch (error: any) {
+      if (error?.errorFields) {
+        return;
+      }
+      message.error(error?.message || '发送站内信失败');
+    } finally {
+      setSiteMessageSubmitting(false);
     }
   };
 
@@ -293,6 +347,10 @@ const UserManagement: React.FC = () => {
             <Button size="small" onClick={() => void openUserInsights(record)}>
               行为分析
             </Button>
+
+            <Button size="small" onClick={() => openSiteMessageModal([record.id])}>
+              发站内信
+            </Button>
           </Space>
         );
       },
@@ -365,6 +423,13 @@ const UserManagement: React.FC = () => {
               >
                 <Button danger disabled={selectedUserCount === 0 || loading}>批量停用</Button>
               </Popconfirm>
+              <Button
+                type="primary"
+                onClick={() => openSiteMessageModal()}
+                disabled={loading}
+              >
+                发送站内信
+              </Button>
               <Typography.Text type="secondary">已选 {selectedUserCount} 位用户</Typography.Text>
             </Space>
           </Space>
@@ -442,6 +507,7 @@ const UserManagement: React.FC = () => {
         onCancel={() => {
           setInsightsModalOpen(false);
           setUserInsights(null);
+          setUserFullProfile(null);
         }}
         footer={<Button onClick={() => setInsightsModalOpen(false)}>关闭</Button>}
         width={980}
@@ -484,43 +550,176 @@ const UserManagement: React.FC = () => {
           </Descriptions.Item>
         </Descriptions>
 
-        <Card size="small" title="高频行为（可读）" style={{ marginBottom: 12 }}>
-          <Table
-            size="small"
-            loading={insightsLoading}
-            rowKey="action_key"
-            pagination={false}
-            dataSource={userInsights?.top_actions || []}
-            columns={[
-              { title: '行为', dataIndex: 'action_label', width: 220 },
-              { title: '模块', dataIndex: 'module', width: 120 },
-              { title: '次数', dataIndex: 'requests', width: 90, align: 'right' },
-              {
-                title: '最近发生',
-                dataIndex: 'last_seen',
-                render: (value: string | null) => (value ? new Date(value).toLocaleString('zh-CN') : '—'),
-              },
-            ]}
-          />
-        </Card>
+        <Tabs
+          items={[
+            {
+              key: 'behavior',
+              label: '行为分析',
+              children: (
+                <>
+                  <Card size="small" title="高频行为（可读）" style={{ marginBottom: 12 }}>
+                    <Table
+                      size="small"
+                      loading={insightsLoading}
+                      rowKey="action_key"
+                      pagination={false}
+                      dataSource={userInsights?.top_actions || []}
+                      columns={[
+                        { title: '行为', dataIndex: 'action_label', width: 220 },
+                        { title: '模块', dataIndex: 'module', width: 120 },
+                        { title: '次数', dataIndex: 'requests', width: 90, align: 'right' },
+                        {
+                          title: '最近发生',
+                          dataIndex: 'last_seen',
+                          render: (value: string | null) => (value ? new Date(value).toLocaleString('zh-CN') : '—'),
+                        },
+                      ]}
+                    />
+                  </Card>
 
-        <Card size="small" title="最近行为时间线">
-          <Table<UserInsightBehaviorItem>
-            size="small"
-            loading={insightsLoading}
-            rowKey={(record, index) => `${record.ts}-${record.path}-${index}`}
-            dataSource={userInsights?.recent_behaviors || []}
-            pagination={{ pageSize: 8, size: 'small', showSizeChanger: false }}
-            columns={[
-              { title: '时间', dataIndex: 'ts', width: 165, render: (value: string) => new Date(value).toLocaleString('zh-CN') },
-              { title: '行为摘要', dataIndex: 'summary', width: 260, ellipsis: true },
-              { title: '模块', dataIndex: 'module', width: 100 },
-              { title: '状态', dataIndex: 'status', width: 80, align: 'center' },
-              { title: '耗时', dataIndex: 'duration_ms', width: 80, align: 'right', render: (value: number) => `${value}ms` },
-              { title: '路径', dataIndex: 'path', ellipsis: true },
-            ]}
-          />
-        </Card>
+                  <Card size="small" title="最近行为时间线">
+                    <Table<UserInsightBehaviorItem>
+                      size="small"
+                      loading={insightsLoading}
+                      rowKey={(record, index) => `${record.ts}-${record.path}-${index}`}
+                      dataSource={userInsights?.recent_behaviors || []}
+                      pagination={{ pageSize: 8, size: 'small', showSizeChanger: false }}
+                      columns={[
+                        { title: '时间', dataIndex: 'ts', width: 165, render: (value: string) => new Date(value).toLocaleString('zh-CN') },
+                        { title: '行为摘要', dataIndex: 'summary', width: 260, ellipsis: true },
+                        { title: '模块', dataIndex: 'module', width: 100 },
+                        { title: '状态', dataIndex: 'status', width: 80, align: 'center' },
+                        { title: '耗时', dataIndex: 'duration_ms', width: 80, align: 'right', render: (value: number) => `${value}ms` },
+                        { title: '路径', dataIndex: 'path', ellipsis: true },
+                      ]}
+                    />
+                  </Card>
+                </>
+              ),
+            },
+            {
+              key: 'account',
+              label: '账户资料',
+              children: (
+                <Descriptions size="small" bordered column={2}>
+                  <Descriptions.Item label="用户ID">{userFullProfile?.user.id || '-'}</Descriptions.Item>
+                  <Descriptions.Item label="用户名">{userFullProfile?.user.username || '-'}</Descriptions.Item>
+                  <Descriptions.Item label="邮箱">{userFullProfile?.user.email || '—'}</Descriptions.Item>
+                  <Descriptions.Item label="邮箱验证">{userFullProfile?.user.email_verified ? '已验证' : '未验证'}</Descriptions.Item>
+                  <Descriptions.Item label="账号状态">{userFullProfile?.user.account_status === 'disabled' ? '停用' : '正常'}</Descriptions.Item>
+                  <Descriptions.Item label="管理员">{userFullProfile?.user.is_admin ? '是' : '否'}</Descriptions.Item>
+                  <Descriptions.Item label="最近登录时间">{userFullProfile?.user.last_login_at ? new Date(userFullProfile.user.last_login_at).toLocaleString('zh-CN') : '从未登录'}</Descriptions.Item>
+                  <Descriptions.Item label="最近登录IP">{userFullProfile?.user.last_login_ip || '—'}</Descriptions.Item>
+                  <Descriptions.Item label="收藏数">{userFullProfile?.summary.favorite_count || 0}</Descriptions.Item>
+                  <Descriptions.Item label="歌单数">{userFullProfile?.summary.playlist_count || 0}</Descriptions.Item>
+                </Descriptions>
+              ),
+            },
+            {
+              key: 'favorites',
+              label: '收藏',
+              children: (
+                <Table
+                  size="small"
+                  loading={insightsLoading}
+                  rowKey={(record) => `${record.track_id}-${record.favorited_at}`}
+                  dataSource={userFullProfile?.favorites || []}
+                  pagination={{ pageSize: 8, size: 'small', showSizeChanger: false }}
+                  columns={[
+                    { title: '曲目ID', dataIndex: 'track_id', width: 100 },
+                    { title: '曲目', dataIndex: 'track_title', width: 260, ellipsis: true },
+                    { title: '专辑', dataIndex: 'album_title', ellipsis: true, render: (value: string | null) => value || '—' },
+                    { title: '收藏时间', dataIndex: 'favorited_at', width: 170, render: (value: string) => new Date(value).toLocaleString('zh-CN') },
+                  ]}
+                />
+              ),
+            },
+            {
+              key: 'playlists',
+              label: '歌单',
+              children: (
+                <Table
+                  size="small"
+                  loading={insightsLoading}
+                  rowKey="id"
+                  dataSource={userFullProfile?.playlists || []}
+                  pagination={{ pageSize: 6, size: 'small', showSizeChanger: false }}
+                  columns={[
+                    { title: '歌单', dataIndex: 'name', width: 200, ellipsis: true },
+                    { title: '描述', dataIndex: 'description', ellipsis: true, render: (value: string | null) => value || '—' },
+                    { title: '曲目数', dataIndex: 'track_count', width: 90, align: 'right' },
+                    { title: '总时长', dataIndex: 'total_duration', width: 90, align: 'right', render: (value: number) => `${Math.floor((value || 0) / 60)}m` },
+                    { title: '更新时间', dataIndex: 'updated_at', width: 170, render: (value: string) => new Date(value).toLocaleString('zh-CN') },
+                  ]}
+                />
+              ),
+            },
+          ]}
+        />
+      </Modal>
+
+      <Modal
+        title="发送站内信"
+        open={siteMessageModalOpen}
+        onCancel={() => {
+          setSiteMessageModalOpen(false);
+          messageForm.resetFields();
+        }}
+        onOk={() => void handleSendSiteMessage()}
+        okButtonProps={{ loading: siteMessageSubmitting }}
+      >
+        <Form form={messageForm} layout="vertical">
+          <Form.Item
+            name="scope"
+            label="发送范围"
+            rules={[{ required: true, message: '请选择发送范围' }]}
+          >
+            <Select
+              options={[
+                { label: '全站用户', value: 'broadcast' },
+                { label: '指定用户', value: 'selected' },
+              ]}
+            />
+          </Form.Item>
+
+          <Form.Item noStyle shouldUpdate>
+            {({ getFieldValue }) => (
+              getFieldValue('scope') === 'selected' ? (
+                <Form.Item
+                  name="recipient_user_ids"
+                  label="指定用户"
+                  rules={[{ required: true, message: '请选择至少一个用户' }]}
+                >
+                  <Select
+                    mode="multiple"
+                    placeholder="选择接收用户"
+                    optionFilterProp="label"
+                    options={items.map((item) => ({
+                      label: `${item.username} (#${item.id})`,
+                      value: item.id,
+                    }))}
+                  />
+                </Form.Item>
+              ) : null
+            )}
+          </Form.Item>
+
+          <Form.Item
+            name="title"
+            label="标题"
+            rules={[{ required: true, message: '请输入标题' }, { max: 200, message: '标题最多 200 字' }]}
+          >
+            <Input maxLength={200} />
+          </Form.Item>
+
+          <Form.Item
+            name="content"
+            label="内容"
+            rules={[{ required: true, message: '请输入内容' }, { max: 10000, message: '内容最多 10000 字' }]}
+          >
+            <Input.TextArea rows={5} maxLength={10000} />
+          </Form.Item>
+        </Form>
       </Modal>
     </AdminLayout>
   );
