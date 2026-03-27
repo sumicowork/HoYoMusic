@@ -1,0 +1,224 @@
+/* Cross-page mobile/tablet responsiveness for all routed pages. */
+
+@media (max-width: 1024px) {
+  .home-content,
+  .game-detail-content,
+  .library-content,
+  .search-content,
+  .albums-content,
+  .album-detail-content,
+  .artists-content,
+  .artist-detail-content,
+  .tags-content,
+  .tag-detail-content,
+  .track-detail-content,
+  .maintenance-page,
+  .profile-page {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  .albums-toolbar,
+  .artists-toolbar,
+  .library-toolbar,
+  .search-main-form,
+  .search-main-bar {
+    gap: 10px;
+  }
+
+  .search-main-form .ant-form-item,
+  .albums-toolbar .ant-form-item,
+  .artists-toolbar .ant-form-item,
+  .library-toolbar .ant-form-item {
+    margin-bottom: 8px;
+  }
+
+  .admin-main-content {
+    padding: 14px !important;
+  }
+
+  .admin-main-content .ant-card {
+    border-radius: 12px;
+  }
+
+  .admin-main-content .ant-card-head {
+    min-height: 48px;
+    padding: 0 14px;
+  }
+
+  .admin-main-content .ant-card-body {
+    padding: 14px;
+  }
+
+  .admin-main-content .ant-card-head-wrapper {
+    align-items: flex-start;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .admin-main-content .ant-card-extra {
+    margin-inline-start: 0;
+  }
+
+  .admin-main-content .ant-space {
+    row-gap: 8px;
+  }
+}
+
+@media (max-width: 768px) {
+  .home-content,
+  .game-detail-content,
+  .library-content,
+  .search-content,
+  .albums-content,
+  .album-detail-content,
+  .artists-content,
+  .artist-detail-content,
+  .tags-content,
+  .tag-detail-content,
+  .track-detail-content,
+  .maintenance-page,
+  .profile-page {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  .search-hero {
+    padding: 18px 14px !important;
+    border-radius: 14px !important;
+  }
+
+  .search-main-bar,
+  .albums-toolbar,
+  .artists-toolbar,
+  .library-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .search-main-bar > *,
+  .albums-toolbar > *,
+  .artists-toolbar > *,
+  .library-toolbar > * {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .tags-collapse .ant-collapse-header {
+    padding: 10px 12px !important;
+  }
+
+  .tag-card,
+  .album-card,
+  .artist-card,
+  .search-hit {
+    border-radius: 14px !important;
+  }
+
+  .admin-mobile-header h2 {
+    font-size: 16px;
+    line-height: 1.25;
+  }
+
+  .admin-main-content {
+    padding: 12px !important;
+  }
+
+  .admin-main-content .ant-table {
+    min-width: 640px;
+  }
+
+  .admin-main-content .ant-card-head-title {
+    font-size: 16px;
+    white-space: normal;
+  }
+
+  .admin-main-content .ant-btn {
+    white-space: nowrap;
+  }
+
+  .admin-main-content .ant-list .ant-list-item {
+    padding: 8px 0;
+  }
+
+  .admin-main-content .ant-list .ant-card {
+    border-radius: 14px;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+  }
+
+  .admin-main-content .ant-list .ant-card .ant-tag {
+    margin-inline-end: 4px;
+  }
+
+  .ant-drawer.ant-drawer-bottom .ant-drawer-content {
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+  }
+
+  .ant-drawer.ant-drawer-bottom .ant-drawer-body {
+    padding: 14px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .ant-drawer.ant-drawer-bottom .ant-btn {
+    min-height: 38px;
+    justify-content: flex-start;
+  }
+
+  .admin-main-content .ant-form-item {
+    margin-bottom: 12px;
+  }
+
+  .settings-page,
+  .user-management-page,
+  .playlist-detail-page {
+    padding: 12px !important;
+  }
+
+  .settings-page {
+    max-width: 100% !important;
+  }
+
+  .playlist-detail-page .playlist-detail-header {
+    align-items: flex-start;
+    width: 100%;
+  }
+
+  .playlist-detail-page .playlist-detail-header .ant-typography {
+    margin-bottom: 0 !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .home-content,
+  .game-detail-content,
+  .library-content,
+  .search-content,
+  .albums-content,
+  .album-detail-content,
+  .artists-content,
+  .artist-detail-content,
+  .tags-content,
+  .tag-detail-content,
+  .track-detail-content,
+  .maintenance-page,
+  .profile-page,
+  .settings-page,
+  .user-management-page,
+  .playlist-detail-page {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+
+  .search-hero-title {
+    font-size: 24px !important;
+  }
+
+  .admin-main-content .ant-card-head,
+  .admin-main-content .ant-card-body {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+}
+
+

@@ -103,16 +103,16 @@ const PlaylistDetail: React.FC = () => {
     },
   ];
 
-  if (loading) return <div style={{ padding: 24 }}>加载中...</div>;
+  if (loading) return <div className="playlist-detail-page" style={{ padding: 24 }}>加载中...</div>;
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="playlist-detail-page" style={{ padding: 24 }}>
       <Button icon={<ArrowLeftOutlined />} type="text" onClick={() => navigate('/me')} style={{ marginBottom: 12 }}>
         返回
       </Button>
 
       {playlist && (
-        <Space style={{ marginBottom: 16 }} align="center">
+        <Space className="playlist-detail-header" style={{ marginBottom: 16 }} align="center" wrap>
           <Title level={3} style={{ margin: 0 }}>{playlist.name}</Title>
           <Text type="secondary">{playlist.track_count} 首</Text>
           {tracks.length > 0 && (

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Button, message, Space, Image, Modal, Form, Input, Select, DatePicker, Card, InputNumber, List, Popconfirm, Divider } from 'antd';
+import { Table, Button, message, Space, Image, Modal, Form, Input, Select, DatePicker, Card, InputNumber, List, Popconfirm, Divider, Drawer, Grid, Tag } from 'antd';
 import {
   EditOutlined,
   PictureOutlined,
@@ -23,7 +23,12 @@ import AdminLayout from '../components/AdminLayout';
 import { getCoverUrl } from '../utils/imageUtils';
 import { Track } from '../types';
 
+const { useBreakpoint } = Grid;
+
 const AlbumManagement: React.FC = () => {
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
+
   const [albums, setAlbums] = useState<Album[]>([]);
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(false);
@@ -63,8 +68,9 @@ const AlbumManagement: React.FC = () => {
   const [rangeEnd, setRangeEnd] = useState<number | null>(null);
   const [rangeTargetDiscId, setRangeTargetDiscId] = useState<number | null>(null);
   const [sequentialDiscCounts, setSequentialDiscCounts] = useState<Record<number, number>>({});
-  const [releaseDateDraftById, setReleaseDateDraftById] = useState<Record<number, string>>({});
-  const [savingReleaseDateById, setSavingReleaseDateById] = useState<Record<number, boolean>>({});
+    const [releaseDateDraftById, setReleaseDateDraftById] = useState<Record<number, string>>({});
+    const [savingReleaseDateById, setSavingReleaseDateById] = useState<Record<number, boolean>>({});
+    const [mobileActionAlbum, setMobileActionAlbum] = useState<Album | null>(null);
 
 
   const fetchAlbums = async (page = 1, pageSize?: number) => {
@@ -438,6 +444,7 @@ const AlbumManagement: React.FC = () => {
     setRangeEnd(null);
     setRangeTargetDiscId(null);
     setSequentialDiscCounts({});
+
     try {
       const [discData, albumDetail] = await Promise.all([
         discService.getDiscs(album.id),
@@ -685,8 +692,8 @@ const AlbumManagement: React.FC = () => {
       dataIndex: 'track_count',
       key: 'track_count',
       width: 100,
-      responsive: ['md'],
       render: (count) => `${count || 0} 首`,
+      responsive: ['md'],
     },
     {
       title: '发行日期',
@@ -851,7 +858,7 @@ const AlbumManagement: React.FC = () => {
       <Card
         title="专辑管理"
         extra={
-          <Space>
+          <Space wrap>
             {hasSelection && (
               <Button
                 icon={<AppstoreOutlined />}
@@ -875,25 +882,103 @@ const AlbumManagement: React.FC = () => {
           </Space>
         }
       >
-        <Table
-          columns={columns}
-          dataSource={albums}
-          rowKey="id"
-          loading={loading}
-          rowSelection={rowSelection}
-          pagination={{
-            ...pagination,
-            showSizeChanger: true,
-            pageSizeOptions: ['10', '20', '50', '100'],
-            showTotal: (total: number) => `共 ${total} 张专辑`,
-          }}
-          onChange={(newPagination) => {
-            const newSize = newPagination.pageSize || pagination.pageSize;
-            const newPage = newPagination.pageSize !== pagination.pageSize ? 1 : (newPagination.current || 1);
-            fetchAlbums(newPage, newSize);
-          }}
-        />
+        {isMobile ? (
+          <List
+            loading={loading}
+            dataSource={albums}
+            pagination={{
+              current: pagination.current,
+              pageSize: pagination.pageSize,
+              total: pagination.total,
+              showSizeChanger: true,
+              pageSizeOptions: ['10', '20', '50', '100'],
+              onChange: (page, pageSize) => {
+                void fetchAlbums(page, pageSize || pagination.pageSize);
+              },
+            }}
+            renderItem={(album) => {
+              const selected = selectedRowKeys.includes(album.id);
+              return (
+                <List.Item>
+                  <Card style={{ width: '100%' }} bodyStyle={{ padding: 12 }}>
+                    <Space align="start" style={{ width: '100%', justifyContent: 'space-between' }}>
+                      <Space align="start">
+                        <Button
+                          size="small"
+                          type={selected ? 'primary' : 'default'}
+                          onClick={() => {
+                            setSelectedRowKeys((prev) => (
+                              prev.includes(album.id)
+                                ? prev.filter((key) => key !== album.id)
+                                : [...prev, album.id]
+                            ));
+                          }}
+                        >
+                          {selected ? '已选' : '选择'}
+                        </Button>
+                        <Image
+                          width={48}
+                          height={48}
+                          src={getCoverUrl(album.cover_path, undefined, true)}
+                          style={{ borderRadius: 6, objectFit: 'cover' }}
+                          preview={false}
+                        />
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{album.title}</div>
+                          <Space size={6} wrap style={{ marginTop: 6 }}>
+                            <Tag>{games.find((g) => g.id === album.game_id)?.name || '未关联游戏'}</Tag>
+                            <Tag>{album.track_count || 0} 首</Tag>
+                            <Tag>{album.release_date ? dayjs(album.release_date).format('YYYY-MM-DD') : '未知日期'}</Tag>
+                          </Space>
+                        </div>
+                      </Space>
+                      <Button size="small" onClick={() => setMobileActionAlbum(album)}>操作</Button>
+                    </Space>
+                  </Card>
+                </List.Item>
+              );
+            }}
+          />
+        ) : (
+          <Table
+            columns={columns}
+            dataSource={albums}
+            rowKey="id"
+            loading={loading}
+            rowSelection={rowSelection}
+            pagination={{
+              ...pagination,
+              showSizeChanger: true,
+              pageSizeOptions: ['10', '20', '50', '100'],
+              showTotal: (total: number) => `共 ${total} 张专辑`,
+            }}
+            onChange={(newPagination) => {
+              const newSize = newPagination.pageSize || pagination.pageSize;
+              const newPage = newPagination.pageSize !== pagination.pageSize ? 1 : (newPagination.current || 1);
+              fetchAlbums(newPage, newSize);
+            }}
+          />
+        )}
       </Card>
+
+      <Drawer
+        title={mobileActionAlbum ? `操作: ${mobileActionAlbum.title}` : '操作'}
+        open={!!mobileActionAlbum}
+        onClose={() => setMobileActionAlbum(null)}
+        placement="bottom"
+        height={360}
+      >
+        {mobileActionAlbum && (
+          <Space direction="vertical" style={{ width: '100%' }}>
+            <Button type="primary" icon={<EditOutlined />} onClick={() => { handleEdit(mobileActionAlbum); setMobileActionAlbum(null); }}>编辑</Button>
+            <Button icon={<PictureOutlined />} onClick={() => { handleUploadCover(mobileActionAlbum); setMobileActionAlbum(null); }}>上传封面</Button>
+            <Button icon={<DatabaseOutlined />} onClick={() => { handleManageDiscs(mobileActionAlbum); setMobileActionAlbum(null); }}>碟片管理</Button>
+            <Button icon={<CalendarOutlined />} onClick={() => { handleRescanDates(mobileActionAlbum); setMobileActionAlbum(null); }}>重读日期</Button>
+            <Button loading={bpmDetectingAlbumId === mobileActionAlbum.id} onClick={() => { handleDetectBpm(mobileActionAlbum); setMobileActionAlbum(null); }}>BPM检测</Button>
+            <Button onClick={() => { navigate(`/albums/${mobileActionAlbum.id}`); setMobileActionAlbum(null); }}>查看详情</Button>
+          </Space>
+        )}
+      </Drawer>
 
       {/* Edit Modal */}
       <Modal

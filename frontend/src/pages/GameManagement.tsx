@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Select, message, Card, Image, Button, Modal, Form, Input, InputNumber, Space, Upload } from 'antd';
+import { Table, Select, message, Card, Image, Button, Modal, Form, Input, InputNumber, Space, Upload, List, Drawer, Grid, Tag } from 'antd';
 import { PlusOutlined, EditOutlined, UploadOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import axios from 'axios';
@@ -8,6 +8,7 @@ import { getCoverUrl } from '../utils/imageUtils';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
 const { TextArea } = Input;
+const { useBreakpoint } = Grid;
 
 interface Game {
   id: number;
@@ -27,11 +28,15 @@ const STATUS_OPTIONS = [
 ];
 
 const GameManagement: React.FC = () => {
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
+
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingGame, setEditingGame] = useState<Game | null>(null);
   const [form] = Form.useForm();
+  const [mobileActionGame, setMobileActionGame] = useState<Game | null>(null);
 
   const getToken = () => localStorage.getItem('token');
 
@@ -233,14 +238,77 @@ const GameManagement: React.FC = () => {
           </Button>
         }
       >
-        <Table
-          columns={columns}
-          dataSource={games}
-          rowKey="id"
-          loading={loading}
-          pagination={false}
-        />
+        {isMobile ? (
+          <List
+            loading={loading}
+            dataSource={games}
+            renderItem={(game) => (
+              <List.Item>
+                <Card style={{ width: '100%' }} bodyStyle={{ padding: 12 }}>
+                  <Space align="start" style={{ width: '100%', justifyContent: 'space-between' }}>
+                    <Space align="start">
+                      {game.cover_path ? (
+                        <Image
+                          width={56}
+                          height={56}
+                          src={getCoverUrl(game.cover_path)}
+                          preview={false}
+                          style={{ borderRadius: 8, objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <div style={{ width: 56, height: 56, borderRadius: 8, background: 'linear-gradient(135deg, #667eea, #764ba2)' }} />
+                      )}
+                      <div>
+                        <div style={{ fontWeight: 600 }}>{game.name}</div>
+                        {game.name_en && <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{game.name_en}</div>}
+                        <Space size={6} wrap style={{ marginTop: 6 }}>
+                          <Tag>{game.album_count || 0} 张专辑</Tag>
+                          <Tag>排序 {game.display_order}</Tag>
+                        </Space>
+                      </div>
+                    </Space>
+                    <Button size="small" onClick={() => setMobileActionGame(game)}>操作</Button>
+                  </Space>
+                </Card>
+              </List.Item>
+            )}
+          />
+        ) : (
+          <Table
+            columns={columns}
+            dataSource={games}
+            rowKey="id"
+            loading={loading}
+            pagination={false}
+          />
+        )}
       </Card>
+
+      <Drawer
+        title={mobileActionGame ? `操作: ${mobileActionGame.name}` : '操作'}
+        open={!!mobileActionGame}
+        onClose={() => setMobileActionGame(null)}
+        placement="bottom"
+        height={260}
+      >
+        <Space direction="vertical" style={{ width: '100%' }}>
+          {mobileActionGame && (
+            <Select
+              value={mobileActionGame.status || 'active'}
+              options={STATUS_OPTIONS}
+              style={{ width: '100%' }}
+              onChange={(val) => {
+                void handleStatusChange(mobileActionGame, val);
+                setMobileActionGame((prev) => (prev ? { ...prev, status: val as Game['status'] } : prev));
+              }}
+            />
+          )}
+          <Button type="primary" icon={<EditOutlined />} onClick={() => mobileActionGame && handleEdit(mobileActionGame)}>
+            编辑游戏
+          </Button>
+          <Button onClick={() => setMobileActionGame(null)}>关闭</Button>
+        </Space>
+      </Drawer>
 
       <Modal
         title={editingGame ? '编辑游戏' : '添加游戏'}

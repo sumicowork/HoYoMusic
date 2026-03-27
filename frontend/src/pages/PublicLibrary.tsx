@@ -183,7 +183,6 @@ const PublicLibrary: React.FC = () => {
       render: (artistNames: string) => artistNames || '—',
     },
     {
-      title: '时长',
       dataIndex: 'duration',
       key: 'duration',
       width: 70,

@@ -60,8 +60,8 @@ export interface AdminTrackFilters {
 
 export interface AdminTrackFilterOptions {
   titles: string[];
-  albums: string[];
   artists?: string[];
+  albums: string[];
 }
 
 export interface DuplicatePrecheckItem {

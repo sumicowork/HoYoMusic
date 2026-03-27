@@ -258,7 +258,7 @@ const Settings: React.FC = () => {
 
   return (
     <AdminLayout>
-      <div style={{ padding: 24, maxWidth: 600 }}>
+      <div className="settings-page" style={{ padding: 24, maxWidth: 600 }}>
         <Title level={3}>设置</Title>
 
         <Card title={<><LockOutlined /> 修改密码</>} style={{ marginBottom: 24 }}>

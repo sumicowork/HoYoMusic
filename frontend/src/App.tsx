@@ -21,6 +21,7 @@ import { darkTheme, lightTheme } from './theme/themeConfig';
 import './theme/theme.css';
 import './theme/publicPages.css';
 import './theme/aurora-glass.css';
+import './theme/mobile-all-pages.css';
 import './App.css';
 
 // Lazy load all pages for performance

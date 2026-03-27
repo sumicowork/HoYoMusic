@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Card, Descriptions, Form, Input, Modal, Popconfirm, Select, Space, Statistic, Table, Tabs, Tag, Typography, message } from 'antd';
+import { Button, Card, Descriptions, Form, Input, Modal, Popconfirm, Select, Space, Statistic, Table, Tabs, Tag, Typography, message, List, Drawer, Grid } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import AdminLayout from '../components/AdminLayout';
 import { useAuthStore } from '../store/authStore';
@@ -14,8 +14,12 @@ import {
 import { messageService } from '../services/messageService';
 
 const { Title } = Typography;
+const { useBreakpoint } = Grid;
 
 const UserManagement: React.FC = () => {
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
+
   const { user: currentUser } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<AdminUserItem[]>([]);
@@ -39,6 +43,7 @@ const UserManagement: React.FC = () => {
   const [siteMessageModalOpen, setSiteMessageModalOpen] = useState(false);
   const [siteMessageSubmitting, setSiteMessageSubmitting] = useState(false);
   const [messageForm] = Form.useForm<{ title: string; content: string; scope: 'broadcast' | 'selected'; recipient_user_ids: number[] }>();
+  const [mobileActionUser, setMobileActionUser] = useState<AdminUserItem | null>(null);
 
   const loadUsers = async (
     page = pagination.page,
@@ -364,7 +369,7 @@ const UserManagement: React.FC = () => {
 
   return (
     <AdminLayout>
-      <div style={{ padding: 24 }}>
+      <div className="user-management-page" style={{ padding: 24 }}>
         <Card
           title={<Title level={4} style={{ margin: 0 }}>用户管理</Title>}
           extra={<Button onClick={() => void loadUsers(1, pagination.pageSize)} loading={loading}>刷新</Button>}
@@ -439,29 +444,109 @@ const UserManagement: React.FC = () => {
             </Space>
           </Space>
 
-          <Table
-            rowKey="id"
-            loading={loading}
-            columns={columns}
-            dataSource={items}
-            rowSelection={{
-              selectedRowKeys,
-              onChange: (nextSelectedRowKeys) => setSelectedRowKeys(nextSelectedRowKeys),
-            }}
-            pagination={{
-              current: pagination.page,
-              pageSize: pagination.pageSize,
-              total: pagination.total,
-              showSizeChanger: true,
-              pageSizeOptions: ['10', '20', '50', '100'],
-              showTotal: (total) => `共 ${total} 位用户`,
-            }}
-            onChange={(nextPagination) => {
-              void loadUsers(nextPagination.current || 1, nextPagination.pageSize || pagination.pageSize);
-            }}
-          />
+          {isMobile ? (
+            <List
+              loading={loading}
+              dataSource={items}
+              pagination={{
+                current: pagination.page,
+                pageSize: pagination.pageSize,
+                total: pagination.total,
+                showSizeChanger: true,
+                pageSizeOptions: ['10', '20', '50', '100'],
+                onChange: (page, pageSize) => {
+                  void loadUsers(page, pageSize || pagination.pageSize);
+                },
+              }}
+              renderItem={(record) => {
+                const selected = selectedRowKeys.includes(record.id);
+                return (
+                  <List.Item>
+                    <Card style={{ width: '100%' }} bodyStyle={{ padding: 12 }}>
+                      <Space align="start" style={{ width: '100%', justifyContent: 'space-between' }}>
+                        <div>
+                          <Space wrap>
+                            <Button
+                              size="small"
+                              type={selected ? 'primary' : 'default'}
+                              onClick={() => {
+                                setSelectedRowKeys((prev) => (
+                                  prev.includes(record.id)
+                                    ? prev.filter((key) => key !== record.id)
+                                    : [...prev, record.id]
+                                ));
+                              }}
+                            >
+                              {selected ? '已选' : '选择'}
+                            </Button>
+                            <strong>{record.username}</strong>
+                            <Tag color={record.is_admin ? 'blue' : 'default'}>{record.is_admin ? '管理员' : '普通用户'}</Tag>
+                            <Tag color={record.account_status === 'active' ? 'green' : 'red'}>{record.account_status === 'active' ? '正常' : '停用'}</Tag>
+                          </Space>
+                          <div style={{ marginTop: 8, color: 'var(--text-secondary)' }}>
+                            {record.email || '未设置邮箱'}
+                          </div>
+                        </div>
+                        <Button size="small" onClick={() => setMobileActionUser(record)}>操作</Button>
+                      </Space>
+                    </Card>
+                  </List.Item>
+                );
+              }}
+            />
+          ) : (
+            <Table
+              rowKey="id"
+              loading={loading}
+              columns={columns}
+              dataSource={items}
+              rowSelection={{
+                selectedRowKeys,
+                onChange: (nextSelectedRowKeys) => setSelectedRowKeys(nextSelectedRowKeys),
+              }}
+              pagination={{
+                current: pagination.page,
+                pageSize: pagination.pageSize,
+                total: pagination.total,
+                showSizeChanger: true,
+                pageSizeOptions: ['10', '20', '50', '100'],
+                showTotal: (total) => `共 ${total} 位用户`,
+              }}
+              onChange={(nextPagination) => {
+                void loadUsers(nextPagination.current || 1, nextPagination.pageSize || pagination.pageSize);
+              }}
+            />
+          )}
         </Card>
       </div>
+
+      <Drawer
+        title={mobileActionUser ? `用户操作: ${mobileActionUser.username}` : '用户操作'}
+        open={!!mobileActionUser}
+        onClose={() => setMobileActionUser(null)}
+        placement="bottom"
+        height={340}
+      >
+        {mobileActionUser && (
+          <Space direction="vertical" style={{ width: '100%' }}>
+            <Button onClick={() => void handleRoleChange(mobileActionUser, !mobileActionUser.is_admin)}>
+              {mobileActionUser.is_admin ? '取消管理员' : '设为管理员'}
+            </Button>
+            <Button
+              danger={mobileActionUser.account_status === 'active'}
+              onClick={() => void handleStatusChange(mobileActionUser, mobileActionUser.account_status === 'active' ? 'disabled' : 'active')}
+            >
+              {mobileActionUser.account_status === 'active' ? '停用账号' : '启用账号'}
+            </Button>
+            <Button onClick={() => void handleEmailVerificationChange(mobileActionUser, !mobileActionUser.email_verified)}>
+              {mobileActionUser.email_verified ? '设未验证邮箱' : '设已验证邮箱'}
+            </Button>
+            <Button onClick={() => openResetPasswordModal(mobileActionUser)}>重置密码</Button>
+            <Button onClick={() => void openUserInsights(mobileActionUser)}>行为分析</Button>
+            <Button type="primary" onClick={() => openSiteMessageModal([mobileActionUser.id])}>发送站内信</Button>
+          </Space>
+        )}
+      </Drawer>
 
       <Modal
         title={targetUser ? `重置密码 - ${targetUser.username}` : '重置密码'}

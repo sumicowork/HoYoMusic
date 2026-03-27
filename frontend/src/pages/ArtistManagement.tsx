@@ -1,21 +1,38 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import dayjs from 'dayjs';
 import {
-  Table, Button, message, Space, Tag, Card, Modal, Input, Select, List, Popconfirm, Upload, Avatar
+  Avatar,
+  Button,
+  Card,
+  Checkbox,
+  Drawer,
+  Input,
+  List,
+  message,
+  Modal,
+  Popconfirm,
+  Select,
+  Space,
+  Table,
+  Tag,
+  Upload,
+  Grid,
 } from 'antd';
 import {
-  MergeCellsOutlined,
   DeleteOutlined,
+  EditOutlined,
+  MergeCellsOutlined,
   SearchOutlined,
   UserOutlined,
-  EditOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { TableRowSelection } from 'antd/es/table/interface';
 import api from '../services/api';
 import { trackService } from '../services/trackService';
 import AdminLayout from '../components/AdminLayout';
-import { Link } from 'react-router-dom';
-import dayjs from 'dayjs';
+
+const { useBreakpoint } = Grid;
 
 interface ArtistItem {
   name: string;
@@ -24,6 +41,8 @@ interface ArtistItem {
   roles: string[];
   is_alias?: boolean;
   canonical_name?: string | null;
+  user_id?: number | null;
+  updated_at?: string;
 }
 
 interface RoleMappingItem {
@@ -39,26 +58,28 @@ interface AliasItem {
 }
 
 const ArtistManagement: React.FC = () => {
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
+
   const [artists, setArtists] = useState<ArtistItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [pagination, setPagination] = useState({ current: 1, pageSize: 50, total: 0 });
   const [searchText, setSearchText] = useState('');
 
-  // Merge state
   const [selectedArtistNames, setSelectedArtistNames] = useState<string[]>([]);
   const [mergeModalVisible, setMergeModalVisible] = useState(false);
   const [canonicalName, setCanonicalName] = useState('');
+
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingArtist, setEditingArtist] = useState<ArtistItem | null>(null);
   const [editName, setEditName] = useState('');
   const [editRoleMappings, setEditRoleMappings] = useState<RoleMappingItem[]>([]);
 
-  // Aliases
   const [aliases, setAliases] = useState<AliasItem[]>([]);
   const [aliasesModalVisible, setAliasesModalVisible] = useState(false);
-
-  // Avatars
   const [avatars, setAvatars] = useState<Record<string, string>>({});
+
+  const [mobileActionArtist, setMobileActionArtist] = useState<ArtistItem | null>(null);
 
   const fetchArtists = async (page = 1, search = '', pageSize?: number) => {
     const size = pageSize ?? pagination.pageSize;
@@ -67,7 +88,7 @@ const ArtistManagement: React.FC = () => {
       const response = await api.get(`/artists?page=${page}&limit=${size}&search=${encodeURIComponent(search)}&include_aliases=true`);
       if (response.data.success) {
         setArtists(response.data.data.artists);
-        setPagination(prev => ({
+        setPagination((prev) => ({
           ...prev,
           current: response.data.data.pagination.page,
           total: response.data.data.pagination.total,
@@ -84,10 +105,8 @@ const ArtistManagement: React.FC = () => {
   const fetchAliases = async () => {
     try {
       const response = await api.get('/artists/aliases');
-      if (response.data.success) {
-        setAliases(response.data.data.aliases);
-      }
-    } catch (error: any) {
+      if (response.data.success) setAliases(response.data.data.aliases);
+    } catch {
       message.error('获取别名列表失败');
     }
   };
@@ -95,11 +114,17 @@ const ArtistManagement: React.FC = () => {
   const fetchAvatars = async () => {
     try {
       const response = await api.get('/artists/avatars');
-      if (response.data.success) {
-        setAvatars(response.data.data.avatars);
-      }
-    } catch { /* ignore */ }
+      if (response.data.success) setAvatars(response.data.data.avatars);
+    } catch {
+      // ignore
+    }
   };
+
+  useEffect(() => {
+    void fetchArtists();
+    void fetchAliases();
+    void fetchAvatars();
+  }, []);
 
   const handleAvatarUpload = async (file: File, artistName: string) => {
     const formData = new FormData();
@@ -107,44 +132,41 @@ const ArtistManagement: React.FC = () => {
     try {
       const token = localStorage.getItem('token');
       const response = await api.post(`/artists/avatar/${encodeURIComponent(artistName)}`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${token}` }
+        headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${token}` },
       });
       if (response.data.success) {
+        setAvatars((prev) => ({ ...prev, [artistName]: response.data.data.avatar_path }));
         message.success('头像上传成功');
-        setAvatars(prev => ({ ...prev, [artistName]: response.data.data.avatar_path }));
       }
-    } catch (error: any) {
+    } catch {
       message.error('头像上传失败');
     }
   };
-
-  useEffect(() => {
-    fetchArtists();
-    fetchAliases();
-    fetchAvatars();
-  }, []);
 
   const handleMerge = async () => {
     if (!canonicalName.trim()) {
       message.warning('请输入主名称');
       return;
     }
-    const aliasNames = selectedArtistNames.filter(n => n !== canonicalName.trim());
+
+    const aliasNames = selectedArtistNames.filter((name) => name !== canonicalName.trim());
     if (aliasNames.length === 0) {
       message.warning('请至少选择一个不同于主名称的艺术家作为别名');
       return;
     }
+
     try {
       const response = await api.post('/artists/merge', {
         canonicalName: canonicalName.trim(),
         aliasNames,
       });
       if (response.data.success) {
-        message.success(response.data.data.message);
+        message.success(response.data.data.message || '合并成功');
         setMergeModalVisible(false);
         setSelectedArtistNames([]);
         setCanonicalName('');
-        fetchAliases();
+        void fetchArtists(pagination.current, searchText, pagination.pageSize);
+        void fetchAliases();
       }
     } catch (error: any) {
       message.error(error.message || '合并失败');
@@ -155,8 +177,8 @@ const ArtistManagement: React.FC = () => {
     try {
       await api.delete(`/artists/aliases/${id}`);
       message.success('别名已删除');
-      fetchAliases();
-    } catch (error: any) {
+      void fetchAliases();
+    } catch {
       message.error('删除别名失败');
     }
   };
@@ -170,6 +192,7 @@ const ArtistManagement: React.FC = () => {
 
   const handleSaveArtistEdit = async () => {
     if (!editingArtist) return;
+
     const trimmedName = editName.trim();
     if (!trimmedName) {
       message.warning('名称不能为空');
@@ -177,8 +200,8 @@ const ArtistManagement: React.FC = () => {
     }
 
     const roleMappings = editRoleMappings
-      .map((m) => ({ from: m.from.trim(), to: m.to.trim() }))
-      .filter((m) => m.from && m.to && m.from !== m.to);
+      .map((item) => ({ from: item.from.trim(), to: item.to.trim() }))
+      .filter((item) => item.from && item.to && item.from !== item.to);
 
     try {
       const response = await api.put(`/artists/${encodeURIComponent(editingArtist.name)}`, {
@@ -193,9 +216,10 @@ const ArtistManagement: React.FC = () => {
         setEditRoleMappings([]);
         setSelectedArtistNames([]);
         setCanonicalName('');
-        fetchArtists(pagination.current, searchText, pagination.pageSize);
-        fetchAliases();
-        fetchAvatars();
+        setMobileActionArtist(null);
+        void fetchArtists(pagination.current, searchText, pagination.pageSize);
+        void fetchAliases();
+        void fetchAvatars();
       }
     } catch (error: any) {
       message.error(error?.response?.data?.error?.message || error.message || '更新失败');
@@ -203,15 +227,13 @@ const ArtistManagement: React.FC = () => {
   };
 
   const getArtistRowKey = (record: ArtistItem) => (
-    record.is_alias
-      ? `alias:${record.canonical_name || ''}:${record.name}`
-      : `main:${record.name}`
+    record.is_alias ? `alias:${record.canonical_name || ''}:${record.name}` : `main:${record.name}`
   );
 
   const rowSelection: TableRowSelection<ArtistItem> = {
     selectedRowKeys: selectedArtistNames.map((name) => `main:${name}`),
     onChange: (_keys, selectedRows) => {
-      const names = selectedRows.filter((r) => !r.is_alias).map((r) => r.name);
+      const names = selectedRows.filter((row) => !row.is_alias).map((row) => row.name);
       setSelectedArtistNames(names);
     },
     getCheckboxProps: (record) => ({ disabled: !!record.is_alias }),
@@ -221,7 +243,7 @@ const ArtistManagement: React.FC = () => {
     {
       title: '头像',
       key: 'avatar',
-      width: 80,
+      width: 84,
       render: (_, record) => {
         const avatarPath = avatars[record.name];
         return (
@@ -229,64 +251,75 @@ const ArtistManagement: React.FC = () => {
             showUploadList={false}
             accept="image/*"
             beforeUpload={(file) => {
-              handleAvatarUpload(file, record.name);
+              void handleAvatarUpload(file, record.name);
               return false;
             }}
           >
             {avatarPath ? (
-              <Avatar
-                size={48}
-                src={trackService.getCoverUrl(avatarPath, true)}
-                style={{ cursor: 'pointer' }}
-              />
+              <Avatar size={44} src={trackService.getCoverUrl(avatarPath, true)} style={{ cursor: 'pointer' }} />
             ) : (
-              <Avatar
-                size={48}
-                icon={<UserOutlined />}
-                style={{ cursor: 'pointer', backgroundColor: '#667eea' }}
-              />
+              <Avatar size={44} icon={<UserOutlined />} style={{ cursor: 'pointer' }} />
             )}
           </Upload>
         );
       },
     },
     {
-      title: '名称',
+      title: '艺术家',
       dataIndex: 'name',
       key: 'name',
-      render: (name: string, record: ArtistItem) => <Link to={`/artists/${encodeURIComponent(record.name)}`}>{name}</Link>,
-    },
-    {
-      title: '身份关联',
-      dataIndex: 'user_id',
-      key: 'user_id',
-      width: 140,
-      responsive: ['md'],
-      render: (userId: number | null) => (
-        userId ? <Tag color="blue">用户 ID: {userId}</Tag> : <Tag>无关联</Tag>
+      ellipsis: true,
+      render: (name: string, record: ArtistItem) => (
+        <div>
+          <Link to={`/artists/${encodeURIComponent(record.name)}`}>{name}</Link>
+          {record.is_alias && record.canonical_name && (
+            <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>（{record.canonical_name} 的别名）</div>
+          )}
+        </div>
       ),
     },
     {
-      title: '曲目关联数',
+      title: '曲目数',
       dataIndex: 'track_count',
       key: 'track_count',
-      width: 120,
+      width: 100,
+      sorter: (a, b) => a.track_count - b.track_count,
       responsive: ['sm'],
-      render: (count: number | undefined) => `${count || 0} 首`,
+    },
+    {
+      title: '专辑数',
+      dataIndex: 'album_count',
+      key: 'album_count',
+      width: 100,
+      responsive: ['md'],
+    },
+    {
+      title: '角色',
+      dataIndex: 'roles',
+      key: 'roles',
+      responsive: ['lg'],
+      render: (roles: string[]) => (
+        <Space wrap>
+          {(roles || []).filter(Boolean).slice(0, 5).map((role) => (
+            <Tag key={role} color="purple" style={{ fontSize: 11 }}>{role}</Tag>
+          ))}
+          {(roles || []).length > 5 && <Tag>+{roles.length - 5}</Tag>}
+        </Space>
+      ),
     },
     {
       title: '最近活跃',
       dataIndex: 'updated_at',
       key: 'updated_at',
       width: 180,
-      responsive: ['lg'],
-      render: (date: string) => dayjs(date).format('YYYY-MM-DD HH:mm'),
+      responsive: ['xl'],
+      render: (value?: string) => (value ? dayjs(value).format('YYYY-MM-DD HH:mm') : '—'),
     },
     {
       title: '操作',
       key: 'actions',
       width: 90,
-      render: (_: any, record: ArtistItem) => (
+      render: (_: unknown, record: ArtistItem) => (
         <Button size="small" icon={<EditOutlined />} onClick={() => openEditModal(record)}>
           修改
         </Button>
@@ -296,26 +329,31 @@ const ArtistManagement: React.FC = () => {
 
   const hasSelection = selectedArtistNames.length > 0;
 
-  // Group aliases by canonical_name
-  const aliasGroups: Record<string, AliasItem[]> = {};
-  aliases.forEach(a => {
-    if (!aliasGroups[a.canonical_name]) aliasGroups[a.canonical_name] = [];
-    aliasGroups[a.canonical_name].push(a);
-  });
+  const aliasGroups = useMemo(() => {
+    const grouped: Record<string, AliasItem[]> = {};
+    aliases.forEach((item) => {
+      if (!grouped[item.canonical_name]) grouped[item.canonical_name] = [];
+      grouped[item.canonical_name].push(item);
+    });
+    return grouped;
+  }, [aliases]);
 
   return (
     <AdminLayout>
       <Card
         title="艺术家管理"
         extra={
-          <Space>
+          <Space wrap>
             <Input.Search
               placeholder="搜索艺术家..."
               allowClear
-              style={{ width: 240 }}
+              style={{ width: isMobile ? '100%' : 240 }}
               value={searchText}
-              onChange={e => setSearchText(e.target.value)}
-              onSearch={(val) => { setSearchText(val); fetchArtists(1, val); }}
+              onChange={(e) => setSearchText(e.target.value)}
+              onSearch={(value) => {
+                setSearchText(value);
+                void fetchArtists(1, value);
+              }}
               enterButton={<SearchOutlined />}
             />
             {hasSelection && selectedArtistNames.length >= 2 && (
@@ -326,36 +364,109 @@ const ArtistManagement: React.FC = () => {
                   setMergeModalVisible(true);
                 }}
               >
-                合并艺术家 ({selectedArtistNames.length})
+                合并 ({selectedArtistNames.length})
               </Button>
             )}
-            <Button onClick={() => { fetchAliases(); setAliasesModalVisible(true); }}>
-              查看别名列表
-            </Button>
+            <Button onClick={() => { void fetchAliases(); setAliasesModalVisible(true); }}>查看别名</Button>
           </Space>
         }
       >
-        <Table
-          columns={columns}
-          dataSource={artists}
-          rowKey={getArtistRowKey}
-          loading={loading}
-          rowSelection={rowSelection}
-          pagination={{
-            ...pagination,
-            showSizeChanger: true,
-            pageSizeOptions: ['20', '50', '100'],
-            showTotal: (total: number) => `共 ${total} 位艺术家`,
-          }}
-          onChange={(newPagination) => {
-            const newSize = newPagination.pageSize || pagination.pageSize;
-            const newPage = newPagination.pageSize !== pagination.pageSize ? 1 : (newPagination.current || 1);
-            fetchArtists(newPage, searchText, newSize);
-          }}
-        />
+        {isMobile ? (
+          <List
+            loading={loading}
+            dataSource={artists}
+            pagination={{
+              current: pagination.current,
+              pageSize: pagination.pageSize,
+              total: pagination.total,
+              showSizeChanger: true,
+              pageSizeOptions: ['20', '50', '100'],
+              onChange: (page, pageSize) => {
+                void fetchArtists(page, searchText, pageSize);
+              },
+            }}
+            renderItem={(artist) => {
+              const selected = selectedArtistNames.includes(artist.name);
+              const avatarPath = avatars[artist.name];
+              const canSelect = !artist.is_alias;
+
+              return (
+                <List.Item>
+                  <Card style={{ width: '100%' }} bodyStyle={{ padding: 12 }}>
+                    <Space align="start" style={{ width: '100%', justifyContent: 'space-between' }}>
+                      <Space align="start">
+                        {canSelect && (
+                          <Checkbox
+                            checked={selected}
+                            onChange={(event) => {
+                              const checked = event.target.checked;
+                              setSelectedArtistNames((prev) => {
+                                if (checked) return prev.includes(artist.name) ? prev : [...prev, artist.name];
+                                return prev.filter((name) => name !== artist.name);
+                              });
+                            }}
+                          />
+                        )}
+                        {avatarPath ? (
+                          <Avatar size={44} src={trackService.getCoverUrl(avatarPath, true)} />
+                        ) : (
+                          <Avatar size={44} icon={<UserOutlined />} />
+                        )}
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{artist.name}</div>
+                          {artist.is_alias && artist.canonical_name && (
+                            <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>别名 -&gt; {artist.canonical_name}</div>
+                          )}
+                          <Space size={6} wrap style={{ marginTop: 6 }}>
+                            <Tag>{artist.track_count || 0} 首曲目</Tag>
+                            <Tag>{artist.album_count || 0} 张专辑</Tag>
+                          </Space>
+                        </div>
+                      </Space>
+                      <Button size="small" onClick={() => setMobileActionArtist(artist)}>操作</Button>
+                    </Space>
+                  </Card>
+                </List.Item>
+              );
+            }}
+          />
+        ) : (
+          <Table
+            columns={columns}
+            dataSource={artists}
+            rowKey={getArtistRowKey}
+            loading={loading}
+            rowSelection={rowSelection}
+            pagination={{
+              ...pagination,
+              showSizeChanger: true,
+              pageSizeOptions: ['20', '50', '100'],
+              showTotal: (total) => `共 ${total} 位艺术家`,
+            }}
+            onChange={(nextPagination) => {
+              const nextSize = nextPagination.pageSize || pagination.pageSize;
+              const nextPage = nextPagination.pageSize !== pagination.pageSize ? 1 : (nextPagination.current || 1);
+              void fetchArtists(nextPage, searchText, nextSize);
+            }}
+          />
+        )}
       </Card>
 
-      {/* Merge Modal */}
+      <Drawer
+        title={mobileActionArtist ? `操作: ${mobileActionArtist.name}` : '操作'}
+        open={!!mobileActionArtist}
+        onClose={() => setMobileActionArtist(null)}
+        placement="bottom"
+        height={220}
+      >
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <Button type="primary" icon={<EditOutlined />} onClick={() => mobileActionArtist && openEditModal(mobileActionArtist)}>
+            修改艺术家
+          </Button>
+          <Button onClick={() => setMobileActionArtist(null)}>关闭</Button>
+        </Space>
+      </Drawer>
+
       <Modal
         title="合并艺术家（别名）"
         open={mergeModalVisible}
@@ -366,32 +477,15 @@ const ArtistManagement: React.FC = () => {
         width={500}
       >
         <div style={{ marginBottom: 16 }}>
-          <p>已选择 <strong>{selectedArtistNames.length}</strong> 个艺术家。请选择<strong>主名称</strong>，其余将作为别名。</p>
-          <p style={{ color: '#999', fontSize: 12 }}>合并仅创建别名关系，不会修改原始 Credits 数据。</p>
+          <p>已选择 <strong>{selectedArtistNames.length}</strong> 个艺术家，请选择主名称。</p>
         </div>
-        <div style={{ marginBottom: 12 }}>
-          <strong>主名称（规范名称）：</strong>
-          <Select
-            style={{ width: '100%', marginTop: 4 }}
-            value={canonicalName}
-            onChange={setCanonicalName}
-          >
-            {selectedArtistNames.map(name => (
-              <Select.Option key={name} value={name}>{name}</Select.Option>
-            ))}
-          </Select>
-        </div>
-        <div>
-          <strong>将作为别名：</strong>
-          <div style={{ marginTop: 4 }}>
-            {selectedArtistNames.filter(n => n !== canonicalName).map(name => (
-              <Tag key={name} color="orange" style={{ margin: 4 }}>{name}</Tag>
-            ))}
-          </div>
-        </div>
+        <Select style={{ width: '100%' }} value={canonicalName} onChange={setCanonicalName}>
+          {selectedArtistNames.map((name) => (
+            <Select.Option key={name} value={name}>{name}</Select.Option>
+          ))}
+        </Select>
       </Modal>
 
-      {/* Aliases List Modal */}
       <Modal
         title="艺术家别名列表"
         open={aliasesModalVisible}
@@ -402,25 +496,20 @@ const ArtistManagement: React.FC = () => {
         {Object.keys(aliasGroups).length === 0 ? (
           <p style={{ textAlign: 'center', color: '#999' }}>暂无别名记录</p>
         ) : (
-          Object.entries(aliasGroups).map(([canonical, aliasList]) => (
+          Object.entries(aliasGroups).map(([canonical, list]) => (
             <Card key={canonical} size="small" style={{ marginBottom: 12 }} title={<><strong>{canonical}</strong> <Tag color="blue">主名称</Tag></>}>
               <List
                 size="small"
-                dataSource={aliasList}
-                renderItem={item => (
+                dataSource={list}
+                renderItem={(item) => (
                   <List.Item
                     actions={[
-                      <Popconfirm
-                        key="del"
-                        title="确定删除此别名？"
-                        onConfirm={() => handleDeleteAlias(item.id)}
-                      >
+                      <Popconfirm key="del" title="确定删除此别名？" onConfirm={() => void handleDeleteAlias(item.id)}>
                         <Button size="small" danger icon={<DeleteOutlined />} />
-                      </Popconfirm>
+                      </Popconfirm>,
                     ]}
                   >
                     <Tag color="orange">{item.alias_name}</Tag>
-                    <span style={{ fontSize: 11, color: '#999' }}>→ {item.canonical_name}</span>
                   </List.Item>
                 )}
               />
@@ -429,7 +518,6 @@ const ArtistManagement: React.FC = () => {
         )}
       </Modal>
 
-      {/* Edit Artist Modal */}
       <Modal
         title={editingArtist ? `修改艺术家：${editingArtist.name}` : '修改艺术家'}
         open={editModalVisible}
@@ -440,46 +528,31 @@ const ArtistManagement: React.FC = () => {
           setEditName('');
           setEditRoleMappings([]);
         }}
-        okText="保存并应用到原歌曲 Credits"
+        okText="保存并应用"
         cancelText="取消"
         width={640}
       >
-        <div style={{ marginBottom: 12, color: '#999', fontSize: 12 }}>
-          修改将批量应用到该艺术家相关歌曲的 Credits（名称和职务）。
-        </div>
         <div style={{ marginBottom: 16 }}>
           <div style={{ marginBottom: 6, fontWeight: 600 }}>名称</div>
-          <Input
-            value={editName}
-            onChange={(e) => setEditName(e.target.value)}
-            placeholder="输入新的艺术家名称"
-            maxLength={500}
-          />
+          <Input value={editName} onChange={(e) => setEditName(e.target.value)} maxLength={500} />
         </div>
-        <div>
-          <div style={{ marginBottom: 8, fontWeight: 600 }}>职务映射（留空或不改则保持原值）</div>
-          <Space direction="vertical" style={{ width: '100%' }} size={8}>
-            {editRoleMappings.length === 0 && (
-              <div style={{ color: '#999', fontSize: 12 }}>暂无可修改的职务</div>
-            )}
-            {editRoleMappings.map((mapping, index) => (
-              <Space key={`${mapping.from}-${index}`} style={{ width: '100%' }} align="center">
-                <Tag color="purple" style={{ minWidth: 120, textAlign: 'center', marginRight: 0 }}>{mapping.from}</Tag>
-                <span style={{ color: '#999' }}>→</span>
-                <Input
-                  value={mapping.to}
-                  onChange={(e) => {
-                    const next = [...editRoleMappings];
-                    next[index] = { ...next[index], to: e.target.value };
-                    setEditRoleMappings(next);
-                  }}
-                  placeholder="新的职务名称"
-                  maxLength={200}
-                />
-              </Space>
-            ))}
-          </Space>
-        </div>
+        <Space direction="vertical" style={{ width: '100%' }} size={8}>
+          {editRoleMappings.map((mapping, index) => (
+            <Space key={`${mapping.from}-${index}`} style={{ width: '100%' }} align="center">
+              <Tag color="purple" style={{ minWidth: 120, textAlign: 'center', marginRight: 0 }}>{mapping.from}</Tag>
+              <span style={{ color: '#999' }}>→</span>
+              <Input
+                value={mapping.to}
+                onChange={(e) => {
+                  const next = [...editRoleMappings];
+                  next[index] = { ...next[index], to: e.target.value };
+                  setEditRoleMappings(next);
+                }}
+                maxLength={200}
+              />
+            </Space>
+          ))}
+        </Space>
       </Modal>
     </AdminLayout>
   );
