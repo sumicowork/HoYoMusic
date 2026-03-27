@@ -220,10 +220,10 @@ const ArtistManagement: React.FC = () => {
   const columns: ColumnsType<ArtistItem> = [
     {
       title: '头像',
-      dataIndex: 'avatar_path',
       key: 'avatar',
       width: 80,
-      render: (avatarPath) => {
+      render: (_, record) => {
+        const avatarPath = avatars[record.name];
         return (
           <Upload
             showUploadList={false}
@@ -254,7 +254,7 @@ const ArtistManagement: React.FC = () => {
       title: '名称',
       dataIndex: 'name',
       key: 'name',
-      render: (name: string, record: ArtistItem) => <Link to={`/artists/${record.id}`}>{name}</Link>,
+      render: (name: string, record: ArtistItem) => <Link to={`/artists/${encodeURIComponent(record.name)}`}>{name}</Link>,
     },
     {
       title: '身份关联',

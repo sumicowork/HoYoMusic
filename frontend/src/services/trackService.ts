@@ -61,6 +61,7 @@ export interface AdminTrackFilters {
 export interface AdminTrackFilterOptions {
   titles: string[];
   albums: string[];
+  artists?: string[];
 }
 
 export interface DuplicatePrecheckItem {
@@ -351,7 +352,7 @@ export const trackService = {
 
   async getTrackFilterOptions(): Promise<AdminTrackFilterOptions> {
     if (IS_STATIC) {
-      return { titles: [], albums: [] };
+      return { titles: [], albums: [], artists: [] };
     }
 
     const response = await api.get<ApiResponse<AdminTrackFilterOptions>>('/tracks/filter-options');

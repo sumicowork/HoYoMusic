@@ -21,7 +21,7 @@ import type { TableRowSelection } from 'antd/es/table/interface';
 import dayjs from 'dayjs';
 import { Link } from 'react-router-dom';
 import { Track } from '../types';
-import { trackService, type AdminTrackFilters, type SameAlbumDuplicateGroup } from '../services/trackService';
+import { trackService, type AdminTrackFilters, type SameAlbumDuplicateGroup, type AdminTrackFilterOptions } from '../services/trackService';
 import { usePlayerStore } from '../store/playerStore';
 import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
 import LyricsEditor from '../components/LyricsEditor';
@@ -66,7 +66,7 @@ const Admin: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [columnFilters, setColumnFilters] = useState<Record<string, React.Key[] | null>>({});
   const [serverFilters, setServerFilters] = useState<AdminTrackFilters>({});
-  const [filterOptions, setFilterOptions] = useState<{ titles: string[]; albums: string[] }>({ titles: [], albums: [] });
+  const [filterOptions, setFilterOptions] = useState<AdminTrackFilterOptions>({ titles: [], albums: [], artists: [] });
   const [noteDraftById, setNoteDraftById] = useState<Record<number, string>>({});
   const [savingNoteById, setSavingNoteById] = useState<Record<number, boolean>>({});
   const noteSaveSeqRef = useRef<Record<number, number>>({});
@@ -455,7 +455,7 @@ const Admin: React.FC = () => {
       key: 'artist',
       ellipsis: true,
       responsive: ['md'],
-      filters: getUniqueFilters(filterOptions.artists),
+      filters: getUniqueFilters(filterOptions.artists || []),
       filteredValue: columnFilters.artist || null,
       filterMultiple: false,
       render: (artistNames: string) => artistNames || '—',
