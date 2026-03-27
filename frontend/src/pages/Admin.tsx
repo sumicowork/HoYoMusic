@@ -450,6 +450,27 @@ const Admin: React.FC = () => {
       },
     },
     {
+      title: '艺术家',
+      dataIndex: 'artist_names',
+      key: 'artist',
+      ellipsis: true,
+      responsive: ['md'],
+      filters: getUniqueFilters(filterOptions.artists),
+      filteredValue: columnFilters.artist || null,
+      filterMultiple: false,
+      render: (artistNames: string) => artistNames || '—',
+    },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      width: 100,
+      responsive: ['lg'],
+      render: (status: string) => (
+        <span>{status === 'active' ? '正常' : status === 'inactive' ? '已停用' : '未知'}</span>
+      ),
+    },
+    {
       title: '操作',
       key: 'actions',
       width: 230,
@@ -569,7 +590,7 @@ const Admin: React.FC = () => {
               icon={<ImportOutlined />}
               onClick={() => setLyricsImportModalVisible(true)}
             >
-              批量导入 LRC
+              批量 导入 LRC
             </Button>
             <Button
               icon={<ImportOutlined />}

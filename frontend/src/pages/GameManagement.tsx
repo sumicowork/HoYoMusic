@@ -176,12 +176,27 @@ const GameManagement: React.FC = () => {
       dataIndex: 'album_count',
       key: 'album_count',
       width: 80,
+      responsive: ['sm'],
     },
     {
       title: '排序',
       dataIndex: 'display_order',
       key: 'display_order',
       width: 80,
+      responsive: ['md'],
+    },
+    {
+      title: '描述',
+      dataIndex: 'description',
+      key: 'description',
+      ellipsis: true,
+      responsive: ['lg'],
+    },
+    {
+      title: '配色',
+      key: 'colors',
+      width: 120,
+      responsive: ['xl'],
     },
     {
       title: '状态',

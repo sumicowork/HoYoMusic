@@ -437,6 +437,7 @@ const AlbumManagement: React.FC = () => {
     setRangeStart(null);
     setRangeEnd(null);
     setRangeTargetDiscId(null);
+    setSequentialDiscCounts({});
     try {
       const [discData, albumDetail] = await Promise.all([
         discService.getDiscs(album.id),
@@ -673,6 +674,7 @@ const AlbumManagement: React.FC = () => {
       dataIndex: 'game_id',
       key: 'game_id',
       width: 150,
+      responsive: ['sm'],
       render: (gameId) => {
         const game = games.find(g => g.id === gameId);
         return game ? game.name : '-';
@@ -683,6 +685,7 @@ const AlbumManagement: React.FC = () => {
       dataIndex: 'track_count',
       key: 'track_count',
       width: 100,
+      responsive: ['md'],
       render: (count) => `${count || 0} 首`,
     },
     {
@@ -690,6 +693,7 @@ const AlbumManagement: React.FC = () => {
       dataIndex: 'release_date',
       key: 'release_date',
       width: 170,
+      responsive: ['lg'],
       render: (_date, record) => (
         <Input
           size="small"

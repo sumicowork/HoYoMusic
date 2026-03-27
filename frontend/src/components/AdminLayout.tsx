@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layout, Menu } from 'antd';
+import { Layout, Menu, Drawer, Button } from 'antd';
 import {
   SoundOutlined,
   FolderOutlined,
@@ -10,6 +10,7 @@ import {
   TeamOutlined,
   BarChartOutlined,
   SettingOutlined,
+  MenuOutlined
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
@@ -26,6 +27,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuthStore();
+  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
   const handleLogout = () => {
     logout();
@@ -105,10 +107,50 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     return '/admin';
   };
 
+  const sidebarContent = (
+    <>
+      <div className="admin-logo">
+        <h2>🎵 HoYoMusic</h2>
+        <div className="admin-user">
+          <UserOutlined /> {user?.username}
+        </div>
+      </div>
+      <Menu
+        mode="inline"
+        selectedKeys={[getSelectedKey()]}
+        items={menuItems}
+        className="admin-menu"
+        onClick={() => setMobileMenuOpen(false)}
+      />
+      <div className="admin-theme-toggle">
+        <ThemeToggle showLabel />
+      </div>
+    </>
+  );
+
   return (
     <Layout className="admin-layout-wrapper">
+      <div className="admin-mobile-header">
+        <Button type="text" icon={<MenuOutlined />} onClick={() => setMobileMenuOpen(true)} className="admin-mobile-menu-btn" />
+        <h2>🎵 HoYoMusic Admin</h2>
+      </div>
+      <Drawer
+        title="Admin Menu"
+        placement="left"
+        onClose={() => setMobileMenuOpen(false)}
+        open={mobileMenuOpen}
+        className="admin-mobile-drawer"
+        width={250}
+        bodyStyle={{ padding: 0, display: 'flex', flexDirection: 'column' }}
+      >
+        <div className="admin-sidebar" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+          {sidebarContent}
+        </div>
+      </Drawer>
       <Sider
-        className="admin-sidebar"
+        breakpoint="lg"
+        collapsedWidth="0"
+        className="admin-sidebar admin-desktop-sidebar"
         width={250}
         style={{
           overflow: 'auto',
@@ -117,22 +159,9 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
           top: 0,
           left: 0,
         }}
+        trigger={null}
       >
-        <div className="admin-logo">
-          <h2>🎵 HoYoMusic</h2>
-          <div className="admin-user">
-            <UserOutlined /> {user?.username}
-          </div>
-        </div>
-        <Menu
-          mode="inline"
-          selectedKeys={[getSelectedKey()]}
-          items={menuItems}
-          className="admin-menu"
-        />
-        <div className="admin-theme-toggle">
-          <ThemeToggle showLabel />
-        </div>
+        {sidebarContent}
       </Sider>
       <Layout className="admin-main-layout">
         <Content className="admin-main-content">
@@ -144,10 +173,3 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
 };
 
 export default AdminLayout;
-
-
-
-
-
-
-

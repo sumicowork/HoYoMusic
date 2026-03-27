@@ -251,6 +251,7 @@ const UserManagement: React.FC = () => {
       dataIndex: 'id',
       key: 'id',
       width: 90,
+      responsive: ['md'],
     },
     {
       title: '用户名',
@@ -262,12 +263,14 @@ const UserManagement: React.FC = () => {
       title: '邮箱',
       dataIndex: 'email',
       key: 'email',
+      responsive: ['sm'],
       render: (value: string | null) => value || '—',
     },
     {
       title: '邮箱状态',
       dataIndex: 'email_verified',
       key: 'email_verified',
+      responsive: ['lg'],
       width: 120,
       render: (value: boolean) => (value ? <Tag color="green">已验证</Tag> : <Tag color="orange">未验证</Tag>),
     },
@@ -294,6 +297,7 @@ const UserManagement: React.FC = () => {
       dataIndex: 'last_login_at',
       key: 'last_login_at',
       width: 180,
+      responsive: ['lg'],
       render: (value: string | null) => (value ? new Date(value).toLocaleString('zh-CN') : '从未登录'),
     },
     {
@@ -301,6 +305,7 @@ const UserManagement: React.FC = () => {
       dataIndex: 'created_at',
       key: 'created_at',
       width: 180,
+      responsive: ['xl'],
       render: (value: string) => new Date(value).toLocaleString('zh-CN'),
     },
     {
@@ -716,8 +721,9 @@ const UserManagement: React.FC = () => {
             name="content"
             label="内容"
             rules={[{ required: true, message: '请输入内容' }, { max: 10000, message: '内容最多 10000 字' }]}
+            extra="支持 Markdown（例如列表、引用、链接、代码块）。"
           >
-            <Input.TextArea rows={5} maxLength={10000} />
+            <Input.TextArea rows={5} maxLength={10000} placeholder="支持 Markdown 语法与换行" />
           </Form.Item>
         </Form>
       </Modal>

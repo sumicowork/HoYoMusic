@@ -1,4 +1,4 @@
-.admin-layout-wrapper {
+﻿.admin-layout-wrapper {
   min-height: 100vh;
 }
 
@@ -154,3 +154,44 @@
 }
 
 
+
+/* Mobile Header & Drawer */
+.admin-mobile-header {
+  display: none;
+  align-items: center;
+  padding: 0 16px;
+  height: 56px;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-secondary);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+.admin-mobile-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  margin-left: 12px;
+}
+.admin-mobile-menu-btn {
+  font-size: 20px;
+}
+@media (max-width: 991px) {
+  .admin-desktop-sidebar {
+    display: none !important;
+  }
+  .admin-mobile-header {
+    display: flex;
+  }
+  .admin-main-content {
+    padding: 16px !important;
+  }
+}
+
+
+/* Restore Admin Drawer Width */
+@media (max-width: 768px) {
+  .admin-mobile-drawer .ant-drawer-content-wrapper {
+    width: 250px !important;
+  }
+}

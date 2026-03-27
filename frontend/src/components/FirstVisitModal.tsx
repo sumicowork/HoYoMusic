@@ -1,9 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Modal, Typography, Button } from 'antd';
+import { Modal, Button } from 'antd';
 import { useLocation } from 'react-router-dom';
 import { siteConfigService, DEFAULT_FIRST_VISIT_MODAL_CONFIG, type FirstVisitModalConfig } from '../services/siteConfigService';
-
-const { Paragraph } = Typography;
+import MarkdownContent from './MarkdownContent';
 
 const FirstVisitModal: React.FC = () => {
   const location = useLocation();
@@ -82,7 +81,7 @@ const FirstVisitModal: React.FC = () => {
         </Button>
       )}
     >
-      <Paragraph style={{ whiteSpace: 'pre-wrap', marginBottom: 0 }}>{config.content}</Paragraph>
+      <MarkdownContent content={config.content} />
     </Modal>
   );
 };

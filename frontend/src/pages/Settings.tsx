@@ -337,8 +337,9 @@ const Settings: React.FC = () => {
               name="content"
               label="弹窗内容"
               rules={[{ required: true, message: '请输入弹窗内容' }, { max: 5000, message: '内容最多 5000 字' }]}
+              extra="支持 Markdown（例如标题、列表、链接、加粗）。"
             >
-              <Input.TextArea rows={5} placeholder="支持换行显示" maxLength={5000} showCount />
+              <Input.TextArea rows={5} placeholder="支持 Markdown 语法与换行" maxLength={5000} showCount />
             </Form.Item>
 
             <Form.Item

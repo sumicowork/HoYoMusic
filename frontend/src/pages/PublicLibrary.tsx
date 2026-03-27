@@ -175,6 +175,14 @@ const PublicLibrary: React.FC = () => {
       },
     },
     {
+      title: '艺术家',
+      dataIndex: 'artist_names',
+      key: 'artist',
+      ellipsis: true,
+      responsive: ['md'],
+      render: (artistNames: string) => artistNames || '—',
+    },
+    {
       title: '时长',
       dataIndex: 'duration',
       key: 'duration',

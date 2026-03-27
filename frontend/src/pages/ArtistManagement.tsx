@@ -14,6 +14,8 @@ import type { TableRowSelection } from 'antd/es/table/interface';
 import api from '../services/api';
 import { trackService } from '../services/trackService';
 import AdminLayout from '../components/AdminLayout';
+import { Link } from 'react-router-dom';
+import dayjs from 'dayjs';
 
 interface ArtistItem {
   name: string;
@@ -218,10 +220,10 @@ const ArtistManagement: React.FC = () => {
   const columns: ColumnsType<ArtistItem> = [
     {
       title: '头像',
+      dataIndex: 'avatar_path',
       key: 'avatar',
       width: 80,
-      render: (_, record) => {
-        const avatarPath = avatars[record.name];
+      render: (avatarPath) => {
         return (
           <Upload
             showUploadList={false}
@@ -252,41 +254,33 @@ const ArtistManagement: React.FC = () => {
       title: '名称',
       dataIndex: 'name',
       key: 'name',
-      ellipsis: true,
-      render: (name: string, record: ArtistItem) => (
-        <div>
-          <div>{name}</div>
-          {record.is_alias && record.canonical_name && (
-            <div style={{ fontSize: 12, color: '#999' }}>（{record.canonical_name} 的别名）</div>
-          )}
-        </div>
+      render: (name: string, record: ArtistItem) => <Link to={`/artists/${record.id}`}>{name}</Link>,
+    },
+    {
+      title: '身份关联',
+      dataIndex: 'user_id',
+      key: 'user_id',
+      width: 140,
+      responsive: ['md'],
+      render: (userId: number | null) => (
+        userId ? <Tag color="blue">用户 ID: {userId}</Tag> : <Tag>无关联</Tag>
       ),
     },
     {
-      title: '曲目数',
+      title: '曲目关联数',
       dataIndex: 'track_count',
       key: 'track_count',
-      width: 100,
-      sorter: (a, b) => a.track_count - b.track_count,
+      width: 120,
+      responsive: ['sm'],
+      render: (count: number | undefined) => `${count || 0} 首`,
     },
     {
-      title: '专辑数',
-      dataIndex: 'album_count',
-      key: 'album_count',
-      width: 100,
-    },
-    {
-      title: '角色',
-      dataIndex: 'roles',
-      key: 'roles',
-      render: (roles: string[]) => (
-        <Space wrap>
-          {(roles || []).filter(Boolean).slice(0, 5).map(r => (
-            <Tag key={r} color="purple" style={{ fontSize: 11 }}>{r}</Tag>
-          ))}
-          {(roles || []).length > 5 && <Tag>+{roles.length - 5}</Tag>}
-        </Space>
-      ),
+      title: '最近活跃',
+      dataIndex: 'updated_at',
+      key: 'updated_at',
+      width: 180,
+      responsive: ['lg'],
+      render: (date: string) => dayjs(date).format('YYYY-MM-DD HH:mm'),
     },
     {
       title: '操作',

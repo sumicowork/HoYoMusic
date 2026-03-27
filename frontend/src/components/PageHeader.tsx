@@ -18,6 +18,7 @@ import { useAuthStore } from '../store/authStore';
 import { useAuthModalStore } from '../store/authModalStore';
 import { messageService, type InboxMessageItem } from '../services/messageService';
 import ThemeToggle from './ThemeToggle';
+import MarkdownContent from './MarkdownContent';
 import './PageHeader.css';
 
 const { Text } = Typography;
@@ -238,7 +239,7 @@ const PageHeader: React.FC<PageHeaderProps> = ({ extra, onFeedbackClick }) => {
                 )}
                 description={(
                   <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                    <Text>{item.content}</Text>
+                    <MarkdownContent content={item.content} className="site-message-markdown" />
                     <Text type="secondary" style={{ fontSize: 12 }}>
                       {new Date(item.delivered_at).toLocaleString('zh-CN')} · 发送者 {item.sender_username || '系统管理员'}
                     </Text>
