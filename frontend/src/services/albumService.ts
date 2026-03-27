@@ -1,5 +1,4 @@
-import api, { IS_STATIC, getOrCreateVisitorId } from './api';
-import * as staticData from './staticDataService';
+import api, { getOrCreateVisitorId } from './api';
 import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
@@ -82,7 +81,6 @@ export interface AlbumBpmTask {
 
 export const albumService = {
   async getRandomAlbums(count = 6): Promise<Album[]> {
-    if (IS_STATIC) return staticData.getRandomAlbums(count);
     const response = await publicApi.get<ApiResponse<{ albums: Album[] }>>(
       `/public/albums/random?count=${count}`
     );
@@ -93,7 +91,6 @@ export const albumService = {
   },
 
   async getAlbums(page = 1, limit = 20, search = ''): Promise<{ albums: Album[]; pagination: any }> {
-    if (IS_STATIC) return staticData.getAlbums(page, limit, search);
     const response = await api.get<ApiResponse<{ albums: Album[]; pagination: any }>>(
       `/albums?page=${page}&limit=${limit}&search=${search}`
     );
@@ -104,7 +101,6 @@ export const albumService = {
   },
 
   async getAlbumById(id: number): Promise<any> {
-    if (IS_STATIC) return staticData.getAlbumById(id);
     const response = await api.get<ApiResponse<any>>(`/albums/${id}`);
     if (response.data.success && response.data.data) {
       return response.data.data;

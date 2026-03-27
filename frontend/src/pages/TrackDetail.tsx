@@ -2,8 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Layout, Card, Button, Space, Image, Tag, Skeleton, Descriptions, message, Tooltip, Typography } from 'antd';
 import { ArrowLeftOutlined, PlayCircleOutlined, DownloadOutlined, HeartOutlined, HeartFilled, PlusOutlined } from '@ant-design/icons';
-import { IS_STATIC } from '../services/api';
-import * as staticData from '../services/staticDataService';
 import axios from 'axios';
 import { Track } from '../types';
 import { trackService, DOWNLOAD_ENABLED } from '../services/trackService';
@@ -122,14 +120,9 @@ const TrackDetail: React.FC = () => {
 
   const fetchLyrics = async () => {
     try {
-      if (IS_STATIC) {
-        const lrc = await staticData.getLyrics(parseInt(id!));
-        setLyrics(lrc);
-      } else {
-        const response = await axios.get(`${API_BASE_URL}/lyrics/${id}/lyrics`);
-        if (response.data.success && response.data.data.lyrics) {
-          setLyrics(response.data.data.lyrics);
-        }
+      const response = await axios.get(`${API_BASE_URL}/lyrics/${id}/lyrics`);
+      if (response.data.success && response.data.data.lyrics) {
+        setLyrics(response.data.data.lyrics);
       }
     } catch (error) {
       setLyrics(null);
@@ -138,14 +131,9 @@ const TrackDetail: React.FC = () => {
 
   const fetchCredits = async () => {
     try {
-      if (IS_STATIC) {
-        const c = await staticData.getCredits(parseInt(id!));
-        setCredits(c);
-      } else {
-        const response = await axios.get(`${API_BASE_URL}/credits/${id}/credits`);
-        if (response.data.success) {
-          setCredits(response.data.data.credits);
-        }
+      const response = await axios.get(`${API_BASE_URL}/credits/${id}/credits`);
+      if (response.data.success) {
+        setCredits(response.data.data.credits);
       }
     } catch (error) {
       console.error('获取制作人员信息失败:', error);

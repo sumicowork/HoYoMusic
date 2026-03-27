@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { App as AntApp, Button, Form, Input, Modal } from 'antd';
 import { feedbackService } from '../services/feedbackService';
-import { IS_STATIC } from '../services/api';
 
 interface FeedbackModalProps {
   open: boolean;
@@ -44,7 +43,7 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ open, onClose }) => {
       destroyOnHidden
       footer={[
         <Button key="cancel" onClick={onClose}>取消</Button>,
-        <Button key="submit" type="primary" loading={submitting} onClick={handleSubmit} disabled={IS_STATIC}>
+        <Button key="submit" type="primary" loading={submitting} onClick={handleSubmit}>
           提交
         </Button>,
       ]}
@@ -67,9 +66,6 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ open, onClose }) => {
         >
           <Input placeholder="例如：邮箱 / QQ / 微信" maxLength={200} />
         </Form.Item>
-        {IS_STATIC && (
-          <div style={{ color: '#ff4d4f', marginTop: 4 }}>静态模式下暂不支持提交反馈。</div>
-        )}
       </Form>
     </Modal>
   );

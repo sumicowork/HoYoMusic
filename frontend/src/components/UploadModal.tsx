@@ -27,10 +27,8 @@ interface FileItem {
   status: 'pending' | 'uploading' | 'done' | 'error';
   error?: string;
   detectedTitle: string;
-  detectedArtist: string;
   detectedAlbum: string;
   editTitle: string;
-  editArtist: string;
   editAlbum: string;
   // credits parsed from FLAC in browser
   credits?: CreditEntry[];
@@ -43,10 +41,10 @@ interface UploadModalProps {
   onSuccess: () => void;
 }
 
-function parseFilename(name: string): { title: string; artist: string; album: string } {
+function parseFilename(name: string): { title: string; album: string } {
   // 文件名去掉扩展名即为标题，不做任何分割解析
   const title = name.replace(/\.flac$/i, '');
-  return { title, artist: '', album: '' };
+  return { title, album: '' };
 }
 
 const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }) => {
@@ -82,7 +80,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
         continue;
       }
         if (next.some(f => f.name === file.name && f.size === file.size)) continue;
-        const { title, artist, album } = parseFilename(file.name);
+        const { title, album } = parseFilename(file.name);
         next.push({
           uid: `${Date.now()}-${Math.random()}`,
           name: file.name,
@@ -90,10 +88,8 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
           size: file.size,
           status: 'pending',
           detectedTitle: title,
-          detectedArtist: artist,
           detectedAlbum: album,
           editTitle: title,
-          editArtist: artist,
           editAlbum: album,
         });
       }
@@ -240,7 +236,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
       try {
         await trackService.uploadTracks([item.originFileObj], {
           autoCredits: currentAutoCredits,
-          metaOverrides: [{ title: item.editTitle || undefined, artist: item.editArtist || undefined, album: item.editAlbum || undefined }],
+          metaOverrides: [{ title: item.editTitle || undefined, album: item.editAlbum || undefined }],
           // 传入编辑后的 credits（若已通过预览步骤）
           creditsOverrides: [item.credits ?? null],
         });
@@ -342,7 +338,6 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
                       description={
                         <Space size={4} wrap>
                           <Text type="secondary" style={{ fontSize: 11 }}>{formatSize(item.size)}</Text>
-                          {item.detectedArtist && <Tag color="blue" style={{ fontSize: 11 }}>{item.detectedArtist}</Tag>}
                           {item.detectedTitle && <Tag color="purple" style={{ fontSize: 11 }}>{item.detectedTitle}</Tag>}
                         </Space>
                       }

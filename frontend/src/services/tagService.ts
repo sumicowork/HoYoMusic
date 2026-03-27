@@ -1,6 +1,4 @@
 import axios from 'axios';
-import { IS_STATIC } from './api';
-import * as staticData from './staticDataService';
 
 const API_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
 
@@ -96,14 +94,12 @@ const getReadRequestConfig = () => {
 
 // Get all tags
 export const getTags = async (): Promise<Tag[]> => {
-  if (IS_STATIC) return staticData.getTags();
   const response = await axios.get(`${API_URL}/tags`, getReadRequestConfig());
   return response.data.data;
 };
 
 // Get tag by ID
 export const getTagById = async (id: number): Promise<Tag> => {
-  if (IS_STATIC) return staticData.getTagById(id);
   const response = await axios.get(`${API_URL}/tags/${id}`, getReadRequestConfig());
   return response.data.data;
 };
@@ -142,7 +138,6 @@ export const deleteTag = async (id: number): Promise<void> => {
 
 // Get tags for a track
 export const getTrackTags = async (trackId: number): Promise<Tag[]> => {
-  if (IS_STATIC) return staticData.getTrackTags(trackId) as Promise<Tag[]>;
   const response = await axios.get(`${API_URL}/tags/track/${trackId}`, getReadRequestConfig());
   return response.data.data;
 };
@@ -175,7 +170,6 @@ export const removeTagFromTrack = async (trackId: number, tagId: number): Promis
 
 // Get all tag groups
 export const getTagGroups = async (): Promise<TagGroup[]> => {
-  if (IS_STATIC) return staticData.getTagGroups();
   const response = await axios.get(`${API_URL}/tags/groups/all`, getReadRequestConfig());
   return response.data.data;
 };

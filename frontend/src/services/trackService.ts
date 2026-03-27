@@ -1,5 +1,4 @@
-import api, { IS_STATIC, getOrCreateVisitorId } from './api';
-import * as staticData from './staticDataService';
+import api, { getOrCreateVisitorId } from './api';
 import axios from 'axios';
 import { ApiResponse, Track } from '../types';
 
@@ -37,7 +36,6 @@ publicApi.interceptors.request.use((config) => {
 export interface TrackSearchParams {
   search?: string;
   game_ids?: number[];
-  artist?: string;
   year_from?: number;
   year_to?: number;
   duration_min?: number;  // seconds
@@ -60,7 +58,6 @@ export interface AdminTrackFilters {
 
 export interface AdminTrackFilterOptions {
   titles: string[];
-  artists?: string[];
   albums: string[];
 }
 
@@ -182,7 +179,6 @@ const extractBlobErrorMessage = async (blob: Blob): Promise<string | null> => {
 export const trackService = {
   // Random tracks for homepage recommendations
   async getRandomTracks(count = 10): Promise<Track[]> {
-    if (IS_STATIC) return staticData.getRandomTracks(count);
     const response = await publicApi.get<ApiResponse<{ tracks: Track[] }>>(
       `/public/tracks/random?count=${count}`
     );
@@ -197,7 +193,7 @@ export const trackService = {
     files: File[],
     options?: {
       autoCredits?: boolean;
-      metaOverrides?: Array<{ title?: string; artist?: string; album?: string }>;
+      metaOverrides?: Array<{ title?: string; album?: string }>;
       // 前端编辑后的 credits，与 files 一一对应；若传入则覆盖后端自动解析
       creditsOverrides?: Array<Array<{ key: string; value: string }> | null>;
     }
@@ -213,7 +209,6 @@ export const trackService = {
     if (options?.metaOverrides) {
       options.metaOverrides.forEach((meta, idx) => {
         if (meta.title)  formData.append(`title_override_${idx}`,  meta.title);
-        if (meta.artist) formData.append(`artist_override_${idx}`, meta.artist);
         if (meta.album !== undefined) formData.append(`album_override_${idx}`, meta.album);
       });
     }
@@ -252,8 +247,6 @@ export const trackService = {
   },
 
   async previewTrackNotesImport(entries: TrackNotesImportEntry[]): Promise<TrackNotesImportPreviewResult> {
-    if (IS_STATIC) throw new Error('静态模式不支持备注导入');
-
     const response = await api.post<ApiResponse<TrackNotesImportPreviewResult>>('/tracks/notes-import/preview', { entries });
     if (response.data.success && response.data.data) return response.data.data;
     throw new Error(response.data.error?.message || '备注导入预览失败');
@@ -264,8 +257,6 @@ export const trackService = {
     resolutions: Record<string, number>,
     conflictMode: 'overwrite' | 'append' | 'skip'
   ): Promise<TrackNotesImportCommitResult> {
-    if (IS_STATIC) throw new Error('静态模式不支持备注导入');
-
     const response = await api.post<ApiResponse<TrackNotesImportCommitResult>>('/tracks/notes-import/commit', {
       entries,
       resolutions,
@@ -276,8 +267,6 @@ export const trackService = {
   },
 
   async searchTrackNotesImportCandidates(keyword: string, limit = 30): Promise<TrackNotesImportCandidate[]> {
-    if (IS_STATIC) throw new Error('静态模式不支持备注导入');
-
     const normalizedKeyword = keyword.trim();
     if (!normalizedKeyword) return [];
 
@@ -289,8 +278,6 @@ export const trackService = {
   },
 
   async exportAllTrackNotes(): Promise<ExportTrackNotesResult> {
-    if (IS_STATIC) throw new Error('静态模式不支持备注导出');
-
     try {
       const response = await api.get('/tracks/notes-export', { responseType: 'blob' });
       const fileName = parseDownloadFileName(
@@ -351,10 +338,6 @@ export const trackService = {
   },
 
   async getTrackFilterOptions(): Promise<AdminTrackFilterOptions> {
-    if (IS_STATIC) {
-      return { titles: [], albums: [], artists: [] };
-    }
-
     const response = await api.get<ApiResponse<AdminTrackFilterOptions>>('/tracks/filter-options');
     if (response.data.success && response.data.data) {
       return response.data.data;
@@ -364,7 +347,6 @@ export const trackService = {
 
   // Public APIs (无需认证)
   async getTracksPublic(page = 1, limit = 20, search = ''): Promise<{ tracks: Track[]; pagination: any }> {
-    if (IS_STATIC) return staticData.getTracksPublic(page, limit, search);
     const response = await publicApi.get<ApiResponse<{ tracks: Track[]; pagination: any }>>(
       `/public/tracks?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}&sort_by=release_date&sort_dir=DESC`
     );
@@ -375,11 +357,9 @@ export const trackService = {
   },
 
   async searchTracksPublic(params: TrackSearchParams): Promise<{ tracks: Track[]; pagination: any }> {
-    if (IS_STATIC) return staticData.searchTracksPublic(params);
     const query = new URLSearchParams();
     if (params.search)                        query.set('search',          params.search);
     if (params.game_ids?.length)              query.set('game_ids',        params.game_ids.join(','));
-    if (params.artist)                        query.set('artist',          params.artist);
     if (params.year_from       != null)       query.set('year_from',        String(params.year_from));
     if (params.year_to         != null)       query.set('year_to',          String(params.year_to));
     if (params.duration_min    != null)       query.set('duration_min',     String(params.duration_min));
@@ -410,7 +390,6 @@ export const trackService = {
 
   /** Record a play event (fire-and-forget) */
   recordPlay(trackId: number, payload?: { playedSeconds?: number; trackDurationSeconds?: number | null; sessionKey?: string }): void {
-    if (IS_STATIC) return;
     publicApi.post(`/public/tracks/${trackId}/play`, {
       played_seconds: payload?.playedSeconds ?? 0,
       track_duration_seconds: payload?.trackDurationSeconds ?? null,
@@ -420,14 +399,12 @@ export const trackService = {
 
   /** Get top played tracks */
   async getTopTracks(limit = 20): Promise<Track[]> {
-    if (IS_STATIC) return [];
     const response = await publicApi.get<ApiResponse<{ tracks: Track[] }>>(`/public/top-tracks?limit=${limit}`);
     if (response.data.success && response.data.data) return response.data.data.tracks;
     return [];
   },
 
   async getTrackByIdPublic(id: number): Promise<Track> {
-    if (IS_STATIC) return staticData.getTrackByIdPublic(id);
     const response = await publicApi.get<ApiResponse<{ track: Track }>>(`/public/tracks/${id}`);
     if (response.data.success && response.data.data) {
       return response.data.data.track;
@@ -440,8 +417,7 @@ export const trackService = {
     return `${API_BASE_URL}/tracks/${id}/stream?token=${token}`;
   },
 
-  getStreamUrlPublic(id: number, track?: Track): string {
-    if (IS_STATIC && track?.audio_url) return track.audio_url;
+  getStreamUrlPublic(id: number): string {
     return `${API_BASE_URL}/public/tracks/${id}/stream`;
   },
 
@@ -450,14 +426,12 @@ export const trackService = {
     return `${API_BASE_URL}/tracks/${id}/download?token=${token}`;
   },
 
-  getDownloadUrlPublic(id: number, track?: Track): string {
-    if (IS_STATIC && track?.audio_url) return track.audio_url;
+  getDownloadUrlPublic(id: number): string {
     return `${API_BASE_URL}/public/tracks/${id}/download`;
   },
 
   getCoverUrl(coverPath: string | null, thumb?: boolean): string {
     if (!coverPath) return '/placeholder-cover.jpg';
-    if (IS_STATIC) return staticData.getCoverUrl(coverPath) || '/placeholder-cover.jpg';
     const backendOrigin = API_BASE_URL.replace('/api', '');
     const sizeParam = thumb ? '&size=thumb' : '';
     // OSS / 外部存储：cover_path 是完整 http(s) URL，通过服务器代理中转，避免前端直连 OSS

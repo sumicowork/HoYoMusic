@@ -1,8 +1,6 @@
 import axios from 'axios';
 import { useAuthModalStore } from '../store/authModalStore';
 
-/** Static-mode flag controlled by VITE_STATIC_MODE=true in .env.static. */
-export const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
 
 const VISITOR_ID_KEY = 'visitor_id';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

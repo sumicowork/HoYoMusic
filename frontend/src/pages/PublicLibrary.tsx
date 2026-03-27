@@ -178,14 +178,6 @@ const PublicLibrary: React.FC = () => {
       },
     },
     {
-      title: '艺术家',
-      dataIndex: 'artist_names',
-      key: 'artist',
-      ellipsis: true,
-      responsive: ['md'],
-      render: (artistNames: string) => artistNames || '—',
-    },
-    {
       dataIndex: 'duration',
       key: 'duration',
       width: 70,
@@ -266,7 +258,6 @@ const PublicLibrary: React.FC = () => {
               const thumbSrc = coverSrc
                 ? trackService.getCoverUrl(coverSrc, true)
                 : undefined;
-              const artistLabel = (record as any).artist_names || record.artists?.map((artist) => artist.name).join(' / ') || '未知艺术家';
 
               return (
                 <List.Item>
@@ -281,18 +272,24 @@ const PublicLibrary: React.FC = () => {
                         preview={false}
                       />
                       <div className="public-library-mobile-meta">
-                        <Link to={`/track/${record.id}`}>{record.title}</Link>
-                        <div className="public-library-mobile-sub">{artistLabel}</div>
-                        <Space size={6} wrap style={{ marginTop: 4 }}>
-                          <Tag>{record.album_title || '未分配专辑'}</Tag>
-                          <Tag>{formatDuration(record.duration || 0)}</Tag>
-                        </Space>
+                        <Link to={`/track/${record.id}`} className="public-library-mobile-title">{record.title}</Link>
+                        <div className="public-library-mobile-sub">{record.album_title || '未分配专辑'}</div>
+                        <div className="public-library-mobile-chips">
+                          <Tag color="blue">{formatDuration(record.duration || 0)}</Tag>
+                          {record.release_date && (
+                            <Tag>{new Date(record.release_date).getFullYear()} 年</Tag>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    <Space size={6} wrap>
-                      <Button type="primary" size="small" icon={<PlayCircleOutlined />} onClick={() => handlePlay(record)}>播放</Button>
+                    <Space size={8} wrap className="public-library-mobile-actions">
+                      <Button type="primary" size="small" icon={<PlayCircleOutlined />} onClick={() => handlePlay(record)}>
+                        播放
+                      </Button>
                       <Tooltip title={!DOWNLOAD_ENABLED ? '服务器维护中，暂时关闭下载' : ''}>
-                        <Button size="small" icon={<DownloadOutlined />} onClick={() => handleDownload(record)} disabled={!DOWNLOAD_ENABLED}>下载</Button>
+                        <Button size="small" icon={<DownloadOutlined />} onClick={() => handleDownload(record)} disabled={!DOWNLOAD_ENABLED}>
+                          下载
+                        </Button>
                       </Tooltip>
                     </Space>
                   </div>

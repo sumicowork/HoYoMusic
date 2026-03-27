@@ -1,5 +1,4 @@
-import api, { IS_STATIC } from './api';
-import * as staticData from './staticDataService';
+import api from './api';
 
 export interface FirstVisitModalConfig {
   enabled: boolean;
@@ -56,10 +55,6 @@ export const DEFAULT_MAINTENANCE_MODE_CONFIG: MaintenanceModeConfig = {
 
 export const siteConfigService = {
   async getPublicFirstVisitModal(): Promise<FirstVisitModalConfig> {
-    if (IS_STATIC) {
-      return staticData.getFirstVisitModalConfig();
-    }
-
     const response = await api.get<ApiResponse<FirstVisitModalConfig>>('/public/site-config/first-visit-modal');
     if (response.data.success && response.data.data) {
       return response.data.data;
@@ -89,10 +84,6 @@ export const siteConfigService = {
   },
 
   async getPublicComplianceConfig(): Promise<SiteComplianceConfig> {
-    if (IS_STATIC) {
-      return staticData.getSiteComplianceConfig();
-    }
-
     const response = await api.get<ApiResponse<SiteComplianceConfig>>('/public/site-config/compliance');
     if (response.data.success && response.data.data) {
       return response.data.data;
@@ -125,9 +116,6 @@ export const siteConfigService = {
   },
 
   async getPublicMaintenanceMode(): Promise<MaintenanceModeConfig> {
-    if (IS_STATIC) {
-      return staticData.getMaintenanceModeConfig();
-    }
 
     const response = await api.get<ApiResponse<MaintenanceModeConfig>>('/public/site-config/maintenance');
     if (response.data.success && response.data.data) {

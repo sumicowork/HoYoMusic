@@ -1,5 +1,4 @@
-import api, { IS_STATIC } from './api';
-import * as staticData from './staticDataService';
+import api from './api';
 
 export interface Game {
   id: number;
@@ -23,7 +22,6 @@ export interface ApiResponse<T> {
 
 export const gameService = {
   async getGames(): Promise<Game[]> {
-    if (IS_STATIC) return staticData.getGames();
     const response = await api.get<ApiResponse<{ games: Game[] }>>('/games');
     if (response.data.success && response.data.data) {
       return response.data.data.games;
@@ -32,7 +30,6 @@ export const gameService = {
   },
 
   async getGameById(id: number): Promise<any> {
-    if (IS_STATIC) return staticData.getGameById(id);
     const response = await api.get<ApiResponse<any>>(`/games/${id}`);
     if (response.data.success && response.data.data) {
       return response.data.data;

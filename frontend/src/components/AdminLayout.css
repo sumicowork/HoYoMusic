@@ -159,6 +159,8 @@
 .admin-mobile-header {
   display: none;
   align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   padding: 0 16px;
   height: 56px;
   background: var(--bg-primary);
@@ -169,11 +171,21 @@
 }
 .admin-mobile-header h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
-  margin-left: 12px;
+  flex: 1;
+  min-width: 0;
 }
 .admin-mobile-menu-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  color: var(--text-primary) !important;
+  background: rgba(102, 126, 234, 0.12) !important;
+  border: 1px solid rgba(102, 126, 234, 0.25) !important;
+}
+
+.admin-mobile-menu-btn .anticon {
   font-size: 20px;
 }
 @media (max-width: 991px) {
@@ -195,5 +207,6 @@
     width: 250px !important;
   }
 }
+
 
 

@@ -20,7 +20,6 @@ import {
 } from '@ant-design/icons';
 import { usePlayerStore } from '../store/playerStore';
 import { trackService } from '../services/trackService';
-import { IS_STATIC } from '../services/api';
 import { lyricsService } from '../services/lyricsService';
 import favoriteService from '../services/favoriteService';
 import { useDebugUserFeatures } from '../utils/debugFeature';
@@ -305,9 +304,7 @@ const Player: React.FC = () => {
       howlRef.current = null;
     }
     updateProgress(0);
-    const streamUrl = (IS_STATIC && currentTrack.audio_url)
-      ? currentTrack.audio_url
-      : trackService.getStreamUrlPublic(currentTrack.id);
+    const streamUrl = trackService.getStreamUrlPublic(currentTrack.id);
     const newHowl = new Howl({
       src: [streamUrl],
       html5: true,

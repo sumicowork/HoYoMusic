@@ -1,6 +1,5 @@
 import axios from 'axios';
-import { IS_STATIC, getOrCreateVisitorId } from './api';
-import * as staticData from './staticDataService';
+import { getOrCreateVisitorId } from './api';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
 
@@ -22,7 +21,6 @@ publicApi.interceptors.request.use((config) => {
 
 export const lyricsService = {
   async getLyrics(trackId: number): Promise<string | null> {
-    if (IS_STATIC) return staticData.getLyrics(trackId);
     try {
       // Backend: GET /api/lyrics/:id/lyrics
       const resp = await publicApi.get(`/lyrics/${trackId}/lyrics`);

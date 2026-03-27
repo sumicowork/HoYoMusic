@@ -6,9 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "build:static": "tsc && vite build --mode static --outDir dist-static",
-    "preview": "vite preview",
-    "preview:static": "vite preview --outDir dist-static"
+    "preview": "vite preview"
   },
   "devDependencies": {
     "@types/howler": "^2.2.12",

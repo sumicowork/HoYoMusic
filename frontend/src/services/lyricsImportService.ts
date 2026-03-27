@@ -1,4 +1,4 @@
-import api, { IS_STATIC } from './api';
+import api from './api';
 
 export type LyricsImportStatus = 'matched' | 'ambiguous' | 'not_found' | 'invalid' | 'imported' | 'error';
 
@@ -52,10 +52,6 @@ const appendFiles = (formData: FormData, files: File[]) => {
 
 export const lyricsImportService = {
   async previewImport(files: File[]): Promise<LyricsImportPreviewResult> {
-    if (IS_STATIC) {
-      throw new Error('静态模式不支持歌词导入');
-    }
-
     const formData = new FormData();
     appendFiles(formData, files);
 
@@ -71,9 +67,6 @@ export const lyricsImportService = {
   },
 
   async commitImport(files: File[], resolutions: Record<string, number>): Promise<LyricsImportCommitResult> {
-    if (IS_STATIC) {
-      throw new Error('静态模式不支持歌词导入');
-    }
 
     const formData = new FormData();
     appendFiles(formData, files);

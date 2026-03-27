@@ -16,7 +16,6 @@ import {
 import { useThemeStore } from '../store/themeStore';
 import { useAuthStore } from '../store/authStore';
 import { useAuthModalStore } from '../store/authModalStore';
-import { IS_STATIC } from '../services/api';
 import './SideNav.css';
 
 interface NavItem {
@@ -41,21 +40,19 @@ const SideNav: React.FC = () => {
     { icon: <AppstoreOutlined />, label: '专辑', path: '/albums', color: '#8b5cf6' },
     { icon: <UserOutlined />, label: '艺术家', path: '/artists', color: '#f59e0b' },
     { icon: <TagsOutlined />, label: '标签', path: '/tags', color: '#10b981' },
-    ...(!IS_STATIC ? [
-      { icon: <HeartOutlined />, label: '我的', path: '/me', color: '#ec4899' } as NavItem,
-      {
-        icon: <LoginOutlined />,
-        label: '管理',
-        action: () => {
-          if (isAuthenticated) {
-            navigate('/admin');
-            return;
-          }
-          openLogin('/admin');
-        },
-        color: '#ef4444',
-      } as NavItem,
-    ] : []),
+    { icon: <HeartOutlined />, label: '我的', path: '/me', color: '#ec4899' },
+    {
+      icon: <LoginOutlined />,
+      label: '管理',
+      action: () => {
+        if (isAuthenticated) {
+          navigate('/admin');
+          return;
+        }
+        openLogin('/admin');
+      },
+      color: '#ef4444',
+    },
     {
       icon: mode === 'light' ? <MoonOutlined /> : <SunOutlined />,
       label: mode === 'light' ? '深色' : '浅色',

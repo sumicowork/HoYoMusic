@@ -2,8 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Layout, message, Skeleton, Button, Modal, Radio, Select, Space, Typography, InputNumber } from 'antd';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { IS_STATIC } from '../services/api';
-import * as staticData from '../services/staticDataService';
 
 // Detect mobile viewport
 const useIsMobile = () => {
@@ -194,10 +192,6 @@ const Home: React.FC = () => {
   };
 
   const fetchArtists = async (): Promise<ArtistOption[]> => {
-    if (IS_STATIC) {
-      const data = await staticData.getArtists(1, 200, '');
-      return data.artists || [];
-    }
 
     const response = await axios.get(`${API_BASE_URL}/artists`, { params: { limit: 200 } });
     if (response.data?.success) {
@@ -233,7 +227,7 @@ const Home: React.FC = () => {
           return;
         }
         const result = await trackService.searchTracksPublic({
-          artist: selectedArtist,
+          search: selectedArtist,
           page: 1,
           limit: 100,
           sort_by: 'created_at',

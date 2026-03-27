@@ -1,4 +1,4 @@
-import api, { IS_STATIC } from './api';
+import api from './api';
 
 export interface FeedbackItem {
   id: number;
@@ -21,10 +21,6 @@ export interface FeedbackListResult {
 
 export const feedbackService = {
   async submit(content: string, contact?: string): Promise<void> {
-    if (IS_STATIC) {
-      throw new Error('静态模式不支持提交反馈');
-    }
-
     const response = await api.post('/public/feedback', {
       content,
       contact: contact || '',
@@ -47,4 +43,5 @@ export const feedbackService = {
     return response.data.data as FeedbackListResult;
   },
 };
+
 

@@ -60,7 +60,7 @@ const Admin: React.FC = () => {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
-  const [filterOptions, setFilterOptions] = useState<AdminTrackFilterOptions>({ titles: [], albums: [], artists: [] });
+  const [filterOptions, setFilterOptions] = useState<AdminTrackFilterOptions>({ titles: [], albums: [] });
   const [serverFilters, setServerFilters] = useState<AdminTrackFilters>({});
   const [columnFilters, setColumnFilters] = useState<Record<string, React.Key[] | null>>({});
   const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
@@ -431,17 +431,6 @@ const Admin: React.FC = () => {
       },
     },
     {
-      title: '艺术家',
-      dataIndex: 'artist_names',
-      key: 'artist',
-      ellipsis: true,
-      responsive: ['md'],
-      filters: getUniqueFilters(filterOptions.artists || []),
-      filteredValue: columnFilters.artist || null,
-      filterMultiple: false,
-      render: (artistNames: string) => artistNames || '—',
-    },
-    {
       title: '操作',
       key: 'actions',
       width: 230,
@@ -467,7 +456,7 @@ const Admin: React.FC = () => {
         extra={
           <Space wrap>
             <Input.Search
-              placeholder="搜索曲名/专辑/艺术家..."
+              placeholder="搜索曲名/专辑/备注..."
               allowClear
               style={{ width: 240 }}
               value={searchText}

@@ -397,12 +397,10 @@ export const uploadTracks = async (req: Request, res: Response) => {
     const autoCredits = autoCreditsRaw === 'false' ? false : true;
 
     // 元数据覆盖字段（前端在步骤2编辑后传入，每个文件对应的覆盖）
-    // 格式：title_override_<index>、artist_override_<index>、album_override_<index>
-    // 或全局覆盖（单文件上传时）：title_override、artist_override、album_override
+    // 格式：title_override_<index>、album_override_<index>
+    // 或全局覆盖（单文件上传时）：title_override、album_override
     const getTitleOverride = (idx: number): string | null =>
       req.body[`title_override_${idx}`] || req.body.title_override || null;
-    const getArtistOverride = (idx: number): string | null =>
-      req.body[`artist_override_${idx}`] || req.body.artist_override || null;
     const getAlbumOverride = (idx: number): string | null =>
       req.body[`album_override_${idx}`] || req.body.album_override || null;
 
@@ -428,13 +426,10 @@ export const uploadTracks = async (req: Request, res: Response) => {
 
         // 优先使用前端传入的覆盖值，回退到 FLAC 内嵌标签，再回退到默认值
         const titleOverride = getTitleOverride(fileIdx);
-        const artistOverride = getArtistOverride(fileIdx);
         const albumOverride = getAlbumOverride(fileIdx);
 
         const title = titleOverride || metadata.common.title || path.basename(file.originalname, '.flac');
-        const artistNames = artistOverride
-          ? artistOverride.split(',').map((s: string) => s.trim()).filter(Boolean)
-          : metadata.common.artists || (metadata.common.artist ? [metadata.common.artist] : ['Unknown Artist']);
+        const artistNames = metadata.common.artists || (metadata.common.artist ? [metadata.common.artist] : ['Unknown Artist']);
         const albumTitle = albumOverride !== null
           ? (albumOverride || null)
           : (metadata.common.album || null);
@@ -1058,8 +1053,6 @@ export const getTracks = async (req: Request, res: Response) => {
     const gameIds = gameIdsRaw
       ? gameIdsRaw.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n))
       : [];
-    // artist: 艺术家名称模糊匹配
-    const artistFilter = (req.query.artist as string || '').trim();
     const titleExact = (req.query.title_exact as string || '').trim();
     const albumExact = (req.query.album_exact as string || '').trim();
     const durationBucketRaw = (req.query.duration_bucket as string || '').trim().toLowerCase();
@@ -1195,15 +1188,6 @@ export const getTracks = async (req: Request, res: Response) => {
       queryParams.push(gameIds);
     }
 
-    // 艺术家筛选
-    if (artistFilter) {
-      conditions.push(`EXISTS (
-        SELECT 1 FROM track_credits tc_af
-        WHERE tc_af.track_id = t.id
-        AND LOWER(tc_af.credit_value) LIKE LOWER($${pIdx++})
-      )`);
-      queryParams.push(`%${artistFilter}%`);
-    }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 

@@ -2,8 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Layout, List, Input, Avatar, Skeleton, Empty, message, Row, Col, Card, Tag } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { SearchOutlined, UserOutlined } from '@ant-design/icons';
-import { IS_STATIC } from '../services/api';
-import * as staticData from '../services/staticDataService';
 import axios from 'axios';
 import './Artists.css';
 
@@ -30,16 +28,11 @@ const Artists: React.FC = () => {
   const fetchArtists = async (search = '') => {
     setLoading(true);
     try {
-      if (IS_STATIC) {
-        const data = await staticData.getArtists(1, 100, search);
-        setArtists(data.artists);
-      } else {
-        const response = await axios.get(`${API_BASE_URL}/artists`, {
-          params: { search, limit: 100 }
-        });
-        if (response.data.success) {
-          setArtists(response.data.data.artists);
-        }
+      const response = await axios.get(`${API_BASE_URL}/artists`, {
+        params: { search, limit: 100 }
+      });
+      if (response.data.success) {
+        setArtists(response.data.data.artists);
       }
     } catch (error: any) {
       message.error('加载艺术家列表失败');

@@ -131,8 +131,14 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   return (
     <Layout className="admin-layout-wrapper">
       <div className="admin-mobile-header">
-        <Button type="text" icon={<MenuOutlined />} onClick={() => setMobileMenuOpen(true)} className="admin-mobile-menu-btn" />
         <h2>🎵 HoYoMusic Admin</h2>
+        <Button
+          type="text"
+          icon={<MenuOutlined />}
+          onClick={() => setMobileMenuOpen(true)}
+          className="admin-mobile-menu-btn"
+          aria-label="打开管理菜单"
+        />
       </div>
       <Drawer
         title="Admin Menu"

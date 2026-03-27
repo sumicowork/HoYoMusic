@@ -2,8 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Layout, Table, Button, Space, Tag, Skeleton, Avatar, Tabs, Card, Row, Col, message, Tooltip, Grid, List, Typography } from 'antd';
 import { ArrowLeftOutlined, PlayCircleOutlined, DownloadOutlined, UserOutlined } from '@ant-design/icons';
-import { IS_STATIC } from '../services/api';
-import * as staticData from '../services/staticDataService';
 import axios from 'axios';
 import { Track } from '../types';
 import { trackService, DOWNLOAD_ENABLED } from '../services/trackService';
@@ -60,20 +58,12 @@ const ArtistDetail: React.FC = () => {
 
   const fetchArtistDetails = async () => {
     try {
-      if (IS_STATIC) {
-        const data = await staticData.getArtistById(decodeURIComponent(id!));
-        setArtist(data.artist);
-        setTracks(data.tracks);
-        setAlbums(data.albums);
-        if (data.games) setGames(data.games);
-      } else {
-        const response = await axios.get(`${API_BASE_URL}/artists/${id}`);
-        if (response.data.success) {
-          setArtist(response.data.data.artist);
-          setTracks(response.data.data.tracks);
-          setAlbums(response.data.data.albums);
-          if (response.data.data.games) setGames(response.data.data.games);
-        }
+      const response = await axios.get(`${API_BASE_URL}/artists/${id}`);
+      if (response.data.success) {
+        setArtist(response.data.data.artist);
+        setTracks(response.data.data.tracks);
+        setAlbums(response.data.data.albums);
+        if (response.data.data.games) setGames(response.data.data.games);
       }
     } catch (error: any) {
       message.error('加载创作者详情失败');

@@ -13,7 +13,6 @@ import {
   SettingOutlined,
   BellOutlined,
 } from '@ant-design/icons';
-import { IS_STATIC } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import { useAuthModalStore } from '../store/authModalStore';
 import { messageService, type InboxMessageItem } from '../services/messageService';
@@ -48,7 +47,7 @@ const PageHeader: React.FC<PageHeaderProps> = ({ extra, onFeedbackClick }) => {
   const [unreadCount, setUnreadCount] = useState(0);
 
   const loadUnreadCount = useCallback(async () => {
-    if (IS_STATIC || !isAuthenticated) {
+    if (!isAuthenticated) {
       setUnreadCount(0);
       return;
     }
@@ -61,7 +60,7 @@ const PageHeader: React.FC<PageHeaderProps> = ({ extra, onFeedbackClick }) => {
   }, [isAuthenticated]);
 
   const loadInbox = useCallback(async () => {
-    if (IS_STATIC || !isAuthenticated) {
+    if (!isAuthenticated) {
       setInboxItems([]);
       return;
     }
@@ -130,48 +129,46 @@ const PageHeader: React.FC<PageHeaderProps> = ({ extra, onFeedbackClick }) => {
         {/* Right side: extra + theme toggle */}
         <div className="page-header-right">
           {extra}
-          {!IS_STATIC && (
-            <>
+          <>
+            <button
+              className="page-header-auth-button"
+              onClick={() => {
+                setInboxOpen(true);
+                void loadInbox();
+              }}
+            >
+              <span className="page-header-nav-icon">
+                <Badge count={unreadCount} size="small" overflowCount={99}>
+                  <BellOutlined />
+                </Badge>
+              </span>
+              <span>消息</span>
+            </button>
+            <button
+              className="page-header-auth-button"
+              onClick={() => {
+                if (isAuthenticated) {
+                  navigate('/me');
+                  return;
+                }
+                openLogin(`${location.pathname}${location.search}${location.hash}`);
+              }}
+            >
+              <span className="page-header-nav-icon">
+                {isAuthenticated ? <UserOutlined /> : <LoginOutlined />}
+              </span>
+              <span>{isAuthenticated ? (user?.username || '我的') : '登录'}</span>
+            </button>
+            {isAuthenticated && user?.is_admin && (
               <button
                 className="page-header-auth-button"
-                onClick={() => {
-                  setInboxOpen(true);
-                  void loadInbox();
-                }}
+                onClick={() => navigate('/admin')}
               >
-                <span className="page-header-nav-icon">
-                  <Badge count={unreadCount} size="small" overflowCount={99}>
-                    <BellOutlined />
-                  </Badge>
-                </span>
-                <span>消息</span>
+                <span className="page-header-nav-icon"><SettingOutlined /></span>
+                <span>管理</span>
               </button>
-              <button
-                className="page-header-auth-button"
-                onClick={() => {
-                  if (isAuthenticated) {
-                    navigate('/me');
-                    return;
-                  }
-                  openLogin(`${location.pathname}${location.search}${location.hash}`);
-                }}
-              >
-                <span className="page-header-nav-icon">
-                  {isAuthenticated ? <UserOutlined /> : <LoginOutlined />}
-                </span>
-                <span>{isAuthenticated ? (user?.username || '我的') : '登录'}</span>
-              </button>
-              {isAuthenticated && user?.is_admin && (
-                <button
-                  className="page-header-auth-button"
-                  onClick={() => navigate('/admin')}
-                >
-                  <span className="page-header-nav-icon"><SettingOutlined /></span>
-                  <span>管理</span>
-                </button>
-              )}
-            </>
-          )}
+            )}
+          </>
           <ThemeToggle />
         </div>
       </div>

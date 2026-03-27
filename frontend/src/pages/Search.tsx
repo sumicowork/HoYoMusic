@@ -221,10 +221,6 @@ const Search: React.FC = () => {
     // 游戏筛选
     if (values.game_ids?.length > 0) params.game_ids = values.game_ids;
 
-    // 艺术家筛选
-    const artistKeyword = (values.artist || '').trim();
-    if (artistKeyword) params.artist = artistKeyword;
-
     // 年份（只有启用时才传）
     if (yearFilterEnabled) {
       params.year_from = yearRange[0];
@@ -250,7 +246,6 @@ const Search: React.FC = () => {
     const values = form.getFieldsValue();
     let c = 0;
     if (values.game_ids?.length > 0) c++;
-    if ((values.artist || '').trim()) c++;
     if (yearFilterEnabled) c++;
     if (durationFilterEnabled) c++;
     if (selectedTagIds.length > 0) c++;
@@ -461,14 +456,14 @@ const Search: React.FC = () => {
         {/* Hero 搜索区 */}
         <div className="search-hero">
           <h2 className="search-hero-title">搜索音乐</h2>
-          <p className="search-hero-sub">支持曲名、艺术家、专辑、备注、标签多维度精准搜索</p>
+          <p className="search-hero-sub">支持曲名、制作信息、专辑、备注、标签多维度精准搜索</p>
 
           <Form form={form} className="search-main-form">
             <div className="search-main-bar">
               <Form.Item name="keyword" noStyle>
                 <Input
                   size="large"
-                  placeholder="搜索曲名、艺术家、专辑、备注..."
+                  placeholder="搜索曲名、制作信息、专辑、备注..."
                   prefix={<SearchOutlined style={{ color: '#667eea' }} />}
                   allowClear
                   className="search-main-input"
@@ -629,9 +624,6 @@ const Search: React.FC = () => {
                               {highlightText(record.title)}
                             </Link>
                             <div className="search-mobile-sub">
-                              {(record as any).artist_names || '未知艺术家'}
-                            </div>
-                            <div className="search-mobile-sub">
                               {record.album_title || '未分配专辑'} · {formatDuration(record.duration || 0)}
                             </div>
                             {notesSnippet && (
@@ -720,7 +712,7 @@ const Search: React.FC = () => {
             size="small"
             icon={<CloseOutlined />}
             onClick={() => {
-              form.resetFields(['game_ids', 'artist']);
+              form.resetFields(['game_ids']);
               setYearFilterEnabled(false);
               setDurationFilterEnabled(false);
               setSelectedTagIds([]);
@@ -757,13 +749,6 @@ const Search: React.FC = () => {
               placeholder="选择游戏筛选"
               options={games.map(g => ({ label: g.name, value: g.id }))}
             />
-          </Form.Item>
-
-          {/* ── 艺术家 ── */}
-          <Divider plain style={{ margin: '4px 0 12px' }}>艺术家</Divider>
-
-          <Form.Item name="artist" label="艺术家名称">
-            <Input allowClear placeholder="输入艺术家名称" />
           </Form.Item>
 
           {/* ── 发行年份 ── */}

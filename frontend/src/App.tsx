@@ -15,7 +15,6 @@ import SiteComplianceFooter from './components/SiteComplianceFooter';
 import { usePlayerStore } from './store/playerStore';
 import { useThemeStore } from './store/themeStore';
 import { useAuthStore } from './store/authStore';
-import { IS_STATIC } from './services/api';
 import { siteConfigService, DEFAULT_MAINTENANCE_MODE_CONFIG, type MaintenanceModeConfig } from './services/siteConfigService';
 import { darkTheme, lightTheme } from './theme/themeConfig';
 import './theme/theme.css';
@@ -142,8 +141,8 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
     );
   }, [location.pathname, location.search, location.hash, navigate]);
 
-  const canBypassMaintenance = !IS_STATIC && isInitialized && isAuthenticated && !!user?.is_admin;
-  const canEvaluateMaintenance = maintenanceLoaded && (IS_STATIC || isInitialized);
+  const canBypassMaintenance = isInitialized && isAuthenticated && !!user?.is_admin;
+  const canEvaluateMaintenance = maintenanceLoaded && isInitialized;
   const forceMaintenancePage = canEvaluateMaintenance
     && maintenanceConfig.enabled
     && !canBypassMaintenance
@@ -180,88 +179,80 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
           <Route path="/search" element={<Search />} />
 
           {/* 用户中心相关路由 - 需要登录 */}
-          {!IS_STATIC && (
-            <>
-              <Route
-                path="/playlists/:id"
-                element={<ProtectedRoute><PlaylistDetail /></ProtectedRoute>}
-              />
-              <Route
-                path="/me"
-                element={<ProtectedRoute><Profile /></ProtectedRoute>}
-              />
-            </>
-          )}
+          <Route
+            path="/playlists/:id"
+            element={<ProtectedRoute><PlaylistDetail /></ProtectedRoute>}
+          />
+          <Route
+            path="/me"
+            element={<ProtectedRoute><Profile /></ProtectedRoute>}
+          />
 
-          {/* 管理后台路由 - 需要登录（静态模式下不渲染） */}
-          {!IS_STATIC && (
-            <>
-              <Route
-                path="/admin"
-                element={
-                  <ProtectedRoute requireAdmin>
-                    <Admin />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin/albums"
-                element={
-                  <ProtectedRoute requireAdmin>
-                    <AlbumManagement />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin/tags"
-                element={
-                  <ProtectedRoute requireAdmin>
-                    <TagManagement />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin/games"
-                element={
-                  <ProtectedRoute requireAdmin>
-                    <GameManagement />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin/artists"
-                element={
-                  <ProtectedRoute requireAdmin>
-                    <ArtistManagement />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin/users"
-                element={
-                  <ProtectedRoute requireAdmin>
-                    <UserManagement />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin/analytics"
-                element={
-                  <ProtectedRoute requireAdmin>
-                    <Analytics />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin/settings"
-                element={
-                  <ProtectedRoute requireAdmin>
-                    <Settings />
-                  </ProtectedRoute>
-                }
-              />
-            </>
-          )}
+          {/* 管理后台路由 - 需要登录 */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute requireAdmin>
+                <Admin />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/albums"
+            element={
+              <ProtectedRoute requireAdmin>
+                <AlbumManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/tags"
+            element={
+              <ProtectedRoute requireAdmin>
+                <TagManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/games"
+            element={
+              <ProtectedRoute requireAdmin>
+                <GameManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/artists"
+            element={
+              <ProtectedRoute requireAdmin>
+                <ArtistManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/users"
+            element={
+              <ProtectedRoute requireAdmin>
+                <UserManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/analytics"
+            element={
+              <ProtectedRoute requireAdmin>
+                <Analytics />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/settings"
+            element={
+              <ProtectedRoute requireAdmin>
+                <Settings />
+              </ProtectedRoute>
+            }
+          />
 
           <Route
             path="/maintenance"
@@ -294,7 +285,7 @@ const App: React.FC = () => {
   }, [mode]);
 
   useEffect(() => {
-    if (!IS_STATIC) initializeAuth();
+    initializeAuth();
   }, [initializeAuth]);
 
   return (
