@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Layout, Table, Button, Space, Image, Input, Tooltip, message } from 'antd';
+import { Layout, Table, Button, Space, Image, Input, Tooltip, message, Grid, List, Tag } from 'antd';
 import { PlayCircleOutlined, DownloadOutlined, SearchOutlined, HeartOutlined, HeartFilled, PlusOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { Track } from '../types';
@@ -15,8 +15,11 @@ import './PublicLibrary.css';
 
 const { Content } = Layout;
 const { Search } = Input;
+const { useBreakpoint } = Grid;
 
 const PublicLibrary: React.FC = () => {
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
   const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(false);
   const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
@@ -244,23 +247,78 @@ const PublicLibrary: React.FC = () => {
             style={{ maxWidth: 400 }}
           />
         </div>
-        <Table
-          columns={columns}
-          dataSource={tracks}
-          rowKey="id"
-          loading={loading}
-          pagination={{
-            ...pagination,
-            showSizeChanger: true,
-            pageSizeOptions: ['10', '20', '50', '100'],
-            showTotal: (total: number) => `共 ${total} 首曲目`,
-          }}
-          onChange={(newPagination) => {
-            const newSize = newPagination.pageSize || pagination.pageSize;
-            const newPage = newPagination.pageSize !== pagination.pageSize ? 1 : (newPagination.current || 1);
-            fetchTracks(newPage, searchText, newSize);
-          }}
-        />
+        {isMobile ? (
+          <List
+            className="public-library-mobile-list"
+            loading={loading}
+            dataSource={tracks}
+            pagination={{
+              ...pagination,
+              showSizeChanger: true,
+              pageSizeOptions: ['10', '20', '50', '100'],
+              showTotal: (total: number) => `共 ${total} 首曲目`,
+              onChange: (page, pageSize) => {
+                fetchTracks(page, searchText, pageSize || pagination.pageSize);
+              },
+            }}
+            renderItem={(record) => {
+              const coverSrc = record.cover_path || record.album_cover;
+              const thumbSrc = coverSrc
+                ? trackService.getCoverUrl(coverSrc, true)
+                : undefined;
+              const artistLabel = (record as any).artist_names || record.artists?.map((artist) => artist.name).join(' / ') || '未知艺术家';
+
+              return (
+                <List.Item>
+                  <div className="public-library-mobile-item">
+                    <div className="public-library-mobile-main">
+                      <Image
+                        width={54}
+                        height={54}
+                        src={thumbSrc}
+                        fallback={MUSIC_ICON_PLACEHOLDER}
+                        style={{ borderRadius: 8, objectFit: 'cover' }}
+                        preview={false}
+                      />
+                      <div className="public-library-mobile-meta">
+                        <Link to={`/track/${record.id}`}>{record.title}</Link>
+                        <div className="public-library-mobile-sub">{artistLabel}</div>
+                        <Space size={6} wrap style={{ marginTop: 4 }}>
+                          <Tag>{record.album_title || '未分配专辑'}</Tag>
+                          <Tag>{formatDuration(record.duration || 0)}</Tag>
+                        </Space>
+                      </div>
+                    </div>
+                    <Space size={6} wrap>
+                      <Button type="primary" size="small" icon={<PlayCircleOutlined />} onClick={() => handlePlay(record)}>播放</Button>
+                      <Tooltip title={!DOWNLOAD_ENABLED ? '服务器维护中，暂时关闭下载' : ''}>
+                        <Button size="small" icon={<DownloadOutlined />} onClick={() => handleDownload(record)} disabled={!DOWNLOAD_ENABLED}>下载</Button>
+                      </Tooltip>
+                    </Space>
+                  </div>
+                </List.Item>
+              );
+            }}
+          />
+        ) : (
+          <Table
+            columns={columns}
+            dataSource={tracks}
+            rowKey="id"
+            loading={loading}
+            pagination={{
+              ...pagination,
+              showSizeChanger: true,
+              pageSizeOptions: ['10', '20', '50', '100'],
+              showTotal: (total: number) => `共 ${total} 首曲目`,
+            }}
+            onChange={(newPagination) => {
+              const newSize = newPagination.pageSize || pagination.pageSize;
+              const newPage = newPagination.pageSize !== pagination.pageSize ? 1 : (newPagination.current || 1);
+              fetchTracks(newPage, searchText, newSize);
+            }}
+          />
+        )}
 
         <PlaylistPickerModal
           title="收藏到歌单"

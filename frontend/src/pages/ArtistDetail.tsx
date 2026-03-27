@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Layout, Table, Button, Space, Tag, Skeleton, Avatar, Tabs, Card, Row, Col, message, Tooltip } from 'antd';
+import { Layout, Table, Button, Space, Tag, Skeleton, Avatar, Tabs, Card, Row, Col, message, Tooltip, Grid, List, Typography } from 'antd';
 import { ArrowLeftOutlined, PlayCircleOutlined, DownloadOutlined, UserOutlined } from '@ant-design/icons';
 import { IS_STATIC } from '../services/api';
 import * as staticData from '../services/staticDataService';
@@ -13,6 +13,8 @@ import './ArtistDetail.css';
 
 const { Content } = Layout;
 const { TabPane } = Tabs;
+const { useBreakpoint } = Grid;
+const { Text } = Typography;
 const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
 
 interface Artist {
@@ -47,6 +49,8 @@ const ArtistDetail: React.FC = () => {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [games, setGames] = useState<GameInfo[]>([]);
   const [loading, setLoading] = useState(true);
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
 
   const { play, setPlaylist, playTrackOnly } = usePlayerStore();
 
@@ -149,6 +153,37 @@ const ArtistDetail: React.FC = () => {
     },
   ];
 
+  const renderMobileTrackList = () => (
+    <List
+      className="artist-mobile-track-list"
+      dataSource={tracks}
+      pagination={{ pageSize: 20 }}
+      renderItem={(record) => (
+        <List.Item>
+          <div className="artist-mobile-track-item">
+            <div className="artist-mobile-track-meta">
+              <a className="artist-mobile-track-title" onClick={() => navigate(`/track/${record.id}`)}>{record.title}</a>
+              <Text type="secondary">{record.album_title || '未分配专辑'} · {formatDuration(record.duration || 0)}</Text>
+              {((record as any).roles || []).filter(Boolean).length > 0 && (
+                <Space size={4} wrap>
+                  {((record as any).roles || []).filter(Boolean).map((role: string) => (
+                    <Tag key={role} color="purple">{role}</Tag>
+                  ))}
+                </Space>
+              )}
+            </div>
+            <Space size={6} wrap>
+              <Button type="primary" size="small" icon={<PlayCircleOutlined />} onClick={() => handlePlay(record)}>播放</Button>
+              <Tooltip title={!DOWNLOAD_ENABLED ? '服务器维护中，暂时关闭下载' : ''}>
+                <Button size="small" icon={<DownloadOutlined />} onClick={() => handleDownload(record)} disabled={!DOWNLOAD_ENABLED}>下载</Button>
+              </Tooltip>
+            </Space>
+          </div>
+        </List.Item>
+      )}
+    />
+  );
+
   if (loading) {
     return (
       <Layout style={{ minHeight: '100vh' }}>
@@ -239,7 +274,9 @@ const ArtistDetail: React.FC = () => {
 
         <Tabs defaultActiveKey="tracks" className="artist-tabs">
           <TabPane tab={`歌曲 (${tracks.length})`} key="tracks">
-            <Table columns={trackColumns} dataSource={tracks} rowKey="id" pagination={{ pageSize: 20 }} />
+            {isMobile
+              ? renderMobileTrackList()
+              : <Table columns={trackColumns} dataSource={tracks} rowKey="id" pagination={{ pageSize: 20 }} />}
           </TabPane>
           <TabPane tab={`专辑 (${albums.length})`} key="albums">
             <Row gutter={[28, 36]}>

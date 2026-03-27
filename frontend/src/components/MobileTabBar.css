@@ -10,9 +10,9 @@
   right: 0;
   height: calc(56px + env(safe-area-inset-bottom, 0px));
   z-index: 999;
-  justify-content: space-around;
+  justify-content: space-between;
   align-items: flex-start;
-  padding: 0 4px;
+  padding: 0 6px;
   padding-bottom: env(safe-area-inset-bottom, 0px);
   border-top: 1px solid var(--glass-border);
   backdrop-filter: blur(24px) saturate(180%);
@@ -47,7 +47,9 @@
   padding: 8px 8px 4px;
   transition: color 0.2s ease, transform 0.15s ease;
   -webkit-tap-highlight-color: transparent;
-  min-width: 52px;
+  min-width: 0;
+  flex: 1 1 0;
+  max-width: 72px;
   position: relative;
 }
 
@@ -72,21 +74,44 @@
 }
 
 .mobile-tab-icon {
-  font-size: 22px;
+  font-size: 20px;
   line-height: 1;
 }
 
 .mobile-tab-label {
   font-family: var(--font-body, 'Plus Jakarta Sans', sans-serif);
   font-weight: 600;
-  line-height: 1;
+  line-height: 1.1;
   letter-spacing: 0.02em;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* 仅在移动端显示 */
 @media (max-width: 768px) {
   .mobile-tab-bar {
     display: flex;
+  }
+}
+
+@media (max-width: 420px) {
+  .mobile-tab-bar {
+    padding: 0 2px;
+  }
+
+  .mobile-tab-item {
+    padding: 8px 4px 4px;
+    gap: 2px;
+  }
+
+  .mobile-tab-icon {
+    font-size: 19px;
+  }
+
+  .mobile-tab-label {
+    font-size: 9px;
   }
 }
 

@@ -80,14 +80,28 @@
   margin-bottom: 16px;
 }
 
+.track-info-container .ant-image {
+  flex-shrink: 0;
+}
+
 @media (max-width: 768px) {
   .track-info-container {
     flex-direction: column;
     gap: 16px;
   }
 
+  .track-info-container .ant-image,
+  .track-info-container .ant-image img {
+    width: min(100%, 220px) !important;
+    height: auto !important;
+  }
+
   .track-detail-content {
     padding: 16px 12px;
+  }
+
+  .track-info-card .ant-card-body {
+    padding: 14px;
   }
 
   .track-info-details h1 {
@@ -96,6 +110,15 @@
 
   .track-info-details h3 {
     font-size: 16px;
+  }
+
+  .track-info-details .ant-space {
+    width: 100%;
+  }
+
+  .track-info-details .ant-btn {
+    flex: 1 1 calc(50% - 6px);
+    min-width: 0;
   }
 }
 

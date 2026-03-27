@@ -137,6 +137,37 @@
   color: var(--text-tertiary);
 }
 
+.artist-mobile-track-list .ant-list-item {
+  padding: 8px 0;
+}
+
+.artist-mobile-track-item {
+  width: 100%;
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(102, 126, 234, 0.08);
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.artist-mobile-track-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.artist-mobile-track-title {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.artist-mobile-track-meta .ant-typography {
+  font-size: 12px;
+  margin: 0;
+}
+
 @media (max-width: 768px) {
   .artist-hero {
     flex-direction: column;
@@ -161,6 +192,19 @@
     width: 100px !important;
     height: 100px !important;
     font-size: 36px !important;
+  }
+
+  .artist-hero-info .ant-space {
+    width: 100%;
+  }
+
+  .artist-hero-info .ant-btn {
+    width: 100%;
+  }
+
+  .artist-tabs {
+    padding: 14px;
+    border-radius: 16px;
   }
 }
 

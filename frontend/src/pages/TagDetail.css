@@ -83,6 +83,36 @@
   box-shadow: 0 4px 24px rgba(102, 126, 234, 0.12);
 }
 
+.tag-mobile-track-list .ant-list-item {
+  padding: 8px 0;
+}
+
+.tag-mobile-track-item {
+  width: 100%;
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(102, 126, 234, 0.08);
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tag-mobile-track-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tag-mobile-track-title {
+  color: var(--text-primary);
+}
+
+.tag-mobile-track-main .ant-typography {
+  margin: 0;
+  font-size: 12px;
+}
+
 @media (max-width: 768px) {
   .tag-detail-content {
     padding: 16px 12px;
@@ -102,6 +132,19 @@
 
   .tag-detail-meta h1 {
     font-size: 24px;
+  }
+
+  .tag-detail-meta .ant-space {
+    width: 100%;
+  }
+
+  .tag-detail-meta .ant-btn {
+    width: 100%;
+  }
+
+  .tag-detail-tracks {
+    padding: 14px;
+    border-radius: 14px;
   }
 }
 

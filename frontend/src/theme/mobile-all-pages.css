@@ -1,4 +1,32 @@
-/* Cross-page mobile/tablet responsiveness for all routed pages. */
+/* Global mobile polish for all public pages: spacing, overflow, readable typography. */
+
+:root {
+  --mobile-gap-xs: 8px;
+  --mobile-gap-sm: 12px;
+  --mobile-gap-md: 16px;
+  --mobile-gap-lg: 20px;
+}
+
+.home-content,
+.game-detail-content,
+.library-content,
+.search-content,
+.albums-content,
+.album-detail-content,
+.artists-content,
+.artist-detail-content,
+.tags-content,
+.tag-detail-content,
+.track-detail-content,
+.maintenance-page,
+.profile-page {
+  min-width: 0;
+}
+
+.app,
+.app * {
+  min-width: 0;
+}
 
 @media (max-width: 1024px) {
   .home-content,
@@ -14,54 +42,26 @@
   .track-detail-content,
   .maintenance-page,
   .profile-page {
-    padding-left: 16px !important;
-    padding-right: 16px !important;
+    padding-left: var(--mobile-gap-md) !important;
+    padding-right: var(--mobile-gap-md) !important;
   }
 
-  .albums-toolbar,
-  .artists-toolbar,
-  .library-toolbar,
-  .search-main-form,
-  .search-main-bar {
-    gap: 10px;
+  .ant-card,
+  .ant-collapse,
+  .ant-table-wrapper,
+  .ant-descriptions,
+  .ant-tabs,
+  .ant-space,
+  .ant-row,
+  .ant-col,
+  .ant-form,
+  .ant-form-item,
+  .ant-typography {
+    max-width: 100%;
   }
 
-  .search-main-form .ant-form-item,
-  .albums-toolbar .ant-form-item,
-  .artists-toolbar .ant-form-item,
-  .library-toolbar .ant-form-item {
-    margin-bottom: 8px;
-  }
-
-  .admin-main-content {
-    padding: 14px !important;
-  }
-
-  .admin-main-content .ant-card {
-    border-radius: 12px;
-  }
-
-  .admin-main-content .ant-card-head {
-    min-height: 48px;
-    padding: 0 14px;
-  }
-
-  .admin-main-content .ant-card-body {
-    padding: 14px;
-  }
-
-  .admin-main-content .ant-card-head-wrapper {
-    align-items: flex-start;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-
-  .admin-main-content .ant-card-extra {
-    margin-inline-start: 0;
-  }
-
-  .admin-main-content .ant-space {
-    row-gap: 8px;
+  .ant-btn {
+    white-space: nowrap;
   }
 }
 
@@ -79,13 +79,8 @@
   .track-detail-content,
   .maintenance-page,
   .profile-page {
-    padding-left: 12px !important;
-    padding-right: 12px !important;
-  }
-
-  .search-hero {
-    padding: 18px 14px !important;
-    border-radius: 14px !important;
+    padding-left: var(--mobile-gap-sm) !important;
+    padding-right: var(--mobile-gap-sm) !important;
   }
 
   .search-main-bar,
@@ -94,6 +89,7 @@
   .library-toolbar {
     display: flex;
     flex-wrap: wrap;
+    gap: var(--mobile-gap-xs) !important;
     width: 100%;
   }
 
@@ -105,91 +101,83 @@
     min-width: 0;
   }
 
-  .tags-collapse .ant-collapse-header {
-    padding: 10px 12px !important;
-  }
-
-  .tag-card,
-  .album-card,
-  .artist-card,
-  .search-hit {
-    border-radius: 14px !important;
-  }
-
-  .admin-mobile-header h2 {
-    font-size: 16px;
-    line-height: 1.25;
-  }
-
-  .admin-main-content {
-    padding: 12px !important;
-  }
-
-  .admin-main-content .ant-table {
-    min-width: 640px;
-  }
-
-  .admin-main-content .ant-card-head-title {
-    font-size: 16px;
-    white-space: normal;
-  }
-
-  .admin-main-content .ant-btn {
-    white-space: nowrap;
-  }
-
-  .admin-main-content .ant-list .ant-list-item {
-    padding: 8px 0;
-  }
-
-  .admin-main-content .ant-list .ant-card {
-    border-radius: 14px;
-    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
-  }
-
-  .admin-main-content .ant-list .ant-card .ant-tag {
-    margin-inline-end: 4px;
-  }
-
-  .ant-drawer.ant-drawer-bottom .ant-drawer-content {
-    border-top-left-radius: 16px;
-    border-top-right-radius: 16px;
-  }
-
-  .ant-drawer.ant-drawer-bottom .ant-drawer-body {
-    padding: 14px 12px calc(12px + env(safe-area-inset-bottom, 0px));
-  }
-
-  .ant-drawer.ant-drawer-bottom .ant-btn {
-    min-height: 38px;
-    justify-content: flex-start;
-  }
-
-  .admin-main-content .ant-form-item {
-    margin-bottom: 12px;
-  }
-
-  .settings-page,
-  .user-management-page,
-  .playlist-detail-page {
-    padding: 12px !important;
-  }
-
-  .settings-page {
+  .search-main-input,
+  .search-main-form,
+  .search-main-input .ant-input-affix-wrapper,
+  .search-main-bar .ant-select,
+  .search-main-bar .ant-btn,
+  .albums-toolbar .ant-input-search,
+  .artists-toolbar .ant-input-search,
+  .library-toolbar .ant-input-search {
+    width: 100% !important;
     max-width: 100% !important;
   }
 
-  .playlist-detail-page .playlist-detail-header {
+  .search-result-header {
+    flex-direction: column;
     align-items: flex-start;
+    gap: 2px;
+  }
+
+  .search-active-tags,
+  .search-quick-tags {
+    justify-content: flex-start;
+  }
+
+  .ant-space {
+    row-gap: var(--mobile-gap-xs);
+  }
+
+  .ant-space-wrap {
     width: 100%;
   }
 
-  .playlist-detail-page .playlist-detail-header .ant-typography {
-    margin-bottom: 0 !important;
+  .ant-tag {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .ant-typography,
+  p,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  span,
+  a {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .ant-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ant-table {
+    min-width: 560px;
+  }
+
+  .ant-card-head,
+  .ant-card-body {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  .ant-pagination {
+    flex-wrap: wrap;
+    justify-content: center !important;
+    gap: 4px;
+  }
+
+  .ant-pagination-options {
+    margin-inline-start: 0 !important;
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 576px) {
   .home-content,
   .game-detail-content,
   .library-content,
@@ -210,14 +198,34 @@
     padding-right: 10px !important;
   }
 
+  .search-hero {
+    padding: 16px 10px !important;
+    border-radius: 14px !important;
+  }
+
   .search-hero-title {
     font-size: 24px !important;
   }
 
-  .admin-main-content .ant-card-head,
-  .admin-main-content .ant-card-body {
-    padding-left: 10px !important;
-    padding-right: 10px !important;
+  .ant-btn-lg,
+  .ant-btn {
+    min-height: 40px;
+  }
+
+  .ant-input,
+  .ant-input-affix-wrapper,
+  .ant-select-selector,
+  .ant-picker,
+  .ant-input-number {
+    min-height: 40px;
+  }
+
+  .mobile-tab-item,
+  .page-header-auth-button,
+  .ant-pagination-item,
+  .ant-pagination-prev,
+  .ant-pagination-next {
+    min-height: 40px;
   }
 }
 

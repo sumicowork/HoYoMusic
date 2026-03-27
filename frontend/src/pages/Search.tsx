@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import {
   Layout, Input, Button, Form, Select, Slider,
   Table, Tag, Image, Space, Typography, Divider,
-  Badge, Empty, Spin, Tooltip, Drawer, Checkbox, Collapse,
+  Badge, Empty, Spin, Tooltip, Drawer, Checkbox, Collapse, Grid, List,
 } from 'antd';
 import {
   SearchOutlined, FilterOutlined, PlayCircleOutlined,
@@ -30,6 +30,7 @@ import './Search.css';
 const { Content } = Layout;
 const { Text } = Typography;
 const { Panel } = Collapse;
+const { useBreakpoint } = Grid;
 
 const SORT_OPTIONS = [
   { label: '最新添加', value: 'created_at' },
@@ -85,6 +86,8 @@ function organizeTagsByGroup(tags: TagType[], groups: TagGroup[]) {
 }
 
 const Search: React.FC = () => {
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
   const [searchParams, setSearchParams] = useSearchParams();
   const { playTrackOnly, addToPlaylist } = usePlayerStore();
   const { addSearch } = useSearchStore();
@@ -589,19 +592,100 @@ const Search: React.FC = () => {
                 {Math.min(pagination.current * pagination.pageSize, pagination.total)} 条
               </Text>
             </div>
-            <Table
-              columns={columns}
-              dataSource={tracks}
-              rowKey="id"
-              loading={loading}
-              className="search-result-table"
-              pagination={{
-                ...pagination,
-                showSizeChanger: false,
-                showTotal: (t) => `共 ${t} 首`,
-                onChange: handlePaginationChange,
-              }}
-            />
+            {isMobile ? (
+              <List
+                className="search-mobile-result-list"
+                dataSource={tracks}
+                loading={loading}
+                pagination={{
+                  ...pagination,
+                  showSizeChanger: false,
+                  showTotal: (t) => `共 ${t} 首`,
+                  onChange: handlePaginationChange,
+                }}
+                renderItem={(record) => {
+                  const notes = (record.notes || '').trim();
+                  const notesMatched = Boolean(searchKeyword) && notes.toLowerCase().includes(searchKeyword.toLowerCase());
+                  const notesSnippet = notesMatched ? getNotesSnippet(notes, searchKeyword) : '';
+                  const coverSrc = record.cover_path || record.album_cover;
+                  const thumbSrc = coverSrc
+                    ? trackService.getCoverUrl(coverSrc, true)
+                    : undefined;
+
+                  return (
+                    <List.Item>
+                      <div className="search-mobile-item">
+                        <div className="search-mobile-main">
+                          <Image
+                            width={54}
+                            height={54}
+                            src={thumbSrc}
+                            fallback={MUSIC_ICON_PLACEHOLDER}
+                            style={{ borderRadius: 8, objectFit: 'cover' }}
+                            preview={false}
+                          />
+                          <div className="search-mobile-meta">
+                            <Link className="search-mobile-title" to={`/track/${record.id}`}>
+                              {highlightText(record.title)}
+                            </Link>
+                            <div className="search-mobile-sub">
+                              {(record as any).artist_names || '未知艺术家'}
+                            </div>
+                            <div className="search-mobile-sub">
+                              {record.album_title || '未分配专辑'} · {formatDuration(record.duration || 0)}
+                            </div>
+                            {notesSnippet && (
+                              <Text type="secondary" className="search-track-notes">
+                                备注：{highlightText(notesSnippet)}
+                              </Text>
+                            )}
+                          </div>
+                        </div>
+                        <Space size={6} wrap>
+                          <Button
+                            type="primary"
+                            size="small"
+                            icon={<PlayCircleOutlined />}
+                            onClick={() => { playTrackOnly(record); toast.success(`正在播放：${record.title}`); }}
+                          >
+                            播放
+                          </Button>
+                          <Button
+                            size="small"
+                            icon={<SoundOutlined />}
+                            onClick={() => { addToPlaylist(record); toast.success('已加入播放队列'); }}
+                          >
+                            队列
+                          </Button>
+                          <Button
+                            size="small"
+                            icon={<DownloadOutlined />}
+                            disabled={!DOWNLOAD_ENABLED}
+                            onClick={() => DOWNLOAD_ENABLED && window.open(trackService.getDownloadUrlPublic(record.id), '_blank')}
+                          >
+                            下载
+                          </Button>
+                        </Space>
+                      </div>
+                    </List.Item>
+                  );
+                }}
+              />
+            ) : (
+              <Table
+                columns={columns}
+                dataSource={tracks}
+                rowKey="id"
+                loading={loading}
+                className="search-result-table"
+                pagination={{
+                  ...pagination,
+                  showSizeChanger: false,
+                  showTotal: (t) => `共 ${t} 首`,
+                  onChange: handlePaginationChange,
+                }}
+              />
+            )}
           </>
         ) : (
           <div className="search-empty-hint">
@@ -630,7 +714,7 @@ const Search: React.FC = () => {
         placement="right"
         open={filterDrawerOpen}
         onClose={() => setFilterDrawerOpen(false)}
-        width={380}
+        width={isMobile ? '100%' : 380}
         extra={
           <Button
             size="small"

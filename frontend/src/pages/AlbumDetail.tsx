@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Layout, Table, Button, Space, Image, Skeleton, Descriptions, message, Tooltip, Card, Typography } from 'antd';
+import { Layout, Table, Button, Space, Image, Skeleton, Descriptions, message, Tooltip, Card, Typography, Grid, List, Tag } from 'antd';
 import { ArrowLeftOutlined, PlayCircleOutlined, DownloadOutlined } from '@ant-design/icons';
 import { Track } from '../types';
 import { trackService, DOWNLOAD_ENABLED } from '../services/trackService';
@@ -11,6 +11,7 @@ import './AlbumDetail.css';
 
 const { Content } = Layout;
 const { Text } = Typography;
+const { useBreakpoint } = Grid;
 
 interface Album {
   id: number;
@@ -37,6 +38,8 @@ const AlbumDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   const { play, setPlaylist, playTrackOnly } = usePlayerStore();
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
 
   useEffect(() => {
     if (id) {
@@ -178,6 +181,33 @@ const AlbumDetail: React.FC = () => {
     },
   ];
 
+  const renderMobileTrackList = (list: Track[]) => (
+    <List
+      className="album-mobile-track-list"
+      dataSource={list}
+      renderItem={(track) => (
+        <List.Item>
+          <div className="album-mobile-track-item">
+            <div className="album-mobile-track-main">
+              <span className="album-mobile-track-no">{track.track_number || '-'}</span>
+              <div className="album-mobile-track-meta">
+                <a onClick={() => navigate(`/track/${track.id}`)}>{track.title}</a>
+                {track.notes && <Text type="secondary">{track.notes}</Text>}
+                <Tag>{formatDuration(track.duration || 0)}</Tag>
+              </div>
+            </div>
+            <Space size={6} wrap>
+              <Button type="primary" size="small" icon={<PlayCircleOutlined />} onClick={() => handlePlay(track)}>播放</Button>
+              <Tooltip title={!DOWNLOAD_ENABLED ? '服务器维护中，暂时关闭下载' : ''}>
+                <Button size="small" icon={<DownloadOutlined />} onClick={() => handleDownload(track)} disabled={!DOWNLOAD_ENABLED}>下载</Button>
+              </Tooltip>
+            </Space>
+          </div>
+        </List.Item>
+      )}
+    />
+  );
+
   if (loading) {
     return (
       <Layout style={{ minHeight: '100vh' }}>
@@ -273,22 +303,28 @@ const AlbumDetail: React.FC = () => {
                     <span className="album-disc-title"> — {group.disc.disc_title}</span>
                   )}
                 </div>
-                <Table
-                  columns={columns}
-                  dataSource={group.tracks}
-                  rowKey="id"
-                  pagination={false}
-                  size="small"
-                />
+                {isMobile ? renderMobileTrackList(group.tracks) : (
+                  <Table
+                    columns={columns}
+                    dataSource={group.tracks}
+                    rowKey="id"
+                    pagination={false}
+                    size="small"
+                  />
+                )}
               </div>
             ))
           ) : (
-            <Table
-              columns={columns}
-              dataSource={tracks}
-              rowKey="id"
-              pagination={false}
-            />
+            isMobile
+              ? renderMobileTrackList(tracks)
+              : (
+                <Table
+                  columns={columns}
+                  dataSource={tracks}
+                  rowKey="id"
+                  pagination={false}
+                />
+              )
           )}
         </div>
       </Content>

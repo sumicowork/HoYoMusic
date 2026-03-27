@@ -69,6 +69,53 @@
   transition: color 0.3s ease;
 }
 
+.album-mobile-track-list .ant-list-item {
+  padding: 8px 0;
+}
+
+.album-mobile-track-item {
+  width: 100%;
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(102, 126, 234, 0.08);
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.album-mobile-track-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.album-mobile-track-no {
+  width: 26px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  text-align: center;
+  padding-top: 2px;
+}
+
+.album-mobile-track-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.album-mobile-track-meta a {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.album-mobile-track-meta .ant-typography {
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 0;
+}
+
 /* Album notes card */
 .album-notes-card {
   background: var(--glass-bg);
@@ -112,11 +159,25 @@
     font-size: 22px;
   }
 
+  .album-hero-info .ant-space {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .album-hero-info .ant-btn {
+    flex: 1 1 auto;
+  }
+
   .album-detail-content {
     padding: 16px 12px;
   }
 
   .album-tracks h2 {
     font-size: 18px;
+  }
+
+  .album-tracks {
+    padding: 14px;
+    border-radius: 16px;
   }
 }

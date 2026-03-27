@@ -174,16 +174,19 @@
 /* ── Responsive ── */
 @media (max-width: 768px) {
   .page-header {
-    padding: 0 12px;
+    padding: 0 10px;
   }
 
   .page-header-inner {
     height: 48px;
-    gap: 12px;
+    gap: 8px;
   }
 
   .page-header-logo {
-    font-size: 18px;
+    font-size: 16px;
+    max-width: 42vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .page-header-nav {
@@ -192,6 +195,32 @@
 
   .page-header-nav-label {
     display: none;
+  }
+
+  .page-header-right {
+    gap: 6px;
+    margin-left: auto;
+  }
+
+  .page-header-auth-button {
+    padding: 6px;
+    min-width: 36px;
+    justify-content: center;
+  }
+
+  .page-header-auth-button span:not(.page-header-nav-icon) {
+    display: none;
+  }
+}
+
+@media (max-width: 420px) {
+  .page-header-logo {
+    font-size: 15px;
+    max-width: 38vw;
+  }
+
+  .page-header-right {
+    gap: 4px;
   }
 }
 

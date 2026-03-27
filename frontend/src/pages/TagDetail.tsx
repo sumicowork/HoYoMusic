@@ -8,7 +8,10 @@ import {
   Table,
   Space,
   message,
-  Tooltip
+  Tooltip,
+  Grid,
+  List,
+  Typography
 } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -22,6 +25,8 @@ import { buildTagPathLookup, getTagPathLabel } from '../utils/tagPath';
 import './TagDetail.css';
 
 const { Content } = Layout;
+const { useBreakpoint } = Grid;
+const { Text } = Typography;
 
 const TagDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -31,6 +36,8 @@ const TagDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const tagPathLookup = useMemo(() => (tag ? buildTagPathLookup([tag], tagGroups) : undefined), [tag, tagGroups]);
   const { play, setPlaylist, playTrackOnly } = usePlayerStore();
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
 
   useEffect(() => {
     if (id) {
@@ -156,6 +163,30 @@ const TagDetail: React.FC = () => {
     },
   ];
 
+  const renderMobileTrackList = () => (
+    <List
+      className="tag-mobile-track-list"
+      dataSource={tag?.tracks || []}
+      renderItem={(record: any) => (
+        <List.Item>
+          <div className="tag-mobile-track-item">
+            <div className="tag-mobile-track-main">
+              <Link className="tag-mobile-track-title" to={`/track/${record.id}`}><strong>{record.title}</strong></Link>
+              <Text type="secondary">{record.artist_name || '未知艺术家'} · {record.album_title || '未分配专辑'}</Text>
+              <AntTag>{formatDuration(record.duration || 0)}</AntTag>
+            </div>
+            <Space size={6} wrap>
+              <Button type="primary" size="small" icon={<PlayCircleOutlined />} onClick={() => handlePlay(record)}>播放</Button>
+              <Tooltip title={!DOWNLOAD_ENABLED ? '服务器维护中，暂时关闭下载' : ''}>
+                <Button size="small" icon={<DownloadOutlined />} onClick={() => handleDownload(record.id)} disabled={!DOWNLOAD_ENABLED}>下载</Button>
+              </Tooltip>
+            </Space>
+          </div>
+        </List.Item>
+      )}
+    />
+  );
+
   if (loading) {
     return (
       <Layout className="tag-detail-layout">
@@ -214,7 +245,9 @@ const TagDetail: React.FC = () => {
           {!tag.tracks || tag.tracks.length === 0 ? (
             <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="此标签下还没有歌曲" style={{ marginTop: 60 }} />
           ) : (
-            <Table columns={columns} dataSource={tag.tracks} rowKey="id" pagination={false} />
+            isMobile
+              ? renderMobileTrackList()
+              : <Table columns={columns} dataSource={tag.tracks} rowKey="id" pagination={false} />
           )}
         </div>
       </Content>
