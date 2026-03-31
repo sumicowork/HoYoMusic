@@ -227,7 +227,7 @@ const Home: React.FC = () => {
           return;
         }
         const result = await trackService.searchTracksPublic({
-          search: selectedArtist,
+          artist: selectedArtist,
           page: 1,
           limit: 100,
           sort_by: 'created_at',

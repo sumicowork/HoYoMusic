@@ -1053,6 +1053,8 @@ export const getTracks = async (req: Request, res: Response) => {
     const gameIds = gameIdsRaw
       ? gameIdsRaw.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n))
       : [];
+    // artist: 保留历史参数名，实际按自定义 credit_value 进行模糊匹配
+    const artistFilter = (req.query.artist as string || '').trim();
     const titleExact = (req.query.title_exact as string || '').trim();
     const albumExact = (req.query.album_exact as string || '').trim();
     const durationBucketRaw = (req.query.duration_bucket as string || '').trim().toLowerCase();
@@ -1186,6 +1188,16 @@ export const getTracks = async (req: Request, res: Response) => {
     if (gameIds.length > 0) {
       conditions.push(`a.game_id = ANY($${pIdx++})`);
       queryParams.push(gameIds);
+    }
+
+    // 制作人员/Credit 筛选（兼容历史 artist 参数）
+    if (artistFilter) {
+      conditions.push(`EXISTS (
+        SELECT 1 FROM track_credits tc_af
+        WHERE tc_af.track_id = t.id
+        AND LOWER(tc_af.credit_value) LIKE LOWER($${pIdx++})
+      )`);
+      queryParams.push(`%${artistFilter}%`);
     }
 
 

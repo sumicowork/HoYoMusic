@@ -36,6 +36,8 @@ publicApi.interceptors.request.use((config) => {
 export interface TrackSearchParams {
   search?: string;
   game_ids?: number[];
+  // Historical param name kept for compatibility; backend applies this to track_credits.credit_value.
+  artist?: string;
   year_from?: number;
   year_to?: number;
   duration_min?: number;  // seconds
@@ -360,6 +362,7 @@ export const trackService = {
     const query = new URLSearchParams();
     if (params.search)                        query.set('search',          params.search);
     if (params.game_ids?.length)              query.set('game_ids',        params.game_ids.join(','));
+    if (params.artist)                        query.set('artist',          params.artist);
     if (params.year_from       != null)       query.set('year_from',        String(params.year_from));
     if (params.year_to         != null)       query.set('year_to',          String(params.year_to));
     if (params.duration_min    != null)       query.set('duration_min',     String(params.duration_min));

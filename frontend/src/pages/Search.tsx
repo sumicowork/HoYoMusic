@@ -221,6 +221,10 @@ const Search: React.FC = () => {
     // 游戏筛选
     if (values.game_ids?.length > 0) params.game_ids = values.game_ids;
 
+    // 制作人员筛选（后端按 track_credits.credit_value 模糊匹配）
+    const artistKeyword = (values.artist || '').trim();
+    if (artistKeyword) params.artist = artistKeyword;
+
     // 年份（只有启用时才传）
     if (yearFilterEnabled) {
       params.year_from = yearRange[0];
@@ -246,6 +250,7 @@ const Search: React.FC = () => {
     const values = form.getFieldsValue();
     let c = 0;
     if (values.game_ids?.length > 0) c++;
+    if ((values.artist || '').trim()) c++;
     if (yearFilterEnabled) c++;
     if (durationFilterEnabled) c++;
     if (selectedTagIds.length > 0) c++;
@@ -712,7 +717,7 @@ const Search: React.FC = () => {
             size="small"
             icon={<CloseOutlined />}
             onClick={() => {
-              form.resetFields(['game_ids']);
+              form.resetFields(['game_ids', 'artist']);
               setYearFilterEnabled(false);
               setDurationFilterEnabled(false);
               setSelectedTagIds([]);
@@ -749,6 +754,13 @@ const Search: React.FC = () => {
               placeholder="选择游戏筛选"
               options={games.map(g => ({ label: g.name, value: g.id }))}
             />
+          </Form.Item>
+
+          {/* ── 制作人员（Credit） ── */}
+          <Divider plain style={{ margin: '4px 0 12px' }}>制作人员（Credit）</Divider>
+
+          <Form.Item name="artist" label="制作人员关键词">
+            <Input allowClear placeholder="例如：HOYO-MiX / 陈致逸 / Vocal / Composer" />
           </Form.Item>
 
           {/* ── 发行年份 ── */}
