@@ -151,7 +151,22 @@ app.use('/api', maintenanceModeGuard);
 const STATIC_STORAGE_MODE = process.env.STORAGE_MODE || 'local';
 if (STATIC_STORAGE_MODE === 'local') {
   const uploadDir = path.join(process.cwd(), process.env.UPLOAD_DIR || 'uploads');
-  app.use('/uploads', express.static(uploadDir));
+  app.use('/uploads', express.static(uploadDir, {
+    etag: true,
+    lastModified: true,
+    setHeaders: (res, filePath) => {
+      const ext = path.extname(filePath).toLowerCase();
+      if (['.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg'].includes(ext)) {
+        res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+        return;
+      }
+      if (['.flac', '.mp3', '.wav', '.ogg', '.m4a', '.aac'].includes(ext)) {
+        res.setHeader('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400');
+        return;
+      }
+      res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=600');
+    },
+  }));
 }
 
 // Routes

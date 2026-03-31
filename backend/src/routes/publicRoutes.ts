@@ -8,6 +8,7 @@ import { getTracks, getTrackById, streamTrack, downloadTrack } from '../controll
 import pool from '../config/database';
 import storageService from '../services/storageService';
 import remoteResourceCache from '../services/remoteResourceCache';
+import { cacheControl, CACHE_TTL, noStore } from '../middleware/cacheHeaders';
 
 const router = Router();
 
@@ -174,7 +175,7 @@ router.get('/covers/proxy', async (req: Request, res: Response) => {
 // ──────────────────────────────────────────────────────────────────
 
 // ── Random Albums — 随机专辑推荐 ──────────────────────────────────
-router.get('/albums/random', async (req: Request, res: Response) => {
+router.get('/albums/random', cacheControl(CACHE_TTL.SHORT, { staleWhileRevalidate: 120 }), async (req: Request, res: Response) => {
   try {
     const count = Math.min(parseInt(req.query.count as string) || 6, 20);
     const result = await pool.query(`
@@ -197,7 +198,7 @@ router.get('/albums/random', async (req: Request, res: Response) => {
 });
 
 // ── Random Tracks — 随机曲目推荐 ─────────────────────────────────
-router.get('/tracks/random', async (req: Request, res: Response) => {
+router.get('/tracks/random', cacheControl(CACHE_TTL.SHORT, { staleWhileRevalidate: 120 }), async (req: Request, res: Response) => {
   try {
     const count = Math.min(parseInt(req.query.count as string) || 10, 30);
     const result = await pool.query(`
@@ -224,10 +225,10 @@ router.get('/tracks/random', async (req: Request, res: Response) => {
 });
 
 // Public routes - 无需认证
-router.get('/tracks', getTracks);
-router.get('/tracks/:id', getTrackById);
-router.get('/tracks/:id/stream', streamTrack);
-router.get('/tracks/:id/download', DOWNLOAD_ENABLED ? downloadTrack : downloadDisabled);
+router.get('/tracks', cacheControl(CACHE_TTL.MEDIUM, { staleWhileRevalidate: 300 }), getTracks);
+router.get('/tracks/:id', cacheControl(CACHE_TTL.SHORT, { staleWhileRevalidate: 120 }), getTrackById);
+router.get('/tracks/:id/stream', cacheControl(604800, { immutable: true }), streamTrack);
+router.get('/tracks/:id/download', cacheControl(604800, { immutable: true }), DOWNLOAD_ENABLED ? downloadTrack : downloadDisabled);
 
 // Record play event and mark effective plays using threshold:
 // played >= max(10, min(30, duration * 0.5))
@@ -321,7 +322,7 @@ router.post('/tracks/:id/play', async (req: Request, res: Response) => {
 });
 
 // Top played tracks
-router.get('/top-tracks', async (req: Request, res: Response) => {
+router.get('/top-tracks', cacheControl(CACHE_TTL.SHORT, { staleWhileRevalidate: 120 }), async (req: Request, res: Response) => {
   try {
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const result = await pool.query(`

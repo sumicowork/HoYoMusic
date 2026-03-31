@@ -10,6 +10,7 @@ import {
   maintenanceModeSchema,
 } from '../validators/schemas';
 import { getMailConfigurationError, sendTestEmail } from '../services/emailService';
+import { cacheControl, CACHE_TTL } from '../middleware/cacheHeaders';
 
 const router = Router();
 
@@ -286,7 +287,7 @@ router.get('/settings/feedback', authenticateAdmin, async (req: Request, res: Re
   }
 });
 
-router.get('/public/site-config/first-visit-modal', async (_req: Request, res: Response) => {
+router.get('/public/site-config/first-visit-modal', cacheControl(CACHE_TTL.SHORT, { staleWhileRevalidate: 120 }), async (_req: Request, res: Response) => {
   try {
     const config = await getFirstVisitModalConfig();
     res.json({ success: true, data: config });
@@ -351,7 +352,7 @@ router.put('/settings/first-visit-modal', authenticateAdmin, validateBody(firstV
   }
 });
 
-router.get('/public/site-config/compliance', async (_req: Request, res: Response) => {
+router.get('/public/site-config/compliance', cacheControl(CACHE_TTL.SHORT, { staleWhileRevalidate: 120 }), async (_req: Request, res: Response) => {
   try {
     const config = await getSiteComplianceConfig();
     res.json({ success: true, data: config });
@@ -408,10 +409,9 @@ router.put('/settings/compliance', authenticateAdmin, validateBody(siteComplianc
   }
 });
 
-router.get('/public/site-config/maintenance', async (_req: Request, res: Response) => {
+router.get('/public/site-config/maintenance', cacheControl(CACHE_TTL.SHORT, { staleWhileRevalidate: 120 }), async (_req: Request, res: Response) => {
   try {
     const config = await getMaintenanceModeConfig();
-    res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=120');
     res.json({ success: true, data: config });
   } catch (error) {
     console.error('Failed to read maintenance config:', error);

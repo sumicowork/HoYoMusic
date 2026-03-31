@@ -5,6 +5,7 @@ import { authenticateStream } from '../middleware/authenticateStream';
 import upload, { coverUpload } from '../middleware/upload';
 import { validateBody } from '../middleware/validate';
 import { updateTrackSchema, bulkDeleteTracksSchema, bulkMoveTracksSchema, previewTrackNotesImportSchema, commitTrackNotesImportSchema } from '../validators/schemas';
+import { cacheControl, CACHE_TTL, noStore } from '../middleware/cacheHeaders';
 
 const router = Router();
 
@@ -20,19 +21,19 @@ router.post('/precheck-duplicates', authenticateAdmin, precheckDuplicateTracks);
 router.post('/preview-credits', authenticateAdmin, upload.array('tracks', 20), previewCredits);
 router.post('/notes-import/preview', authenticateAdmin, validateBody(previewTrackNotesImportSchema), previewTrackNotesImport);
 router.post('/notes-import/commit', authenticateAdmin, validateBody(commitTrackNotesImportSchema), commitTrackNotesImport);
-router.get('/notes-import/candidates', authenticateAdmin, getTrackNotesImportCandidates);
-router.get('/notes-export', authenticateAdmin, exportAllTrackNotes);
-router.get('/duplicates/same-album-title', authenticateAdmin, scanSameAlbumDuplicateTracks);
+router.get('/notes-import/candidates', authenticateAdmin, cacheControl(CACHE_TTL.NONE), getTrackNotesImportCandidates);
+router.get('/notes-export', authenticateAdmin, cacheControl(CACHE_TTL.NONE), exportAllTrackNotes);
+router.get('/duplicates/same-album-title', authenticateAdmin, cacheControl(CACHE_TTL.NONE), scanSameAlbumDuplicateTracks);
 router.delete('/bulk', authenticateAdmin, validateBody(bulkDeleteTracksSchema), bulkDeleteTracks);
 router.post('/bulk-move', authenticateAdmin, validateBody(bulkMoveTracksSchema), bulkMoveTracksToAlbum);
-router.get('/', authenticateAdmin, getTracks);
-router.get('/filter-options', authenticateAdmin, getTrackFilterOptions);
-router.get('/:id', authenticateAdmin, getTrackById);
+router.get('/', authenticateAdmin, cacheControl(CACHE_TTL.NONE), getTracks);
+router.get('/filter-options', authenticateAdmin, cacheControl(CACHE_TTL.NONE), getTrackFilterOptions);
+router.get('/:id', authenticateAdmin, cacheControl(CACHE_TTL.NONE), getTrackById);
 router.put('/:id', authenticateAdmin, validateBody(updateTrackSchema), updateTrack);
 router.delete('/:id', authenticateAdmin, deleteTrack);
 router.post('/:id/cover', authenticateAdmin, coverUpload.single('cover'), uploadTrackCover);
-router.get('/:id/stream', authenticateStream, streamTrack);
-router.get('/:id/download', authenticateStream, DOWNLOAD_ENABLED ? downloadTrack : downloadDisabled);
+router.get('/:id/stream', authenticateStream, cacheControl(86400, { immutable: true }), streamTrack);
+router.get('/:id/download', authenticateStream, cacheControl(86400, { immutable: true }), DOWNLOAD_ENABLED ? downloadTrack : downloadDisabled);
 
 export default router;
 
