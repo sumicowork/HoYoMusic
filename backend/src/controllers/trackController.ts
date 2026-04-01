@@ -394,7 +394,7 @@ export const uploadTracks = async (req: Request, res: Response) => {
     const uploadedTracks = [];
     // auto_credits: 优先从 query string 读（绕开 multipart body 字段顺序问题），兼容 body
     const autoCreditsRaw = (req.query.auto_credits as string) ?? req.body.auto_credits;
-    const autoCredits = autoCreditsRaw === 'false' ? false : true;
+    const autoCredits = autoCreditsRaw !== 'false';
 
     // 元数据覆盖字段（前端在步骤2编辑后传入，每个文件对应的覆盖）
     // 格式：title_override_<index>、album_override_<index>
@@ -408,15 +408,15 @@ export const uploadTracks = async (req: Request, res: Response) => {
       const file = files[fileIdx];
       let fileBuffer: Buffer | null = null;
       try {
-        // Read file from disk (Multer disk storage)
-        fileBuffer = fs.readFileSync(file.path);
+        // Read file from disk (Multer disk storage) without blocking event loop.
+        fileBuffer = await fs.promises.readFile(file.path);
 
         // ── Deep file type validation (magic bytes) ──
         const typeResult = await fileTypeFromBuffer(fileBuffer);
         if (!typeResult || !['audio/flac', 'audio/x-flac'].includes(typeResult.mime)) {
           console.warn(`File ${file.originalname} failed magic byte check: ${typeResult?.mime || 'unknown'}`);
           // Clean up temp file
-          try { fs.unlinkSync(file.path); } catch {}
+          try { await fs.promises.unlink(file.path); } catch {}
           continue; // skip this file
         }
 
@@ -657,7 +657,7 @@ export const uploadTracks = async (req: Request, res: Response) => {
         // Continue with other files
       } finally {
         // Clean up temp file from disk
-        try { if (file.path) fs.unlinkSync(file.path); } catch {}
+        try { if (file.path) await fs.promises.unlink(file.path); } catch {}
         fileBuffer = null; // allow GC
       }
     }
@@ -1401,15 +1401,20 @@ export const streamTrack = async (req: Request, res: Response) => {
       // 本地存储模式：流式传输文件
       const fullPath = storageService.getFullPath(filePath);
 
-      if (!fs.existsSync(fullPath)) {
-        return res.status(404).json({
-          success: false,
-          error: { code: 'FILE_NOT_FOUND', message: 'File not found' }
-        });
+      let fileSize = 0;
+      try {
+        const stat = await fs.promises.stat(fullPath);
+        fileSize = stat.size;
+      } catch (error: any) {
+        if (error?.code === 'ENOENT') {
+          return res.status(404).json({
+            success: false,
+            error: { code: 'FILE_NOT_FOUND', message: 'File not found' }
+          });
+        }
+        throw error;
       }
 
-      const stat = fs.statSync(fullPath);
-      const fileSize = stat.size;
       const range = req.headers.range;
 
       if (range) {
@@ -1417,6 +1422,13 @@ export const streamTrack = async (req: Request, res: Response) => {
         const parts = range.replace(/bytes=/, "").split("-");
         const start = parseInt(parts[0], 10);
         const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+        if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start || end >= fileSize) {
+          res.setHeader('Content-Range', `bytes */${fileSize}`);
+          return res.status(416).json({
+            success: false,
+            error: { code: 'INVALID_RANGE', message: 'Requested range not satisfiable' }
+          });
+        }
         const chunksize = (end - start) + 1;
         const file = fs.createReadStream(fullPath, { start, end });
 
@@ -1800,7 +1812,7 @@ export const previewCredits = async (req: Request, res: Response) => {
     for (const file of files) {
       let buffer: Buffer | null = null;
       try {
-      buffer = fs.readFileSync(file.path);
+      buffer = await fs.promises.readFile(file.path);
 
       // Validate file type magic bytes
       const typeResult = await fileTypeFromBuffer(buffer);
@@ -1840,7 +1852,7 @@ export const previewCredits = async (req: Request, res: Response) => {
       });
       } finally {
         // Clean up temp file
-        try { if (file.path) fs.unlinkSync(file.path); } catch {}
+        try { if (file.path) await fs.promises.unlink(file.path); } catch {}
         buffer = null;
       }
     }

@@ -8,7 +8,7 @@ import { getTracks, getTrackById, streamTrack, downloadTrack } from '../controll
 import pool from '../config/database';
 import storageService from '../services/storageService';
 import remoteResourceCache from '../services/remoteResourceCache';
-import { cacheControl, CACHE_TTL, noStore } from '../middleware/cacheHeaders';
+import { cacheControl, CACHE_TTL } from '../middleware/cacheHeaders';
 
 const router = Router();
 
@@ -25,10 +25,20 @@ const downloadDisabled = (_req: Request, res: Response) =>
 
 const fetchUrlBuffer = async (url: string): Promise<{ statusCode: number; buffer: Buffer; contentType: string }> => {
   return await new Promise((resolve, reject) => {
+    const MAX_BYTES = 10 * 1024 * 1024;
+    const REQUEST_TIMEOUT_MS = 10000;
     const client = url.startsWith('https') ? https : http;
-    client.get(url, (resp) => {
+    const req = client.get(url, (resp) => {
       const chunks: Buffer[] = [];
-      resp.on('data', (chunk: Buffer) => chunks.push(chunk));
+      let totalSize = 0;
+      resp.on('data', (chunk: Buffer) => {
+        totalSize += chunk.length;
+        if (totalSize > MAX_BYTES) {
+          req.destroy(new Error('Remote resource too large'));
+          return;
+        }
+        chunks.push(chunk);
+      });
       resp.on('end', () => {
         resolve({
           statusCode: resp.statusCode || 200,
@@ -37,7 +47,13 @@ const fetchUrlBuffer = async (url: string): Promise<{ statusCode: number; buffer
         });
       });
       resp.on('error', reject);
-    }).on('error', reject);
+    });
+
+    req.setTimeout(REQUEST_TIMEOUT_MS, () => {
+      req.destroy(new Error('Remote request timed out'));
+    });
+
+    req.on('error', reject);
   });
 };
 
@@ -51,6 +67,37 @@ const toPositiveNumber = (value: unknown): number | null => {
   const n = Number(value);
   if (!Number.isFinite(n) || n <= 0) return null;
   return n;
+};
+
+const isPrivateIpv4 = (host: string): boolean => {
+  const m = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (!m) return false;
+  const a = Number(m[1]);
+  const b = Number(m[2]);
+  if ([a, b].some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return false;
+  if (a === 10 || a === 127 || a === 0) return true;
+  if (a === 169 && b === 254) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  return false;
+};
+
+const isBlockedHost = (host: string): boolean => {
+  const normalized = host.trim().toLowerCase();
+  if (!normalized) return true;
+  if (normalized === 'localhost' || normalized === '::1' || normalized.endsWith('.localhost')) return true;
+  return isPrivateIpv4(normalized);
+};
+
+const parseAndValidateRemoteCoverUrl = (input: string): URL | null => {
+  try {
+    const parsed = new URL(input);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    if (isBlockedHost(parsed.hostname)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
 };
 // ──────────────────────────────────────────────────────────────────
 
@@ -77,7 +124,7 @@ router.get('/covers/proxy', async (req: Request, res: Response) => {
         let pipeline = sharp(imageBuffer)
           .resize(1000, 1000, { fit: 'cover', withoutEnlargement: true });
 
-        let contentType = 'image/jpeg';
+        let contentType: string;
         if (fmt === 'png') {
           pipeline = pipeline.png();
           contentType = 'image/png';
@@ -135,35 +182,44 @@ router.get('/covers/proxy', async (req: Request, res: Response) => {
 
     // 本地 / WebDAV 模式
     if (coverPath.startsWith('http://') || coverPath.startsWith('https://')) {
-      if (isThumb) {
-        // Fetch remote image, resize
-        const proto = coverPath.startsWith('https') ? https : http;
-        const chunks: Buffer[] = [];
-        proto.get(coverPath, (remoteRes) => {
-          remoteRes.on('data', (chunk: Buffer) => chunks.push(chunk));
-          remoteRes.on('end', async () => {
-            const imageBuffer = Buffer.concat(chunks);
-            const thumb = await buildThumbnail(imageBuffer);
-            sendImage(thumb.buffer, thumb.contentType, 604800);
-          });
-          remoteRes.on('error', () => res.redirect(coverPath));
-        }).on('error', () => res.redirect(coverPath));
-        return;
+      const remoteUrl = parseAndValidateRemoteCoverUrl(coverPath);
+      if (!remoteUrl) {
+        return res.status(400).json({ success: false, error: { code: 'INVALID_REMOTE_URL', message: 'Invalid remote cover URL' } });
       }
-      return res.redirect(coverPath);
+
+      const remote = await fetchUrlBuffer(remoteUrl.toString());
+      if (remote.statusCode >= 400) {
+        return res.status(remote.statusCode).json({
+          success: false,
+          error: { code: 'REMOTE_FETCH_FAILED', message: 'Failed to fetch remote cover' },
+        });
+      }
+
+      if (isThumb) {
+        const thumb = await buildThumbnail(remote.buffer);
+        return sendImage(thumb.buffer, thumb.contentType, 604800);
+      }
+
+      return sendImage(remote.buffer, remote.contentType, 86400);
     }
 
     // 本地路径
     const normalized = coverPath.startsWith('/') ? coverPath : `/uploads/${coverPath}`;
+    const localRelativePath = normalized.startsWith('/uploads/') ? normalized.slice('/uploads/'.length) : normalized.slice(1);
+    if (localRelativePath.split('/').some((segment) => segment === '..')) {
+      return res.status(400).json({ success: false, error: { code: 'INVALID_PATH', message: 'Invalid cover path' } });
+    }
     if (isThumb) {
       const UPLOAD_DIR = path.join(process.cwd(), process.env.UPLOAD_DIR || 'uploads');
-      const stripped = normalized.startsWith('/uploads/') ? normalized.slice('/uploads/'.length) : normalized.slice(1);
-      const fullPath = path.join(UPLOAD_DIR, stripped);
-      if (fs.existsSync(fullPath)) {
-        const imageBuffer = fs.readFileSync(fullPath);
+      const fullPath = path.join(UPLOAD_DIR, localRelativePath);
+      try {
+        await fs.promises.access(fullPath, fs.constants.F_OK);
+        const imageBuffer = await fs.promises.readFile(fullPath);
         const thumb = await buildThumbnail(imageBuffer);
         sendImage(thumb.buffer, thumb.contentType, 604800);
         return;
+      } catch {
+        // Fallback to redirect when local file is missing.
       }
     }
     return res.redirect(normalized);

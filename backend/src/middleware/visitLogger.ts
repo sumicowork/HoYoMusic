@@ -35,7 +35,6 @@ try { UAParser = require('ua-parser-js'); } catch { /* optional */ }
 const SKIP_PREFIXES = ['/uploads/', '/api/public/covers/proxy', '/api/public/site-config/maintenance'];
 const VISITOR_COOKIE_KEY = 'visitor_id';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
 const SKIP_PATTERNS = [/\/stream(\?|$)/, /\.(woff2?|ttf|ico|svg|map)(\?|$)/i];
 const VISIT_LOGGER_ENABLED = process.env.VISIT_LOGGER_ENABLED !== 'false';
 const FLUSH_INTERVAL_MS = Math.max(200, parseInt(process.env.VISIT_LOGGER_FLUSH_MS || '1000', 10));
@@ -99,8 +98,14 @@ function getAuthIdentity(req: Request): { userId: number | null; username: strin
   const token = authHeader.slice(7).trim();
   if (!token) return { userId: null, username: null };
 
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret) {
+    // Keep logging non-blocking and avoid implicit fallback secrets.
+    return { userId: null, username: null };
+  }
+
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as { id?: unknown; userId?: unknown; username?: unknown };
+    const payload = jwt.verify(token, jwtSecret) as { id?: unknown; userId?: unknown; username?: unknown };
     const username = typeof payload.username === 'string' && payload.username.trim()
       ? payload.username.trim().slice(0, 128)
       : null;
@@ -158,7 +163,7 @@ function getRealIp(req: Request): string {
   }
 
   const socketIp = req.socket.remoteAddress || req.ip;
-  if (socketIp && typeof socketIp === 'string') {
+  if (socketIp) {
     return socketIp;
   }
 

@@ -149,7 +149,12 @@ const resolveTrackSource = async (filePath: string): Promise<string | null> => {
   }
 
   const fullPath = storageService.getFullPath(filePath);
-  return fs.existsSync(fullPath) ? fullPath : null;
+  try {
+    await fs.promises.access(fullPath, fs.constants.F_OK);
+    return fullPath;
+  } catch {
+    return null;
+  }
 };
 
 const readTrackHeadBuffer = async (filePath: string): Promise<Buffer | null> => {
@@ -162,13 +167,13 @@ const readTrackHeadBuffer = async (filePath: string): Promise<Buffer | null> => 
     return await fetchBufferFromUrl(source, REMOTE_READ_BYTES);
   }
 
-  const fd = fs.openSync(source, 'r');
+  const fd = await fs.promises.open(source, 'r');
   try {
     const buffer = Buffer.alloc(REMOTE_READ_BYTES);
-    const bytesRead = fs.readSync(fd, buffer, 0, REMOTE_READ_BYTES, 0);
+    const { bytesRead } = await fd.read(buffer, 0, REMOTE_READ_BYTES, 0);
     return buffer.slice(0, bytesRead);
   } finally {
-    fs.closeSync(fd);
+    await fd.close();
   }
 };
 
@@ -786,7 +791,13 @@ export const downloadAlbum = async (req: Request, res: Response) => {
         : track.file_path;
 
       // Check if file exists (only for local storage)
-      if (storageService.isLocal() && fs.existsSync(filePath)) {
+      if (storageService.isLocal()) {
+        try {
+          await fs.promises.access(filePath, fs.constants.F_OK);
+        } catch {
+          console.warn(`File not found: ${filePath}`);
+          continue;
+        }
         const trackNumber = track.track_number ? String(track.track_number).padStart(2, '0') : '00';
         const fileName = `${trackNumber} - ${track.title}.flac`;
         archive.file(filePath, { name: fileName });
@@ -947,11 +958,15 @@ export const rescanDates = async (req: Request, res: Response) => {
           continue;
         } else {
           const fullPath = storageService.getFullPath(track.file_path);
-          if (!fs.existsSync(fullPath)) continue;
-          const fd = fs.openSync(fullPath, 'r');
+          try {
+            await fs.promises.access(fullPath, fs.constants.F_OK);
+          } catch {
+            continue;
+          }
+          const fd = await fs.promises.open(fullPath, 'r');
           buffer = Buffer.alloc(262144);
-          const bytesRead = fs.readSync(fd, buffer, 0, 262144, 0);
-          fs.closeSync(fd);
+          const { bytesRead } = await fd.read(buffer, 0, 262144, 0);
+          await fd.close();
           buffer = buffer.slice(0, bytesRead);
         }
 
