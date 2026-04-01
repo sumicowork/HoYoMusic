@@ -6,7 +6,12 @@ import { Request, Response, NextFunction } from 'express';
  */
 export const requestLogger = (req: Request, res: Response, next: NextFunction) => {
   // Skip noisy endpoints
-  if (req.path === '/api/health' || req.path.startsWith('/favicon')) {
+  if (
+    req.path === '/api/health'
+    || req.path === '/api/docs.json'
+    || req.path.startsWith('/api/docs')
+    || req.path.startsWith('/favicon')
+  ) {
     return next();
   }
 

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { AxiosInstance } from 'axios';
 import { useAuthModalStore } from '../store/authModalStore';
 
 
@@ -48,31 +49,37 @@ export const getOrCreateVisitorId = (): string | null => {
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
 
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+const createApiClient = (options?: { noCacheForAuthedGet?: boolean }): AxiosInstance => {
+  const client = axios.create({
+    baseURL: API_BASE_URL,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
 
-api.interceptors.request.use((config) => {
-  const visitorId = getOrCreateVisitorId();
-  if (visitorId) {
-    config.headers['x-visitor-id'] = visitorId;
-  }
-
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-
-    if (config.method?.toLowerCase() === 'get') {
-      config.headers['Cache-Control'] = 'no-cache';
-      config.headers.Pragma = 'no-cache';
+  client.interceptors.request.use((config) => {
+    const visitorId = getOrCreateVisitorId();
+    if (visitorId) {
+      config.headers['x-visitor-id'] = visitorId;
     }
-  }
 
-  return config;
-});
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+
+      if (options?.noCacheForAuthedGet && config.method?.toLowerCase() === 'get') {
+        config.headers['Cache-Control'] = 'no-cache';
+        config.headers.Pragma = 'no-cache';
+      }
+    }
+
+    return config;
+  });
+
+  return client;
+};
+
+const api = createApiClient({ noCacheForAuthedGet: true });
 
 api.interceptors.response.use(
   (response) => response,
@@ -87,4 +94,5 @@ api.interceptors.response.use(
 );
 
 export default api;
+export { createApiClient };
 

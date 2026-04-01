@@ -1,4 +1,4 @@
-import React, { useEffect, Suspense, lazy, useState } from 'react';
+import React, { useEffect, Suspense, lazy, useState, useRef, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ConfigProvider, App as AntApp, message, notification, Skeleton } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
@@ -66,15 +66,23 @@ interface AppRoutesProps {
 const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onCloseFeedback }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { currentTrack } = usePlayerStore();
-  const { isAuthenticated, isInitialized, user } = useAuthStore();
+  const currentTrack = usePlayerStore((state) => state.currentTrack);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isInitialized = useAuthStore((state) => state.isInitialized);
+  const user = useAuthStore((state) => state.user);
   const [maintenanceConfig, setMaintenanceConfig] = useState<MaintenanceModeConfig>(DEFAULT_MAINTENANCE_MODE_CONFIG);
   const [maintenanceLoaded, setMaintenanceLoaded] = useState(false);
+  const maintenanceRequestRef = useRef<Promise<void> | null>(null);
 
   useEffect(() => {
     let active = true;
 
     const loadMaintenanceConfig = async () => {
+      if (maintenanceRequestRef.current) {
+        return maintenanceRequestRef.current;
+      }
+
+      const request = (async () => {
       try {
         const config = await siteConfigService.getPublicMaintenanceMode();
         if (active) {
@@ -96,7 +104,12 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
         if (active) {
           setMaintenanceLoaded(true);
         }
+        maintenanceRequestRef.current = null;
       }
+      })();
+
+      maintenanceRequestRef.current = request;
+      return request;
     };
 
     const refreshMaintenanceOnActive = () => {
@@ -275,9 +288,11 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
 };
 
 const App: React.FC = () => {
-  const { mode } = useThemeStore();
-  const { initializeAuth } = useAuthStore();
+  const mode = useThemeStore((state) => state.mode);
+  const initializeAuth = useAuthStore((state) => state.initializeAuth);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const handleOpenFeedback = useCallback(() => setFeedbackOpen(true), []);
+  const handleCloseFeedback = useCallback(() => setFeedbackOpen(false), []);
 
   // Initialize authentication and theme on app startup
   useEffect(() => {
@@ -294,8 +309,8 @@ const App: React.FC = () => {
         <Router>
           <AppRoutes
             feedbackOpen={feedbackOpen}
-            onOpenFeedback={() => setFeedbackOpen(true)}
-            onCloseFeedback={() => setFeedbackOpen(false)}
+            onOpenFeedback={handleOpenFeedback}
+            onCloseFeedback={handleCloseFeedback}
           />
         </Router>
       </AntApp>

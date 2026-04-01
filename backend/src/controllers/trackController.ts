@@ -7,8 +7,14 @@ import http from 'http';
 import pool from '../config/database';
 import { TrackWithDetails } from '../types';
 import storageService from '../services/storageService';
-import { fromBuffer as fileTypeFromBuffer } from 'file-type';
 import { toStringList } from '../utils/metadata';
+
+const FLAC_MAGIC = Buffer.from('fLaC', 'ascii');
+
+const isValidFlacBuffer = (buffer: Buffer): boolean => {
+  // FLAC stream marker must be at byte 0.
+  return buffer.length >= FLAC_MAGIC.length && buffer.subarray(0, FLAC_MAGIC.length).equals(FLAC_MAGIC);
+};
 
 // Fields already stored in dedicated columns – skip from credits
 const CREDIT_SKIP_KEYS = new Set([
@@ -412,9 +418,8 @@ export const uploadTracks = async (req: Request, res: Response) => {
         fileBuffer = await fs.promises.readFile(file.path);
 
         // ── Deep file type validation (magic bytes) ──
-        const typeResult = await fileTypeFromBuffer(fileBuffer);
-        if (!typeResult || !['audio/flac', 'audio/x-flac'].includes(typeResult.mime)) {
-          console.warn(`File ${file.originalname} failed magic byte check: ${typeResult?.mime || 'unknown'}`);
+        if (!isValidFlacBuffer(fileBuffer)) {
+          console.warn(`File ${file.originalname} failed FLAC magic byte check`);
           // Clean up temp file
           try { await fs.promises.unlink(file.path); } catch {}
           continue; // skip this file
@@ -1815,8 +1820,7 @@ export const previewCredits = async (req: Request, res: Response) => {
       buffer = await fs.promises.readFile(file.path);
 
       // Validate file type magic bytes
-      const typeResult = await fileTypeFromBuffer(buffer);
-      if (!typeResult || !['audio/flac', 'audio/x-flac'].includes(typeResult.mime)) {
+      if (!isValidFlacBuffer(buffer)) {
         results.push({ filename: file.originalname, credits: [], error: 'Not a valid FLAC file' });
         continue;
       }

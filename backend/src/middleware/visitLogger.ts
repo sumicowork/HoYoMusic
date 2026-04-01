@@ -33,6 +33,7 @@ try { UAParser = require('ua-parser-js'); } catch { /* optional */ }
 
 // Skip recording for these path prefixes / patterns
 const SKIP_PREFIXES = ['/uploads/', '/api/public/covers/proxy', '/api/public/site-config/maintenance'];
+const SKIP_METHODS = new Set(['OPTIONS', 'HEAD']);
 const VISITOR_COOKIE_KEY = 'visitor_id';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SKIP_PATTERNS = [/\/stream(\?|$)/, /\.(woff2?|ttf|ico|svg|map)(\?|$)/i];
@@ -45,6 +46,7 @@ const VISITOR_MERGE_CACHE_MAX = Math.max(200, parseInt(process.env.VISIT_LOGGER_
 
 const queue: VisitLogEntry[] = [];
 let flushing = false;
+let droppedCount = 0;
 const visitorMergeCache = new Map<string, number>();
 
 function pruneVisitorMergeCache(now: number): void {
@@ -170,6 +172,10 @@ function ensureVisitorId(req: Request, res: Response): string {
 }
 
 function getRealIp(req: Request): string {
+  if (typeof req.ip === 'string' && req.ip.trim()) {
+    return req.ip.replace(/^::ffff:/, '').trim();
+  }
+
   const forwarded = req.headers['x-forwarded-for'];
   if (typeof forwarded === 'string' && forwarded.trim()) {
     return forwarded.split(',')[0].trim();
@@ -230,7 +236,8 @@ setInterval(() => {
 
 function enqueue(entry: VisitLogEntry): void {
   if (queue.length >= MAX_QUEUE_SIZE) {
-    queue.shift();
+    droppedCount += 1;
+    return;
   }
   queue.push(entry);
   if (queue.length >= BATCH_SIZE) {
@@ -240,6 +247,7 @@ function enqueue(entry: VisitLogEntry): void {
 
 export function visitLogger(req: Request, res: Response, next: NextFunction) {
   if (!VISIT_LOGGER_ENABLED) return next();
+  if (SKIP_METHODS.has(req.method)) return next();
 
   ensureVisitorId(req, res);
   const urlPath = req.path;
@@ -301,5 +309,20 @@ export function visitLogger(req: Request, res: Response, next: NextFunction) {
   });
 
   next();
+}
+
+export async function flushVisitLoggerNow(): Promise<void> {
+  // Keep flushing until queue is empty to avoid dropping shutdown-time events.
+  while (queue.length > 0) {
+    await flushQueue(true);
+    if (flushing) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+  }
+
+  if (droppedCount > 0) {
+    console.warn(`[visitLogger] dropped ${droppedCount} events because queue reached MAX_QUEUE_SIZE=${MAX_QUEUE_SIZE}`);
+    droppedCount = 0;
+  }
 }
 

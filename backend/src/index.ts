@@ -29,7 +29,7 @@ import debugRoutes from './routes/debugRoutes';
 import settingsRoutes from './routes/settingsRoutes';
 import userRoutes from './routes/userRoutes';
 import messageRoutes from './routes/messageRoutes';
-import { visitLogger } from './middleware/visitLogger';
+import { flushVisitLoggerNow, visitLogger } from './middleware/visitLogger';
 import { maintenanceModeGuard } from './middleware/maintenanceMode';
 import { errorHandler } from './middleware/errorHandler';
 
@@ -130,7 +130,10 @@ app.use(cors(corsOrigins ? {
 } : undefined)); // undefined = allow all (dev mode)
 
 // ── Request Timeout ─────────────────────────────────────────────
-const REQUEST_TIMEOUT = parseInt(process.env.REQUEST_TIMEOUT_MS || '60000');
+const parsedRequestTimeout = Number(process.env.REQUEST_TIMEOUT_MS || '60000');
+const REQUEST_TIMEOUT = Number.isFinite(parsedRequestTimeout)
+  ? Math.min(120000, Math.max(5000, parsedRequestTimeout))
+  : 60000;
 app.use((req, res, next) => {
   // Skip timeout for audio streaming and large uploads
   if (req.path.includes('/stream') || req.path.includes('/upload') || req.method === 'OPTIONS') {
@@ -654,6 +657,11 @@ const startServer = async () => {
     const shutdown = (signal: string) => {
       console.log(`\n⏳ Received ${signal}, shutting down gracefully...`);
       server.close(async () => {
+        try {
+          await flushVisitLoggerNow();
+        } catch (flushError) {
+          console.warn('⚠️  visit logger flush warning:', flushError);
+        }
         try {
           await pool.end();
           console.log('✅ Database pool closed');

@@ -9,6 +9,7 @@ import { cache } from '../utils/cache';
 import remoteResourceCache from '../services/remoteResourceCache';
 import storageService from '../services/storageService';
 import { withReadableBehavior } from '../utils/behaviorAnalysis';
+import analyticsEsaService from '../services/analyticsEsaService';
 
 const router = Router();
 router.use(authenticateAdmin as any);
@@ -150,6 +151,19 @@ const toProvinceBucket = (country: string | null, region: string | null, city: s
 const safeError = (e: any) => {
   const msg = process.env.NODE_ENV === 'production' ? 'Internal server error' : (e?.message || 'Unknown error');
   return { success: false, error: { code: 'ANALYTICS_ERROR', message: msg } };
+};
+
+const tryEsa = async <T>(label: string, fetcher: () => Promise<T>): Promise<T | null> => {
+  if (!analyticsEsaService.isEnabled()) return null;
+  try {
+    return await fetcher();
+  } catch (error: any) {
+    if (analyticsEsaService.shouldThrowOnFailure()) {
+      throw error;
+    }
+    console.warn(`[analytics][esa] ${label} failed, fallback to sql: ${error?.message || error}`);
+    return null;
+  }
 };
 
 const ROUTE_FILE_MOUNTS: Array<{ file: string; prefix: string }> = [
@@ -429,6 +443,11 @@ const warmupAppCache = async () => {
 // ── Overview cards ────────────────────────────────────────────────
 router.get('/overview', async (_req: Request, res: Response) => {
   try {
+    const esaData = await tryEsa('overview', async () => analyticsEsaService.getOverview());
+    if (esaData) {
+      return res.json({ success: true, data: esaData });
+    }
+
     const [total, today, unique7d, errors, avgMs] = await Promise.all([
       pool.query(`SELECT COUNT(*)::int AS v FROM visit_logs`),
       pool.query(`SELECT COUNT(*)::int AS v FROM visit_logs WHERE ts >= (NOW() AT TIME ZONE 'Asia/Shanghai')::date AT TIME ZONE 'Asia/Shanghai'`),
@@ -450,6 +469,11 @@ router.get('/overview', async (_req: Request, res: Response) => {
 router.get('/trend', async (req: Request, res: Response) => {
   try {
     const d = clampDays(req.query.days);
+    const esaData = await tryEsa('trend', async () => analyticsEsaService.getTrend(d));
+    if (esaData) {
+      return res.json({ success: true, data: esaData });
+    }
+
     const result = await pool.query(`
       SELECT
         DATE_TRUNC('day', ts AT TIME ZONE 'Asia/Shanghai')::date AS date,
@@ -869,6 +893,11 @@ router.get('/cities', async (req: Request, res: Response) => {
 router.get('/pages', async (req: Request, res: Response) => {
   try {
     const d = clampDays(req.query.days);
+    const esaData = await tryEsa('pages', async () => analyticsEsaService.getPages(d));
+    if (esaData) {
+      return res.json({ success: true, data: esaData });
+    }
+
     const result = await pool.query(`
       SELECT
         path,
@@ -915,6 +944,11 @@ router.get('/devices', async (req: Request, res: Response) => {
 router.get('/status-codes', async (req: Request, res: Response) => {
   try {
     const d = clampDays(req.query.days);
+    const esaData = await tryEsa('status-codes', async () => analyticsEsaService.getStatusCodes(d));
+    if (esaData) {
+      return res.json({ success: true, data: esaData });
+    }
+
     const result = await pool.query(`
       SELECT status::text AS name, COUNT(*)::int AS value
       FROM visit_logs WHERE ts >= NOW() - INTERVAL '1 day' * $1
@@ -928,6 +962,11 @@ router.get('/status-codes', async (req: Request, res: Response) => {
 router.get('/performance', async (req: Request, res: Response) => {
   try {
     const d = clampDays(req.query.days);
+    const esaData = await tryEsa('performance', async () => analyticsEsaService.getPerformance(d));
+    if (esaData) {
+      return res.json({ success: true, data: esaData });
+    }
+
     const result = await pool.query(`
       SELECT
         DATE_TRUNC('hour', ts) AS hour,
@@ -1003,6 +1042,11 @@ router.post('/cache/warmup', async (_req: Request, res: Response) => {
 router.get('/referers', async (req: Request, res: Response) => {
   try {
     const d = clampDays(req.query.days);
+    const esaData = await tryEsa('referers', async () => analyticsEsaService.getReferers(d));
+    if (esaData) {
+      return res.json({ success: true, data: esaData });
+    }
+
     const result = await pool.query(`
       SELECT
         CASE WHEN referer IS NULL OR referer = '' THEN 'Direct / None'

@@ -24,7 +24,9 @@ export default defineConfig({
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-antd-core': ['antd'],
           'vendor-antd-icons': ['@ant-design/icons'],
-          'vendor-utils': ['axios', 'zustand', 'howler'],
+          'vendor-utils': ['axios', 'zustand', 'howler', 'dayjs'],
+          'vendor-markdown': ['react-markdown', 'remark-breaks', 'remark-gfm'],
+          'vendor-dnd': ['react-beautiful-dnd', 'react-window'],
           'vendor-recharts': ['recharts'],
         },
         // Put font files in a dedicated /fonts/ directory

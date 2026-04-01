@@ -11,6 +11,10 @@ import remoteResourceCache from '../services/remoteResourceCache';
 import { cacheControl, CACHE_TTL } from '../middleware/cacheHeaders';
 
 const router = Router();
+const MAX_REMOTE_COVER_BYTES = Math.min(
+  20 * 1024 * 1024,
+  Math.max(1 * 1024 * 1024, Number(process.env.REMOTE_COVER_MAX_BYTES || 10 * 1024 * 1024))
+);
 
 interface RecordPlayBody {
   played_seconds?: number;
@@ -23,17 +27,41 @@ const DOWNLOAD_ENABLED = process.env.DOWNLOAD_ENABLED === 'true';
 const downloadDisabled = (_req: Request, res: Response) =>
   res.status(503).json({ success: false, error: { code: 'DOWNLOAD_DISABLED', message: '下载功能暂时关闭，服务器维护中。' } });
 
+const isSupportedImageContentType = (value: string | undefined): boolean => {
+  if (!value) return false;
+  const normalized = value.toLowerCase();
+  return normalized.startsWith('image/');
+};
+
 const fetchUrlBuffer = async (url: string): Promise<{ statusCode: number; buffer: Buffer; contentType: string }> => {
   return await new Promise((resolve, reject) => {
-    const MAX_BYTES = 10 * 1024 * 1024;
     const REQUEST_TIMEOUT_MS = 10000;
     const client = url.startsWith('https') ? https : http;
-    const req = client.get(url, (resp) => {
+    const req = client.get(url, {
+      headers: {
+        Accept: 'image/*,*/*;q=0.1',
+      },
+    }, (resp) => {
       const chunks: Buffer[] = [];
       let totalSize = 0;
+      const statusCode = resp.statusCode || 200;
+      const rawContentType = typeof resp.headers['content-type'] === 'string' ? resp.headers['content-type'] : undefined;
+      const contentType = rawContentType || 'application/octet-stream';
+      const contentLength = Number(resp.headers['content-length']);
+
+      if (Number.isFinite(contentLength) && contentLength > MAX_REMOTE_COVER_BYTES) {
+        req.destroy(new Error('Remote resource too large'));
+        return;
+      }
+
+      if (statusCode < 200 || statusCode >= 300) {
+        resolve({ statusCode, buffer: Buffer.alloc(0), contentType });
+        return;
+      }
+
       resp.on('data', (chunk: Buffer) => {
         totalSize += chunk.length;
-        if (totalSize > MAX_BYTES) {
+        if (totalSize > MAX_REMOTE_COVER_BYTES) {
           req.destroy(new Error('Remote resource too large'));
           return;
         }
@@ -41,9 +69,9 @@ const fetchUrlBuffer = async (url: string): Promise<{ statusCode: number; buffer
       });
       resp.on('end', () => {
         resolve({
-          statusCode: resp.statusCode || 200,
+          statusCode,
           buffer: Buffer.concat(chunks),
-          contentType: (resp.headers['content-type'] as string) || 'image/jpeg',
+          contentType,
         });
       });
       resp.on('error', reject);
@@ -58,6 +86,9 @@ const fetchUrlBuffer = async (url: string): Promise<{ statusCode: number; buffer
 };
 
 const getRealIp = (req: Request): string => {
+  if (typeof req.ip === 'string' && req.ip.trim()) {
+    return req.ip.replace(/^::ffff:/, '').trim();
+  }
   const fwd = req.headers['x-forwarded-for'];
   if (typeof fwd === 'string') return fwd.split(',')[0].trim();
   return (req.socket?.remoteAddress || '0.0.0.0').replace(/^::ffff:/, '');
@@ -165,16 +196,34 @@ router.get('/covers/proxy', async (req: Request, res: Response) => {
 
       if (isThumb) {
         const remote = await fetchUrlBuffer(signedUrl);
-        if (remote.statusCode === 404) {
-          return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Cover not found' } });
+        if (remote.statusCode >= 400) {
+          return res.status(remote.statusCode).json({
+            success: false,
+            error: {
+              code: remote.statusCode === 404 ? 'NOT_FOUND' : 'REMOTE_FETCH_FAILED',
+              message: remote.statusCode === 404 ? 'Cover not found' : 'Failed to fetch remote cover',
+            }
+          });
+        }
+        if (!isSupportedImageContentType(remote.contentType)) {
+          return res.status(415).json({ success: false, error: { code: 'INVALID_CONTENT_TYPE', message: 'Remote cover is not an image' } });
         }
         const thumb = await buildThumbnail(remote.buffer);
         await remoteResourceCache.setBinary('covers', cacheKey, thumb);
         return sendImage(thumb.buffer, thumb.contentType, 604800);
       }
       const remote = await fetchUrlBuffer(signedUrl);
-      if (remote.statusCode === 404) {
-        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Cover not found' } });
+      if (remote.statusCode >= 400) {
+        return res.status(remote.statusCode).json({
+          success: false,
+          error: {
+            code: remote.statusCode === 404 ? 'NOT_FOUND' : 'REMOTE_FETCH_FAILED',
+            message: remote.statusCode === 404 ? 'Cover not found' : 'Failed to fetch remote cover',
+          }
+        });
+      }
+      if (!isSupportedImageContentType(remote.contentType)) {
+        return res.status(415).json({ success: false, error: { code: 'INVALID_CONTENT_TYPE', message: 'Remote cover is not an image' } });
       }
       await remoteResourceCache.setBinary('covers', cacheKey, { buffer: remote.buffer, contentType: remote.contentType });
       return sendImage(remote.buffer, remote.contentType, 86400);
@@ -187,6 +236,12 @@ router.get('/covers/proxy', async (req: Request, res: Response) => {
         return res.status(400).json({ success: false, error: { code: 'INVALID_REMOTE_URL', message: 'Invalid remote cover URL' } });
       }
 
+      const cacheKey = `cover:remote:${remoteUrl.toString()}:${isThumb ? 'thumb' : 'origin'}`;
+      const cached = await remoteResourceCache.getBinary('covers', cacheKey);
+      if (cached) {
+        return sendImage(cached.buffer, cached.contentType, isThumb ? 604800 : 86400);
+      }
+
       const remote = await fetchUrlBuffer(remoteUrl.toString());
       if (remote.statusCode >= 400) {
         return res.status(remote.statusCode).json({
@@ -194,12 +249,17 @@ router.get('/covers/proxy', async (req: Request, res: Response) => {
           error: { code: 'REMOTE_FETCH_FAILED', message: 'Failed to fetch remote cover' },
         });
       }
+      if (!isSupportedImageContentType(remote.contentType)) {
+        return res.status(415).json({ success: false, error: { code: 'INVALID_CONTENT_TYPE', message: 'Remote cover is not an image' } });
+      }
 
       if (isThumb) {
         const thumb = await buildThumbnail(remote.buffer);
+        await remoteResourceCache.setBinary('covers', cacheKey, thumb);
         return sendImage(thumb.buffer, thumb.contentType, 604800);
       }
 
+      await remoteResourceCache.setBinary('covers', cacheKey, { buffer: remote.buffer, contentType: remote.contentType });
       return sendImage(remote.buffer, remote.contentType, 86400);
     }
 
@@ -210,12 +270,19 @@ router.get('/covers/proxy', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: { code: 'INVALID_PATH', message: 'Invalid cover path' } });
     }
     if (isThumb) {
+      const cacheKey = `cover:local:${localRelativePath}:thumb`;
+      const cachedThumb = await remoteResourceCache.getBinary('covers', cacheKey);
+      if (cachedThumb) {
+        return sendImage(cachedThumb.buffer, cachedThumb.contentType, 604800);
+      }
+
       const UPLOAD_DIR = path.join(process.cwd(), process.env.UPLOAD_DIR || 'uploads');
       const fullPath = path.join(UPLOAD_DIR, localRelativePath);
       try {
         await fs.promises.access(fullPath, fs.constants.F_OK);
         const imageBuffer = await fs.promises.readFile(fullPath);
         const thumb = await buildThumbnail(imageBuffer);
+        await remoteResourceCache.setBinary('covers', cacheKey, thumb);
         sendImage(thumb.buffer, thumb.contentType, 604800);
         return;
       } catch {
