@@ -1,4 +1,5 @@
 import ESAClient from '@alicloud/esa20240910';
+import * as EsaModule from '@alicloud/esa20240910';
 import * as OpenApiCore from '@alicloud/openapi-core';
 
 type Mode = 'sql' | 'auto' | 'esa';
@@ -94,13 +95,14 @@ class AnalyticsEsaService {
   private async describeTimeSeries(days: number, intervalSec: number, fields: Array<{ fieldName: string; dimension?: string[] }>): Promise<any> {
     const client = this.getClient();
     const range = this.getTimeRange(days);
-    const req: any = {
+    const rawReq: any = {
       siteId: this.siteId,
       startTime: range.startTime,
       endTime: range.endTime,
       interval: String(intervalSec),
       fields,
     };
+    const req = new (EsaModule as any).DescribeSiteTimeSeriesDataRequest(rawReq);
     const resp: any = await client.describeSiteTimeSeriesData(req);
     return resp?.body || {};
   }
@@ -108,13 +110,14 @@ class AnalyticsEsaService {
   private async describeTop(days: number, limit: number, fields: Array<{ fieldName: string; dimension?: string[] }>): Promise<any> {
     const client = this.getClient();
     const range = this.getTimeRange(days);
-    const req: any = {
+    const rawReq: any = {
       siteId: this.siteId,
       startTime: range.startTime,
       endTime: range.endTime,
       limit: String(limit),
       fields,
     };
+    const req = new (EsaModule as any).DescribeSiteTopDataRequest(rawReq);
     const resp: any = await client.describeSiteTopData(req);
     return resp?.body || {};
   }
@@ -248,6 +251,7 @@ class AnalyticsEsaService {
 }
 
 export default new AnalyticsEsaService();
+
 
 
 
