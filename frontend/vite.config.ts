@@ -9,7 +9,7 @@ export default defineConfig({
     // Generate bundle analysis report (only when ANALYZE=true)
     ...(process.env.ANALYZE ? [visualizer({
       filename: 'dist/bundle-report.html',
-      open: true,
+      open: process.env.ANALYZE_OPEN === 'true',
       gzipSize: true,
       brotliSize: true,
     })] : []),

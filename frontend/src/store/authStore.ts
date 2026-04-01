@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { User } from '../types';
+import { authService } from '../services/authService';
 
 interface AuthState {
   user: User | null;
@@ -39,8 +40,6 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
 
     try {
-      // Import authService here to avoid circular dependencies
-      const { authService } = await import('../services/authService');
       const user = await authService.getCurrentUser();
       set({
         user,

@@ -128,14 +128,24 @@ router.get('/fs/read', async (req: Request, res: Response) => {
     if (!stat.isFile()) {
       return res.status(400).json({ success: false, error: { code: 'DEBUG_NOT_FILE', message: 'targetPath must be a file' } });
     }
-    const fileBuffer = await fs.readFile(target);
-    const slice = fileBuffer.subarray(offset, Math.min(offset + length, fileBuffer.length));
+    const safeOffset = Math.min(offset, stat.size);
+    const remaining = Math.max(0, stat.size - safeOffset);
+    const maxRead = Math.min(length, remaining);
+    const buffer = Buffer.allocUnsafe(maxRead);
+    const handle = await fs.open(target, 'r');
+    let bytesRead = 0;
+    try {
+      ({ bytesRead } = await handle.read(buffer, 0, maxRead, safeOffset));
+    } finally {
+      await handle.close();
+    }
+    const slice = buffer.subarray(0, bytesRead);
     return res.json({
       success: true,
       data: {
         target,
-        size: fileBuffer.length,
-        offset,
+        size: stat.size,
+        offset: safeOffset,
         returned: slice.length,
         encoding: 'base64',
         content: slice.toString('base64'),

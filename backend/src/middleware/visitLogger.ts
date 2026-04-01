@@ -40,10 +40,24 @@ const VISIT_LOGGER_ENABLED = process.env.VISIT_LOGGER_ENABLED !== 'false';
 const FLUSH_INTERVAL_MS = Math.max(200, parseInt(process.env.VISIT_LOGGER_FLUSH_MS || '1000', 10));
 const BATCH_SIZE = Math.max(10, parseInt(process.env.VISIT_LOGGER_BATCH_SIZE || '30', 10));
 const MAX_QUEUE_SIZE = Math.max(BATCH_SIZE, parseInt(process.env.VISIT_LOGGER_MAX_QUEUE || '5000', 10));
+const VISITOR_MERGE_CACHE_TTL_MS = Math.max(60_000, parseInt(process.env.VISIT_LOGGER_MERGE_TTL_MS || '900000', 10));
+const VISITOR_MERGE_CACHE_MAX = Math.max(200, parseInt(process.env.VISIT_LOGGER_MERGE_MAX || '5000', 10));
 
 const queue: VisitLogEntry[] = [];
 let flushing = false;
-const visitorMergeCache = new Set<string>();
+const visitorMergeCache = new Map<string, number>();
+
+function pruneVisitorMergeCache(now: number): void {
+  for (const [key, expiresAt] of visitorMergeCache.entries()) {
+    if (expiresAt <= now) visitorMergeCache.delete(key);
+  }
+
+  while (visitorMergeCache.size > VISITOR_MERGE_CACHE_MAX) {
+    const oldestKey = visitorMergeCache.keys().next().value;
+    if (!oldestKey) break;
+    visitorMergeCache.delete(oldestKey);
+  }
+}
 
 function sanitizeVisitorId(raw: unknown): string | null {
   if (typeof raw !== 'string') return null;
@@ -120,9 +134,12 @@ function getAuthIdentity(req: Request): { userId: number | null; username: strin
 
 function mergeVisitorLogs(fromVisitorId: string, toVisitorId: string): void {
   if (!fromVisitorId || !toVisitorId || fromVisitorId === toVisitorId) return;
+  const now = Date.now();
+  pruneVisitorMergeCache(now);
   const cacheKey = `${fromVisitorId}->${toVisitorId}`;
-  if (visitorMergeCache.has(cacheKey)) return;
-  visitorMergeCache.add(cacheKey);
+  const cachedUntil = visitorMergeCache.get(cacheKey);
+  if (cachedUntil && cachedUntil > now) return;
+  visitorMergeCache.set(cacheKey, now + VISITOR_MERGE_CACHE_TTL_MS);
 
   pool.query(
     `UPDATE visit_logs
@@ -130,7 +147,8 @@ function mergeVisitorLogs(fromVisitorId: string, toVisitorId: string): void {
      WHERE visitor_id = $1`,
     [fromVisitorId, toVisitorId]
   ).catch((err) => {
-    visitorMergeCache.delete(cacheKey);
+    // Retry failed merges soon instead of waiting full TTL.
+    visitorMergeCache.set(cacheKey, Date.now() + 15_000);
     console.warn('[visitLogger:mergeVisitorLogs]', (err as Error).message || 'unknown error');
   });
 }
@@ -268,8 +286,8 @@ export function visitLogger(req: Request, res: Response, next: NextFunction) {
         uaDevice  = p.device.type || 'desktop';
       }
 
-      const bytesRaw = res.getHeader('content-length');
-      const bytes = bytesRaw ? parseInt(bytesRaw as string) : 0;
+      const bytesRaw = Number(res.getHeader('content-length'));
+      const bytes = Number.isFinite(bytesRaw) && bytesRaw >= 0 ? bytesRaw : 0;
 
       enqueue([
         ip, visitorId, country, region, city, lat, lon,

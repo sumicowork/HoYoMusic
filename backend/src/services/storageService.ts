@@ -6,6 +6,7 @@ import ossService from './ossService';
 
 const STORAGE_MODE = process.env.STORAGE_MODE || 'local';
 const UPLOAD_DIR = path.join(process.cwd(), process.env.UPLOAD_DIR || 'uploads');
+const UPLOAD_ROOT = path.resolve(UPLOAD_DIR);
 
 // 确保上传目录存在（仅本地模式）
 const ensureDirectories = async () => {
@@ -95,11 +96,19 @@ class StorageService {
     if (this.mode === 'webdav' || this.mode === 'oss') {
       return relativePath; // 远程模式返回URL
     }
-    // 本地存储：去掉前缀 /uploads/ 后拼接实际磁盘路径
-    const stripped = relativePath.startsWith('/uploads/')
-      ? relativePath.slice('/uploads/'.length)
-      : relativePath;
-    return path.join(UPLOAD_DIR, stripped);
+    // 本地存储：去掉 /uploads/ 前缀并阻止目录穿越。
+    const input = String(relativePath || '').split('?')[0].split('#')[0];
+    const withoutPrefix = input.startsWith('/uploads/')
+      ? input.slice('/uploads/'.length)
+      : input.replace(/^[/\\]+/, '');
+    const normalized = path.normalize(withoutPrefix).replace(/^([/\\])+/, '');
+    const resolved = path.resolve(UPLOAD_ROOT, normalized);
+
+    if (!resolved.startsWith(UPLOAD_ROOT + path.sep) && resolved !== UPLOAD_ROOT) {
+      throw new Error('Invalid storage path');
+    }
+
+    return resolved;
   }
 
   /**

@@ -37,6 +37,9 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const DEBUG_API_ENABLED = process.env.DEBUG_API_ENABLED === 'true';
+
+app.disable('x-powered-by');
 
 // Remote deployments usually sit behind reverse proxies (Nginx/1Panel).
 const trustProxy = process.env.TRUST_PROXY;
@@ -111,6 +114,14 @@ const verificationLimiter = rateLimit({
 });
 app.use('/api/auth/send-verification-code', verificationLimiter);
 
+const debugLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: { code: 'RATE_LIMIT', message: 'Too many debug requests, please try again later.' } },
+});
+
 // ── CORS Configuration ──────────────────────────────────────────
 const corsOrigins = process.env.CORS_ORIGINS;
 app.use(cors(corsOrigins ? {
@@ -184,7 +195,16 @@ app.use('/api', discRoutes);               // Disc subdivision routes
 app.use('/api/analytics', analyticsRoutes); // Analytics (authenticated)
 app.use('/api/public', publicRoutes);    // Public routes (无需认证)
 app.use('/api', settingsRoutes);          // Site settings (public + authenticated)
-app.use('/api/debug', debugRoutes);      // High-risk debug routes (disabled by default)
+if (DEBUG_API_ENABLED) {
+  app.use('/api/debug', debugLimiter, debugRoutes); // High-risk debug routes (disabled by default)
+} else {
+  app.use('/api/debug', (_req, res) => {
+    res.status(404).json({
+      success: false,
+      error: { code: 'DEBUG_DISABLED', message: 'Debug API is disabled' },
+    });
+  });
+}
 app.use('/api/users', userRoutes);       // User management (authenticated)
 app.use('/api/messages', messageRoutes); // Site messages (authenticated)
 

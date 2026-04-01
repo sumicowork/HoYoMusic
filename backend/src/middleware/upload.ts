@@ -5,6 +5,13 @@ import { v4 as uuidv4 } from 'uuid';
 
 // FLAC 使用磁盘临时存储，避免大文件（~500MB）占满内存导致 OOM
 const UPLOAD_TEMP_DIR = process.env.UPLOAD_TEMP_DIR || os.tmpdir();
+const MULTIPART_BASE_LIMITS = {
+  fieldNameSize: 256,
+  fieldSize: 256 * 1024,
+  fields: 50,
+  parts: 60,
+  headerPairs: 200,
+};
 
 const diskStorage = multer.diskStorage({
   destination: (_req, _file, cb) => {
@@ -32,6 +39,7 @@ const upload = multer({
   storage: diskStorage,
   fileFilter,
   limits: {
+    ...MULTIPART_BASE_LIMITS,
     fileSize: 500 * 1024 * 1024, // 500MB max per FLAC file
   },
 });
@@ -56,6 +64,7 @@ export const coverUpload = multer({
   storage: coverStorage,
   fileFilter: imageFilter,
   limits: {
+    ...MULTIPART_BASE_LIMITS,
     fileSize: 20 * 1024 * 1024, // 20MB max per cover image
   },
 });
@@ -76,6 +85,7 @@ export const lyricsUpload = multer({
   storage: lyricsStorage,
   fileFilter: lyricsFilter,
   limits: {
+    ...MULTIPART_BASE_LIMITS,
     fileSize: 1 * 1024 * 1024, // 1MB max per LRC file
   },
 });
@@ -84,8 +94,10 @@ export const lyricsBatchUpload = multer({
   storage: lyricsStorage,
   fileFilter: lyricsFilter,
   limits: {
+    ...MULTIPART_BASE_LIMITS,
     fileSize: 1 * 1024 * 1024, // 1MB max per LRC file
     files: 200,
+    parts: 260,
   },
 });
 
@@ -105,6 +117,7 @@ export const jsonUpload = multer({
   storage: jsonStorage,
   fileFilter: jsonFilter,
   limits: {
+    ...MULTIPART_BASE_LIMITS,
     fileSize: 5 * 1024 * 1024, // 5MB max per JSON file
   },
 });
