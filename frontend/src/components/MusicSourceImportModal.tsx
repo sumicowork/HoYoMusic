@@ -62,8 +62,8 @@ const rowKeyToNumber = (rowKey: string): number => {
 
 const sortManualFirst = (items: MusicSourceImportItem[]): MusicSourceImportItem[] => {
   return [...items].sort((a, b) => {
-    const aManual = a.status === 'needs_manual' ? 0 : 1;
-    const bManual = b.status === 'needs_manual' ? 0 : 1;
+    const aManual = (a.status === 'needs_manual' || a.status === 'not_found') ? 0 : 1;
+    const bManual = (b.status === 'needs_manual' || b.status === 'not_found') ? 0 : 1;
     if (aManual !== bManual) return aManual - bManual;
     return rowKeyToNumber(a.row_key) - rowKeyToNumber(b.row_key);
   });
@@ -192,7 +192,7 @@ const MusicSourceImportModal: React.FC<MusicSourceImportModalProps> = ({ visible
   };
 
   const needsManualItems = useMemo(
-    () => (preview?.items || []).filter((item) => item.status === 'needs_manual'),
+    () => (preview?.items || []).filter((item) => item.status === 'needs_manual' || item.status === 'not_found'),
     [preview]
   );
 
@@ -272,6 +272,13 @@ const MusicSourceImportModal: React.FC<MusicSourceImportModalProps> = ({ visible
       setResolutions(autoResolved);
       setManualOptionsByRow({});
       setSearchKeywordByRow({});
+
+      // Preload manual candidates for not_found rows using song name.
+      data.items.forEach((item) => {
+        if (item.status === 'not_found' && item.song_name.trim()) {
+          handleManualSearch(item.row_key, item.song_name, item.song_name);
+        }
+      });
       message.success(`预览完成，共 ${parsed.entries.length} 条`);
     } catch (error: any) {
       message.error(error?.message || '预览失败');
@@ -286,7 +293,7 @@ const MusicSourceImportModal: React.FC<MusicSourceImportModalProps> = ({ visible
       return;
     }
     if (unresolvedManualCount > 0) {
-      message.info(`仍有 ${unresolvedManualCount} 条未人工匹配，提交后这些条目会保留为 needs_manual`);
+      message.info(`仍有 ${unresolvedManualCount} 条未人工匹配，提交后这些条目会保留为 needs_manual / not_found`);
     }
 
     setCommitLoading(true);
@@ -326,13 +333,10 @@ const MusicSourceImportModal: React.FC<MusicSourceImportModalProps> = ({ visible
       title: '匹配结果 / 人工选择',
       key: 'match_result',
       render: (_: unknown, row: MusicSourceImportItem) => {
-        if (!row.candidates || row.candidates.length === 0) {
-          return <Text type="secondary">{row.message || '—'}</Text>;
-        }
-
-        if (row.status === 'needs_manual') {
+        const canManualSelect = row.status === 'needs_manual' || row.status === 'not_found';
+        if (canManualSelect) {
           const searchKeyword = (searchKeywordByRow[row.row_key] || '').trim();
-          const optionsSource = searchKeyword ? (manualOptionsByRow[row.row_key] || []) : row.candidates;
+          const optionsSource = searchKeyword ? (manualOptionsByRow[row.row_key] || []) : (row.candidates || []);
           const sortedOptions = sortCandidatesForRow(optionsSource, row.song_name, resolutions[row.row_key]);
           return (
             <Space.Compact style={{ width: '100%' }}>
@@ -362,6 +366,10 @@ const MusicSourceImportModal: React.FC<MusicSourceImportModalProps> = ({ visible
               </Button>
             </Space.Compact>
           );
+        }
+
+        if (!row.candidates || row.candidates.length === 0) {
+          return <Text type="secondary">{row.message || '—'}</Text>;
         }
 
         return <Text>{buildCandidateLabel(row.candidates[0])}</Text>;
@@ -452,7 +460,7 @@ const MusicSourceImportModal: React.FC<MusicSourceImportModalProps> = ({ visible
 
         {preview ? (
           <Alert
-            type={preview.summary.needs_manual > 0 ? 'warning' : 'success'}
+            type={unresolvedManualCount > 0 ? 'warning' : 'success'}
             showIcon
             description={(
               <>
@@ -460,8 +468,8 @@ const MusicSourceImportModal: React.FC<MusicSourceImportModalProps> = ({ visible
                   {`预览结果：共 ${preview.summary.total} 条，自动匹配 ${preview.summary.matched} 条，需人工匹配 ${preview.summary.needs_manual} 条，未找到 ${preview.summary.not_found} 条，无效 ${preview.summary.invalid} 条`}
                 </Text>
                 <div>
-                  {preview.summary.needs_manual > 0
-                    ? `还有 ${unresolvedManualCount} 条未完成人工匹配（不影响提交，提交后会保留为 needs_manual）。`
+                  {unresolvedManualCount > 0
+                    ? `还有 ${unresolvedManualCount} 条未完成人工匹配（不影响提交，提交后会保留为 needs_manual / not_found）。`
                     : '已可直接执行导入。'}
                 </div>
               </>
@@ -503,4 +511,7 @@ const MusicSourceImportModal: React.FC<MusicSourceImportModalProps> = ({ visible
 };
 
 export default MusicSourceImportModal;
+
+
+
 
