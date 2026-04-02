@@ -136,14 +136,21 @@ interface BehaviorCoverageData {
   };
 }
 
+type DataSourceType = 'esa' | 'sql' | 'unknown';
+
 // ── Storage analytics sub-component ──────────────────────────────
 const StorageAnalytics: React.FC = () => {
   const [data, setData] = useState<any>(null);
+  const [source, setSource] = useState<'esa' | 'sql' | 'unknown'>('unknown');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     api.get('/analytics/storage')
-      .then(r => setData(r.data.data))
+      .then(r => {
+        setData(r.data.data);
+        const raw = String(r.data?.source || '').toLowerCase();
+        setSource(raw === 'esa' ? 'esa' : 'sql');
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -157,7 +164,11 @@ const StorageAnalytics: React.FC = () => {
   };
 
   return (
-    <Card title="💾 存储分析" className="analytics-card" style={{ marginTop: 16 }}>
+    <Card
+      title={<span>💾 存储分析<Tag style={{ marginInlineStart: 8, fontSize: 10 }} color={source === 'esa' ? 'blue' : 'default'}>{source.toUpperCase()}</Tag></span>}
+      className="analytics-card"
+      style={{ marginTop: 16 }}
+    >
       <Row gutter={16} style={{ marginBottom: 16 }}>
         <Col span={6}><Statistic title="总曲目" value={data.summary?.total_tracks || 0} /></Col>
         <Col span={6}><Statistic title="总存储" value={fmtBytes(Number(data.summary?.total_bytes || 0))} /></Col>
@@ -240,10 +251,21 @@ const Analytics: React.FC = () => {
   const [countryDebugRows, setCountryDebugRows] = useState<CountryDebugRow[]>([]);
   const [countryDebugSummary, setCountryDebugSummary] = useState<Array<{ bucket: string; requests: number; visitors: number }>>([]);
   const [behaviorCoverage, setBehaviorCoverage] = useState<BehaviorCoverageData | null>(null);
+  const [dataSources, setDataSources] = useState<Record<string, DataSourceType>>({});
   const [loading, setLoading]       = useState(true);
   const [warming, setWarming]       = useState(false);
   const [lastRefresh, setLast]      = useState(new Date());
   const ANALYTICS_TIMEOUT_MS = 12000;
+  const sourceTag = (key: string) => {
+    const source = dataSources[key] || 'unknown';
+    if (source === 'unknown') return <Tag style={{ marginInlineStart: 8, fontSize: 10 }}>UNKNOWN</Tag>;
+    return (
+      <Tag color={source === 'esa' ? 'blue' : 'default'} style={{ marginInlineStart: 8, fontSize: 10 }}>
+        {source.toUpperCase()}
+      </Tag>
+    );
+  };
+
   const withHardTimeout = <T,>(promise: Promise<T>, timeoutMs: number) =>
     Promise.race<T>([
       promise,
@@ -275,14 +297,18 @@ const Analytics: React.FC = () => {
       const keys = Object.keys(requests) as Array<keyof typeof requests>;
       const settled = await Promise.allSettled(keys.map((k) => requests[k]));
       const failedKeys: string[] = [];
+      const nextSources: Record<string, DataSourceType> = {};
 
       const getData = (key: keyof typeof requests): any | null => {
         const idx = keys.indexOf(key);
         const result = settled[idx];
         if (result.status !== 'fulfilled') {
           failedKeys.push(String(key));
+          nextSources[String(key)] = 'unknown';
           return null;
         }
+        const rawSource = String((result.value as any)?.data?.source || '').toLowerCase();
+        nextSources[String(key)] = rawSource === 'esa' ? 'esa' : 'sql';
         return result.value.data?.data ?? null;
       };
 
@@ -336,6 +362,8 @@ const Analytics: React.FC = () => {
       if (failedKeys.length > 0) {
         message.warning(`部分统计加载失败：${failedKeys.join(', ')}`);
       }
+
+      setDataSources((prev) => ({ ...prev, ...nextSources }));
 
       setLast(new Date());
     } catch (e) {
@@ -523,7 +551,7 @@ const Analytics: React.FC = () => {
               <Col xs={12} sm={12} md={8} lg={8} xl={6} key={i}>
                 <Card className="analytics-stat-card" size="small">
                   <Statistic
-                    title={<span style={{ fontSize: 13 }}>{item.icon} {item.title}</span>}
+                    title={<span style={{ fontSize: 13 }}>{item.icon} {item.title}{sourceTag('overview')}</span>}
                     value={item.value ?? '—'}
                     suffix={<span style={{ fontSize: 13 }}>{item.suffix}</span>}
                     formatter={item.formatter as any}
@@ -535,7 +563,7 @@ const Analytics: React.FC = () => {
           </Row>
 
           {/* ── Trend ── */}
-          <Card title="📈 访客趋势" className="analytics-card">
+          <Card title={<span>📈 访客趋势{sourceTag('trend')}</span>} className="analytics-card">
             <ResponsiveContainer width="100%" height={260}>
               <AreaChart data={trend} margin={{ right: 20 }}>
                 <defs>
@@ -581,7 +609,7 @@ const Analytics: React.FC = () => {
           <Row gutter={[16, 16]} style={{ margin: '16px 0' }}>
             {/* ── Hourly ── */}
             <Col xs={24} lg={14}>
-              <Card title="🕐 今日小时分布" className="analytics-card" style={{ height: '100%' }}>
+              <Card title={<span>🕐 今日小时分布{sourceTag('hourly')}</span>} className="analytics-card" style={{ height: '100%' }}>
                 <ResponsiveContainer width="100%" height={230}>
                   <BarChart data={hourlyData} margin={{ right: 8 }}>
                     <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
@@ -598,7 +626,7 @@ const Analytics: React.FC = () => {
 
             {/* ── Status Codes ── */}
             <Col xs={24} lg={10}>
-              <Card title="✅ HTTP 状态码分布" className="analytics-card" style={{ height: '100%' }}>
+              <Card title={<span>✅ HTTP 状态码分布{sourceTag('statusCodes')}</span>} className="analytics-card" style={{ height: '100%' }}>
                 <ResponsiveContainer width="100%" height={230}>
                   <PieChart>
                     <Pie
@@ -624,7 +652,7 @@ const Analytics: React.FC = () => {
           <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
             {/* ── Countries ── */}
             <Col xs={24} lg={14}>
-              <Card title="🌍 中国省级行政区 / 其他" className="analytics-card">
+              <Card title={<span>🌍 中国省级行政区 / 其他{sourceTag('countries')}</span>} className="analytics-card">
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart
                     data={countries.slice(0, 20)}
@@ -649,7 +677,7 @@ const Analytics: React.FC = () => {
 
             {/* ── Devices ── */}
             <Col xs={24} lg={10}>
-              <Card title="💻 设备 & 浏览器" className="analytics-card">
+              <Card title={<span>💻 设备 & 浏览器{sourceTag('devices')}</span>} className="analytics-card">
                 <div style={{ marginBottom: 8 }}>
                   <Text type="secondary" style={{ fontSize: 12 }}>设备类型</Text>
                 </div>
@@ -697,7 +725,7 @@ const Analytics: React.FC = () => {
 
           <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
             <Col xs={24} lg={15}>
-              <Card title="🔥 歌曲热度（有效播放）" className="analytics-card">
+              <Card title={<span>🔥 歌曲热度（有效播放）{sourceTag('hotTracks')}</span>} className="analytics-card">
                 <Table
                   size="small"
                   rowKey="track_id"
@@ -782,7 +810,7 @@ const Analytics: React.FC = () => {
           </Row>
 
           {/* ── Performance ── */}
-          <Card title="⚡ 响应性能趋势" className="analytics-card" style={{ marginBottom: 16 }}>
+          <Card title={<span>⚡ 响应性能趋势{sourceTag('performance')}</span>} className="analytics-card" style={{ marginBottom: 16 }}>
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={perf} margin={{ right: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
@@ -800,7 +828,7 @@ const Analytics: React.FC = () => {
           <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
             {/* ── Top Pages ── */}
             <Col xs={24} lg={16}>
-              <Card title={<><FireOutlined /> 热门路径 TOP 50</>} className="analytics-card">
+              <Card title={<><FireOutlined /> 热门路径 TOP 50{sourceTag('pages')}</>} className="analytics-card">
                 <Table
                   columns={pageCols}
                   dataSource={pages}
@@ -813,7 +841,7 @@ const Analytics: React.FC = () => {
 
             {/* ── Referers ── */}
             <Col xs={24} lg={8}>
-              <Card title={<><EyeOutlined /> 访问来源</>} className="analytics-card">
+              <Card title={<><EyeOutlined /> 访问来源{sourceTag('referers')}</>} className="analytics-card">
                 {referers.map((r: any, i: number) => (
                   <div key={i} className="analytics-referer-row">
                     <Text ellipsis style={{ fontSize: 12, flex: 1 }}
@@ -826,7 +854,7 @@ const Analytics: React.FC = () => {
           </Row>
 
           {/* ── Cache Analytics ── */}
-          <Card title="🧠 缓存详情分析" className="analytics-card" style={{ marginBottom: 16 }}>
+          <Card title={<span>🧠 缓存详情分析{sourceTag('cache')}</span>} className="analytics-card" style={{ marginBottom: 16 }}>
             <Row gutter={[16, 16]} style={{ marginBottom: 12 }}>
               <Col xs={12} sm={8} lg={6}>
                 <Statistic title="应用缓存条目" value={cacheInfo?.appCache?.entries ?? 0} />
@@ -885,7 +913,7 @@ const Analytics: React.FC = () => {
             </Row>
           </Card>
 
-          <Card title="🧭 Visitor 列表" className="analytics-card" style={{ marginBottom: 16 }}>
+          <Card title={<span>🧭 Visitor 列表{sourceTag('visitors')}</span>} className="analytics-card" style={{ marginBottom: 16 }}>
             <Table
               size="small"
               rowKey="visitor_key"
@@ -929,7 +957,7 @@ const Analytics: React.FC = () => {
             />
           </Card>
 
-          <Card title="🧪 行为分类覆盖诊断" className="analytics-card" style={{ marginBottom: 16 }}>
+          <Card title={<span>🧪 行为分类覆盖诊断{sourceTag('behaviorCoverage')}</span>} className="analytics-card" style={{ marginBottom: 16 }}>
             <Row gutter={12} style={{ marginBottom: 12 }}>
               <Col span={8}><Statistic title="接口总数" value={behaviorCoverage?.inventory?.total_routes || 0} /></Col>
               <Col span={8}><Statistic title="未命中接口" value={behaviorCoverage?.inventory?.uncovered_count || 0} /></Col>
@@ -966,7 +994,7 @@ const Analytics: React.FC = () => {
           </Card>
 
           {/* ── Recent Logs ── */}
-          <Card title="📋 最近请求记录" className="analytics-card">
+          <Card title={<span>📋 最近请求记录{sourceTag('recent')}</span>} className="analytics-card">
             <Table
               columns={recentCols}
               dataSource={recent}

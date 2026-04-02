@@ -17,6 +17,7 @@ router.use(authenticateAdmin as any);
 // ── Helper ────────────────────────────────────────────────────────
 const clampDays = (v: any, max = 90) => Math.min(Math.max(parseInt(v) || 30, 1), max);
 const ESA_MAX_DAYS = 7;
+const sendSuccess = (res: Response, data: any, source: 'esa' | 'sql') => res.json({ success: true, data, source });
 const UNIQUE_VISITOR_EXPR = "COALESCE(NULLIF(visitor_id, ''), ip)";
 const VISITOR_KEY_EXPR = "CASE WHEN visitor_id IS NOT NULL AND visitor_id <> '' THEN 'vid:' || visitor_id ELSE 'ip:' || COALESCE(ip, 'unknown') END";
 const PROVINCE_KEYWORDS: Array<[string, string[]]> = [
@@ -456,7 +457,7 @@ router.get('/overview', async (_req: Request, res: Response) => {
   try {
     const esaData = await tryEsa('overview', async () => analyticsEsaService.getOverview());
     if (esaData) {
-      return res.json({ success: true, data: esaData });
+      return sendSuccess(res, esaData, 'esa');
     }
 
     const [total, today, unique7d, errors, avgMs] = await Promise.all([
@@ -466,7 +467,7 @@ router.get('/overview', async (_req: Request, res: Response) => {
       pool.query(`SELECT COUNT(*)::int AS v FROM visit_logs WHERE status >= 400 AND ts >= (NOW() AT TIME ZONE 'Asia/Shanghai')::date AT TIME ZONE 'Asia/Shanghai'`),
       pool.query(`SELECT ROUND(AVG(duration_ms))::int AS v FROM visit_logs WHERE ts >= NOW() - INTERVAL '24 hours'`),
     ]);
-    res.json({ success: true, data: {
+    sendSuccess(res, {
       total:    total.rows[0].v,
       today:    today.rows[0].v,
       unique7d: unique7d.rows[0].v,
@@ -475,7 +476,7 @@ router.get('/overview', async (_req: Request, res: Response) => {
       traffic:  0,
       requestTraffic: 0,
       pageView: today.rows[0].v,
-    }});
+    }, 'sql');
   } catch (e: any) { res.status(500).json(safeError(e)); }
 });
 
@@ -485,7 +486,7 @@ router.get('/trend', async (req: Request, res: Response) => {
     const d = clampDays(req.query.days, ESA_MAX_DAYS);
     const esaData = await tryEsa('trend', async () => analyticsEsaService.getTrend(d));
     if (esaData) {
-      return res.json({ success: true, data: esaData });
+      return sendSuccess(res, esaData, 'esa');
     }
 
     const result = await pool.query(`
@@ -500,7 +501,7 @@ router.get('/trend', async (req: Request, res: Response) => {
       WHERE ts >= NOW() - INTERVAL '1 day' * $1
       GROUP BY 1 ORDER BY 1
     `, [d]);
-    res.json({ success: true, data: result.rows });
+    sendSuccess(res, result.rows, 'sql');
   } catch (e: any) { res.status(500).json(safeError(e)); }
 });
 
@@ -509,7 +510,7 @@ router.get('/hourly', async (_req: Request, res: Response) => {
   try {
     const esaData = await tryEsa('hourly', async () => analyticsEsaService.getHourly());
     if (esaData) {
-      return res.json({ success: true, data: esaData });
+      return sendSuccess(res, esaData, 'esa');
     }
 
     const result = await pool.query(`
@@ -533,7 +534,7 @@ router.get('/hourly', async (_req: Request, res: Response) => {
       GROUP BY h.hour
       ORDER BY h.hour
     `);
-    res.json({ success: true, data: result.rows });
+    sendSuccess(res, result.rows, 'sql');
   } catch (e: any) { res.status(500).json(safeError(e)); }
 });
 
@@ -543,7 +544,7 @@ router.get('/countries', async (req: Request, res: Response) => {
     const d = clampDays(req.query.days, ESA_MAX_DAYS);
     const esaData = await tryEsa('countries', async () => analyticsEsaService.getCountries(d));
     if (esaData) {
-      return res.json({ success: true, data: esaData });
+      return sendSuccess(res, esaData, 'esa');
     }
 
     const result = await pool.query(`
@@ -568,7 +569,7 @@ router.get('/countries', async (req: Request, res: Response) => {
     }
 
     const data = Array.from(map.values()).sort((a, b) => b.visitors - a.visitors).slice(0, 40);
-    res.json({ success: true, data });
+    sendSuccess(res, data, 'sql');
   } catch (e: any) { res.status(500).json(safeError(e)); }
 });
 
@@ -922,7 +923,7 @@ router.get('/pages', async (req: Request, res: Response) => {
     const d = clampDays(req.query.days, ESA_MAX_DAYS);
     const esaData = await tryEsa('pages', async () => analyticsEsaService.getPages(d));
     if (esaData) {
-      return res.json({ success: true, data: esaData });
+      return sendSuccess(res, esaData, 'esa');
     }
 
     const result = await pool.query(`
@@ -938,7 +939,7 @@ router.get('/pages', async (req: Request, res: Response) => {
         AND method = 'GET'
       GROUP BY 1 ORDER BY 2 DESC LIMIT 50
     `, [d]);
-    res.json({ success: true, data: result.rows });
+    sendSuccess(res, result.rows, 'sql');
   } catch (e: any) { res.status(500).json(safeError(e)); }
 });
 
@@ -948,7 +949,7 @@ router.get('/devices', async (req: Request, res: Response) => {
     const d = clampDays(req.query.days, ESA_MAX_DAYS);
     const esaData = await tryEsa('devices', async () => analyticsEsaService.getDevices(d));
     if (esaData) {
-      return res.json({ success: true, data: esaData });
+      return sendSuccess(res, esaData, 'esa');
     }
 
     const [browsers, oses, devices] = await Promise.all([
@@ -968,7 +969,7 @@ router.get('/devices', async (req: Request, res: Response) => {
         GROUP BY 1 ORDER BY 2 DESC
       `, [d]),
     ]);
-    res.json({ success: true, data: { browsers: browsers.rows, oses: oses.rows, devices: devices.rows }});
+    sendSuccess(res, { browsers: browsers.rows, oses: oses.rows, devices: devices.rows }, 'sql');
   } catch (e: any) { res.status(500).json(safeError(e)); }
 });
 
@@ -978,7 +979,7 @@ router.get('/status-codes', async (req: Request, res: Response) => {
     const d = clampDays(req.query.days, ESA_MAX_DAYS);
     const esaData = await tryEsa('status-codes', async () => analyticsEsaService.getStatusCodes(d));
     if (esaData) {
-      return res.json({ success: true, data: esaData });
+      return sendSuccess(res, esaData, 'esa');
     }
 
     const result = await pool.query(`
@@ -986,7 +987,7 @@ router.get('/status-codes', async (req: Request, res: Response) => {
       FROM visit_logs WHERE ts >= NOW() - INTERVAL '1 day' * $1
       GROUP BY 1 ORDER BY 2 DESC
     `, [d]);
-    res.json({ success: true, data: result.rows });
+    sendSuccess(res, result.rows, 'sql');
   } catch (e: any) { res.status(500).json(safeError(e)); }
 });
 
@@ -996,7 +997,7 @@ router.get('/performance', async (req: Request, res: Response) => {
     const d = clampDays(req.query.days, ESA_MAX_DAYS);
     const esaData = await tryEsa('performance', async () => analyticsEsaService.getPerformance(d));
     if (esaData) {
-      return res.json({ success: true, data: esaData });
+      return sendSuccess(res, esaData, 'esa');
     }
 
     const result = await pool.query(`
@@ -1010,7 +1011,7 @@ router.get('/performance', async (req: Request, res: Response) => {
       WHERE ts >= NOW() - INTERVAL '1 day' * $1
       GROUP BY 1 ORDER BY 1
     `, [d]);
-    res.json({ success: true, data: result.rows });
+    sendSuccess(res, result.rows, 'sql');
   } catch (e: any) { res.status(500).json(safeError(e)); }
 });
 
@@ -1076,7 +1077,7 @@ router.get('/referers', async (req: Request, res: Response) => {
     const d = clampDays(req.query.days, ESA_MAX_DAYS);
     const esaData = await tryEsa('referers', async () => analyticsEsaService.getReferers(d));
     if (esaData) {
-      return res.json({ success: true, data: esaData });
+      return sendSuccess(res, esaData, 'esa');
     }
 
     const result = await pool.query(`
@@ -1088,7 +1089,7 @@ router.get('/referers', async (req: Request, res: Response) => {
       WHERE ts >= NOW() - INTERVAL '1 day' * $1
       GROUP BY 1 ORDER BY 2 DESC LIMIT 20
     `, [d]);
-    res.json({ success: true, data: result.rows });
+    sendSuccess(res, result.rows, 'sql');
   } catch (e: any) { res.status(500).json(safeError(e)); }
 });
 
