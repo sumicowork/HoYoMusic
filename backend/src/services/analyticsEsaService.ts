@@ -32,6 +32,14 @@ const toShanghaiHour = (isoLike: string): string => {
 };
 
 class AnalyticsEsaService {
+      private normalizeTopLimit(limit: number): string {
+        const n = Number.isFinite(limit) ? Math.max(1, Math.floor(limit)) : 10;
+        // Official DescribeSiteTopData enum: 5, 10, 150.
+        if (n <= 5) return '5';
+        if (n <= 10) return '10';
+        return '150';
+      }
+
   private client: ESAClient | null = null;
 
   private readonly mode: Mode = (String(process.env.ANALYTICS_PROVIDER || 'sql').toLowerCase() as Mode);
@@ -114,7 +122,7 @@ class AnalyticsEsaService {
       siteId: this.siteId,
       startTime: range.startTime,
       endTime: range.endTime,
-      limit: String(limit),
+      limit: this.normalizeTopLimit(limit),
       fields,
     };
     const req = new (EsaModule as any).DescribeSiteTopDataRequest(rawReq);
@@ -200,14 +208,16 @@ class AnalyticsEsaService {
       avg_ms: 0,
       p95_ms: 0,
       errors: 0,
-    }));
+    })).slice(0, 50);
   }
 
   async getStatusCodes(days: number): Promise<Array<{ name: string; value: number }>> {
     const body = await this.describeTop(days, 20, [{ fieldName: this.fieldRequests, dimension: ['EdgeResponseStatusCode'] }]);
     const rows = (body?.data || []).find((r: any) => String(r?.fieldName || '').toLowerCase() === this.fieldRequests.toLowerCase());
     const detail: any[] = Array.isArray(rows?.detailData) ? rows.detailData : [];
-    return detail.map((item) => ({ name: String(item?.dimensionValue || 'Unknown'), value: toInt(item?.value, 0) }));
+    return detail
+      .map((item) => ({ name: String(item?.dimensionValue || 'Unknown'), value: toInt(item?.value, 0) }))
+      .slice(0, 20);
   }
 
   async getPerformance(days: number): Promise<Array<{ hour: string; avg_ms: number; p95_ms: number; max_ms: number; requests: number }>> {
@@ -246,11 +256,12 @@ class AnalyticsEsaService {
     return detail.map((item) => ({
       referer: String(item?.dimensionValue || 'Direct / None') || 'Direct / None',
       hits: toInt(item?.value, 0),
-    }));
+    })).slice(0, 20);
   }
 }
 
 export default new AnalyticsEsaService();
+
 
 
 
