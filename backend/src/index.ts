@@ -29,6 +29,7 @@ import debugRoutes from './routes/debugRoutes';
 import settingsRoutes from './routes/settingsRoutes';
 import userRoutes from './routes/userRoutes';
 import messageRoutes from './routes/messageRoutes';
+import musicSourceRoutes from './routes/musicSourceRoutes';
 import { flushVisitLoggerNow, visitLogger } from './middleware/visitLogger';
 import { maintenanceModeGuard } from './middleware/maintenanceMode';
 import { errorHandler } from './middleware/errorHandler';
@@ -210,6 +211,7 @@ if (DEBUG_API_ENABLED) {
 }
 app.use('/api/users', userRoutes);       // User management (authenticated)
 app.use('/api/messages', messageRoutes); // Site messages (authenticated)
+app.use('/api/music-sources', musicSourceRoutes); // Music source module (authenticated)
 
 // API Documentation
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { customSiteTitle: 'HoYoMusic API Docs' }));
@@ -435,6 +437,57 @@ const runMigrations = async () => {
     console.log('✅ DB migrations up to date (albums/tracks: notes)');
   } catch (err) {
     console.error('⚠️  notes column migration warning:', err);
+  }
+
+  // music source module tables
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS music_source_categories (
+        id SERIAL PRIMARY KEY,
+        game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+        name VARCHAR(200) NOT NULL,
+        description TEXT,
+        display_order INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(game_id, name)
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS music_source_nodes (
+        id SERIAL PRIMARY KEY,
+        game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+        category_id INTEGER NOT NULL REFERENCES music_source_categories(id) ON DELETE CASCADE,
+        parent_id INTEGER REFERENCES music_source_nodes(id) ON DELETE CASCADE,
+        name VARCHAR(200) NOT NULL,
+        display_order INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(game_id, category_id, parent_id, name)
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS track_music_sources (
+        id BIGSERIAL PRIMARY KEY,
+        track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+        game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+        category_id INTEGER NOT NULL REFERENCES music_source_categories(id) ON DELETE CASCADE,
+        node_id INTEGER NOT NULL REFERENCES music_source_nodes(id) ON DELETE CASCADE,
+        display_order INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(track_id, node_id)
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_music_source_categories_game ON music_source_categories(game_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_music_source_nodes_lookup ON music_source_nodes(game_id, category_id, parent_id, display_order, name)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_track_music_sources_track ON track_music_sources(track_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_track_music_sources_game ON track_music_sources(game_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_track_music_sources_category ON track_music_sources(category_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_track_music_sources_node ON track_music_sources(node_id)`);
+    console.log('✅ DB migrations up to date (music source module)');
+  } catch (err) {
+    console.error('⚠️  music source migration warning:', err);
   }
 
   // Three-state lyrics status: none | has | instrumental

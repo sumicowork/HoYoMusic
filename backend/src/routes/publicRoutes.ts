@@ -134,7 +134,7 @@ const parseAndValidateRemoteCoverUrl = (input: string): URL | null => {
 
 // ── 封面图片代理（OSS 模式下中转，避免前端直连 OSS）─────────────────
 // GET /api/public/covers/proxy?path=<cover_path_or_url>&size=thumb
-// size=thumb → 缩略图（1000x1000 webp），否则原图
+// size=thumb → 缩略图（640x640），否则原图
 router.get('/covers/proxy', async (req: Request, res: Response) => {
   try {
     const coverPath = req.query.path as string;
@@ -153,18 +153,18 @@ router.get('/covers/proxy', async (req: Request, res: Response) => {
         const fmt = meta.format; // 'jpeg' | 'png' | 'webp' | 'flac' etc.
 
         let pipeline = sharp(imageBuffer)
-          .resize(1000, 1000, { fit: 'cover', withoutEnlargement: true });
+          .resize(640, 640, { fit: 'cover', withoutEnlargement: true });
 
         let contentType: string;
         if (fmt === 'png') {
-          pipeline = pipeline.png();
+          pipeline = pipeline.png({ compressionLevel: 9 });
           contentType = 'image/png';
         } else if (fmt === 'webp') {
-          pipeline = pipeline.webp();
+          pipeline = pipeline.webp({ quality: 80, effort: 4 });
           contentType = 'image/webp';
         } else {
-          // default: jpeg, no quality override → preserves encoder default
-          pipeline = pipeline.jpeg();
+          // default: jpeg with balanced quality/size for feed-style cover usage
+          pipeline = pipeline.jpeg({ quality: 82, mozjpeg: true });
           contentType = 'image/jpeg';
         }
 
@@ -176,10 +176,11 @@ router.get('/covers/proxy', async (req: Request, res: Response) => {
       }
     };
 
-    const sendImage = (buffer: Buffer, contentType: string, maxAge: number) => {
+    const sendImage = (buffer: Buffer, contentType: string, maxAge: number, immutable = false) => {
       res.setHeader('Content-Type', contentType);
       res.setHeader('Content-Length', buffer.length);
-      res.setHeader('Cache-Control', `public, max-age=${maxAge}`);
+      const immutableToken = immutable ? ', immutable' : '';
+      res.setHeader('Cache-Control', `public, max-age=${maxAge}, stale-while-revalidate=86400${immutableToken}`);
       return res.send(buffer);
     };
 
@@ -187,7 +188,7 @@ router.get('/covers/proxy', async (req: Request, res: Response) => {
       const cacheKey = `cover:${coverPath}:${isThumb ? 'thumb' : 'origin'}`;
       const cached = await remoteResourceCache.getBinary('covers', cacheKey);
       if (cached) {
-        return sendImage(cached.buffer, cached.contentType, isThumb ? 604800 : 86400);
+        return sendImage(cached.buffer, cached.contentType, isThumb ? 604800 : 86400, isThumb);
       }
 
       // OSS 模式：通过签名 URL 中转封面图片
@@ -210,7 +211,7 @@ router.get('/covers/proxy', async (req: Request, res: Response) => {
         }
         const thumb = await buildThumbnail(remote.buffer);
         await remoteResourceCache.setBinary('covers', cacheKey, thumb);
-        return sendImage(thumb.buffer, thumb.contentType, 604800);
+        return sendImage(thumb.buffer, thumb.contentType, 604800, true);
       }
       const remote = await fetchUrlBuffer(signedUrl);
       if (remote.statusCode >= 400) {
@@ -239,7 +240,7 @@ router.get('/covers/proxy', async (req: Request, res: Response) => {
       const cacheKey = `cover:remote:${remoteUrl.toString()}:${isThumb ? 'thumb' : 'origin'}`;
       const cached = await remoteResourceCache.getBinary('covers', cacheKey);
       if (cached) {
-        return sendImage(cached.buffer, cached.contentType, isThumb ? 604800 : 86400);
+        return sendImage(cached.buffer, cached.contentType, isThumb ? 604800 : 86400, isThumb);
       }
 
       const remote = await fetchUrlBuffer(remoteUrl.toString());
@@ -256,7 +257,7 @@ router.get('/covers/proxy', async (req: Request, res: Response) => {
       if (isThumb) {
         const thumb = await buildThumbnail(remote.buffer);
         await remoteResourceCache.setBinary('covers', cacheKey, thumb);
-        return sendImage(thumb.buffer, thumb.contentType, 604800);
+        return sendImage(thumb.buffer, thumb.contentType, 604800, true);
       }
 
       await remoteResourceCache.setBinary('covers', cacheKey, { buffer: remote.buffer, contentType: remote.contentType });
@@ -273,7 +274,7 @@ router.get('/covers/proxy', async (req: Request, res: Response) => {
       const cacheKey = `cover:local:${localRelativePath}:thumb`;
       const cachedThumb = await remoteResourceCache.getBinary('covers', cacheKey);
       if (cachedThumb) {
-        return sendImage(cachedThumb.buffer, cachedThumb.contentType, 604800);
+        return sendImage(cachedThumb.buffer, cachedThumb.contentType, 604800, true);
       }
 
       const UPLOAD_DIR = path.join(process.cwd(), process.env.UPLOAD_DIR || 'uploads');
@@ -283,7 +284,7 @@ router.get('/covers/proxy', async (req: Request, res: Response) => {
         const imageBuffer = await fs.promises.readFile(fullPath);
         const thumb = await buildThumbnail(imageBuffer);
         await remoteResourceCache.setBinary('covers', cacheKey, thumb);
-        sendImage(thumb.buffer, thumb.contentType, 604800);
+        sendImage(thumb.buffer, thumb.contentType, 604800, true);
         return;
       } catch {
         // Fallback to redirect when local file is missing.

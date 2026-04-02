@@ -44,8 +44,9 @@ const GameCard: React.FC<{
   game: Game;
   status: 'maintenance' | 'unreleased' | 'active';
   index: number;
+  isPriority?: boolean;
   onClick: () => void;
-}> = ({ game, status, index, onClick }) => {
+}> = ({ game, status, index, isPriority = false, onClick }) => {
   const isDisabled = status !== 'active';
 
   return (
@@ -56,7 +57,16 @@ const GameCard: React.FC<{
     >
       <div className="game-cover">
         {game.cover_path ? (
-          <img src={getCoverUrl(game.cover_path)} alt={game.name} loading="lazy" onError={handleImageError} />
+          <img
+            src={getCoverUrl(game.cover_path)}
+            alt={game.name}
+            loading={isPriority ? 'eager' : 'lazy'}
+            fetchPriority={isPriority ? 'high' : 'auto'}
+            decoding="async"
+            width={512}
+            height={512}
+            onError={handleImageError}
+          />
         ) : (
           <div className="game-cover-placeholder">{game.name}</div>
         )}
@@ -272,7 +282,9 @@ const Home: React.FC = () => {
               <Skeleton active paragraph={{ rows: 0 }} style={{ marginBottom: 16 }} />
               <div className="games-grid">
                 {Array.from({ length: 4 }).map((_, i) => (
-                  <Skeleton.Node key={i} active style={{ width: '100%', height: 180, borderRadius: 12 }} />
+                  <div key={i} className="game-card game-card-skeleton" aria-hidden="true">
+                    <Skeleton.Image active style={{ width: '100%', height: '100%' }} />
+                  </div>
                 ))}
               </div>
             </section>
@@ -297,6 +309,7 @@ const Home: React.FC = () => {
                       game={game}
                       status={status}
                       index={idx}
+                      isPriority={idx === 0}
                       onClick={() => {
                         if (status === 'active') navigate(`/games/${game.id}`);
                       }}

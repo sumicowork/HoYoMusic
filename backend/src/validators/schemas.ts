@@ -70,6 +70,74 @@ export const commitTrackNotesImportSchema = z.object({
   conflict_mode: z.enum(['overwrite', 'append', 'skip']).optional().default('overwrite'),
 });
 
+const musicSourcePathSchema = z.array(z.string().trim().min(1).max(200)).min(1).max(20);
+
+const musicSourceImportSourceSchema = z.object({
+  category: z.string().trim().min(1, 'category is required').max(200),
+  path: musicSourcePathSchema,
+});
+
+const musicSourceImportEntrySchema = z.object({
+  row_key: z.string().trim().min(1, 'row_key is required').max(120),
+  song_name: z.string().trim().min(1, 'song_name is required').max(500),
+  song_number: z.union([z.string().trim().max(5000), z.number(), z.null()]).optional(),
+  album_name: z.string().trim().max(500).optional().nullable(),
+  game_id: z.number().int().positive('game_id is required'),
+  sources: z.array(musicSourceImportSourceSchema).min(1, 'sources is required').max(200),
+});
+
+export const createMusicSourceCategorySchema = z.object({
+  game_id: z.number().int().positive('game_id is required'),
+  name: z.string().trim().min(1, 'name is required').max(200),
+  description: z.string().trim().max(1000).optional().nullable(),
+  display_order: z.number().int().optional().default(0),
+});
+
+export const updateMusicSourceCategorySchema = z.object({
+  name: z.string().trim().min(1, 'name is required').max(200),
+  description: z.string().trim().max(1000).optional().nullable(),
+  display_order: z.number().int().optional().default(0),
+});
+
+export const createMusicSourceNodeSchema = z.object({
+  game_id: z.number().int().positive('game_id is required'),
+  category_id: z.number().int().positive('category_id is required'),
+  parent_id: z.number().int().positive().optional().nullable(),
+  name: z.string().trim().min(1, 'name is required').max(200),
+  display_order: z.number().int().optional().default(0),
+});
+
+export const updateMusicSourceNodeSchema = z.object({
+  name: z.string().trim().min(1, 'name is required').max(200),
+  display_order: z.number().int().optional().default(0),
+});
+
+export const upsertTrackMusicSourcesSchema = z.object({
+  conflict_mode: z.enum(['overwrite', 'append', 'skip']).optional().default('overwrite'),
+  sources: z.array(z.object({
+    game_id: z.number().int().positive(),
+    category_id: z.number().int().positive(),
+    node_id: z.number().int().positive(),
+    display_order: z.number().int().optional(),
+  })).min(1, 'sources is required').max(500),
+});
+
+export const musicSourceImportPreviewSchema = z.object({
+  entries: z.array(musicSourceImportEntrySchema).min(1, 'entries is required').max(5000),
+});
+
+export const musicSourceImportCommitSchema = z.object({
+  entries: z.array(musicSourceImportEntrySchema).min(1, 'entries is required').max(5000),
+  resolutions: z.record(z.string(), z.number().int().positive()).optional().default({}),
+  conflict_mode: z.enum(['overwrite', 'append', 'skip']).optional().default('overwrite'),
+});
+
+export const exportMusicSourcesSchema = z.object({
+  scope: z.enum(['all', 'by_game', 'by_album']).optional().default('all'),
+  game_ids: z.array(z.number().int().positive()).optional().default([]),
+  album_ids: z.array(z.number().int().positive()).optional().default([]),
+});
+
 // ── Game ──────────────────────────────────────────────────────────
 export const createGameSchema = z.object({
   name: z.string().min(1, 'Game name is required').max(200),

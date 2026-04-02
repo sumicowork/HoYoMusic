@@ -340,7 +340,53 @@ $$ LANGUAGE plpgsql;
 COMMENT ON FUNCTION get_tag_path IS 'Get full hierarchical path of a tag';
 
 -- ────────────────────────────────────────────────────────────
--- 7. 追加游戏数据（add_new_games.sql）
+-- 7. 音乐来源模块（music_sources.sql）
+-- ────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS music_source_categories (
+    id SERIAL PRIMARY KEY,
+    game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    name VARCHAR(200) NOT NULL,
+    description TEXT,
+    display_order INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(game_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS music_source_nodes (
+    id SERIAL PRIMARY KEY,
+    game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    category_id INTEGER NOT NULL REFERENCES music_source_categories(id) ON DELETE CASCADE,
+    parent_id INTEGER REFERENCES music_source_nodes(id) ON DELETE CASCADE,
+    name VARCHAR(200) NOT NULL,
+    display_order INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(game_id, category_id, parent_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS track_music_sources (
+    id BIGSERIAL PRIMARY KEY,
+    track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+    game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    category_id INTEGER NOT NULL REFERENCES music_source_categories(id) ON DELETE CASCADE,
+    node_id INTEGER NOT NULL REFERENCES music_source_nodes(id) ON DELETE CASCADE,
+    display_order INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(track_id, node_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_music_source_categories_game_id ON music_source_categories(game_id);
+CREATE INDEX IF NOT EXISTS idx_music_source_nodes_lookup ON music_source_nodes(game_id, category_id, parent_id, display_order, name);
+CREATE INDEX IF NOT EXISTS idx_track_music_sources_track_id ON track_music_sources(track_id);
+CREATE INDEX IF NOT EXISTS idx_track_music_sources_game_id ON track_music_sources(game_id);
+CREATE INDEX IF NOT EXISTS idx_track_music_sources_category_id ON track_music_sources(category_id);
+CREATE INDEX IF NOT EXISTS idx_track_music_sources_node_id ON track_music_sources(node_id);
+
+-- ────────────────────────────────────────────────────────────
+-- 8. 追加游戏数据（add_new_games.sql）
 -- ────────────────────────────────────────────────────────────
 
 INSERT INTO games (name, name_en, cover_path, display_order) VALUES

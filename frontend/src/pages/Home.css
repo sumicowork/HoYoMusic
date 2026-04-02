@@ -99,7 +99,19 @@
 .game-cover {
   position: relative;
   width: 100%;
+  aspect-ratio: 1 / 1;
   overflow: hidden;
+}
+
+.game-card-skeleton {
+  aspect-ratio: 1 / 1;
+  cursor: default;
+}
+
+.game-card-skeleton .ant-skeleton-image {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: inherit;
 }
 
 .game-cover img {
