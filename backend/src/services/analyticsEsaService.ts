@@ -32,6 +32,13 @@ const toShanghaiHour = (isoLike: string): string => {
 };
 
 class AnalyticsEsaService {
+  private readonly maxDays = 7;
+
+  private clampDays(days: number): number {
+    const n = Number.isFinite(days) ? Math.max(1, Math.floor(days)) : this.maxDays;
+    return Math.min(n, this.maxDays);
+  }
+
       private normalizeTopLimit(limit: number): string {
         const n = Number.isFinite(limit) ? Math.max(1, Math.floor(limit)) : 10;
         // Official DescribeSiteTopData enum: 5, 10, 150.
@@ -106,7 +113,7 @@ class AnalyticsEsaService {
 
   private async describeTimeSeries(days: number, intervalSec: number, fields: Array<{ fieldName: string; dimension?: string[] }>): Promise<any> {
     const client = this.getClient();
-    const range = this.getTimeRange(days);
+    const range = this.getTimeRange(this.clampDays(days));
     const rawReq: any = {
       siteId: this.siteId,
       startTime: range.startTime,
@@ -121,7 +128,7 @@ class AnalyticsEsaService {
 
   private async describeTop(days: number, limit: number, fields: Array<{ fieldName: string; dimension?: string[] }>): Promise<any> {
     const client = this.getClient();
-    const range = this.getTimeRange(days);
+    const range = this.getTimeRange(this.clampDays(days));
     const rawReq: any = {
       siteId: this.siteId,
       startTime: range.startTime,
@@ -169,9 +176,9 @@ class AnalyticsEsaService {
 
   async getOverview(): Promise<{ total: number; today: number; unique7d: number; errors: number; avgMs: number; traffic: number; requestTraffic: number; pageView: number }> {
     const [all30d, today, unique7d, errors] = await Promise.all([
-      this.describeTimeSeries(30, 86400, this.buildOverviewFields(false, false)),
+      this.describeTimeSeries(this.maxDays, 86400, this.buildOverviewFields(false, false)),
       this.describeTimeSeries(1, 3600, this.buildOverviewFields(true, true)),
-      this.describeTimeSeries(7, 86400, [{ fieldName: this.fieldVisitors, dimension: ['ALL'] }]),
+      this.describeTimeSeries(this.maxDays, 86400, [{ fieldName: this.fieldVisitors, dimension: ['ALL'] }]),
       this.getErrorCountByStatus(1),
     ]);
 

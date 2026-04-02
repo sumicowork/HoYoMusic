@@ -213,7 +213,7 @@ const StorageAnalytics: React.FC = () => {
 
 // ── component ────────────────────────────────────────────────────
 const Analytics: React.FC = () => {
-  const [days, setDays] = useState(30);
+  const [days, setDays] = useState(7);
   const [overview, setOverview]     = useState<any>(null);
   const [trend, setTrend]           = useState<any[]>([]);
   const [hourly, setHourly]         = useState<any[]>([]);
@@ -486,10 +486,7 @@ const Analytics: React.FC = () => {
               <ClockCircleOutlined /> 最后更新 {lastRefresh.toLocaleTimeString('zh-CN')}
             </Text>
             <Select value={days} onChange={v => setDays(v)} style={{ width: 120 }}>
-              <Option value={1}>今日</Option>
               <Option value={7}>近 7 天</Option>
-              <Option value={30}>近 30 天</Option>
-              <Option value={90}>近 90 天</Option>
             </Select>
             <Tag
               icon={<ReloadOutlined />}

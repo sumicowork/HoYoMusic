@@ -16,6 +16,7 @@ router.use(authenticateAdmin as any);
 
 // ── Helper ────────────────────────────────────────────────────────
 const clampDays = (v: any, max = 90) => Math.min(Math.max(parseInt(v) || 30, 1), max);
+const ESA_MAX_DAYS = 7;
 const UNIQUE_VISITOR_EXPR = "COALESCE(NULLIF(visitor_id, ''), ip)";
 const VISITOR_KEY_EXPR = "CASE WHEN visitor_id IS NOT NULL AND visitor_id <> '' THEN 'vid:' || visitor_id ELSE 'ip:' || COALESCE(ip, 'unknown') END";
 const PROVINCE_KEYWORDS: Array<[string, string[]]> = [
@@ -153,11 +154,21 @@ const safeError = (e: any) => {
   return { success: false, error: { code: 'ANALYTICS_ERROR', message: msg } };
 };
 
+const isEsaQuotaError = (error: any): boolean => {
+  const code = String(error?.code || '').toLowerCase();
+  const message = String(error?.message || '').toLowerCase();
+  return code.includes('quotacheckfailed.function') || message.includes('quotacheckfailed.function');
+};
+
 const tryEsa = async <T>(label: string, fetcher: () => Promise<T>): Promise<T | null> => {
   if (!analyticsEsaService.isEnabled()) return null;
   try {
     return await fetcher();
   } catch (error: any) {
+    if (isEsaQuotaError(error)) {
+      console.warn(`[analytics][esa] ${label} unavailable in current ESA plan, fallback to sql: ${error?.message || error}`);
+      return null;
+    }
     if (analyticsEsaService.shouldThrowOnFailure()) {
       throw error;
     }
@@ -449,7 +460,7 @@ router.get('/overview', async (_req: Request, res: Response) => {
     }
 
     const [total, today, unique7d, errors, avgMs] = await Promise.all([
-      pool.query(`SELECT COUNT(*)::int AS v FROM visit_logs`),
+      pool.query(`SELECT COUNT(*)::int AS v FROM visit_logs WHERE ts >= NOW() - INTERVAL '7 days'`),
       pool.query(`SELECT COUNT(*)::int AS v FROM visit_logs WHERE ts >= (NOW() AT TIME ZONE 'Asia/Shanghai')::date AT TIME ZONE 'Asia/Shanghai'`),
       pool.query(`SELECT COUNT(DISTINCT ${UNIQUE_VISITOR_EXPR})::int AS v FROM visit_logs WHERE ts >= NOW() - INTERVAL '7 days'`),
       pool.query(`SELECT COUNT(*)::int AS v FROM visit_logs WHERE status >= 400 AND ts >= (NOW() AT TIME ZONE 'Asia/Shanghai')::date AT TIME ZONE 'Asia/Shanghai'`),
@@ -471,7 +482,7 @@ router.get('/overview', async (_req: Request, res: Response) => {
 // ── Daily trend ───────────────────────────────────────────────────
 router.get('/trend', async (req: Request, res: Response) => {
   try {
-    const d = clampDays(req.query.days);
+    const d = clampDays(req.query.days, ESA_MAX_DAYS);
     const esaData = await tryEsa('trend', async () => analyticsEsaService.getTrend(d));
     if (esaData) {
       return res.json({ success: true, data: esaData });
@@ -898,7 +909,7 @@ router.get('/cities', async (req: Request, res: Response) => {
 // ── Top pages ─────────────────────────────────────────────────────
 router.get('/pages', async (req: Request, res: Response) => {
   try {
-    const d = clampDays(req.query.days);
+    const d = clampDays(req.query.days, ESA_MAX_DAYS);
     const esaData = await tryEsa('pages', async () => analyticsEsaService.getPages(d));
     if (esaData) {
       return res.json({ success: true, data: esaData });
@@ -949,7 +960,7 @@ router.get('/devices', async (req: Request, res: Response) => {
 // ── Status codes ──────────────────────────────────────────────────
 router.get('/status-codes', async (req: Request, res: Response) => {
   try {
-    const d = clampDays(req.query.days);
+    const d = clampDays(req.query.days, ESA_MAX_DAYS);
     const esaData = await tryEsa('status-codes', async () => analyticsEsaService.getStatusCodes(d));
     if (esaData) {
       return res.json({ success: true, data: esaData });
@@ -967,7 +978,7 @@ router.get('/status-codes', async (req: Request, res: Response) => {
 // ── Performance (avg/p95/max by hour) ────────────────────────────
 router.get('/performance', async (req: Request, res: Response) => {
   try {
-    const d = clampDays(req.query.days);
+    const d = clampDays(req.query.days, ESA_MAX_DAYS);
     const esaData = await tryEsa('performance', async () => analyticsEsaService.getPerformance(d));
     if (esaData) {
       return res.json({ success: true, data: esaData });
@@ -1047,7 +1058,7 @@ router.post('/cache/warmup', async (_req: Request, res: Response) => {
 // ── Referers ──────────────────────────────────────────────────────
 router.get('/referers', async (req: Request, res: Response) => {
   try {
-    const d = clampDays(req.query.days);
+    const d = clampDays(req.query.days, ESA_MAX_DAYS);
     const esaData = await tryEsa('referers', async () => analyticsEsaService.getReferers(d));
     if (esaData) {
       return res.json({ success: true, data: esaData });
