@@ -57,6 +57,7 @@ const Settings: React.FC = () => {
   const [catalogRollbackBatchUuid, setCatalogRollbackBatchUuid] = useState('');
   const [musicSourceJsonText, setMusicSourceJsonText] = useState('');
   const [musicSourceParseError, setMusicSourceParseError] = useState<string | null>(null);
+  const [musicSourceParseWarning, setMusicSourceParseWarning] = useState<string | null>(null);
   const [musicSourceSourceName, setMusicSourceSourceName] = useState<string | null>(null);
   const [musicSourceEntries, setMusicSourceEntries] = useState<MusicSourceImportEntry[]>([]);
   const [musicSourceConflictMode, setMusicSourceConflictMode] = useState<MusicSourceConflictMode>('overwrite');
@@ -254,7 +255,9 @@ const Settings: React.FC = () => {
       throw new Error('JSON 内未找到 entries');
     }
 
-    return entries.map((entry: any, index: number) => {
+    const emptySourceRows: string[] = [];
+
+    const normalized = entries.map((entry: any, index: number) => {
       const rowKey = String(entry?.row_key ?? index + 1).trim();
       const songName = String(entry?.song_name ?? '').trim();
       const albumName = entry?.album_name == null ? null : String(entry.album_name).trim();
@@ -268,11 +271,12 @@ const Settings: React.FC = () => {
           }))
         : [];
 
-      if (!songName) throw new Error(`第 ${index + 1} 行缺少 song_name`);
-      if (!Number.isInteger(gameId) || gameId <= 0) throw new Error(`第 ${index + 1} 行 game_id 无效`);
-      if (sources.length === 0) throw new Error(`第 ${index + 1} 行缺少 sources`);
+      const entryLabel = `第 ${index + 1} 条（row_key=${rowKey}）`;
+      if (!songName) throw new Error(`${entryLabel} 缺少 song_name`);
+      if (!Number.isInteger(gameId) || gameId <= 0) throw new Error(`${entryLabel} 的 game_id 无效`);
+      if (sources.length === 0) emptySourceRows.push(rowKey);
       if (sources.some((source) => !source.category || source.path.length === 0)) {
-        throw new Error(`第 ${index + 1} 行 sources 中存在空 category/path`);
+        throw new Error(`${entryLabel} 的 sources 中存在空 category/path`);
       }
 
       return {
@@ -284,6 +288,16 @@ const Settings: React.FC = () => {
         sources,
       };
     });
+
+    if (emptySourceRows.length > 0) {
+      const preview = emptySourceRows.slice(0, 10).join(', ');
+      const suffix = emptySourceRows.length > 10 ? ' ...' : '';
+      setMusicSourceParseWarning(`警告：${emptySourceRows.length} 条记录的 sources 为空（row_key: ${preview}${suffix}）。可继续预览/提交，但这些记录将被跳过。`);
+    } else {
+      setMusicSourceParseWarning(null);
+    }
+
+    return normalized;
   };
 
   const parseMusicSourceJson = (jsonText: string) => {
@@ -298,6 +312,7 @@ const Settings: React.FC = () => {
       setMusicSourceEntries([]);
       setMusicSourcePreviewResult(null);
       setMusicSourceCommitResult(null);
+      setMusicSourceParseWarning(null);
       setMusicSourceParseError(err?.message || 'JSON 解析失败');
     }
   };
@@ -830,6 +845,7 @@ const Settings: React.FC = () => {
             />
 
             {musicSourceParseError ? <Alert type="error" showIcon message={musicSourceParseError} /> : null}
+            {musicSourceParseWarning ? <Alert type="warning" showIcon message={musicSourceParseWarning} /> : null}
             {musicSourceEntries.length > 0 ? (
               <Alert type="info" showIcon message={`待导入 entries：${musicSourceEntries.length}`} />
             ) : null}

@@ -117,7 +117,8 @@ const musicSourceImportEntrySchema = z.object({
   song_number: z.union([z.string().trim().max(5000), z.number(), z.null()]).optional(),
   album_name: z.string().trim().max(500).optional().nullable(),
   game_id: z.number().int().positive('game_id is required'),
-  sources: z.array(musicSourceImportSourceSchema).min(1, 'sources is required').max(200),
+  // Import accepts empty sources and downgrades it to per-item warning/skip semantics.
+  sources: z.array(musicSourceImportSourceSchema).max(200).optional().default([]),
 });
 
 export const createMusicSourceCategorySchema = z.object({

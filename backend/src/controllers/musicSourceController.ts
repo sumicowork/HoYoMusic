@@ -161,25 +161,27 @@ const resolveSourcePath = async (gameId: number, source: MusicSourceImportSource
 const resolveImportEntry = async (
   entry: MusicSourceImportEntry,
   resolutions: Record<string, number>
-): Promise<{ status: 'matched' | 'needs_manual' | 'not_found' | 'invalid'; matched_track_id?: number; message?: string; candidates?: Array<{ track_id: number; title: string; track_number: number | null; album_title: string; artists: string }>; sourceNodeIds: number[] }> => {
+): Promise<{ status: 'matched' | 'needs_manual' | 'not_found' | 'invalid'; matched_track_id?: number; message?: string; candidates?: Array<{ track_id: number; title: string; track_number: number | null; album_title: string; artists: string }>; sourceNodeIds: number[]; has_empty_sources: boolean }> => {
   const songName = String(entry.song_name || '').trim();
   const trackNumber = normalizeTrackNumber(entry.song_number);
   const gameId = Number(entry.game_id);
   const albumName = String(entry.album_name || '').trim();
   const sources = Array.isArray(entry.sources) ? entry.sources : [];
+  const hasEmptySources = sources.length === 0;
 
-  if (!songName) return { status: 'invalid', message: 'song_name is required', sourceNodeIds: [] };
-  if (!trackNumber) return { status: 'invalid', message: 'song_number is required for matching', sourceNodeIds: [] };
-  if (!Number.isInteger(gameId) || gameId <= 0) return { status: 'invalid', message: 'game_id must be positive integer', sourceNodeIds: [] };
-  if (sources.length === 0) return { status: 'invalid', message: 'sources cannot be empty', sourceNodeIds: [] };
+  if (!songName) return { status: 'invalid', message: 'song_name is required', sourceNodeIds: [], has_empty_sources: hasEmptySources };
+  if (!trackNumber) return { status: 'invalid', message: 'song_number is required for matching', sourceNodeIds: [], has_empty_sources: hasEmptySources };
+  if (!Number.isInteger(gameId) || gameId <= 0) return { status: 'invalid', message: 'game_id must be positive integer', sourceNodeIds: [], has_empty_sources: hasEmptySources };
 
   const sourceNodeIds: number[] = [];
-  for (const source of sources) {
-    const resolvedSource = await resolveSourcePath(gameId, source);
-    if (!resolvedSource.nodeId) {
-      return { status: 'invalid', message: resolvedSource.message || 'Invalid source path', sourceNodeIds: [] };
+  if (!hasEmptySources) {
+    for (const source of sources) {
+      const resolvedSource = await resolveSourcePath(gameId, source);
+      if (!resolvedSource.nodeId) {
+        return { status: 'invalid', message: resolvedSource.message || 'Invalid source path', sourceNodeIds: [], has_empty_sources: hasEmptySources };
+      }
+      sourceNodeIds.push(resolvedSource.nodeId);
     }
-    sourceNodeIds.push(resolvedSource.nodeId);
   }
 
   const selectedTrackId = Number(resolutions[entry.row_key]);
@@ -191,28 +193,29 @@ const resolveImportEntry = async (
         matched_track_id: selectedCandidate.track_id,
         candidates: [selectedCandidate],
         sourceNodeIds,
+        has_empty_sources: hasEmptySources,
       };
     }
   }
 
   const candidates = await queryTrackCandidates(songName, trackNumber);
   if (candidates.length === 0) {
-    return { status: 'not_found', message: 'No track found by song_name + song_number', sourceNodeIds };
+    return { status: 'not_found', message: 'No track found by song_name + song_number', sourceNodeIds, has_empty_sources: hasEmptySources };
   }
   if (candidates.length === 1) {
-    return { status: 'matched', matched_track_id: candidates[0].track_id, candidates, sourceNodeIds };
+    return { status: 'matched', matched_track_id: candidates[0].track_id, candidates, sourceNodeIds, has_empty_sources: hasEmptySources };
   }
 
   if (albumName) {
     const albumMatched = candidates.filter((candidate) => candidate.album_title.trim().toLowerCase() === albumName.toLowerCase());
     if (albumMatched.length === 1) {
-      return { status: 'matched', matched_track_id: albumMatched[0].track_id, candidates: albumMatched, sourceNodeIds };
+      return { status: 'matched', matched_track_id: albumMatched[0].track_id, candidates: albumMatched, sourceNodeIds, has_empty_sources: hasEmptySources };
     }
   }
 
   const selectedCandidate = candidates.find((candidate) => candidate.track_id === selectedTrackId);
   if (selectedCandidate) {
-    return { status: 'matched', matched_track_id: selectedCandidate.track_id, candidates, sourceNodeIds };
+    return { status: 'matched', matched_track_id: selectedCandidate.track_id, candidates, sourceNodeIds, has_empty_sources: hasEmptySources };
   }
 
   return {
@@ -220,7 +223,14 @@ const resolveImportEntry = async (
     message: 'Multiple tracks matched song_name + song_number. Please resolve manually.',
     candidates,
     sourceNodeIds,
+    has_empty_sources: hasEmptySources,
   };
+};
+
+const appendEmptySourcesWarning = (message: string | undefined, hasEmptySources: boolean): string | undefined => {
+  if (!hasEmptySources) return message;
+  const warning = 'sources is empty; row will be skipped during commit';
+  return message ? `${message}; ${warning}` : warning;
 };
 
 const listAllNodes = async (): Promise<Map<number, MusicSourceNodeRecord>> => {
@@ -643,7 +653,7 @@ export const previewMusicSourceImport = async (req: Request, res: Response) => {
         song_name: String(entry.song_name || '').trim(),
         song_number_raw: entry.song_number == null ? '' : String(entry.song_number).trim(),
         status: resolved.status,
-        message: resolved.message,
+        message: appendEmptySourcesWarning(resolved.message, resolved.has_empty_sources),
         matched_track_id: resolved.matched_track_id,
         source_count: Array.isArray(entry.sources) ? entry.sources.length : 0,
         candidates: resolved.candidates,
@@ -690,7 +700,7 @@ export const commitMusicSourceImport = async (req: Request, res: Response) => {
         song_name: String(entry.song_name || '').trim(),
         song_number_raw: entry.song_number == null ? '' : String(entry.song_number).trim(),
         status: resolved.status,
-        message: resolved.message,
+        message: appendEmptySourcesWarning(resolved.message, resolved.has_empty_sources),
         matched_track_id: resolved.matched_track_id,
         source_count: Array.isArray(entry.sources) ? entry.sources.length : 0,
         candidates: resolved.candidates,
@@ -703,6 +713,11 @@ export const commitMusicSourceImport = async (req: Request, res: Response) => {
 
       if (!resolved.matched_track_id) {
         items.push({ ...baseItem, status: 'error', message: 'Resolved track id is missing' });
+        continue;
+      }
+
+      if (resolved.has_empty_sources) {
+        items.push({ ...baseItem, status: 'skipped', message: 'sources is empty; skipped without writing changes' });
         continue;
       }
 
