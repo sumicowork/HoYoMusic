@@ -461,6 +461,9 @@ router.get('/overview', async (_req: Request, res: Response) => {
       unique7d: unique7d.rows[0].v,
       errors:   errors.rows[0].v,
       avgMs:    avgMs.rows[0].v ?? 0,
+      traffic:  0,
+      requestTraffic: 0,
+      pageView: today.rows[0].v,
     }});
   } catch (e: any) { res.status(500).json(safeError(e)); }
 });
@@ -478,7 +481,10 @@ router.get('/trend', async (req: Request, res: Response) => {
       SELECT
         DATE_TRUNC('day', ts AT TIME ZONE 'Asia/Shanghai')::date AS date,
         COUNT(*)::int               AS requests,
-        COUNT(DISTINCT ${UNIQUE_VISITOR_EXPR})::int AS visitors
+        COUNT(DISTINCT ${UNIQUE_VISITOR_EXPR})::int AS visitors,
+        0::int AS traffic,
+        0::int AS requestTraffic,
+        COUNT(*)::int AS pageView
       FROM visit_logs
       WHERE ts >= NOW() - INTERVAL '1 day' * $1
       GROUP BY 1 ORDER BY 1

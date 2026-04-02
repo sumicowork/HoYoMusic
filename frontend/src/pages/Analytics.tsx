@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  Card, Row, Col, Statistic, Table, Tag, Select, Spin, Typography, Space, Badge, Button, message, Modal
+  Card, Row, Col, Statistic, Table, Tag, Select, Spin, Typography, Space, Badge, Button, message, Modal, Divider
 } from 'antd';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
@@ -35,6 +35,15 @@ const fmtTime = (ts: string) =>
     month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', second: '2-digit',
   });
+
+const fmtBytesCompact = (v?: number) => {
+  const n = Number(v || 0);
+  if (!Number.isFinite(n) || n <= 0) return '0 B';
+  if (n >= 1024 * 1024 * 1024) return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  if (n >= 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(2)} MB`;
+  if (n >= 1024) return `${(n / 1024).toFixed(2)} KB`;
+  return `${Math.round(n)} B`;
+};
 
 const STATUS_COLOR = (s: number) => {
   if (s < 300) return '#52c41a';
@@ -508,15 +517,19 @@ const Analytics: React.FC = () => {
               { title: '总请求数',   value: overview?.total,    suffix: '次', icon: <ApiOutlined />,         color: '#667eea' },
               { title: '今日请求',   value: overview?.today,    suffix: '次', icon: <FireOutlined />,         color: '#f093fb' },
               { title: '7日独立访客', value: overview?.unique7d, suffix: '个', icon: <UserOutlined />,         color: '#4facfe' },
+              { title: '今日页面浏览', value: overview?.pageView, suffix: '次', icon: <EyeOutlined />,          color: '#13c2c2' },
+              { title: '响应流量',   value: overview?.traffic,  suffix: '',   icon: <ThunderboltOutlined />,  color: '#722ed1', formatter: (v: number) => fmtBytesCompact(v) },
+              { title: '请求流量',   value: overview?.requestTraffic, suffix: '', icon: <ThunderboltOutlined />, color: '#2f54eb', formatter: (v: number) => fmtBytesCompact(v) },
               { title: '今日错误',   value: overview?.errors,   suffix: '次', icon: <WarningOutlined />,      color: '#ff4d4f' },
               { title: '24h均响应', value: overview?.avgMs,    suffix: 'ms', icon: <ThunderboltOutlined />,  color: '#43e97b' },
             ].map((item, i) => (
-              <Col xs={12} sm={12} md={8} lg={8} xl={24/5 as any} key={i}>
+              <Col xs={12} sm={12} md={8} lg={8} xl={6} key={i}>
                 <Card className="analytics-stat-card" size="small">
                   <Statistic
                     title={<span style={{ fontSize: 13 }}>{item.icon} {item.title}</span>}
                     value={item.value ?? '—'}
                     suffix={<span style={{ fontSize: 13 }}>{item.suffix}</span>}
+                    formatter={item.formatter as any}
                     valueStyle={{ color: item.color, fontSize: 24 }}
                   />
                 </Card>
@@ -548,7 +561,23 @@ const Analytics: React.FC = () => {
                   stroke="#667eea" fill="url(#gradReq)" strokeWidth={2} dot={false} />
                 <Area yAxisId="r" type="monotone" dataKey="visitors" name="独立访客"
                   stroke="#f093fb" fill="url(#gradVis)" strokeWidth={2} dot={false} />
+                <Line yAxisId="r" type="monotone" dataKey="pageView" name="页面浏览"
+                  stroke="#13c2c2" strokeWidth={2} dot={false} />
               </AreaChart>
+            </ResponsiveContainer>
+
+            <Divider style={{ margin: '12px 0' }} />
+
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={trend} margin={{ right: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(v: string) => v?.slice(5) ?? ''} />
+                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => fmtBytesCompact(v)} />
+                <RechartTooltip formatter={(v: any) => fmtBytesCompact(Number(v))} />
+                <Legend />
+                <Line type="monotone" dataKey="traffic" name="响应流量" stroke="#722ed1" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="requestTraffic" name="请求流量" stroke="#2f54eb" strokeWidth={2} dot={false} />
+              </LineChart>
             </ResponsiveContainer>
           </Card>
 

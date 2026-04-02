@@ -60,6 +60,10 @@ class AnalyticsEsaService {
 
   private readonly fieldVisitors = process.env.ESA_FIELD_VISITORS || 'PageView';
 
+  private readonly fieldTraffic = process.env.ESA_FIELD_TRAFFIC || 'Traffic';
+
+  private readonly fieldRequestTraffic = process.env.ESA_FIELD_REQUEST_TRAFFIC || 'RequestTraffic';
+
   // OriginResponseTime is not listed in the official analytics fields page;
   // keep it optional for accounts that expose extra metrics.
   private readonly fieldLatency = process.env.ESA_FIELD_LATENCY || '';
@@ -137,8 +141,15 @@ class AnalyticsEsaService {
     return toInt(hit?.value, 0);
   }
 
-  private buildOverviewFields(includeLatency: boolean): Array<{ fieldName: string; dimension?: string[] }> {
-    const fields: Array<{ fieldName: string; dimension?: string[] }> = [{ fieldName: this.fieldRequests, dimension: ['ALL'] }];
+  private buildOverviewFields(includeLatency: boolean, includePageView: boolean): Array<{ fieldName: string; dimension?: string[] }> {
+    const fields: Array<{ fieldName: string; dimension?: string[] }> = [
+      { fieldName: this.fieldRequests, dimension: ['ALL'] },
+      { fieldName: this.fieldTraffic, dimension: ['ALL'] },
+      { fieldName: this.fieldRequestTraffic, dimension: ['ALL'] },
+    ];
+    if (includePageView) {
+      fields.push({ fieldName: this.fieldVisitors, dimension: ['ALL'] });
+    }
     if (includeLatency && this.fieldLatency) {
       fields.push({ fieldName: this.fieldLatency, dimension: ['ALL'] });
     }
@@ -156,10 +167,10 @@ class AnalyticsEsaService {
     }, 0);
   }
 
-  async getOverview(): Promise<{ total: number; today: number; unique7d: number; errors: number; avgMs: number }> {
+  async getOverview(): Promise<{ total: number; today: number; unique7d: number; errors: number; avgMs: number; traffic: number; requestTraffic: number; pageView: number }> {
     const [all30d, today, unique7d, errors] = await Promise.all([
-      this.describeTimeSeries(30, 86400, this.buildOverviewFields(false)),
-      this.describeTimeSeries(1, 3600, this.buildOverviewFields(true)),
+      this.describeTimeSeries(30, 86400, this.buildOverviewFields(false, false)),
+      this.describeTimeSeries(1, 3600, this.buildOverviewFields(true, true)),
       this.describeTimeSeries(7, 86400, [{ fieldName: this.fieldVisitors, dimension: ['ALL'] }]),
       this.getErrorCountByStatus(1),
     ]);
@@ -170,18 +181,25 @@ class AnalyticsEsaService {
       unique7d: this.findSummaryValue(unique7d, this.fieldVisitors),
       errors,
       avgMs: this.findSummaryValue(today, this.fieldLatency),
+      traffic: this.findSummaryValue(today, this.fieldTraffic),
+      requestTraffic: this.findSummaryValue(today, this.fieldRequestTraffic),
+      pageView: this.findSummaryValue(today, this.fieldVisitors),
     };
   }
 
-  async getTrend(days: number): Promise<Array<{ date: string; requests: number; visitors: number }>> {
+  async getTrend(days: number): Promise<Array<{ date: string; requests: number; visitors: number; traffic: number; requestTraffic: number; pageView: number }>> {
     const body = await this.describeTimeSeries(days, 86400, [
       { fieldName: this.fieldRequests, dimension: ['ALL'] },
       { fieldName: this.fieldVisitors, dimension: ['ALL'] },
+      { fieldName: this.fieldTraffic, dimension: ['ALL'] },
+      { fieldName: this.fieldRequestTraffic, dimension: ['ALL'] },
     ]);
 
     const dataRows: any[] = Array.isArray(body?.data) ? body.data : [];
     const reqRow = dataRows.find((r) => String(r?.fieldName || '').toLowerCase() === this.fieldRequests.toLowerCase());
     const visRow = dataRows.find((r) => String(r?.fieldName || '').toLowerCase() === this.fieldVisitors.toLowerCase());
+    const trafficRow = dataRows.find((r) => String(r?.fieldName || '').toLowerCase() === this.fieldTraffic.toLowerCase());
+    const requestTrafficRow = dataRows.find((r) => String(r?.fieldName || '').toLowerCase() === this.fieldRequestTraffic.toLowerCase());
 
     const reqMap = new Map<string, number>();
     for (const item of reqRow?.detailData || []) {
@@ -193,12 +211,34 @@ class AnalyticsEsaService {
       visMap.set(toShanghaiDate(String(item?.timeStamp || '')), toInt(item?.value, 0));
     }
 
-    const keys = Array.from(new Set([...reqMap.keys(), ...visMap.keys()])).filter(Boolean).sort();
-    return keys.map((date) => ({ date, requests: reqMap.get(date) || 0, visitors: visMap.get(date) || 0 }));
+    const trafficMap = new Map<string, number>();
+    for (const item of trafficRow?.detailData || []) {
+      trafficMap.set(toShanghaiDate(String(item?.timeStamp || '')), toInt(item?.value, 0));
+    }
+
+    const requestTrafficMap = new Map<string, number>();
+    for (const item of requestTrafficRow?.detailData || []) {
+      requestTrafficMap.set(toShanghaiDate(String(item?.timeStamp || '')), toInt(item?.value, 0));
+    }
+
+    const keys = Array.from(new Set([
+      ...reqMap.keys(),
+      ...visMap.keys(),
+      ...trafficMap.keys(),
+      ...requestTrafficMap.keys(),
+    ])).filter(Boolean).sort();
+    return keys.map((date) => ({
+      date,
+      requests: reqMap.get(date) || 0,
+      visitors: visMap.get(date) || 0,
+      pageView: visMap.get(date) || 0,
+      traffic: trafficMap.get(date) || 0,
+      requestTraffic: requestTrafficMap.get(date) || 0,
+    }));
   }
 
   async getPages(days: number): Promise<Array<{ path: string; hits: number; visitors: number; avg_ms: number; p95_ms: number; errors: number }>> {
-    const body = await this.describeTop(days, 50, [{ fieldName: this.fieldRequests, dimension: ['Path'] }]);
+    const body = await this.describeTop(days, 50, [{ fieldName: this.fieldRequests, dimension: ['ClientRequestPath'] }]);
     const rows = (body?.data || []).find((r: any) => String(r?.fieldName || '').toLowerCase() === this.fieldRequests.toLowerCase());
     const detail: any[] = Array.isArray(rows?.detailData) ? rows.detailData : [];
     return detail.map((item) => ({
@@ -250,7 +290,7 @@ class AnalyticsEsaService {
   }
 
   async getReferers(days: number): Promise<Array<{ referer: string; hits: number }>> {
-    const body = await this.describeTop(days, 20, [{ fieldName: this.fieldRequests, dimension: ['Referer'] }]);
+    const body = await this.describeTop(days, 20, [{ fieldName: this.fieldRequests, dimension: ['ClientRequestReferer'] }]);
     const rows = (body?.data || []).find((r: any) => String(r?.fieldName || '').toLowerCase() === this.fieldRequests.toLowerCase());
     const detail: any[] = Array.isArray(rows?.detailData) ? rows.detailData : [];
     return detail.map((item) => ({
@@ -261,6 +301,8 @@ class AnalyticsEsaService {
 }
 
 export default new AnalyticsEsaService();
+
+
 
 
 
