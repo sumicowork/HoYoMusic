@@ -40,6 +40,9 @@ const AlbumManagement: React.FC = () => {
   const [form] = Form.useForm();
   const navigate = useNavigate();
 
+  const getAlbumTitleCn = (album: Album) => (album.title_cn && album.title_cn.trim()) || album.title;
+  const getAlbumTitleEn = (album: Album) => (album.title_en && album.title_en.trim()) || '';
+
   // Bulk game assignment
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [bulkGameModalVisible, setBulkGameModalVisible] = useState(false);
@@ -151,6 +154,8 @@ const AlbumManagement: React.FC = () => {
     try {
       await albumService.updateAlbum(album.id, {
         title: album.title,
+        title_cn: album.title_cn ?? album.title,
+        title_en: album.title_en ?? null,
         game_id: album.game_id || null,
         release_date: nextIso,
         notes: album.notes || null,
@@ -171,6 +176,8 @@ const AlbumManagement: React.FC = () => {
     setEditingAlbum(album);
     form.setFieldsValue({
       title: album.title,
+      title_cn: album.title_cn || album.title,
+      title_en: album.title_en || '',
       game_id: album.game_id,
       release_date: album.release_date ? dayjs(album.release_date) : null,
       notes: album.notes || '',
@@ -184,6 +191,8 @@ const AlbumManagement: React.FC = () => {
       if (editingAlbum) {
         const updateData = {
           title: values.title,
+          title_cn: values.title_cn || null,
+          title_en: values.title_en || null,
           game_id: values.game_id || null,
           release_date: values.release_date ? values.release_date.format('YYYY-MM-DD') : null,
           notes: values.notes || null,
@@ -674,7 +683,12 @@ const AlbumManagement: React.FC = () => {
       dataIndex: 'title',
       key: 'title',
       ellipsis: true,
-      render: (title: string, record: Album) => <Link to={`/albums/${record.id}`}>{title}</Link>,
+      render: (_title: string, record: Album) => (
+        <Link to={`/albums/${record.id}`}>
+          <div>{getAlbumTitleCn(record)}</div>
+          {getAlbumTitleEn(record) && <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{getAlbumTitleEn(record)}</div>}
+        </Link>
+      ),
     },
     {
       title: '游戏',
@@ -924,7 +938,8 @@ const AlbumManagement: React.FC = () => {
                           preview={false}
                         />
                         <div>
-                          <div style={{ fontWeight: 600 }}>{album.title}</div>
+                          <div style={{ fontWeight: 600 }}>{getAlbumTitleCn(album)}</div>
+                          {getAlbumTitleEn(album) && <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{getAlbumTitleEn(album)}</div>}
                           <Space size={6} wrap style={{ marginTop: 6 }}>
                             <Tag>{games.find((g) => g.id === album.game_id)?.name || '未关联游戏'}</Tag>
                             <Tag>{album.track_count || 0} 首</Tag>
@@ -962,7 +977,7 @@ const AlbumManagement: React.FC = () => {
       </Card>
 
       <Drawer
-        title={mobileActionAlbum ? `操作: ${mobileActionAlbum.title}` : '操作'}
+        title={mobileActionAlbum ? `操作: ${getAlbumTitleCn(mobileActionAlbum)}` : '操作'}
         open={!!mobileActionAlbum}
         onClose={() => setMobileActionAlbum(null)}
         placement="bottom"
@@ -992,6 +1007,12 @@ const AlbumManagement: React.FC = () => {
       >
         <Form form={form} layout="vertical">
           <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入专辑标题' }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="title_cn" label="中文标题">
+            <Input />
+          </Form.Item>
+          <Form.Item name="title_en" label="外文标题">
             <Input />
           </Form.Item>
           <Form.Item name="game_id" label="游戏">

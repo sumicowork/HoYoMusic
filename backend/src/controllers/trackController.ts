@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import https from 'https';
 import http from 'http';
+import { randomUUID } from 'crypto';
 import pool from '../config/database';
 import { TrackWithDetails } from '../types';
 import storageService from '../services/storageService';
@@ -92,6 +93,40 @@ interface ExportTrackNotesRow {
   track_title: string;
   track_number: number | null;
   notes: string;
+}
+
+interface CatalogAlbumExportRow {
+  id: number;
+  uuid: string;
+  title: string;
+  title_cn: string | null;
+  title_en: string | null;
+  game_id: number | null;
+  release_date: Date | null;
+  notes: string | null;
+}
+
+interface CatalogTrackExportRow {
+  id: number;
+  uuid: string;
+  title: string;
+  title_cn: string | null;
+  title_en: string | null;
+  album_id: number | null;
+  album_uuid: string | null;
+  track_number: number | null;
+  release_date: Date | null;
+  notes: string | null;
+}
+
+type CatalogEntityType = 'album' | 'track';
+
+interface CatalogMetadataImportItemResult {
+  entity_type: CatalogEntityType;
+  uuid: string;
+  status: 'updated' | 'not_found' | 'skipped';
+  entity_id?: number;
+  reason?: string;
 }
 
 const normalizeTrackNumber = (raw: unknown): number | null => {
@@ -532,8 +567,8 @@ export const uploadTracks = async (req: Request, res: Response) => {
               }
             } else {
               const newAlbum = await client.query(
-                'INSERT INTO albums (title, cover_path, release_date) VALUES ($1, $2, $3) RETURNING id',
-                [albumTitle, coverUrl, releaseDate]
+                'INSERT INTO albums (title, title_cn, cover_path, release_date) VALUES ($1, $2, $3, $4) RETURNING id',
+                [albumTitle, albumTitle, coverUrl, releaseDate]
               );
               albumId = newAlbum.rows[0].id;
             }
@@ -542,10 +577,11 @@ export const uploadTracks = async (req: Request, res: Response) => {
           // Insert track (存储WebDAV URL)
           const trackResult = await client.query(
             `INSERT INTO tracks 
-            (title, album_id, file_path, cover_path, duration, track_number, sample_rate, bit_depth, file_size, release_date)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            (title, title_cn, album_id, file_path, cover_path, duration, track_number, sample_rate, bit_depth, file_size, release_date)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             RETURNING *`,
             [
+              title,
               title,
               albumId,
               trackUrl,  // WebDAV URL
@@ -977,6 +1013,315 @@ export const exportAllTrackNotes = async (_req: Request, res: Response) => {
   }
 };
 
+export const exportCatalogMetadata = async (_req: Request, res: Response) => {
+  try {
+    const [albumsResult, tracksResult] = await Promise.all([
+      pool.query<CatalogAlbumExportRow>(
+        `SELECT id, uuid::text AS uuid, title, title_cn, title_en, game_id, release_date, notes
+         FROM albums
+         ORDER BY id ASC`
+      ),
+      pool.query<CatalogTrackExportRow>(
+        `SELECT
+           t.id,
+           t.uuid::text AS uuid,
+           t.title,
+           t.title_cn,
+           t.title_en,
+           t.album_id,
+           a.uuid::text AS album_uuid,
+           t.track_number,
+           t.release_date,
+           t.notes
+         FROM tracks t
+         LEFT JOIN albums a ON a.id = t.album_id
+         ORDER BY t.id ASC`
+      ),
+    ]);
+
+    const payload = {
+      version: '1.0',
+      exported_at: new Date().toISOString(),
+      albums: albumsResult.rows,
+      tracks: tracksResult.rows,
+      summary: {
+        album_count: albumsResult.rows.length,
+        track_count: tracksResult.rows.length,
+      },
+    };
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `catalog-metadata-export-${timestamp}.json`;
+
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return res.status(200).send(JSON.stringify(payload, null, 2));
+  } catch (error) {
+    console.error('Export catalog metadata error:', error);
+    return res.status(500).json({
+      success: false,
+      error: { code: 'EXPORT_ERROR', message: 'Failed to export catalog metadata' },
+    });
+  }
+};
+
+const applyCatalogMetadataByUuid = async (
+  req: Request,
+  options: { dryRun: boolean; createAuditBatch: boolean }
+) => {
+  const albums = Array.isArray(req.body?.albums) ? req.body.albums : [];
+  const tracks = Array.isArray(req.body?.tracks) ? req.body.tracks : [];
+  const syncLegacyTitle = req.body?.sync_legacy_title === true;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const items: CatalogMetadataImportItemResult[] = [];
+    const batchUuid = options.createAuditBatch ? randomUUID() : null;
+    const currentUser = req.user as { id?: number; username?: string } | undefined;
+    const albumsNotFound: string[] = [];
+    const tracksNotFound: string[] = [];
+    let albumsUpdated = 0;
+    let tracksUpdated = 0;
+
+    if (options.createAuditBatch && batchUuid) {
+      await client.query(
+        `INSERT INTO catalog_metadata_import_batches (
+           batch_uuid, requested_by_user_id, requested_by_username, sync_legacy_title,
+           albums_input, tracks_input, status
+         ) VALUES ($1::uuid, $2, $3, $4, $5, $6, 'committed')`,
+        [batchUuid, currentUser?.id ?? null, currentUser?.username ?? null, syncLegacyTitle, albums.length, tracks.length]
+      );
+    }
+
+    for (const album of albums) {
+      const beforeResult = await client.query(
+        'SELECT id, title, title_cn, title_en FROM albums WHERE uuid = $1::uuid',
+        [album.uuid]
+      );
+      if (beforeResult.rows.length === 0) {
+        albumsNotFound.push(String(album.uuid));
+        items.push({ entity_type: 'album', uuid: String(album.uuid), status: 'not_found' });
+        continue;
+      }
+
+      const beforeRow = beforeResult.rows[0];
+      const nextTitle = syncLegacyTitle && album.title !== undefined ? album.title : beforeRow.title;
+      const nextTitleCn = album.title_cn !== undefined ? album.title_cn : beforeRow.title_cn;
+      const nextTitleEn = album.title_en !== undefined ? album.title_en : beforeRow.title_en;
+
+      if (nextTitle === beforeRow.title && nextTitleCn === beforeRow.title_cn && nextTitleEn === beforeRow.title_en) {
+        items.push({ entity_type: 'album', uuid: String(album.uuid), status: 'skipped', entity_id: Number(beforeRow.id), reason: 'No changes detected' });
+        continue;
+      }
+
+      if (!options.dryRun) {
+        await client.query(
+          'UPDATE albums SET title = $2, title_cn = $3, title_en = $4, updated_at = CURRENT_TIMESTAMP WHERE uuid = $1::uuid',
+          [album.uuid, nextTitle, nextTitleCn, nextTitleEn]
+        );
+      }
+
+      if (options.createAuditBatch && batchUuid) {
+        await client.query(
+          `INSERT INTO catalog_metadata_import_changes (
+             batch_uuid, entity_type, entity_uuid, entity_id,
+             before_title, before_title_cn, before_title_en,
+             after_title, after_title_cn, after_title_en
+           ) VALUES ($1::uuid, 'album', $2::uuid, $3, $4, $5, $6, $7, $8, $9)`,
+          [batchUuid, album.uuid, Number(beforeRow.id), beforeRow.title, beforeRow.title_cn, beforeRow.title_en, nextTitle, nextTitleCn, nextTitleEn]
+        );
+      }
+
+      items.push({ entity_type: 'album', uuid: String(album.uuid), status: 'updated', entity_id: Number(beforeRow.id) });
+      albumsUpdated += 1;
+    }
+
+    for (const track of tracks) {
+      const beforeResult = await client.query(
+        'SELECT id, title, title_cn, title_en FROM tracks WHERE uuid = $1::uuid',
+        [track.uuid]
+      );
+      if (beforeResult.rows.length === 0) {
+        tracksNotFound.push(String(track.uuid));
+        items.push({ entity_type: 'track', uuid: String(track.uuid), status: 'not_found' });
+        continue;
+      }
+
+      const beforeRow = beforeResult.rows[0];
+      const nextTitle = syncLegacyTitle && track.title !== undefined ? track.title : beforeRow.title;
+      const nextTitleCn = track.title_cn !== undefined ? track.title_cn : beforeRow.title_cn;
+      const nextTitleEn = track.title_en !== undefined ? track.title_en : beforeRow.title_en;
+
+      if (nextTitle === beforeRow.title && nextTitleCn === beforeRow.title_cn && nextTitleEn === beforeRow.title_en) {
+        items.push({ entity_type: 'track', uuid: String(track.uuid), status: 'skipped', entity_id: Number(beforeRow.id), reason: 'No changes detected' });
+        continue;
+      }
+
+      if (!options.dryRun) {
+        await client.query(
+          'UPDATE tracks SET title = $2, title_cn = $3, title_en = $4, updated_at = CURRENT_TIMESTAMP WHERE uuid = $1::uuid',
+          [track.uuid, nextTitle, nextTitleCn, nextTitleEn]
+        );
+      }
+
+      if (options.createAuditBatch && batchUuid) {
+        await client.query(
+          `INSERT INTO catalog_metadata_import_changes (
+             batch_uuid, entity_type, entity_uuid, entity_id,
+             before_title, before_title_cn, before_title_en,
+             after_title, after_title_cn, after_title_en
+           ) VALUES ($1::uuid, 'track', $2::uuid, $3, $4, $5, $6, $7, $8, $9)`,
+          [batchUuid, track.uuid, Number(beforeRow.id), beforeRow.title, beforeRow.title_cn, beforeRow.title_en, nextTitle, nextTitleCn, nextTitleEn]
+        );
+      }
+
+      items.push({ entity_type: 'track', uuid: String(track.uuid), status: 'updated', entity_id: Number(beforeRow.id) });
+      tracksUpdated += 1;
+    }
+
+    if (options.createAuditBatch && batchUuid) {
+      await client.query(
+        `UPDATE catalog_metadata_import_batches
+         SET albums_updated = $2, tracks_updated = $3, albums_not_found = $4, tracks_not_found = $5
+         WHERE batch_uuid = $1::uuid`,
+        [batchUuid, albumsUpdated, tracksUpdated, albumsNotFound.length, tracksNotFound.length]
+      );
+    }
+
+    if (options.dryRun) {
+      await client.query('ROLLBACK');
+    } else {
+      await client.query('COMMIT');
+    }
+
+    return {
+      summary: {
+        albums_input: albums.length,
+        tracks_input: tracks.length,
+        albums_updated: albumsUpdated,
+        tracks_updated: tracksUpdated,
+        albums_not_found: albumsNotFound.length,
+        tracks_not_found: tracksNotFound.length,
+        skipped: items.filter((item) => item.status === 'skipped').length,
+      },
+      albums_not_found_uuids: albumsNotFound,
+      tracks_not_found_uuids: tracksNotFound,
+      items,
+      batch_uuid: batchUuid,
+      dry_run: options.dryRun,
+    };
+  } catch (error) {
+    try { await client.query('ROLLBACK'); } catch {}
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+export const previewCatalogMetadataByUuid = async (req: Request, res: Response) => {
+  try {
+    const result = await applyCatalogMetadataByUuid(req, { dryRun: true, createAuditBatch: false });
+    return res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Preview catalog metadata by uuid error:', error);
+    return res.status(500).json({ success: false, error: { code: 'PREVIEW_ERROR', message: 'Failed to preview catalog metadata by uuid' } });
+  }
+};
+
+export const commitCatalogMetadataByUuid = async (req: Request, res: Response) => {
+  try {
+    const result = await applyCatalogMetadataByUuid(req, { dryRun: false, createAuditBatch: true });
+    return res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Commit catalog metadata by uuid error:', error);
+    return res.status(500).json({ success: false, error: { code: 'IMPORT_ERROR', message: 'Failed to commit catalog metadata by uuid' } });
+  }
+};
+
+export const rollbackCatalogMetadataImportBatch = async (req: Request, res: Response) => {
+  try {
+    const batchUuid = String(req.body?.batch_uuid || '').trim();
+    if (!batchUuid) {
+      return res.status(400).json({ success: false, error: { code: 'INVALID_DATA', message: 'batch_uuid is required' } });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const batchResult = await client.query(
+        'SELECT status FROM catalog_metadata_import_batches WHERE batch_uuid = $1::uuid',
+        [batchUuid]
+      );
+      if (batchResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Batch not found' } });
+      }
+      if (batchResult.rows[0].status === 'rolled_back') {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ success: false, error: { code: 'ALREADY_ROLLED_BACK', message: 'Batch already rolled back' } });
+      }
+
+      const changesResult = await client.query(
+        `SELECT entity_type, entity_uuid::text AS entity_uuid, before_title, before_title_cn, before_title_en
+         FROM catalog_metadata_import_changes
+         WHERE batch_uuid = $1::uuid
+         ORDER BY id DESC`,
+        [batchUuid]
+      );
+
+      let albumsReverted = 0;
+      let tracksReverted = 0;
+      for (const row of changesResult.rows) {
+        if (row.entity_type === 'album') {
+          const reverted = await client.query(
+            'UPDATE albums SET title = $2, title_cn = $3, title_en = $4, updated_at = CURRENT_TIMESTAMP WHERE uuid = $1::uuid RETURNING id',
+            [row.entity_uuid, row.before_title, row.before_title_cn, row.before_title_en]
+          );
+          if (reverted.rows.length > 0) albumsReverted += 1;
+        }
+        if (row.entity_type === 'track') {
+          const reverted = await client.query(
+            'UPDATE tracks SET title = $2, title_cn = $3, title_en = $4, updated_at = CURRENT_TIMESTAMP WHERE uuid = $1::uuid RETURNING id',
+            [row.entity_uuid, row.before_title, row.before_title_cn, row.before_title_en]
+          );
+          if (reverted.rows.length > 0) tracksReverted += 1;
+        }
+      }
+
+      await client.query(
+        `UPDATE catalog_metadata_import_batches
+         SET status = 'rolled_back', rolled_back_at = NOW()
+         WHERE batch_uuid = $1::uuid`,
+        [batchUuid]
+      );
+
+      await client.query('COMMIT');
+      return res.json({ success: true, data: { batch_uuid: batchUuid, albums_reverted: albumsReverted, tracks_reverted: tracksReverted } });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Rollback catalog metadata batch error:', error);
+    return res.status(500).json({ success: false, error: { code: 'ROLLBACK_ERROR', message: 'Failed to rollback catalog metadata batch' } });
+  }
+};
+
+export const replaceCatalogMetadataByUuid = async (req: Request, res: Response) => {
+  try {
+    const result = await applyCatalogMetadataByUuid(req, { dryRun: false, createAuditBatch: true });
+    return res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Replace catalog metadata by uuid error:', error);
+    return res.status(500).json({ success: false, error: { code: 'IMPORT_ERROR', message: 'Failed to import catalog metadata by uuid' } });
+  }
+};
+
 // Scan duplicates where tracks share the same album and title.
 export const scanSameAlbumDuplicateTracks = async (_req: Request, res: Response) => {
   try {
@@ -1093,7 +1438,11 @@ export const getTracks = async (req: Request, res: Response) => {
     if (search) {
       conditions.push(`(
         LOWER(t.title) LIKE LOWER($${pIdx})
+        OR LOWER(COALESCE(t.title_cn, '')) LIKE LOWER($${pIdx})
+        OR LOWER(COALESCE(t.title_en, '')) LIKE LOWER($${pIdx})
         OR LOWER(a.title) LIKE LOWER($${pIdx})
+        OR LOWER(COALESCE(a.title_cn, '')) LIKE LOWER($${pIdx})
+        OR LOWER(COALESCE(a.title_en, '')) LIKE LOWER($${pIdx})
         OR LOWER(COALESCE(t.notes, '')) LIKE LOWER($${pIdx})
         OR EXISTS (
           SELECT 1 FROM track_artists ta2
@@ -1225,7 +1574,10 @@ export const getTracks = async (req: Request, res: Response) => {
     const tracksQuery = `
       SELECT
         t.*,
+        a.uuid as album_uuid,
         a.title as album_title,
+        a.title_cn as album_title_cn,
+        a.title_en as album_title_en,
         a.cover_path as album_cover,
         a.release_date as album_release_date,
         array_agg(json_build_object('id', ar.id, 'name', ar.name)) as artists,
@@ -1236,7 +1588,7 @@ export const getTracks = async (req: Request, res: Response) => {
       LEFT JOIN artists ar ON ta.artist_id = ar.id
       LEFT JOIN favorites fav ON t.id = fav.track_id
       ${whereClause}
-      GROUP BY t.id, a.title, a.cover_path, a.release_date, a.created_at, a.id
+      GROUP BY t.id, a.id, a.uuid, a.title, a.title_cn, a.title_en, a.cover_path, a.release_date, a.created_at
       ORDER BY ${orderBy} ${sortDir}, COALESCE(a.release_date, a.created_at) ${sortDir}, t.track_number ASC NULLS LAST, t.title ASC
       LIMIT $${limitParam} OFFSET $${offsetParam}
     `;
@@ -1310,7 +1662,10 @@ export const getTrackById = async (req: Request, res: Response) => {
     const trackResult = await pool.query(
       `SELECT 
         t.*,
+        a.uuid as album_uuid,
         a.title as album_title,
+        a.title_cn as album_title_cn,
+        a.title_en as album_title_en,
         a.cover_path as album_cover,
         array_agg(json_build_object('id', ar.id, 'name', ar.name)) as artists,
         COUNT(DISTINCT fav.user_id)::int AS favorite_count
@@ -1320,7 +1675,7 @@ export const getTrackById = async (req: Request, res: Response) => {
       LEFT JOIN artists ar ON ta.artist_id = ar.id
       LEFT JOIN favorites fav ON t.id = fav.track_id
       WHERE t.id = $1
-      GROUP BY t.id, a.title, a.cover_path`,
+      GROUP BY t.id, a.id, a.uuid, a.title, a.title_cn, a.title_en, a.cover_path`,
       [id]
     );
 
@@ -1531,7 +1886,7 @@ export const downloadTrack = async (req: Request, res: Response) => {
 export const updateTrack = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { title, artists, album_title, release_date, track_number, notes } = req.body;
+    const { title, title_cn, title_en, artists, album_title, release_date, track_number, notes } = req.body;
 
     const client = await pool.connect();
 
@@ -1542,12 +1897,22 @@ export const updateTrack = async (req: Request, res: Response) => {
       await client.query(
         `UPDATE tracks SET 
           title = $1, 
-          release_date = COALESCE($2, release_date),
-          track_number = COALESCE($3, track_number),
-          notes = $4,
+          title_cn = COALESCE($2, title_cn),
+          title_en = COALESCE($3, title_en),
+          release_date = COALESCE($4, release_date),
+          track_number = COALESCE($5, track_number),
+          notes = $6,
           updated_at = CURRENT_TIMESTAMP 
-        WHERE id = $5`,
-        [title, release_date || null, track_number || null, notes !== undefined ? notes : null, id]
+        WHERE id = $7`,
+        [
+          title,
+          title_cn !== undefined ? title_cn : null,
+          title_en !== undefined ? title_en : null,
+          release_date || null,
+          track_number || null,
+          notes !== undefined ? notes : null,
+          id,
+        ]
       );
 
       // Handle album
@@ -1562,8 +1927,8 @@ export const updateTrack = async (req: Request, res: Response) => {
           albumId = albumResult.rows[0].id;
         } else {
           const newAlbum = await client.query(
-            'INSERT INTO albums (title) VALUES ($1) RETURNING id',
-            [album_title]
+            'INSERT INTO albums (title, title_cn) VALUES ($1, $2) RETURNING id',
+            [album_title, album_title]
           );
           albumId = newAlbum.rows[0].id;
         }

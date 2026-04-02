@@ -8,7 +8,10 @@ export interface User {
 
 export interface Track {
   id: number;
+  uuid: string;
   title: string;
+  title_cn?: string | null;
+  title_en?: string | null;
   album_id: number | null;
   file_path: string;
   cover_path: string | null;
@@ -26,7 +29,10 @@ export interface Track {
 
 export interface Album {
   id: number;
+  uuid: string;
   title: string;
+  title_cn?: string | null;
+  title_en?: string | null;
   cover_path: string | null;
   release_date: Date | null;
   created_at: Date;

@@ -3,6 +3,8 @@
 -- 按依赖顺序合并所有 schema 文件，一次执行即可
 -- ============================================================
 
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 -- ────────────────────────────────────────────────────────────
 -- 1. 基础表（schema.sql）
 -- ────────────────────────────────────────────────────────────
@@ -51,7 +53,10 @@ CREATE TABLE IF NOT EXISTS artists (
 
 CREATE TABLE IF NOT EXISTS albums (
     id SERIAL PRIMARY KEY,
+    uuid UUID NOT NULL DEFAULT gen_random_uuid(),
     title VARCHAR(255) NOT NULL,
+    title_cn VARCHAR(500),
+    title_en VARCHAR(500),
     cover_path VARCHAR(500),
     release_date DATE,
     notes TEXT,
@@ -61,7 +66,10 @@ CREATE TABLE IF NOT EXISTS albums (
 
 CREATE TABLE IF NOT EXISTS tracks (
     id SERIAL PRIMARY KEY,
+    uuid UUID NOT NULL DEFAULT gen_random_uuid(),
     title VARCHAR(255) NOT NULL,
+    title_cn VARCHAR(500),
+    title_en VARCHAR(500),
     album_id INTEGER REFERENCES albums(id) ON DELETE SET NULL,
     disc_id INTEGER,
     file_path VARCHAR(500) NOT NULL,
@@ -123,6 +131,8 @@ CREATE INDEX IF NOT EXISTS idx_tracks_album_id ON tracks(album_id);
 CREATE INDEX IF NOT EXISTS idx_tracks_title ON tracks(title);
 CREATE INDEX IF NOT EXISTS idx_artists_name ON artists(name);
 CREATE INDEX IF NOT EXISTS idx_albums_title ON albums(title);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tracks_uuid ON tracks(uuid);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_albums_uuid ON albums(uuid);
 CREATE INDEX IF NOT EXISTS idx_track_artists_track_id ON track_artists(track_id);
 CREATE INDEX IF NOT EXISTS idx_track_artists_artist_id ON track_artists(artist_id);
 CREATE INDEX IF NOT EXISTS idx_tracks_disc_id ON tracks(disc_id);
@@ -130,6 +140,43 @@ CREATE INDEX IF NOT EXISTS idx_album_discs_album_id ON album_discs(album_id);
 CREATE INDEX IF NOT EXISTS idx_track_play_events_played_at ON track_play_events(played_at DESC);
 CREATE INDEX IF NOT EXISTS idx_track_play_events_track_effective ON track_play_events(track_id, effective_play, played_at DESC);
 CREATE INDEX IF NOT EXISTS idx_track_play_events_source_ip ON track_play_events(source_ip);
+
+CREATE TABLE IF NOT EXISTS catalog_metadata_import_batches (
+    id BIGSERIAL PRIMARY KEY,
+    batch_uuid UUID NOT NULL UNIQUE,
+    requested_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    requested_by_username VARCHAR(100),
+    sync_legacy_title BOOLEAN NOT NULL DEFAULT FALSE,
+    albums_input INTEGER NOT NULL DEFAULT 0,
+    tracks_input INTEGER NOT NULL DEFAULT 0,
+    albums_updated INTEGER NOT NULL DEFAULT 0,
+    tracks_updated INTEGER NOT NULL DEFAULT 0,
+    albums_not_found INTEGER NOT NULL DEFAULT 0,
+    tracks_not_found INTEGER NOT NULL DEFAULT 0,
+    status VARCHAR(20) NOT NULL DEFAULT 'committed' CHECK (status IN ('committed', 'rolled_back')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    rolled_back_at TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS catalog_metadata_import_changes (
+    id BIGSERIAL PRIMARY KEY,
+    batch_uuid UUID NOT NULL REFERENCES catalog_metadata_import_batches(batch_uuid) ON DELETE CASCADE,
+    entity_type VARCHAR(10) NOT NULL CHECK (entity_type IN ('album', 'track')),
+    entity_uuid UUID NOT NULL,
+    entity_id INTEGER,
+    before_title VARCHAR(500),
+    before_title_cn VARCHAR(500),
+    before_title_en VARCHAR(500),
+    after_title VARCHAR(500),
+    after_title_cn VARCHAR(500),
+    after_title_en VARCHAR(500),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_catalog_metadata_batches_created_at ON catalog_metadata_import_batches(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_catalog_metadata_batches_status ON catalog_metadata_import_batches(status);
+CREATE INDEX IF NOT EXISTS idx_catalog_metadata_changes_batch_uuid ON catalog_metadata_import_changes(batch_uuid);
+CREATE INDEX IF NOT EXISTS idx_catalog_metadata_changes_entity_uuid ON catalog_metadata_import_changes(entity_uuid);
 
 -- 默认管理员（密码：admin123，请登录后立即修改）
 INSERT INTO users (username, password_hash, email_verified, is_admin)
@@ -152,6 +199,20 @@ CREATE TABLE IF NOT EXISTS games (
 );
 
 ALTER TABLE albums ADD COLUMN IF NOT EXISTS game_id INTEGER REFERENCES games(id) ON DELETE SET NULL;
+ALTER TABLE albums ADD COLUMN IF NOT EXISTS uuid UUID;
+ALTER TABLE albums ALTER COLUMN uuid SET DEFAULT gen_random_uuid();
+UPDATE albums SET uuid = gen_random_uuid() WHERE uuid IS NULL;
+ALTER TABLE tracks ADD COLUMN IF NOT EXISTS uuid UUID;
+ALTER TABLE tracks ALTER COLUMN uuid SET DEFAULT gen_random_uuid();
+UPDATE tracks SET uuid = gen_random_uuid() WHERE uuid IS NULL;
+
+ALTER TABLE albums ADD COLUMN IF NOT EXISTS title_cn VARCHAR(500);
+ALTER TABLE albums ADD COLUMN IF NOT EXISTS title_en VARCHAR(500);
+ALTER TABLE tracks ADD COLUMN IF NOT EXISTS title_cn VARCHAR(500);
+ALTER TABLE tracks ADD COLUMN IF NOT EXISTS title_en VARCHAR(500);
+
+UPDATE albums SET title_cn = title WHERE title_cn IS NULL AND title IS NOT NULL;
+UPDATE tracks SET title_cn = title WHERE title_cn IS NULL AND title IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_albums_game_id ON albums(game_id);
 

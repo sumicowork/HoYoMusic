@@ -150,6 +150,11 @@ const Admin: React.FC = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const getTitleCn = (track: Track) => (track.title_cn && track.title_cn.trim()) || track.title;
+  const getTitleEn = (track: Track) => (track.title_en && track.title_en.trim()) || '';
+  const getAlbumTitleCn = (track: Track) => (track.album_title_cn && track.album_title_cn.trim()) || (track.album_title || '');
+  const getAlbumTitleEn = (track: Track) => (track.album_title_en && track.album_title_en.trim()) || '';
+
   const getUniqueFilters = (values: Array<string | null | undefined>) => {
     const unique = Array.from(new Set(values.map((item) => (item || '').trim()).filter(Boolean)));
     return unique.sort((a, b) => a.localeCompare(b, 'zh-CN')).map((value) => ({ text: value, value }));
@@ -184,6 +189,8 @@ const Admin: React.FC = () => {
     setEditingTrack(track);
     form.setFieldsValue({
       title: track.title,
+      title_cn: track.title_cn || track.title,
+      title_en: track.title_en || '',
       album_title: track.album_title,
       release_date: track.release_date ? dayjs(track.release_date) : null,
       track_number: (track as any).track_number || null,
@@ -198,6 +205,8 @@ const Admin: React.FC = () => {
       if (!editingTrack) return;
       await trackService.updateTrack(editingTrack.id, {
         title: values.title,
+        title_cn: values.title_cn || null,
+        title_en: values.title_en || null,
         artists: editingTrack.artists.map((artist) => artist.name),
         album_title: values.album_title || '',
         release_date: values.release_date ? values.release_date.format('YYYY-MM-DD') : undefined,
@@ -351,7 +360,12 @@ const Admin: React.FC = () => {
       filteredValue: columnFilters.title || null,
       filterMultiple: false,
       filterSearch: true,
-      render: (title: string, record: Track) => <Link to={`/track/${record.id}`}>{title}</Link>,
+      render: (_title: string, record: Track) => (
+        <Link to={`/track/${record.id}`}>
+          <div>{getTitleCn(record)}</div>
+          {getTitleEn(record) && <Typography.Text type="secondary" style={{ fontSize: 12 }}>{getTitleEn(record)}</Typography.Text>}
+        </Link>
+      ),
     },
     {
       title: '专辑',
@@ -363,10 +377,18 @@ const Admin: React.FC = () => {
       filteredValue: columnFilters.album || null,
       filterMultiple: false,
       filterSearch: true,
-      render: (albumTitle: string, record: Track) => {
-        if (!albumTitle) return '—';
-        if (!record.album_id) return albumTitle;
-        return <Link to={`/albums/${record.album_id}`}>{albumTitle}</Link>;
+      render: (_albumTitle: string, record: Track) => {
+        const titleCn = getAlbumTitleCn(record);
+        const titleEn = getAlbumTitleEn(record);
+        if (!titleCn) return '—';
+        const content = (
+          <div>
+            <div>{titleCn}</div>
+            {titleEn && <Typography.Text type="secondary" style={{ fontSize: 12 }}>{titleEn}</Typography.Text>}
+          </div>
+        );
+        if (!record.album_id) return content;
+        return <Link to={`/albums/${record.album_id}`}>{content}</Link>;
       },
     },
     {
@@ -439,7 +461,7 @@ const Admin: React.FC = () => {
           <Button type="primary" icon={<PlayCircleOutlined />} onClick={() => handlePlay(record)} size="small">播放</Button>
           <Button icon={<EditOutlined />} onClick={() => handleEdit(record)} size="small">编辑</Button>
           <Button icon={<TeamOutlined />} onClick={() => { setCurrentTrackId(record.id); setCreditsEditorVisible(true); }} size="small">制作人员</Button>
-          <Button icon={<TagsOutlined />} onClick={() => { setCurrentTrackId(record.id); setCurrentTrackTitle(record.title); setTagsManagerVisible(true); }} size="small">标签</Button>
+          <Button icon={<TagsOutlined />} onClick={() => { setCurrentTrackId(record.id); setCurrentTrackTitle(getTitleCn(record)); setTagsManagerVisible(true); }} size="small">标签</Button>
           <Button icon={<DownloadOutlined />} onClick={() => handleDownload(record)} size="small" />
           <Button danger icon={<DeleteOutlined />} onClick={() => handleDelete(record)} size="small" />
         </Space>
@@ -532,10 +554,11 @@ const Admin: React.FC = () => {
                           preview={false}
                         />
                         <div>
-                          <Typography.Text strong>{track.title}</Typography.Text>
+                          <Typography.Text strong>{getTitleCn(track)}</Typography.Text>
+                          {getTitleEn(track) && <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{getTitleEn(track)}</div>}
                           <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{track.artists?.map((artist) => artist.name).join(' / ') || '未知艺术家'}</div>
                           <Space size={6} wrap style={{ marginTop: 6 }}>
-                            <Tag>{track.album_title || '未分配专辑'}</Tag>
+                            <Tag>{getAlbumTitleCn(track) || '未分配专辑'}</Tag>
                             <Tag>{formatDuration(track.duration ?? null)}</Tag>
                             <Tag color={lyricsStatus === 'has' ? 'green' : lyricsStatus === 'instrumental' ? 'blue' : 'red'}>
                               {lyricsStatus === 'has' ? '有歌词' : lyricsStatus === 'instrumental' ? '纯音乐' : '无歌词'}
@@ -578,7 +601,7 @@ const Admin: React.FC = () => {
       </Card>
 
       <Drawer
-        title={mobileActionTrack ? `操作: ${mobileActionTrack.title}` : '操作'}
+        title={mobileActionTrack ? `操作: ${getTitleCn(mobileActionTrack)}` : '操作'}
         open={!!mobileActionTrack}
         onClose={() => setMobileActionTrack(null)}
         placement="bottom"
@@ -589,7 +612,7 @@ const Admin: React.FC = () => {
             <Button type="primary" icon={<PlayCircleOutlined />} onClick={() => handlePlay(mobileActionTrack)}>播放</Button>
             <Button icon={<EditOutlined />} onClick={() => handleEdit(mobileActionTrack)}>编辑</Button>
             <Button icon={<TeamOutlined />} onClick={() => { setCurrentTrackId(mobileActionTrack.id); setCreditsEditorVisible(true); }}>制作人员</Button>
-            <Button icon={<TagsOutlined />} onClick={() => { setCurrentTrackId(mobileActionTrack.id); setCurrentTrackTitle(mobileActionTrack.title); setTagsManagerVisible(true); }}>标签</Button>
+            <Button icon={<TagsOutlined />} onClick={() => { setCurrentTrackId(mobileActionTrack.id); setCurrentTrackTitle(getTitleCn(mobileActionTrack)); setTagsManagerVisible(true); }}>标签</Button>
             <Button icon={<FileTextOutlined />} onClick={() => { setCurrentTrackId(mobileActionTrack.id); setLyricsEditorVisible(true); }}>歌词</Button>
             <Button icon={<DownloadOutlined />} onClick={() => handleDownload(mobileActionTrack)}>下载</Button>
             <Button danger icon={<DeleteOutlined />} onClick={() => handleDelete(mobileActionTrack)}>删除</Button>
@@ -600,6 +623,8 @@ const Admin: React.FC = () => {
       <Modal title="编辑曲目信息" open={editModalVisible} onOk={handleEditSave} onCancel={() => setEditModalVisible(false)} okText="保存" cancelText="取消">
         <Form form={form} layout="vertical">
           <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入标题' }]}><Input /></Form.Item>
+          <Form.Item name="title_cn" label="中文标题"><Input /></Form.Item>
+          <Form.Item name="title_en" label="外文标题"><Input /></Form.Item>
           <Form.Item name="album_title" label="专辑"><Input /></Form.Item>
           <Form.Item name="release_date" label="发行日期"><DatePicker style={{ width: '100%' }} placeholder="选择发行日期" /></Form.Item>
           <Form.Item name="track_number" label="曲目编号"><InputNumber min={1} style={{ width: '100%' }} placeholder="曲目编号" /></Form.Item>

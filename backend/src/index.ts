@@ -439,6 +439,97 @@ const runMigrations = async () => {
     console.error('⚠️  notes column migration warning:', err);
   }
 
+  // Stable UUID locator + bilingual title columns for albums/tracks
+  try {
+    await pool.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto`);
+    await pool.query(`ALTER TABLE albums ADD COLUMN IF NOT EXISTS uuid UUID`);
+    await pool.query(`ALTER TABLE tracks ADD COLUMN IF NOT EXISTS uuid UUID`);
+    await pool.query(`ALTER TABLE albums ALTER COLUMN uuid SET DEFAULT gen_random_uuid()`);
+    await pool.query(`ALTER TABLE tracks ALTER COLUMN uuid SET DEFAULT gen_random_uuid()`);
+    await pool.query(`UPDATE albums SET uuid = gen_random_uuid() WHERE uuid IS NULL`);
+    await pool.query(`UPDATE tracks SET uuid = gen_random_uuid() WHERE uuid IS NULL`);
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_albums_uuid ON albums(uuid)`);
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_tracks_uuid ON tracks(uuid)`);
+
+    await pool.query(`ALTER TABLE albums ADD COLUMN IF NOT EXISTS title_cn VARCHAR(500)`);
+    await pool.query(`ALTER TABLE albums ADD COLUMN IF NOT EXISTS title_en VARCHAR(500)`);
+    await pool.query(`ALTER TABLE tracks ADD COLUMN IF NOT EXISTS title_cn VARCHAR(500)`);
+    await pool.query(`ALTER TABLE tracks ADD COLUMN IF NOT EXISTS title_en VARCHAR(500)`);
+
+    // Backfill CN title from legacy title so existing data stays readable.
+    await pool.query(`UPDATE albums SET title_cn = title WHERE title_cn IS NULL AND title IS NOT NULL`);
+    await pool.query(`UPDATE tracks SET title_cn = title WHERE title_cn IS NULL AND title IS NOT NULL`);
+
+    console.log('✅ DB migrations up to date (albums/tracks: uuid, title_cn, title_en)');
+  } catch (err) {
+    console.error('⚠️  catalog metadata migration warning:', err);
+  }
+
+  // Catalog metadata import audit (preview/commit/rollback)
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS catalog_metadata_import_batches (
+        id BIGSERIAL PRIMARY KEY,
+        batch_uuid UUID NOT NULL UNIQUE,
+        requested_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        requested_by_username VARCHAR(100),
+        sync_legacy_title BOOLEAN NOT NULL DEFAULT FALSE,
+        albums_input INTEGER NOT NULL DEFAULT 0,
+        tracks_input INTEGER NOT NULL DEFAULT 0,
+        albums_updated INTEGER NOT NULL DEFAULT 0,
+        tracks_updated INTEGER NOT NULL DEFAULT 0,
+        albums_not_found INTEGER NOT NULL DEFAULT 0,
+        tracks_not_found INTEGER NOT NULL DEFAULT 0,
+        status VARCHAR(20) NOT NULL DEFAULT 'committed',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        rolled_back_at TIMESTAMPTZ
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS catalog_metadata_import_changes (
+        id BIGSERIAL PRIMARY KEY,
+        batch_uuid UUID NOT NULL REFERENCES catalog_metadata_import_batches(batch_uuid) ON DELETE CASCADE,
+        entity_type VARCHAR(10) NOT NULL,
+        entity_uuid UUID NOT NULL,
+        entity_id INTEGER,
+        before_title VARCHAR(500),
+        before_title_cn VARCHAR(500),
+        before_title_en VARCHAR(500),
+        after_title VARCHAR(500),
+        after_title_cn VARCHAR(500),
+        after_title_en VARCHAR(500),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_catalog_metadata_batches_created_at ON catalog_metadata_import_batches(created_at DESC)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_catalog_metadata_batches_status ON catalog_metadata_import_batches(status)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_catalog_metadata_changes_batch_uuid ON catalog_metadata_import_changes(batch_uuid)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_catalog_metadata_changes_entity_uuid ON catalog_metadata_import_changes(entity_uuid)`);
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_catalog_metadata_import_batch_status') THEN
+          ALTER TABLE catalog_metadata_import_batches
+          ADD CONSTRAINT chk_catalog_metadata_import_batch_status CHECK (status IN ('committed', 'rolled_back'));
+        END IF;
+      END
+      $$
+    `);
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_catalog_metadata_import_change_entity_type') THEN
+          ALTER TABLE catalog_metadata_import_changes
+          ADD CONSTRAINT chk_catalog_metadata_import_change_entity_type CHECK (entity_type IN ('album', 'track'));
+        END IF;
+      END
+      $$
+    `);
+    console.log('✅ DB migrations up to date (catalog_metadata_import_audit)');
+  } catch (err) {
+    console.error('⚠️  catalog metadata audit migration warning:', err);
+  }
+
   // music source module tables
   try {
     await pool.query(`

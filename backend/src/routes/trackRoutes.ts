@@ -1,10 +1,10 @@
 import { Router, Request, Response } from 'express';
-import { uploadTracks, getTracks, getTrackFilterOptions, getTrackById, streamTrack, downloadTrack, updateTrack, deleteTrack, uploadTrackCover, bulkDeleteTracks, bulkMoveTracksToAlbum, previewCredits, precheckDuplicateTracks, scanSameAlbumDuplicateTracks, previewTrackNotesImport, commitTrackNotesImport, getTrackNotesImportCandidates, exportAllTrackNotes } from '../controllers/trackController';
+import { uploadTracks, getTracks, getTrackFilterOptions, getTrackById, streamTrack, downloadTrack, updateTrack, deleteTrack, uploadTrackCover, bulkDeleteTracks, bulkMoveTracksToAlbum, previewCredits, precheckDuplicateTracks, scanSameAlbumDuplicateTracks, previewTrackNotesImport, commitTrackNotesImport, getTrackNotesImportCandidates, exportAllTrackNotes, exportCatalogMetadata, replaceCatalogMetadataByUuid, previewCatalogMetadataByUuid, commitCatalogMetadataByUuid, rollbackCatalogMetadataImportBatch } from '../controllers/trackController';
 import { authenticateAdmin } from '../middleware/auth';
 import { authenticateStream } from '../middleware/authenticateStream';
 import upload, { coverUpload } from '../middleware/upload';
 import { validateBody } from '../middleware/validate';
-import { updateTrackSchema, bulkDeleteTracksSchema, bulkMoveTracksSchema, previewTrackNotesImportSchema, commitTrackNotesImportSchema } from '../validators/schemas';
+import { updateTrackSchema, bulkDeleteTracksSchema, bulkMoveTracksSchema, previewTrackNotesImportSchema, commitTrackNotesImportSchema, importCatalogMetadataByUuidSchema, previewCatalogMetadataByUuidSchema, commitCatalogMetadataByUuidSchema, rollbackCatalogMetadataBatchSchema } from '../validators/schemas';
 import { cacheControl, CACHE_TTL, noStore } from '../middleware/cacheHeaders';
 
 const router = Router();
@@ -23,6 +23,11 @@ router.post('/notes-import/preview', authenticateAdmin, validateBody(previewTrac
 router.post('/notes-import/commit', authenticateAdmin, validateBody(commitTrackNotesImportSchema), commitTrackNotesImport);
 router.get('/notes-import/candidates', authenticateAdmin, cacheControl(CACHE_TTL.NONE), getTrackNotesImportCandidates);
 router.get('/notes-export', authenticateAdmin, cacheControl(CACHE_TTL.NONE), exportAllTrackNotes);
+router.get('/metadata-export', authenticateAdmin, cacheControl(CACHE_TTL.NONE), exportCatalogMetadata);
+router.post('/metadata-import/preview', authenticateAdmin, validateBody(previewCatalogMetadataByUuidSchema), noStore, previewCatalogMetadataByUuid);
+router.post('/metadata-import/commit', authenticateAdmin, validateBody(commitCatalogMetadataByUuidSchema), noStore, commitCatalogMetadataByUuid);
+router.post('/metadata-import/rollback', authenticateAdmin, validateBody(rollbackCatalogMetadataBatchSchema), noStore, rollbackCatalogMetadataImportBatch);
+router.post('/metadata-import/replace-by-uuid', authenticateAdmin, validateBody(importCatalogMetadataByUuidSchema), noStore, replaceCatalogMetadataByUuid);
 router.get('/duplicates/same-album-title', authenticateAdmin, cacheControl(CACHE_TTL.NONE), scanSameAlbumDuplicateTracks);
 router.delete('/bulk', authenticateAdmin, validateBody(bulkDeleteTracksSchema), bulkDeleteTracks);
 router.post('/bulk-move', authenticateAdmin, validateBody(bulkMoveTracksSchema), bulkMoveTracksToAlbum);

@@ -16,6 +16,8 @@ const { useBreakpoint } = Grid;
 interface Album {
   id: number;
   title: string;
+  title_cn?: string | null;
+  title_en?: string | null;
   cover_path: string;
   release_date: string;
   track_count: number;
@@ -36,6 +38,8 @@ const AlbumDetail: React.FC = () => {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [discs, setDiscs] = useState<Disc[]>([]);
   const [loading, setLoading] = useState(true);
+  const albumTitleCn = (album?.title_cn && album.title_cn.trim()) || album?.title || '';
+  const albumTitleEn = (album?.title_en && album.title_en.trim()) || '';
 
   const { play, setPlaylist, playTrackOnly } = usePlayerStore();
   const screens = useBreakpoint();
@@ -137,8 +141,9 @@ const AlbumDetail: React.FC = () => {
             onClick={() => navigate(`/track/${record.id}`)}
             style={{ color: '#1890ff', cursor: 'pointer' }}
           >
-            {title}
+            {(record.title_cn && record.title_cn.trim()) || title}
           </a>
+          {record.title_en && <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>{record.title_en}</Text>}
           {record.notes && (
             <Text type="secondary" style={{ display: 'block', fontSize: 12, marginTop: 2 }}>
               {record.notes}
@@ -191,7 +196,8 @@ const AlbumDetail: React.FC = () => {
             <div className="album-mobile-track-main">
               <span className="album-mobile-track-no">{track.track_number || '-'}</span>
               <div className="album-mobile-track-meta">
-                <a onClick={() => navigate(`/track/${track.id}`)}>{track.title}</a>
+                <a onClick={() => navigate(`/track/${track.id}`)}>{(track.title_cn && track.title_cn.trim()) || track.title}</a>
+                {track.title_en && <Text type="secondary">{track.title_en}</Text>}
                 {track.notes && <Text type="secondary">{track.notes}</Text>}
                 <Tag>{formatDuration(track.duration || 0)}</Tag>
               </div>
@@ -249,7 +255,8 @@ const AlbumDetail: React.FC = () => {
             preview={album.cover_path ? { src: trackService.getCoverUrl(album.cover_path) } : false}
           />
           <div className="album-hero-info">
-            <h1>{album.title}</h1>
+            <h1>{albumTitleCn}</h1>
+            {albumTitleEn && <Text type="secondary" style={{ fontSize: 16 }}>{albumTitleEn}</Text>}
             <Descriptions column={1} size="small" className="album-descriptions">
               <Descriptions.Item label="总曲目数">{album.track_count || 0}</Descriptions.Item>
               <Descriptions.Item label="总时长">

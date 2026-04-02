@@ -124,6 +124,37 @@ export interface TrackNotesImportCommitResult {
   items: TrackNotesImportItem[];
 }
 
+export interface CatalogMetadataImportItem {
+  entity_type: 'album' | 'track';
+  uuid: string;
+  status: 'updated' | 'not_found' | 'skipped';
+  entity_id?: number;
+  reason?: string;
+}
+
+export interface CatalogMetadataImportResult {
+  summary: {
+    albums_input: number;
+    tracks_input: number;
+    albums_updated: number;
+    tracks_updated: number;
+    albums_not_found: number;
+    tracks_not_found: number;
+    skipped: number;
+  };
+  albums_not_found_uuids: string[];
+  tracks_not_found_uuids: string[];
+  items: CatalogMetadataImportItem[];
+  batch_uuid?: string | null;
+  dry_run: boolean;
+}
+
+export interface CatalogMetadataImportPayload {
+  sync_legacy_title?: boolean;
+  albums?: Array<{ uuid: string; title?: string; title_cn?: string | null; title_en?: string | null }>;
+  tracks?: Array<{ uuid: string; title?: string; title_cn?: string | null; title_en?: string | null }>;
+}
+
 interface ExportTrackNotesResult {
   blob: Blob;
   fileName: string;
@@ -435,7 +466,7 @@ export const trackService = {
   // Update track metadata
   async updateTrack(
     id: number,
-    data: { title: string; artists: string[]; album_title?: string; release_date?: string; track_number?: number; notes?: string | null }
+    data: { title: string; title_cn?: string | null; title_en?: string | null; artists: string[]; album_title?: string; release_date?: string; track_number?: number; notes?: string | null }
   ): Promise<void> {
     const response = await api.put<ApiResponse<any>>(`/tracks/${id}`, data);
     if (!response.data.success) {
@@ -465,6 +496,26 @@ export const trackService = {
     if (!response.data.success) {
       throw new Error(response.data.error?.message || '批量移动失败');
     }
+  },
+
+  async previewCatalogMetadataImportByUuid(payload: CatalogMetadataImportPayload): Promise<CatalogMetadataImportResult> {
+    const response = await api.post<ApiResponse<CatalogMetadataImportResult>>('/tracks/metadata-import/preview', payload);
+    if (response.data.success && response.data.data) return response.data.data;
+    throw new Error(response.data.error?.message || '导入预览失败');
+  },
+
+  async commitCatalogMetadataImportByUuid(payload: CatalogMetadataImportPayload): Promise<CatalogMetadataImportResult> {
+    const response = await api.post<ApiResponse<CatalogMetadataImportResult>>('/tracks/metadata-import/commit', payload);
+    if (response.data.success && response.data.data) return response.data.data;
+    throw new Error(response.data.error?.message || '导入提交失败');
+  },
+
+  async rollbackCatalogMetadataBatch(batchUuid: string): Promise<{ batch_uuid: string; albums_reverted: number; tracks_reverted: number }> {
+    const response = await api.post<ApiResponse<{ batch_uuid: string; albums_reverted: number; tracks_reverted: number }>>('/tracks/metadata-import/rollback', {
+      batch_uuid: batchUuid,
+    });
+    if (response.data.success && response.data.data) return response.data.data;
+    throw new Error(response.data.error?.message || '回滚失败');
   },
 
   // Upload track cover

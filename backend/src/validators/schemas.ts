@@ -22,6 +22,8 @@ export const registerSchema = z.object({
 // ── Album ─────────────────────────────────────────────────────────
 export const updateAlbumSchema = z.object({
   title: z.string().min(1, 'Title is required').max(500),
+  title_cn: z.string().max(500).nullable().optional(),
+  title_en: z.string().max(500).nullable().optional(),
   release_date: z.string().nullable().optional(),
   game_id: z.union([z.number().int().positive(), z.null()]).optional(),
   notes: z.string().max(5000).nullable().optional(),
@@ -35,11 +37,43 @@ export const bulkUpdateGameSchema = z.object({
 // ── Track ─────────────────────────────────────────────────────────
 export const updateTrackSchema = z.object({
   title: z.string().min(1, 'Title is required').max(500),
+  title_cn: z.string().max(500).nullable().optional(),
+  title_en: z.string().max(500).nullable().optional(),
   artists: z.array(z.string().min(1)).optional(),
   album_title: z.string().max(500).optional().nullable(),
   release_date: z.string().nullable().optional(),
   track_number: z.number().int().nullable().optional(),
   notes: z.string().max(5000).nullable().optional(),
+});
+
+const albumMetadataReplaceItemSchema = z.object({
+  uuid: z.string().trim().uuid('album uuid must be uuid'),
+  title: z.string().trim().max(500).optional(),
+  title_cn: z.string().trim().max(500).nullable().optional(),
+  title_en: z.string().trim().max(500).nullable().optional(),
+});
+
+const trackMetadataReplaceItemSchema = z.object({
+  uuid: z.string().trim().uuid('track uuid must be uuid'),
+  title: z.string().trim().max(500).optional(),
+  title_cn: z.string().trim().max(500).nullable().optional(),
+  title_en: z.string().trim().max(500).nullable().optional(),
+});
+
+export const importCatalogMetadataByUuidSchema = z.object({
+  albums: z.array(albumMetadataReplaceItemSchema).optional().default([]),
+  tracks: z.array(trackMetadataReplaceItemSchema).optional().default([]),
+  sync_legacy_title: z.boolean().optional().default(false),
+}).refine((value) => value.albums.length > 0 || value.tracks.length > 0, {
+  message: 'albums or tracks is required',
+  path: ['albums'],
+});
+
+export const previewCatalogMetadataByUuidSchema = importCatalogMetadataByUuidSchema;
+export const commitCatalogMetadataByUuidSchema = importCatalogMetadataByUuidSchema;
+
+export const rollbackCatalogMetadataBatchSchema = z.object({
+  batch_uuid: z.string().trim().uuid('batch_uuid must be uuid'),
 });
 
 export const bulkDeleteTracksSchema = z.object({

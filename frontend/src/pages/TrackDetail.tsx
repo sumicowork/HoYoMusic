@@ -46,6 +46,10 @@ const TrackDetail: React.FC = () => {
 
   const { progress, playTrackOnly, seek } = usePlayerStore();
   const canUseDebugFeatures = useDebugUserFeatures();
+  const titleCn = (track?.title_cn && track.title_cn.trim()) || track?.title || '';
+  const titleEn = (track?.title_en && track.title_en.trim()) || '';
+  const albumTitleCn = (track?.album_title_cn && track.album_title_cn.trim()) || (track?.album_title || '');
+  const albumTitleEn = (track?.album_title_en && track.album_title_en.trim()) || '';
 
   useEffect(() => {
     if (id) {
@@ -248,13 +252,15 @@ const TrackDetail: React.FC = () => {
             })()}
 
             <div className="track-info-details">
-              <h1>{track.title}</h1>
-              {track.album_title && (
+              <h1>{titleCn}</h1>
+              {titleEn && <Typography.Text type="secondary" style={{ display: 'block', marginTop: -8 }}>{titleEn}</Typography.Text>}
+              {albumTitleCn && (
                 <h4>
                   专辑：
                   {track.album_id
-                    ? <Link to={`/albums/${track.album_id}`}>{track.album_title}</Link>
-                    : track.album_title}
+                    ? <Link to={`/albums/${track.album_id}`}>{albumTitleCn}</Link>
+                    : albumTitleCn}
+                  {albumTitleEn && <Typography.Text type="secondary" style={{ marginLeft: 8 }}>{albumTitleEn}</Typography.Text>}
                 </h4>
               )}
 

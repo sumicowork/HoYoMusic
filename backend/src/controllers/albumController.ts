@@ -562,7 +562,11 @@ export const getAlbums = async (req: Request, res: Response) => {
     const queryParams: any[] = [limit, offset];
 
     if (search) {
-      searchCondition = 'WHERE LOWER(a.title) LIKE LOWER($3)';
+      searchCondition = `WHERE (
+        LOWER(a.title) LIKE LOWER($3)
+        OR LOWER(COALESCE(a.title_cn, '')) LIKE LOWER($3)
+        OR LOWER(COALESCE(a.title_en, '')) LIKE LOWER($3)
+      )`;
       queryParams.push(`%${search}%`);
     }
 
@@ -691,14 +695,29 @@ export const getAlbumById = async (req: Request, res: Response) => {
 export const updateAlbum = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { title, release_date, game_id, notes } = req.body;
+    const { title, title_cn, title_en, release_date, game_id, notes } = req.body;
 
     const result = await pool.query(
       `UPDATE albums 
-       SET title = $1, release_date = $2, game_id = $3, notes = $4, updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $5 
+       SET
+         title = $1,
+         title_cn = COALESCE($2, title_cn),
+         title_en = COALESCE($3, title_en),
+         release_date = $4,
+         game_id = $5,
+         notes = $6,
+         updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $7 
        RETURNING *`,
-      [title, release_date, game_id || null, notes !== undefined ? notes : null, id]
+      [
+        title,
+        title_cn !== undefined ? title_cn : null,
+        title_en !== undefined ? title_en : null,
+        release_date,
+        game_id || null,
+        notes !== undefined ? notes : null,
+        id,
+      ]
     );
 
     if (result.rows.length === 0) {

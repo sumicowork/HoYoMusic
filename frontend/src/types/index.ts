@@ -10,8 +10,12 @@ export interface User {
 
 export interface Track {
   id: number;
+  uuid?: string;
   title: string;
+  title_cn?: string | null;
+  title_en?: string | null;
   album_id: number | null;
+  album_uuid?: string | null;
   file_path: string;
   cover_path: string | null;
   duration: number | null;
@@ -27,6 +31,8 @@ export interface Track {
   created_at: string;
   updated_at: string;
   album_title?: string;
+  album_title_cn?: string | null;
+  album_title_en?: string | null;
   album_cover?: string | null;
   favorite_count?: number;
   play_count?: number;
@@ -54,7 +60,10 @@ export interface Artist {
 
 export interface Album {
   id: number;
+  uuid?: string;
   title: string;
+  title_cn?: string | null;
+  title_en?: string | null;
   cover_path: string | null;
   release_date: string | null;
   notes?: string | null;

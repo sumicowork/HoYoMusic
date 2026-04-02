@@ -1256,10 +1256,10 @@ router.get('/export', async (req: Request, res: Response) => {
     const format = (req.query.format as string) || 'json';
 
     const result = await pool.query(`
-      SELECT t.id, t.title, t.track_number, t.disc_number,
+      SELECT t.id, t.uuid::text AS track_uuid, t.title, t.title_cn, t.title_en, t.track_number, t.disc_number,
              t.duration, t.file_size, t.sample_rate, t.bit_depth,
              t.release_date, t.created_at,
-             a.title AS album_title,
+             a.id AS album_id, a.uuid::text AS album_uuid, a.title AS album_title, a.title_cn AS album_title_cn, a.title_en AS album_title_en,
              g.name AS game_name,
              ARRAY_AGG(DISTINCT ar.name) FILTER (WHERE ar.name IS NOT NULL) AS artists
       FROM tracks t
@@ -1272,9 +1272,10 @@ router.get('/export', async (req: Request, res: Response) => {
     `);
 
     if (format === 'csv') {
-      const header = 'id,title,album,game,artists,track_number,disc_number,duration,file_size,sample_rate,bit_depth,release_date,created_at\n';
+      const header = 'id,track_uuid,title,title_cn,title_en,album_id,album_uuid,album,album_title_cn,album_title_en,game,artists,track_number,disc_number,duration,file_size,sample_rate,bit_depth,release_date,created_at\n';
       const rows = result.rows.map(r =>
-        [r.id, `"${(r.title||'').replace(/"/g,'""')}"`, `"${(r.album_title||'').replace(/"/g,'""')}"`,
+        [r.id, r.track_uuid||'', `"${(r.title||'').replace(/"/g,'""')}"`, `"${(r.title_cn||'').replace(/"/g,'""')}"`, `"${(r.title_en||'').replace(/"/g,'""')}"`,
+         r.album_id||'', r.album_uuid||'', `"${(r.album_title||'').replace(/"/g,'""')}"`, `"${(r.album_title_cn||'').replace(/"/g,'""')}"`, `"${(r.album_title_en||'').replace(/"/g,'""')}"`,
          `"${(r.game_name||'').replace(/"/g,'""')}"`, `"${(r.artists||[]).join('; ')}"`,
          r.track_number||'', r.disc_number||'', r.duration||'', r.file_size||'',
          r.sample_rate||'', r.bit_depth||'', r.release_date||'', r.created_at||''].join(',')

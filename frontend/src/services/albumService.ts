@@ -23,7 +23,10 @@ publicApi.interceptors.request.use((config) => {
 
 export interface Album {
   id: number;
+  uuid?: string;
   title: string;
+  title_cn?: string | null;
+  title_en?: string | null;
   cover_path: string;
   release_date: string;
   game_id?: number;
@@ -108,7 +111,7 @@ export const albumService = {
     throw new Error('Failed to fetch album details');
   },
 
-  async updateAlbum(id: number, data: { title?: string; release_date?: string | null; game_id?: number | null; notes?: string | null }): Promise<Album> {
+  async updateAlbum(id: number, data: { title?: string; title_cn?: string | null; title_en?: string | null; release_date?: string | null; game_id?: number | null; notes?: string | null }): Promise<Album> {
     const response = await api.put<ApiResponse<{ album: Album }>>(`/albums/${id}`, data);
     if (response.data.success && response.data.data) {
       return response.data.data.album;
