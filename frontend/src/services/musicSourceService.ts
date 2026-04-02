@@ -8,6 +8,27 @@ export interface MusicSourceImportSource {
   path: string[];
 }
 
+export interface MusicSourceCategory {
+  id: number;
+  game_id: number;
+  name: string;
+  description: string | null;
+  display_order: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface MusicSourceNode {
+  id: number;
+  game_id: number;
+  category_id: number;
+  parent_id: number | null;
+  name: string;
+  display_order: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface MusicSourceImportEntry {
   row_key: string;
   song_name: string;
@@ -103,6 +124,76 @@ const extractBlobErrorMessage = async (blob: Blob): Promise<string | null> => {
 };
 
 export const musicSourceService = {
+  async getCategories(gameId: number): Promise<MusicSourceCategory[]> {
+    const response = await api.get<ApiResponse<{ categories: MusicSourceCategory[] }>>('/music-sources/categories', {
+      params: { game_id: gameId },
+    });
+    if (response.data.success && response.data.data) return response.data.data.categories;
+    throw new Error(response.data.error?.message || '加载分类失败');
+  },
+
+  async createCategory(payload: {
+    game_id: number;
+    name: string;
+    description?: string | null;
+    display_order?: number;
+  }): Promise<MusicSourceCategory> {
+    const response = await api.post<ApiResponse<{ category: MusicSourceCategory }>>('/music-sources/categories', payload);
+    if (response.data.success && response.data.data) return response.data.data.category;
+    throw new Error(response.data.error?.message || '创建分类失败');
+  },
+
+  async updateCategory(
+    categoryId: number,
+    payload: { name: string; description?: string | null; display_order?: number }
+  ): Promise<MusicSourceCategory> {
+    const response = await api.put<ApiResponse<{ category: MusicSourceCategory }>>(`/music-sources/categories/${categoryId}`, payload);
+    if (response.data.success && response.data.data) return response.data.data.category;
+    throw new Error(response.data.error?.message || '更新分类失败');
+  },
+
+  async deleteCategory(categoryId: number): Promise<void> {
+    const response = await api.delete<ApiResponse<{ deleted_id: number }>>(`/music-sources/categories/${categoryId}`);
+    if (response.data.success) return;
+    throw new Error(response.data.error?.message || '删除分类失败');
+  },
+
+  async getNodes(gameId: number, categoryId: number, parentId?: number | null): Promise<MusicSourceNode[]> {
+    const response = await api.get<ApiResponse<{ nodes: MusicSourceNode[] }>>('/music-sources/nodes', {
+      params: {
+        game_id: gameId,
+        category_id: categoryId,
+        parent_id: parentId,
+      },
+    });
+    if (response.data.success && response.data.data) return response.data.data.nodes;
+    throw new Error(response.data.error?.message || '加载路径节点失败');
+  },
+
+  async createNode(payload: {
+    game_id: number;
+    category_id: number;
+    parent_id?: number | null;
+    name: string;
+    display_order?: number;
+  }): Promise<MusicSourceNode> {
+    const response = await api.post<ApiResponse<{ node: MusicSourceNode }>>('/music-sources/nodes', payload);
+    if (response.data.success && response.data.data) return response.data.data.node;
+    throw new Error(response.data.error?.message || '创建路径节点失败');
+  },
+
+  async updateNode(nodeId: number, payload: { name: string; display_order?: number }): Promise<MusicSourceNode> {
+    const response = await api.put<ApiResponse<{ node: MusicSourceNode }>>(`/music-sources/nodes/${nodeId}`, payload);
+    if (response.data.success && response.data.data) return response.data.data.node;
+    throw new Error(response.data.error?.message || '更新路径节点失败');
+  },
+
+  async deleteNode(nodeId: number): Promise<void> {
+    const response = await api.delete<ApiResponse<{ deleted_id: number }>>(`/music-sources/nodes/${nodeId}`);
+    if (response.data.success) return;
+    throw new Error(response.data.error?.message || '删除路径节点失败');
+  },
+
   async previewImport(entries: MusicSourceImportEntry[]): Promise<MusicSourceImportPreviewResult> {
     const response = await api.post<ApiResponse<MusicSourceImportPreviewResult>>('/music-sources/import/preview', { entries });
     if (response.data.success && response.data.data) return response.data.data;

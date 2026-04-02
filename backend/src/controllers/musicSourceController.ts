@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
+import type { PoolClient } from 'pg';
 
 type ConflictMode = 'overwrite' | 'append' | 'skip';
 type ImportStatus = 'matched' | 'needs_manual' | 'not_found' | 'invalid' | 'imported' | 'skipped' | 'error';
@@ -41,6 +42,21 @@ interface MusicSourceImportItem {
     album_title: string;
     artists: string;
   }>;
+}
+
+interface ResolvedImportEntry {
+  status: 'matched' | 'needs_manual' | 'not_found' | 'invalid';
+  matched_track_id?: number;
+  message?: string;
+  candidates?: Array<{
+    track_id: number;
+    title: string;
+    track_number: number | null;
+    album_title: string;
+    artists: string;
+  }>;
+  has_empty_sources: boolean;
+  normalized_sources: MusicSourceImportSource[];
 }
 
 const normalizeTrackNumber = (raw: unknown): number | null => {
@@ -106,7 +122,7 @@ const queryTrackCandidates = async (songName: string, trackNumber: number) => {
   return result.rows.map(mapCandidate);
 };
 
-const resolveSourcePath = async (gameId: number, source: MusicSourceImportSource): Promise<{ nodeId?: number; message?: string }> => {
+const validateImportSource = (source: MusicSourceImportSource): { normalized?: MusicSourceImportSource; message?: string } => {
   const categoryName = String(source.category || '').trim();
   const pathSegments = Array.isArray(source.path)
     ? source.path.map((segment) => String(segment || '').trim()).filter(Boolean)
@@ -119,49 +135,128 @@ const resolveSourcePath = async (gameId: number, source: MusicSourceImportSource
     return { message: 'source.path cannot be empty' };
   }
 
-  const categoryResult = await pool.query(
+  return {
+    normalized: {
+      category: categoryName,
+      path: pathSegments,
+    },
+  };
+};
+
+const findCategoryId = async (client: PoolClient, gameId: number, categoryName: string): Promise<number | null> => {
+  const categoryResult = await client.query(
     'SELECT id FROM music_source_categories WHERE game_id = $1 AND LOWER(TRIM(name)) = LOWER(TRIM($2)) LIMIT 1',
     [gameId, categoryName]
   );
-  if (categoryResult.rows.length === 0) {
-    return { message: `Category not found in game ${gameId}: ${categoryName}` };
+  if (categoryResult.rows.length === 0) return null;
+  return Number(categoryResult.rows[0].id);
+};
+
+const createCategory = async (client: PoolClient, gameId: number, categoryName: string): Promise<number> => {
+  const insertResult = await client.query(
+    `INSERT INTO music_source_categories (game_id, name, display_order)
+     VALUES ($1, $2, COALESCE((SELECT MAX(display_order) + 1 FROM music_source_categories WHERE game_id = $1), 0))
+     RETURNING id`,
+    [gameId, categoryName]
+  );
+  return Number(insertResult.rows[0].id);
+};
+
+const findNodeId = async (
+  client: PoolClient,
+  gameId: number,
+  categoryId: number,
+  parentId: number | null,
+  name: string
+): Promise<number | null> => {
+  const nodeResult: { rows: Array<{ id: number }> } = await client.query(
+    `SELECT id
+     FROM music_source_nodes
+     WHERE game_id = $1
+       AND category_id = $2
+       AND ((parent_id IS NULL AND $3::int IS NULL) OR parent_id = $3)
+       AND LOWER(TRIM(name)) = LOWER(TRIM($4))
+     LIMIT 1`,
+    [gameId, categoryId, parentId, name]
+  );
+  if (nodeResult.rows.length === 0) return null;
+  return Number(nodeResult.rows[0].id);
+};
+
+const createNode = async (
+  client: PoolClient,
+  gameId: number,
+  categoryId: number,
+  parentId: number | null,
+  name: string
+): Promise<number> => {
+  const insertResult = await client.query(
+    `INSERT INTO music_source_nodes (game_id, category_id, parent_id, name, display_order)
+     VALUES (
+       $1,
+       $2,
+       $3,
+       $4,
+       COALESCE((SELECT MAX(display_order) + 1 FROM music_source_nodes WHERE game_id = $1 AND category_id = $2 AND ((parent_id IS NULL AND $3::int IS NULL) OR parent_id = $3)), 0)
+     )
+     RETURNING id`,
+    [gameId, categoryId, parentId, name]
+  );
+  return Number(insertResult.rows[0].id);
+};
+
+const ensureSourcePathNode = async (client: PoolClient, gameId: number, source: MusicSourceImportSource): Promise<number> => {
+  const validated = validateImportSource(source);
+  if (!validated.normalized) {
+    throw new Error(validated.message || 'Invalid source path');
   }
 
-  const categoryId = Number(categoryResult.rows[0].id);
+  const categoryName = validated.normalized.category;
+  const pathSegments = validated.normalized.path;
+
+  let categoryId = await findCategoryId(client, gameId, categoryName);
+  if (!categoryId) {
+    try {
+      categoryId = await createCategory(client, gameId, categoryName);
+    } catch (error: any) {
+      if (error?.code === '23505') {
+        categoryId = await findCategoryId(client, gameId, categoryName);
+      }
+      if (!categoryId) throw error;
+    }
+  }
+
   let parentId: number | null = null;
   let currentNodeId: number | null = null;
 
   for (const segment of pathSegments) {
-    const nodeResult: { rows: Array<{ id: number }> } = await pool.query(
-      `SELECT id
-       FROM music_source_nodes
-       WHERE game_id = $1
-         AND category_id = $2
-         AND ((parent_id IS NULL AND $3::int IS NULL) OR parent_id = $3)
-         AND LOWER(TRIM(name)) = LOWER(TRIM($4))
-       LIMIT 1`,
-      [gameId, categoryId, parentId, segment]
-    );
-
-    if (nodeResult.rows.length === 0) {
-      return { message: `Path node not found: ${categoryName} / ${pathSegments.join(' / ')}` };
+    let nextNodeId = await findNodeId(client, gameId, categoryId, parentId, segment);
+    if (!nextNodeId) {
+      try {
+        nextNodeId = await createNode(client, gameId, categoryId, parentId, segment);
+      } catch (error: any) {
+        if (error?.code === '23505') {
+          nextNodeId = await findNodeId(client, gameId, categoryId, parentId, segment);
+        }
+        if (!nextNodeId) throw error;
+      }
     }
 
-    currentNodeId = Number(nodeResult.rows[0].id);
+    currentNodeId = nextNodeId;
     parentId = currentNodeId;
   }
 
   if (!currentNodeId) {
-    return { message: 'Unable to resolve source node' };
+    throw new Error('Unable to resolve source node');
   }
 
-  return { nodeId: currentNodeId };
+  return currentNodeId;
 };
 
 const resolveImportEntry = async (
   entry: MusicSourceImportEntry,
   resolutions: Record<string, number>
-): Promise<{ status: 'matched' | 'needs_manual' | 'not_found' | 'invalid'; matched_track_id?: number; message?: string; candidates?: Array<{ track_id: number; title: string; track_number: number | null; album_title: string; artists: string }>; sourceNodeIds: number[]; has_empty_sources: boolean }> => {
+): Promise<ResolvedImportEntry> => {
   const songName = String(entry.song_name || '').trim();
   const trackNumber = normalizeTrackNumber(entry.song_number);
   const gameId = Number(entry.game_id);
@@ -169,18 +264,18 @@ const resolveImportEntry = async (
   const sources = Array.isArray(entry.sources) ? entry.sources : [];
   const hasEmptySources = sources.length === 0;
 
-  if (!songName) return { status: 'invalid', message: 'song_name is required', sourceNodeIds: [], has_empty_sources: hasEmptySources };
-  if (!trackNumber) return { status: 'invalid', message: 'song_number is required for matching', sourceNodeIds: [], has_empty_sources: hasEmptySources };
-  if (!Number.isInteger(gameId) || gameId <= 0) return { status: 'invalid', message: 'game_id must be positive integer', sourceNodeIds: [], has_empty_sources: hasEmptySources };
+  if (!songName) return { status: 'invalid', message: 'song_name is required', has_empty_sources: hasEmptySources, normalized_sources: [] };
+  if (!trackNumber) return { status: 'invalid', message: 'song_number is required for matching', has_empty_sources: hasEmptySources, normalized_sources: [] };
+  if (!Number.isInteger(gameId) || gameId <= 0) return { status: 'invalid', message: 'game_id must be positive integer', has_empty_sources: hasEmptySources, normalized_sources: [] };
 
-  const sourceNodeIds: number[] = [];
+  const normalizedSources: MusicSourceImportSource[] = [];
   if (!hasEmptySources) {
     for (const source of sources) {
-      const resolvedSource = await resolveSourcePath(gameId, source);
-      if (!resolvedSource.nodeId) {
-        return { status: 'invalid', message: resolvedSource.message || 'Invalid source path', sourceNodeIds: [], has_empty_sources: hasEmptySources };
+      const validatedSource = validateImportSource(source);
+      if (!validatedSource.normalized) {
+        return { status: 'invalid', message: validatedSource.message || 'Invalid source path', has_empty_sources: hasEmptySources, normalized_sources: [] };
       }
-      sourceNodeIds.push(resolvedSource.nodeId);
+      normalizedSources.push(validatedSource.normalized);
     }
   }
 
@@ -192,45 +287,49 @@ const resolveImportEntry = async (
         status: 'matched',
         matched_track_id: selectedCandidate.track_id,
         candidates: [selectedCandidate],
-        sourceNodeIds,
         has_empty_sources: hasEmptySources,
+        normalized_sources: normalizedSources,
       };
     }
   }
 
   const candidates = await queryTrackCandidates(songName, trackNumber);
   if (candidates.length === 0) {
-    return { status: 'not_found', message: 'No track found by song_name + song_number', sourceNodeIds, has_empty_sources: hasEmptySources };
+    return { status: 'not_found', message: 'No track found by song_name + song_number', has_empty_sources: hasEmptySources, normalized_sources: normalizedSources };
   }
   if (candidates.length === 1) {
-    return { status: 'matched', matched_track_id: candidates[0].track_id, candidates, sourceNodeIds, has_empty_sources: hasEmptySources };
+    return { status: 'matched', matched_track_id: candidates[0].track_id, candidates, has_empty_sources: hasEmptySources, normalized_sources: normalizedSources };
   }
 
   if (albumName) {
     const albumMatched = candidates.filter((candidate) => candidate.album_title.trim().toLowerCase() === albumName.toLowerCase());
     if (albumMatched.length === 1) {
-      return { status: 'matched', matched_track_id: albumMatched[0].track_id, candidates: albumMatched, sourceNodeIds, has_empty_sources: hasEmptySources };
+      return { status: 'matched', matched_track_id: albumMatched[0].track_id, candidates: albumMatched, has_empty_sources: hasEmptySources, normalized_sources: normalizedSources };
     }
   }
 
   const selectedCandidate = candidates.find((candidate) => candidate.track_id === selectedTrackId);
   if (selectedCandidate) {
-    return { status: 'matched', matched_track_id: selectedCandidate.track_id, candidates, sourceNodeIds, has_empty_sources: hasEmptySources };
+    return { status: 'matched', matched_track_id: selectedCandidate.track_id, candidates, has_empty_sources: hasEmptySources, normalized_sources: normalizedSources };
   }
 
   return {
     status: 'needs_manual',
     message: 'Multiple tracks matched song_name + song_number. Please resolve manually.',
     candidates,
-    sourceNodeIds,
     has_empty_sources: hasEmptySources,
+    normalized_sources: normalizedSources,
   };
 };
 
-const appendEmptySourcesWarning = (message: string | undefined, hasEmptySources: boolean): string | undefined => {
-  if (!hasEmptySources) return message;
-  const warning = 'sources is empty; row will be skipped during commit';
-  return message ? `${message}; ${warning}` : warning;
+const appendImportWarnings = (message: string | undefined, hasEmptySources: boolean): string | undefined => {
+  const parts: string[] = [];
+  if (message) parts.push(message);
+  if (hasEmptySources) {
+    parts.push('sources is empty; row will be skipped during commit');
+  }
+  parts.push('missing category/path in DB will be auto-created during commit');
+  return parts.join('; ');
 };
 
 const listAllNodes = async (): Promise<Map<number, MusicSourceNodeRecord>> => {
@@ -637,6 +736,26 @@ export const upsertTrackMusicSources = async (req: Request, res: Response) => {
   }
 };
 
+export const getMusicSourceImportCandidates = async (req: Request, res: Response) => {
+  try {
+    const songName = String(req.query.song_name || '').trim();
+    const trackNumber = normalizeTrackNumber(req.query.song_number);
+
+    if (!songName || !trackNumber) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'INVALID_QUERY', message: 'song_name and song_number are required' },
+      });
+    }
+
+    const candidates = await queryTrackCandidates(songName, trackNumber);
+    return res.json({ success: true, data: { candidates } });
+  } catch (error) {
+    console.error('Get music source import candidates error:', error);
+    return res.status(500).json({ success: false, error: { code: 'FETCH_ERROR', message: 'Failed to fetch candidates' } });
+  }
+};
+
 export const previewMusicSourceImport = async (req: Request, res: Response) => {
   try {
     const entries = Array.isArray(req.body?.entries) ? (req.body.entries as MusicSourceImportEntry[]) : [];
@@ -653,7 +772,7 @@ export const previewMusicSourceImport = async (req: Request, res: Response) => {
         song_name: String(entry.song_name || '').trim(),
         song_number_raw: entry.song_number == null ? '' : String(entry.song_number).trim(),
         status: resolved.status,
-        message: appendEmptySourcesWarning(resolved.message, resolved.has_empty_sources),
+        message: appendImportWarnings(resolved.message, resolved.has_empty_sources),
         matched_track_id: resolved.matched_track_id,
         source_count: Array.isArray(entry.sources) ? entry.sources.length : 0,
         candidates: resolved.candidates,
@@ -700,7 +819,7 @@ export const commitMusicSourceImport = async (req: Request, res: Response) => {
         song_name: String(entry.song_name || '').trim(),
         song_number_raw: entry.song_number == null ? '' : String(entry.song_number).trim(),
         status: resolved.status,
-        message: appendEmptySourcesWarning(resolved.message, resolved.has_empty_sources),
+        message: appendImportWarnings(resolved.message, resolved.has_empty_sources),
         matched_track_id: resolved.matched_track_id,
         source_count: Array.isArray(entry.sources) ? entry.sources.length : 0,
         candidates: resolved.candidates,
@@ -738,7 +857,13 @@ export const commitMusicSourceImport = async (req: Request, res: Response) => {
           await client.query('DELETE FROM track_music_sources WHERE track_id = $1', [resolved.matched_track_id]);
         }
 
-        const uniqueNodeIds = Array.from(new Set(resolved.sourceNodeIds));
+        const normalizedSources = resolved.normalized_sources;
+        const sourceNodeIds: number[] = [];
+        for (const source of normalizedSources) {
+          const nodeId = await ensureSourcePathNode(client, Number(entry.game_id), source);
+          sourceNodeIds.push(nodeId);
+        }
+        const uniqueNodeIds = Array.from(new Set(sourceNodeIds));
         for (let i = 0; i < uniqueNodeIds.length; i++) {
           const nodeId = uniqueNodeIds[i];
           const nodeCheck = await client.query(

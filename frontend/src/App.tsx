@@ -43,6 +43,7 @@ const Analytics = lazy(() => import('./pages/Analytics'));
 const Search = lazy(() => import('./pages/Search'));
 const PlaylistDetail = lazy(() => import('./pages/PlaylistDetail'));
 const Settings = lazy(() => import('./pages/Settings'));
+const MusicSourceLibraryManagement = lazy(() => import('./pages/MusicSourceLibraryManagement'));
 const Profile = lazy(() => import('./pages/Profile'));
 const UserManagement = lazy(() => import('./pages/UserManagement'));
 const Maintenance = lazy(() => import('./pages/Maintenance'));
@@ -263,6 +264,14 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
             element={
               <ProtectedRoute requireAdmin>
                 <Settings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/music-sources/library"
+            element={
+              <ProtectedRoute requireAdmin>
+                <MusicSourceLibraryManagement />
               </ProtectedRoute>
             }
           />

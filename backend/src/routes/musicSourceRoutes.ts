@@ -8,6 +8,7 @@ import {
   deleteMusicSourceCategory,
   deleteMusicSourceNode,
   exportMusicSources,
+  getMusicSourceImportCandidates,
   getMusicSourceCategories,
   getMusicSourceNodes,
   getTrackMusicSources,
@@ -46,6 +47,7 @@ router.get('/tracks/:trackId', authenticateAdmin, cacheControl(CACHE_TTL.NONE), 
 router.post('/tracks/:trackId', authenticateAdmin, validateBody(upsertTrackMusicSourcesSchema), upsertTrackMusicSources);
 
 // Import / export APIs
+router.get('/import/candidates', authenticateAdmin, cacheControl(CACHE_TTL.NONE), getMusicSourceImportCandidates);
 router.post('/import/preview', authenticateAdmin, validateBody(musicSourceImportPreviewSchema), previewMusicSourceImport);
 router.post('/import/commit', authenticateAdmin, validateBody(musicSourceImportCommitSchema), commitMusicSourceImport);
 router.post('/export', authenticateAdmin, validateBody(exportMusicSourcesSchema), exportMusicSources);

@@ -10,7 +10,8 @@ import {
   TeamOutlined,
   BarChartOutlined,
   SettingOutlined,
-  MenuOutlined
+  MenuOutlined,
+  ApartmentOutlined
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
@@ -84,6 +85,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       onClick: () => navigate('/admin/settings')
     },
     {
+      key: '/admin/music-sources/library',
+      icon: <ApartmentOutlined />,
+      label: 'Music Source 库管理',
+      onClick: () => navigate('/admin/music-sources/library')
+    },
+    {
       type: 'divider' as const
     },
     {
@@ -104,6 +111,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     if (location.pathname === '/admin/users') return '/admin/users';
     if (location.pathname === '/admin/analytics') return '/admin/analytics';
     if (location.pathname === '/admin/settings') return '/admin/settings';
+    if (location.pathname === '/admin/music-sources/library') return '/admin/music-sources/library';
     return '/admin';
   };
 
