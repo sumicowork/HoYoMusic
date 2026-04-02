@@ -200,6 +200,17 @@ export const musicSourceService = {
     throw new Error(response.data.error?.message || '音乐来源导入预览失败');
   },
 
+  async searchImportCandidates(keyword: string, limit = 30): Promise<MusicSourceImportCandidate[]> {
+    const normalizedKeyword = keyword.trim();
+    if (!normalizedKeyword) return [];
+
+    const response = await api.get<ApiResponse<{ candidates: MusicSourceImportCandidate[] }>>('/music-sources/import/candidates', {
+      params: { keyword: normalizedKeyword, limit },
+    });
+    if (response.data.success && response.data.data) return response.data.data.candidates;
+    throw new Error(response.data.error?.message || '候选曲目搜索失败');
+  },
+
   async commitImport(
     entries: MusicSourceImportEntry[],
     resolutions: Record<string, number>,

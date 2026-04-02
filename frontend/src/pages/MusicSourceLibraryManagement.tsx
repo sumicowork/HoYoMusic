@@ -16,8 +16,9 @@ import {
   message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { PlusOutlined } from '@ant-design/icons';
+import { ImportOutlined, PlusOutlined } from '@ant-design/icons';
 import AdminLayout from '../components/AdminLayout';
+import MusicSourceImportModal from '../components/MusicSourceImportModal';
 import { gameService, type Game } from '../services/gameService';
 import {
   musicSourceService,
@@ -51,6 +52,7 @@ const MusicSourceLibraryManagement: React.FC = () => {
   const [editingNode, setEditingNode] = useState<MusicSourceNode | null>(null);
   const [nodeSubmitting, setNodeSubmitting] = useState(false);
   const [nodeForm] = Form.useForm();
+  const [importModalOpen, setImportModalOpen] = useState(false);
 
   const gameOptions = useMemo(
     () => games.map((game) => ({ label: game.name, value: game.id })),
@@ -359,6 +361,9 @@ const MusicSourceLibraryManagement: React.FC = () => {
                 onChange={(value) => setSelectedGameId(value)}
                 placeholder="请选择游戏"
               />
+              <Button icon={<ImportOutlined />} type="primary" onClick={() => setImportModalOpen(true)}>
+                批量导入 Music Source
+              </Button>
             </Space>
           </Card>
 
@@ -450,9 +455,23 @@ const MusicSourceLibraryManagement: React.FC = () => {
           </Form.Item>
         </Form>
       </Modal>
+
+      <MusicSourceImportModal
+        visible={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        onSuccess={() => {
+          if (selectedGameId) {
+            void loadCategories(selectedGameId);
+          }
+          if (selectedGameId && selectedCategoryId) {
+            void loadAllNodes(selectedGameId, selectedCategoryId);
+          }
+        }}
+      />
     </AdminLayout>
   );
 };
 
 export default MusicSourceLibraryManagement;
+
 
