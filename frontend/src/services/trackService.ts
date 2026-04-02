@@ -160,7 +160,13 @@ interface ExportTrackNotesResult {
   fileName: string;
 }
 
+interface ExportCatalogMetadataResult {
+  blob: Blob;
+  fileName: string;
+}
+
 const DEFAULT_TRACK_NOTES_EXPORT_FILE_NAME = 'track-notes-export.json';
+const DEFAULT_CATALOG_METADATA_EXPORT_FILE_NAME = 'catalog-metadata-export.json';
 
 const parseDownloadFileName = (contentDisposition?: string, fallback = DEFAULT_TRACK_NOTES_EXPORT_FILE_NAME): string => {
   if (!contentDisposition) return fallback;
@@ -303,6 +309,23 @@ export const trackService = {
         throw new Error(serverMessage || '导出备注失败');
       }
       throw new Error(error?.message || '导出备注失败');
+    }
+  },
+
+  async exportCatalogMetadata(): Promise<ExportCatalogMetadataResult> {
+    try {
+      const response = await api.get('/tracks/metadata-export', { responseType: 'blob' });
+      const fileName = parseDownloadFileName(
+        response.headers['content-disposition'] as string | undefined,
+        DEFAULT_CATALOG_METADATA_EXPORT_FILE_NAME
+      );
+      return { blob: response.data as Blob, fileName };
+    } catch (error: any) {
+      if (error?.response?.data instanceof Blob) {
+        const serverMessage = await extractBlobErrorMessage(error.response.data as Blob);
+        throw new Error(serverMessage || '导出元数据失败');
+      }
+      throw new Error(error?.message || '导出元数据失败');
     }
   },
 
