@@ -59,7 +59,7 @@ const normalizeConflictMode = (value: unknown): ConflictMode => {
 
 const mapCandidate = (row: any) => ({
   track_id: Number(row.track_id),
-  title: String(row.title),
+  title: String(row.title || ''),
   track_number: row.track_number == null ? null : Number(row.track_number),
   album_title: String(row.album_title || ''),
   artists: String(row.artists || ''),
@@ -69,16 +69,16 @@ const queryTrackById = async (trackId: number) => {
   const result = await pool.query(
     `SELECT
        t.id AS track_id,
-       t.title,
+       t.title_en AS title,
        t.track_number,
-       COALESCE(a.title, '') AS album_title,
+       COALESCE(a.title_en, '') AS album_title,
        COALESCE(array_to_string(array_agg(DISTINCT ar.name), ' / '), '') AS artists
      FROM tracks t
      LEFT JOIN albums a ON a.id = t.album_id
      LEFT JOIN track_artists ta ON ta.track_id = t.id
      LEFT JOIN artists ar ON ar.id = ta.artist_id
      WHERE t.id = $1
-     GROUP BY t.id, t.title, t.track_number, a.title
+     GROUP BY t.id, t.title_en, t.track_number, a.title_en
      LIMIT 1`,
     [trackId]
   );
@@ -89,17 +89,17 @@ const queryTrackCandidates = async (songName: string, trackNumber: number) => {
   const result = await pool.query(
     `SELECT
        t.id AS track_id,
-       t.title,
+       t.title_en AS title,
        t.track_number,
-       COALESCE(a.title, '') AS album_title,
+       COALESCE(a.title_en, '') AS album_title,
        COALESCE(array_to_string(array_agg(DISTINCT ar.name), ' / '), '') AS artists
      FROM tracks t
      LEFT JOIN albums a ON a.id = t.album_id
      LEFT JOIN track_artists ta ON ta.track_id = t.id
      LEFT JOIN artists ar ON ar.id = ta.artist_id
-     WHERE LOWER(TRIM(t.title)) = LOWER(TRIM($1))
+      WHERE LOWER(TRIM(COALESCE(t.title_en, ''))) = LOWER(TRIM($1))
        AND t.track_number = $2
-     GROUP BY t.id, t.title, t.track_number, a.title
+      GROUP BY t.id, t.title_en, t.track_number, a.title_en
      ORDER BY t.id ASC`,
     [songName, trackNumber]
   );
@@ -818,9 +818,9 @@ export const exportMusicSources = async (req: Request, res: Response) => {
     const result = await pool.query(
       `SELECT
          tms.track_id,
-         t.title AS song_name,
+         COALESCE(t.title_en, '') AS song_name,
          t.track_number AS song_number,
-         COALESCE(a.title, '') AS album_name,
+         COALESCE(a.title_en, '') AS album_name,
          tms.game_id,
          COALESCE(g.name, '') AS game_name,
          tms.category_id,

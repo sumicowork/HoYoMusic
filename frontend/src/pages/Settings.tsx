@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Form, Input, Button, message, Space, Typography, Divider, Switch, InputNumber, Table, Tag, Modal, Upload, Alert } from 'antd';
+import { Card, Form, Input, Button, message, Space, Typography, Divider, Switch, InputNumber, Table, Tag, Modal, Upload, Alert, Select } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { LockOutlined, ExportOutlined, DatabaseOutlined, MailOutlined, ToolOutlined, UploadOutlined, UndoOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
@@ -11,6 +11,15 @@ import {
   type CatalogMetadataImportResult,
   type CatalogMetadataImportItem,
 } from '../services/trackService';
+import {
+  musicSourceService,
+  type MusicSourceConflictMode,
+  type MusicSourceExportScope,
+  type MusicSourceImportCommitResult,
+  type MusicSourceImportEntry,
+  type MusicSourceImportItem,
+  type MusicSourceImportPreviewResult,
+} from '../services/musicSourceService';
 import {
   siteConfigService,
   type FirstVisitModalConfig,
@@ -46,6 +55,19 @@ const Settings: React.FC = () => {
   const [catalogPreviewResult, setCatalogPreviewResult] = useState<CatalogMetadataImportResult | null>(null);
   const [catalogCommittedBatchUuid, setCatalogCommittedBatchUuid] = useState<string | null>(null);
   const [catalogRollbackBatchUuid, setCatalogRollbackBatchUuid] = useState('');
+  const [musicSourceJsonText, setMusicSourceJsonText] = useState('');
+  const [musicSourceParseError, setMusicSourceParseError] = useState<string | null>(null);
+  const [musicSourceSourceName, setMusicSourceSourceName] = useState<string | null>(null);
+  const [musicSourceEntries, setMusicSourceEntries] = useState<MusicSourceImportEntry[]>([]);
+  const [musicSourceConflictMode, setMusicSourceConflictMode] = useState<MusicSourceConflictMode>('overwrite');
+  const [musicSourcePreviewLoading, setMusicSourcePreviewLoading] = useState(false);
+  const [musicSourceCommitLoading, setMusicSourceCommitLoading] = useState(false);
+  const [musicSourceExportLoading, setMusicSourceExportLoading] = useState(false);
+  const [musicSourcePreviewResult, setMusicSourcePreviewResult] = useState<MusicSourceImportPreviewResult | null>(null);
+  const [musicSourceCommitResult, setMusicSourceCommitResult] = useState<MusicSourceImportCommitResult | null>(null);
+  const [musicSourceExportScope, setMusicSourceExportScope] = useState<MusicSourceExportScope>('all');
+  const [musicSourceExportGameIdsText, setMusicSourceExportGameIdsText] = useState('');
+  const [musicSourceExportAlbumIdsText, setMusicSourceExportAlbumIdsText] = useState('');
   const [form] = Form.useForm();
   const [modalForm] = Form.useForm();
   const [complianceForm] = Form.useForm();
@@ -131,6 +153,28 @@ const Settings: React.FC = () => {
     },
   ];
 
+  const musicSourceColumns: ColumnsType<MusicSourceImportItem> = [
+    { title: 'Row', dataIndex: 'row_key', key: 'row_key', width: 90 },
+    { title: 'Song', dataIndex: 'song_name', key: 'song_name', width: 220, ellipsis: true },
+    { title: 'No.', dataIndex: 'song_number_raw', key: 'song_number_raw', width: 90 },
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      width: 120,
+      render: (status: MusicSourceImportItem['status']) => {
+        if (status === 'matched' || status === 'imported') return <Tag color="green">{status}</Tag>;
+        if (status === 'needs_manual') return <Tag color="orange">needs_manual</Tag>;
+        if (status === 'not_found' || status === 'invalid') return <Tag color="warning">{status}</Tag>;
+        if (status === 'skipped') return <Tag>{status}</Tag>;
+        return <Tag color="red">error</Tag>;
+      },
+    },
+    { title: 'Track ID', dataIndex: 'matched_track_id', key: 'matched_track_id', width: 100, render: (v?: number) => v ?? '—' },
+    { title: 'Sources', dataIndex: 'source_count', key: 'source_count', width: 90 },
+    { title: 'Message', dataIndex: 'message', key: 'message', render: (value?: string) => value || '—' },
+  ];
+
   const downloadBlob = (blob: Blob, fileName: string) => {
     const objectUrl = window.URL.createObjectURL(blob);
     const anchor = document.createElement('a');
@@ -191,6 +235,71 @@ const Settings: React.FC = () => {
       ...catalogPayload,
       sync_legacy_title: catalogSyncLegacyTitle,
     };
+  };
+
+  const parseIdText = (raw: string): number[] => {
+    return Array.from(
+      new Set(
+        raw
+          .split(',')
+          .map((item) => Number.parseInt(item.trim(), 10))
+          .filter((id) => Number.isInteger(id) && id > 0)
+      )
+    );
+  };
+
+  const normalizeMusicSourceEntries = (raw: any): MusicSourceImportEntry[] => {
+    const entries = Array.isArray(raw?.entries) ? raw.entries : [];
+    if (entries.length === 0) {
+      throw new Error('JSON 内未找到 entries');
+    }
+
+    return entries.map((entry: any, index: number) => {
+      const rowKey = String(entry?.row_key ?? index + 1).trim();
+      const songName = String(entry?.song_name ?? '').trim();
+      const albumName = entry?.album_name == null ? null : String(entry.album_name).trim();
+      const gameId = Number(entry?.game_id);
+      const sources: MusicSourceImportEntry['sources'] = Array.isArray(entry?.sources)
+        ? entry.sources.map((source: any) => ({
+            category: String(source?.category ?? '').trim(),
+            path: Array.isArray(source?.path)
+              ? source.path.map((segment: unknown) => String(segment ?? '').trim()).filter(Boolean)
+              : [],
+          }))
+        : [];
+
+      if (!songName) throw new Error(`第 ${index + 1} 行缺少 song_name`);
+      if (!Number.isInteger(gameId) || gameId <= 0) throw new Error(`第 ${index + 1} 行 game_id 无效`);
+      if (sources.length === 0) throw new Error(`第 ${index + 1} 行缺少 sources`);
+      if (sources.some((source) => !source.category || source.path.length === 0)) {
+        throw new Error(`第 ${index + 1} 行 sources 中存在空 category/path`);
+      }
+
+      return {
+        row_key: rowKey,
+        song_name: songName,
+        song_number: entry?.song_number ?? null,
+        album_name: albumName,
+        game_id: gameId,
+        sources,
+      };
+    });
+  };
+
+  const parseMusicSourceJson = (jsonText: string) => {
+    try {
+      const parsed = JSON.parse(jsonText);
+      const entries = normalizeMusicSourceEntries(parsed);
+      setMusicSourceEntries(entries);
+      setMusicSourceParseError(null);
+      setMusicSourcePreviewResult(null);
+      setMusicSourceCommitResult(null);
+    } catch (err: any) {
+      setMusicSourceEntries([]);
+      setMusicSourcePreviewResult(null);
+      setMusicSourceCommitResult(null);
+      setMusicSourceParseError(err?.message || 'JSON 解析失败');
+    }
   };
 
   const loadFirstVisitModalConfig = async () => {
@@ -458,6 +567,89 @@ const Settings: React.FC = () => {
     }
   };
 
+  const uploadMusicSourceProps: UploadProps = {
+    accept: '.json,application/json',
+    maxCount: 1,
+    showUploadList: false,
+    beforeUpload: async (file) => {
+      try {
+        const text = await file.text();
+        setMusicSourceJsonText(text);
+        setMusicSourceSourceName(file.name);
+        parseMusicSourceJson(text);
+      } catch (err: any) {
+        setMusicSourceParseError(err?.message || '读取文件失败');
+      }
+      return Upload.LIST_IGNORE;
+    },
+  };
+
+  const handlePreviewMusicSourceImport = async () => {
+    if (musicSourceEntries.length === 0) {
+      message.warning('请先上传或粘贴有效的 music source JSON');
+      return;
+    }
+
+    setMusicSourcePreviewLoading(true);
+    try {
+      const preview = await musicSourceService.previewImport(musicSourceEntries);
+      setMusicSourcePreviewResult(preview);
+      setMusicSourceCommitResult(null);
+      message.success('music source 预览完成');
+    } catch (err: any) {
+      message.error(err?.message || 'music source 预览失败');
+    } finally {
+      setMusicSourcePreviewLoading(false);
+    }
+  };
+
+  const handleCommitMusicSourceImport = async () => {
+    if (musicSourceEntries.length === 0) {
+      message.warning('请先上传或粘贴有效的 music source JSON');
+      return;
+    }
+
+    setMusicSourceCommitLoading(true);
+    try {
+      const result = await musicSourceService.commitImport(musicSourceEntries, {}, musicSourceConflictMode);
+      setMusicSourceCommitResult(result);
+      message.success(`music source 导入完成：成功 ${result.summary.imported} 条`);
+    } catch (err: any) {
+      message.error(err?.message || 'music source 导入失败');
+    } finally {
+      setMusicSourceCommitLoading(false);
+    }
+  };
+
+  const handleExportMusicSources = async () => {
+    const gameIds = parseIdText(musicSourceExportGameIdsText);
+    const albumIds = parseIdText(musicSourceExportAlbumIdsText);
+
+    if (musicSourceExportScope === 'by_game' && gameIds.length === 0) {
+      message.warning('by_game 导出需要至少一个 game_id');
+      return;
+    }
+    if (musicSourceExportScope === 'by_album' && albumIds.length === 0) {
+      message.warning('by_album 导出需要至少一个 album_id');
+      return;
+    }
+
+    setMusicSourceExportLoading(true);
+    try {
+      const exported = await musicSourceService.exportMusicSources({
+        scope: musicSourceExportScope,
+        game_ids: gameIds,
+        album_ids: albumIds,
+      });
+      downloadBlob(exported.blob, exported.fileName);
+      message.success('music source 导出成功');
+    } catch (err: any) {
+      message.error(err?.message || 'music source 导出失败');
+    } finally {
+      setMusicSourceExportLoading(false);
+    }
+  };
+
   return (
     <AdminLayout>
       <div className="settings-page" style={{ padding: 24, maxWidth: 980 }}>
@@ -598,6 +790,111 @@ const Settings: React.FC = () => {
                 columns={catalogPreviewColumns}
                 pagination={false}
                 scroll={{ x: 760 }}
+              />
+            ) : null}
+          </Space>
+        </Card>
+
+        <Card title={<><DatabaseOutlined /> Music Source 导入导出</>} style={{ marginTop: 24 }}>
+          <Space direction="vertical" style={{ width: '100%' }} size={12}>
+            <Text type="secondary">支持 `import/preview`、`import/commit` 以及按 scope 导出。</Text>
+
+            <Space wrap>
+              <Select<MusicSourceConflictMode>
+                value={musicSourceConflictMode}
+                onChange={setMusicSourceConflictMode}
+                style={{ width: 210 }}
+                options={[
+                  { value: 'overwrite', label: '冲突策略：覆盖 overwrite' },
+                  { value: 'append', label: '冲突策略：追加 append' },
+                  { value: 'skip', label: '冲突策略：跳过 skip' },
+                ]}
+              />
+              <Upload {...uploadMusicSourceProps}>
+                <Button icon={<UploadOutlined />}>上传 Music Source JSON</Button>
+              </Upload>
+            </Space>
+
+            {musicSourceSourceName ? <Text type="secondary">当前文件：{musicSourceSourceName}</Text> : null}
+
+            <Input.TextArea
+              rows={8}
+              value={musicSourceJsonText}
+              onChange={(event) => {
+                const next = event.target.value;
+                setMusicSourceJsonText(next);
+                setMusicSourceSourceName('手动粘贴');
+                parseMusicSourceJson(next);
+              }}
+              placeholder="粘贴 music source 导入 JSON（顶层为 { entries: [...] }）"
+            />
+
+            {musicSourceParseError ? <Alert type="error" showIcon message={musicSourceParseError} /> : null}
+            {musicSourceEntries.length > 0 ? (
+              <Alert type="info" showIcon message={`待导入 entries：${musicSourceEntries.length}`} />
+            ) : null}
+
+            <Space wrap>
+              <Button onClick={handlePreviewMusicSourceImport} loading={musicSourcePreviewLoading}>预览（dry-run）</Button>
+              <Button type="primary" onClick={handleCommitMusicSourceImport} loading={musicSourceCommitLoading}>提交导入</Button>
+            </Space>
+
+            {musicSourcePreviewResult ? (
+              <Alert
+                type="warning"
+                showIcon
+                message={`预览：matched ${musicSourcePreviewResult.summary.matched} / needs_manual ${musicSourcePreviewResult.summary.needs_manual} / not_found ${musicSourcePreviewResult.summary.not_found} / invalid ${musicSourcePreviewResult.summary.invalid}`}
+              />
+            ) : null}
+
+            {musicSourceCommitResult ? (
+              <Alert
+                type="success"
+                showIcon
+                message={`提交：imported ${musicSourceCommitResult.summary.imported} / skipped ${musicSourceCommitResult.summary.skipped} / needs_manual ${musicSourceCommitResult.summary.needs_manual} / not_found ${musicSourceCommitResult.summary.not_found} / invalid ${musicSourceCommitResult.summary.invalid} / error ${musicSourceCommitResult.summary.error}`}
+              />
+            ) : null}
+
+            <Table<MusicSourceImportItem>
+              rowKey={(row) => row.row_key}
+              size="small"
+              dataSource={(musicSourceCommitResult?.items || musicSourcePreviewResult?.items || []).slice(0, 80)}
+              columns={musicSourceColumns}
+              pagination={false}
+              scroll={{ x: 980 }}
+            />
+
+            <Divider style={{ margin: '8px 0' }} />
+            <Text strong>导出 Music Source</Text>
+            <Space wrap>
+              <Select<MusicSourceExportScope>
+                value={musicSourceExportScope}
+                onChange={setMusicSourceExportScope}
+                style={{ width: 200 }}
+                options={[
+                  { value: 'all', label: 'scope: all' },
+                  { value: 'by_game', label: 'scope: by_game' },
+                  { value: 'by_album', label: 'scope: by_album' },
+                ]}
+              />
+              <Button icon={<ExportOutlined />} onClick={handleExportMusicSources} loading={musicSourceExportLoading}>
+                导出 Music Source JSON
+              </Button>
+            </Space>
+
+            {musicSourceExportScope === 'by_game' ? (
+              <Input
+                value={musicSourceExportGameIdsText}
+                onChange={(event) => setMusicSourceExportGameIdsText(event.target.value)}
+                placeholder="game_ids，逗号分隔，例如：1,2,3"
+              />
+            ) : null}
+
+            {musicSourceExportScope === 'by_album' ? (
+              <Input
+                value={musicSourceExportAlbumIdsText}
+                onChange={(event) => setMusicSourceExportAlbumIdsText(event.target.value)}
+                placeholder="album_ids，逗号分隔，例如：10,11,12"
               />
             ) : null}
           </Space>
