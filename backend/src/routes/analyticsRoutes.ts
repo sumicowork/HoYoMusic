@@ -507,6 +507,11 @@ router.get('/trend', async (req: Request, res: Response) => {
 // ── Hourly distribution (today) ───────────────────────────────────
 router.get('/hourly', async (_req: Request, res: Response) => {
   try {
+    const esaData = await tryEsa('hourly', async () => analyticsEsaService.getHourly());
+    if (esaData) {
+      return res.json({ success: true, data: esaData });
+    }
+
     const result = await pool.query(`
       WITH hours AS (
         SELECT generate_series(0, 23) AS hour
@@ -535,7 +540,12 @@ router.get('/hourly', async (_req: Request, res: Response) => {
 // ── Countries ─────────────────────────────────────────────────────
 router.get('/countries', async (req: Request, res: Response) => {
   try {
-    const d = clampDays(req.query.days);
+    const d = clampDays(req.query.days, ESA_MAX_DAYS);
+    const esaData = await tryEsa('countries', async () => analyticsEsaService.getCountries(d));
+    if (esaData) {
+      return res.json({ success: true, data: esaData });
+    }
+
     const result = await pool.query(`
       SELECT
         COALESCE(NULLIF(country,''), 'Unknown') AS country,
@@ -935,7 +945,12 @@ router.get('/pages', async (req: Request, res: Response) => {
 // ── Devices / Browsers / OS ───────────────────────────────────────
 router.get('/devices', async (req: Request, res: Response) => {
   try {
-    const d = clampDays(req.query.days);
+    const d = clampDays(req.query.days, ESA_MAX_DAYS);
+    const esaData = await tryEsa('devices', async () => analyticsEsaService.getDevices(d));
+    if (esaData) {
+      return res.json({ success: true, data: esaData });
+    }
+
     const [browsers, oses, devices] = await Promise.all([
       pool.query(`
         SELECT COALESCE(NULLIF(ua_browser,''),'Unknown') AS name, COUNT(*)::int AS value

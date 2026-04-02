@@ -31,6 +31,18 @@ const toShanghaiHour = (isoLike: string): string => {
   return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:00:00`;
 };
 
+const toShanghaiHourNumber = (isoLike: string): number => {
+  const d = new Date(isoLike);
+  if (Number.isNaN(d.getTime())) return -1;
+  const parts = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Asia/Shanghai',
+    hour: '2-digit',
+    hour12: false,
+  }).formatToParts(d);
+  const hour = Number(parts.find((p) => p.type === 'hour')?.value || '-1');
+  return Number.isFinite(hour) ? hour : -1;
+};
+
 class AnalyticsEsaService {
   private readonly maxDays = 7;
 
@@ -148,6 +160,52 @@ class AnalyticsEsaService {
     return toInt(hit?.value, 0);
   }
 
+  private findTopDetail(body: any, fieldName: string): any[] {
+    if (!fieldName) return [];
+    const rows: any[] = Array.isArray(body?.data) ? body.data : [];
+    const hit = rows.find((r) => String(r?.fieldName || '').toLowerCase() === fieldName.toLowerCase());
+    return Array.isArray(hit?.detailData) ? hit.detailData : [];
+  }
+
+  private async getTopMap(days: number, dimension: string, fieldName: string, limit = 150): Promise<Map<string, number>> {
+    const body = await this.describeTop(days, limit, [{ fieldName, dimension: [dimension] }]);
+    const detail = this.findTopDetail(body, fieldName);
+    const map = new Map<string, number>();
+    for (const item of detail) {
+      const key = String(item?.dimensionValue || '').trim();
+      if (!key) continue;
+      map.set(key, toInt(item?.value, 0));
+    }
+    return map;
+  }
+
+  private readonly provinceNameMap: Record<string, string> = {
+    beijing: '北京市', tianjin: '天津市', shanghai: '上海市', chongqing: '重庆市',
+    hebei: '河北省', shanxi: '山西省', liaoning: '辽宁省', jilin: '吉林省', heilongjiang: '黑龙江省',
+    jiangsu: '江苏省', zhejiang: '浙江省', anhui: '安徽省', fujian: '福建省', jiangxi: '江西省',
+    shandong: '山东省', henan: '河南省', hubei: '湖北省', hunan: '湖南省', guangdong: '广东省',
+    hainan: '海南省', sichuan: '四川省', guizhou: '贵州省', yunnan: '云南省', shaanxi: '陕西省',
+    gansu: '甘肃省', qinghai: '青海省', neimenggu: '内蒙古自治区', guangxi: '广西壮族自治区',
+    xizang: '西藏自治区', ningxia: '宁夏回族自治区', xinjiang: '新疆维吾尔自治区',
+    xianggang: '香港特别行政区', aomen: '澳门特别行政区', taiwan: '台湾省',
+  };
+
+  private mapProvinceName(raw: string): string {
+    const key = String(raw || '').trim().toLowerCase();
+    if (!key || key === '-') return '中国其他';
+    return this.provinceNameMap[key] || raw;
+  }
+
+  private mapCountryCode(code: string): string {
+    const c = String(code || '').trim().toUpperCase();
+    if (!c) return 'Unknown';
+    if (c === 'CN') return '中国';
+    if (c === 'HK') return '香港特别行政区';
+    if (c === 'MO') return '澳门特别行政区';
+    if (c === 'TW') return '台湾省';
+    return c;
+  }
+
   private buildOverviewFields(includeLatency: boolean, includePageView: boolean): Array<{ fieldName: string; dimension?: string[] }> {
     const fields: Array<{ fieldName: string; dimension?: string[] }> = [
       { fieldName: this.fieldRequests, dimension: ['ALL'] },
@@ -242,6 +300,78 @@ class AnalyticsEsaService {
       traffic: trafficMap.get(date) || 0,
       requestTraffic: requestTrafficMap.get(date) || 0,
     }));
+  }
+
+  async getHourly(): Promise<Array<{ hour: number; requests: number; visitors: number }>> {
+    const body = await this.describeTimeSeries(1, 3600, [
+      { fieldName: this.fieldRequests, dimension: ['ALL'] },
+      { fieldName: this.fieldVisitors, dimension: ['ALL'] },
+    ]);
+    const rows: any[] = Array.isArray(body?.data) ? body.data : [];
+    const reqRow = rows.find((r) => String(r?.fieldName || '').toLowerCase() === this.fieldRequests.toLowerCase());
+    const visRow = rows.find((r) => String(r?.fieldName || '').toLowerCase() === this.fieldVisitors.toLowerCase());
+
+    const reqMap = new Map<number, number>();
+    for (const item of reqRow?.detailData || []) {
+      const hour = toShanghaiHourNumber(String(item?.timeStamp || ''));
+      if (hour < 0 || hour > 23) continue;
+      reqMap.set(hour, (reqMap.get(hour) || 0) + toInt(item?.value, 0));
+    }
+    const visMap = new Map<number, number>();
+    for (const item of visRow?.detailData || []) {
+      const hour = toShanghaiHourNumber(String(item?.timeStamp || ''));
+      if (hour < 0 || hour > 23) continue;
+      visMap.set(hour, (visMap.get(hour) || 0) + toInt(item?.value, 0));
+    }
+
+    return Array.from({ length: 24 }, (_, hour) => ({
+      hour,
+      requests: reqMap.get(hour) || 0,
+      visitors: visMap.get(hour) || 0,
+    }));
+  }
+
+  async getCountries(days: number): Promise<Array<{ country: string; requests: number; visitors: number }>> {
+    const [provinceReq, provinceVis, countryReq, countryVis] = await Promise.all([
+      this.getTopMap(days, 'ClientProvinceCode', this.fieldRequests, 150),
+      this.getTopMap(days, 'ClientProvinceCode', this.fieldVisitors, 150),
+      this.getTopMap(days, 'ClientCountryCode', this.fieldRequests, 150),
+      this.getTopMap(days, 'ClientCountryCode', this.fieldVisitors, 150),
+    ]);
+
+    const bucket = new Map<string, { country: string; requests: number; visitors: number }>();
+    for (const [k, req] of provinceReq.entries()) {
+      if (k === '-') continue;
+      const name = this.mapProvinceName(k);
+      const item = bucket.get(name) || { country: name, requests: 0, visitors: 0 };
+      item.requests += req;
+      item.visitors += provinceVis.get(k) || 0;
+      bucket.set(name, item);
+    }
+
+    for (const [k, req] of countryReq.entries()) {
+      if (k === 'CN') continue;
+      const name = this.mapCountryCode(k);
+      const item = bucket.get(name) || { country: name, requests: 0, visitors: 0 };
+      item.requests += req;
+      item.visitors += countryVis.get(k) || 0;
+      bucket.set(name, item);
+    }
+
+    return Array.from(bucket.values()).sort((a, b) => b.visitors - a.visitors).slice(0, 40);
+  }
+
+  async getDevices(days: number): Promise<{ browsers: Array<{ name: string; value: number }>; oses: Array<{ name: string; value: number }>; devices: Array<{ name: string; value: number }> }> {
+    const [browserMap, osMap, deviceMap] = await Promise.all([
+      this.getTopMap(days, 'ClientBrowser', this.fieldRequests, 150),
+      this.getTopMap(days, 'ClientOS', this.fieldRequests, 150),
+      this.getTopMap(days, 'ClientDevice', this.fieldRequests, 150),
+    ]);
+
+    const browsers = Array.from(browserMap.entries()).map(([name, value]) => ({ name, value })).slice(0, 10);
+    const oses = Array.from(osMap.entries()).map(([name, value]) => ({ name, value })).slice(0, 8);
+    const devices = Array.from(deviceMap.entries()).map(([name, value]) => ({ name: String(name || '').toLowerCase(), value }));
+    return { browsers, oses, devices };
   }
 
   async getPages(days: number): Promise<Array<{ path: string; hits: number; visitors: number; avg_ms: number; p95_ms: number; errors: number }>> {
