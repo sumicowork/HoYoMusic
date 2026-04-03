@@ -19,6 +19,7 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import { ExportOutlined, ImportOutlined, PlusOutlined } from '@ant-design/icons';
 import AdminLayout from '../components/AdminLayout';
+import AdminPageHeader from '../components/admin/AdminPageHeader';
 import MusicSourceImportModal from '../components/MusicSourceImportModal';
 import { gameService, type Game } from '../services/gameService';
 import {
@@ -28,7 +29,7 @@ import {
   type MusicSourceNode,
 } from '../services/musicSourceService';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 interface NodeRow extends MusicSourceNode {
   depth: number;
@@ -429,7 +430,10 @@ const MusicSourceLibraryManagement: React.FC = () => {
   return (
     <AdminLayout>
       <div style={{ padding: 24 }}>
-        <Title level={3}>Music Source 分类/路径管理</Title>
+        <AdminPageHeader
+          title="Music Source 库管理"
+          description="按游戏维护分类与路径层级，集中处理导入与导出。"
+        />
         <Space direction="vertical" style={{ width: '100%' }} size={16}>
           <Card>
             <Space wrap>

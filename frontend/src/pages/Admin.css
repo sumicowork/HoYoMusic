@@ -1,5 +1,5 @@
 /* Admin page specific styles */
-.ant-card {
+.admin-page-container .ant-card {
   border-radius: 16px !important;
 }
 

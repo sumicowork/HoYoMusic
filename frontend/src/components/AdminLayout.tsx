@@ -1,5 +1,6 @@
 import React from 'react';
 import { Layout, Menu, Drawer, Button } from 'antd';
+import type { MenuProps } from 'antd';
 import {
   SoundOutlined,
   FolderOutlined,
@@ -16,6 +17,7 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import ThemeToggle from './ThemeToggle';
+import { ADMIN_NAV_ITEMS, ADMIN_NAV_SECTIONS, resolveAdminMenuPath } from '../config/adminNavigation';
 import './AdminLayout.css';
 
 const { Sider, Content } = Layout;
@@ -35,97 +37,55 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     navigate('/admin/login');
   };
 
-  const menuItems = [
-    {
-      key: '/admin',
-      icon: <SoundOutlined />,
-      label: '曲目管理',
-      onClick: () => navigate('/admin')
-    },
-    {
-      key: '/admin/albums',
-      icon: <FolderOutlined />,
-      label: '专辑管理',
-      onClick: () => navigate('/admin/albums')
-    },
-    {
-      key: '/admin/tags',
-      icon: <TagsOutlined />,
-      label: '标签管理',
-      onClick: () => navigate('/admin/tags')
-    },
-    {
-      key: '/admin/games',
-      icon: <AppstoreOutlined />,
-      label: '游戏管理',
-      onClick: () => navigate('/admin/games')
-    },
-    {
-      key: '/admin/artists',
-      icon: <TeamOutlined />,
-      label: '艺术家管理',
-      onClick: () => navigate('/admin/artists')
-    },
-    {
-      key: '/admin/users',
-      icon: <UserOutlined />,
-      label: '用户管理',
-      onClick: () => navigate('/admin/users')
-    },
-    {
-      key: '/admin/analytics',
-      icon: <BarChartOutlined />,
-      label: '访问统计',
-      onClick: () => navigate('/admin/analytics')
-    },
-    {
-      key: '/admin/settings',
-      icon: <SettingOutlined />,
-      label: '系统设置',
-      onClick: () => navigate('/admin/settings')
-    },
-    {
-      key: '/admin/music-sources/library',
-      icon: <ApartmentOutlined />,
-      label: 'Music Source 库管理',
-      onClick: () => navigate('/admin/music-sources/library')
-    },
-    {
-      type: 'divider' as const
-    },
+  const iconByPath: Record<string, React.ReactNode> = {
+    '/admin': <SoundOutlined />,
+    '/admin/albums': <FolderOutlined />,
+    '/admin/music-sources/library': <ApartmentOutlined />,
+    '/admin/artists': <TeamOutlined />,
+    '/admin/tags': <TagsOutlined />,
+    '/admin/games': <AppstoreOutlined />,
+    '/admin/users': <UserOutlined />,
+    '/admin/analytics': <BarChartOutlined />,
+    '/admin/settings': <SettingOutlined />,
+  };
+
+  const menuItems: MenuProps['items'] = [
+    ...ADMIN_NAV_SECTIONS.map((section) => ({
+      type: 'group' as const,
+      key: section.key,
+      label: section.label,
+      children: ADMIN_NAV_ITEMS
+        .filter((item) => item.sectionKey === section.key)
+        .map((item) => ({
+          key: item.path,
+          icon: iconByPath[item.path],
+          label: item.label,
+          onClick: () => navigate(item.path),
+        })),
+    })),
+    { type: 'divider' as const },
     {
       key: 'logout',
       icon: <LogoutOutlined />,
       label: '退出登录',
       onClick: handleLogout,
-      danger: true
-    }
+      danger: true,
+    },
   ];
 
-  // Determine selected key based on current path
-  const getSelectedKey = () => {
-    if (location.pathname === '/admin/albums') return '/admin/albums';
-    if (location.pathname === '/admin/tags') return '/admin/tags';
-    if (location.pathname === '/admin/games') return '/admin/games';
-    if (location.pathname === '/admin/artists') return '/admin/artists';
-    if (location.pathname === '/admin/users') return '/admin/users';
-    if (location.pathname === '/admin/analytics') return '/admin/analytics';
-    if (location.pathname === '/admin/settings') return '/admin/settings';
-    if (location.pathname === '/admin/music-sources/library') return '/admin/music-sources/library';
-    return '/admin';
-  };
+  const selectedMenuPath = resolveAdminMenuPath(location.pathname);
 
   const sidebarContent = (
     <>
       <div className="admin-logo">
-        <h2>🎵 HoYoMusic</h2>
+        <h2>🎵 HoYoMusic Admin</h2>
         <div className="admin-user">
           <UserOutlined /> {user?.username}
         </div>
       </div>
       <Menu
         mode="inline"
-        selectedKeys={[getSelectedKey()]}
+        selectedKeys={[selectedMenuPath]}
         items={menuItems}
         className="admin-menu"
         onClick={() => setMobileMenuOpen(false)}
@@ -139,7 +99,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   return (
     <Layout className="admin-layout-wrapper">
       <div className="admin-mobile-header">
-        <h2>🎵 HoYoMusic Admin</h2>
+        <h2>后台管理</h2>
         <Button
           type="text"
           icon={<MenuOutlined />}
@@ -149,7 +109,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         />
       </div>
       <Drawer
-        title="Admin Menu"
+        title="管理菜单"
         placement="left"
         onClose={() => setMobileMenuOpen(false)}
         open={mobileMenuOpen}

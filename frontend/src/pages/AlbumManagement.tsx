@@ -20,6 +20,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import AlbumCoverUpload from '../components/AlbumCoverUpload';
 import AdminLayout from '../components/AdminLayout';
+import AdminActionBar from '../components/admin/AdminActionBar';
+import AdminPageHeader from '../components/admin/AdminPageHeader';
 import { getCoverUrl } from '../utils/imageUtils';
 import { Track } from '../types';
 
@@ -867,35 +869,39 @@ const AlbumManagement: React.FC = () => {
 
   const hasSelection = selectedRowKeys.length > 0;
 
+  const headerActions = (
+    <AdminActionBar>
+      {hasSelection && (
+        <Button
+          icon={<AppstoreOutlined />}
+          onClick={() => setBulkGameModalVisible(true)}
+        >
+          批量设置游戏 ({selectedRowKeys.length})
+        </Button>
+      )}
+      <Button
+        icon={<DownloadOutlined />}
+        onClick={openExportModal}
+      >
+        导出 Credits
+      </Button>
+      <Button
+        loading={batchBpmRunning}
+        onClick={handleBatchDetectBpm}
+      >
+        一键BPM检测
+      </Button>
+    </AdminActionBar>
+  );
+
   return (
     <AdminLayout>
-      <Card
+      <AdminPageHeader
         title="专辑管理"
-        extra={
-          <Space wrap>
-            {hasSelection && (
-              <Button
-                icon={<AppstoreOutlined />}
-                onClick={() => setBulkGameModalVisible(true)}
-              >
-                批量设置游戏 ({selectedRowKeys.length})
-              </Button>
-            )}
-            <Button
-              icon={<DownloadOutlined />}
-              onClick={openExportModal}
-            >
-              导出 Credits
-            </Button>
-            <Button
-              loading={batchBpmRunning}
-              onClick={handleBatchDetectBpm}
-            >
-              一键BPM检测
-            </Button>
-          </Space>
-        }
-      >
+        description="集中维护专辑元数据、封面与碟片编排。"
+        actions={headerActions}
+      />
+      <Card title="专辑列表">
         {isMobile ? (
           <List
             loading={loading}

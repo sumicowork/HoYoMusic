@@ -16,6 +16,7 @@ import { usePlayerStore } from './store/playerStore';
 import { useThemeStore } from './store/themeStore';
 import { useAuthStore } from './store/authStore';
 import { siteConfigService, DEFAULT_MAINTENANCE_MODE_CONFIG, type MaintenanceModeConfig } from './services/siteConfigService';
+import { ADMIN_NAV_ITEMS } from './config/adminNavigation';
 import { darkTheme, lightTheme } from './theme/themeConfig';
 import './theme/theme.css';
 import './theme/publicPages.css';
@@ -162,6 +163,18 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
     && maintenanceConfig.enabled
     && !canBypassMaintenance
     && location.pathname !== '/admin';
+  const isAdminRoute = location.pathname.startsWith('/admin');
+  const adminRouteMap: Record<string, React.ReactNode> = {
+    '/admin': <Admin />,
+    '/admin/albums': <AlbumManagement />,
+    '/admin/tags': <TagManagement />,
+    '/admin/games': <GameManagement />,
+    '/admin/artists': <ArtistManagement />,
+    '/admin/users': <UserManagement />,
+    '/admin/analytics': <Analytics />,
+    '/admin/settings': <Settings />,
+    '/admin/music-sources/library': <MusicSourceLibraryManagement />,
+  };
 
   if (forceMaintenancePage) {
     return (
@@ -182,9 +195,9 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
   }
 
   return (
-    <div className={`app${currentTrack ? ' has-player' : ''}`}>
-      <PageHeader onFeedbackClick={onOpenFeedback} />
-      <MobileTabBar onFeedbackClick={onOpenFeedback} />
+    <div className={`app${currentTrack ? ' has-player' : ''}${isAdminRoute ? ' admin-app' : ''}`}>
+      {!isAdminRoute && <PageHeader onFeedbackClick={onOpenFeedback} />}
+      {!isAdminRoute && <MobileTabBar onFeedbackClick={onOpenFeedback} />}
       <Suspense fallback={<PageFallback />}>
         <Routes>
           {/* 公开路由 - 无需登录 */}
@@ -211,78 +224,17 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
           />
 
           {/* 管理后台路由 - 需要登录 */}
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute requireAdmin>
-                <Admin />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/albums"
-            element={
-              <ProtectedRoute requireAdmin>
-                <AlbumManagement />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/tags"
-            element={
-              <ProtectedRoute requireAdmin>
-                <TagManagement />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/games"
-            element={
-              <ProtectedRoute requireAdmin>
-                <GameManagement />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/artists"
-            element={
-              <ProtectedRoute requireAdmin>
-                <ArtistManagement />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/users"
-            element={
-              <ProtectedRoute requireAdmin>
-                <UserManagement />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/analytics"
-            element={
-              <ProtectedRoute requireAdmin>
-                <Analytics />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/settings"
-            element={
-              <ProtectedRoute requireAdmin>
-                <Settings />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/music-sources/library"
-            element={
-              <ProtectedRoute requireAdmin>
-                <MusicSourceLibraryManagement />
-              </ProtectedRoute>
-            }
-          />
+          {ADMIN_NAV_ITEMS.map((item) => (
+            <Route
+              key={item.path}
+              path={item.path}
+              element={
+                <ProtectedRoute requireAdmin>
+                  {adminRouteMap[item.path]}
+                </ProtectedRoute>
+              }
+            />
+          ))}
 
           <Route
             path="/maintenance"
@@ -295,11 +247,11 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
-      <FirstVisitModal />
-      <FeedbackModal open={feedbackOpen} onClose={onCloseFeedback} />
-      <SiteComplianceFooter />
+      {!isAdminRoute && <FirstVisitModal />}
+      {!isAdminRoute && <FeedbackModal open={feedbackOpen} onClose={onCloseFeedback} />}
+      {!isAdminRoute && <SiteComplianceFooter />}
       <AuthModal />
-      {currentTrack && <Player />}
+      {!isAdminRoute && currentTrack && <Player />}
     </div>
   );
 };

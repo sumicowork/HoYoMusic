@@ -2,24 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { Table, Select, message, Card, Image, Button, Modal, Form, Input, InputNumber, Space, Upload, List, Drawer, Grid, Tag } from 'antd';
 import { PlusOutlined, EditOutlined, UploadOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import axios from 'axios';
 import AdminLayout from '../components/AdminLayout';
+import AdminActionBar from '../components/admin/AdminActionBar';
+import AdminPageHeader from '../components/admin/AdminPageHeader';
+import api from '../services/api';
+import { gameService, type Game } from '../services/gameService';
 import { getCoverUrl } from '../utils/imageUtils';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
 const { TextArea } = Input;
 const { useBreakpoint } = Grid;
-
-interface Game {
-  id: number;
-  name: string;
-  name_en: string;
-  description?: string;
-  cover_path: string;
-  display_order: number;
-  album_count: number;
-  status: 'active' | 'maintenance' | 'unreleased';
-}
 
 const STATUS_OPTIONS = [
   { value: 'active',      label: '正常' },
@@ -38,15 +28,11 @@ const GameManagement: React.FC = () => {
   const [form] = Form.useForm();
   const [mobileActionGame, setMobileActionGame] = useState<Game | null>(null);
 
-  const getToken = () => localStorage.getItem('token');
-
   const fetchGames = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`${API_BASE_URL}/games`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
-      });
-      if (res.data.success) setGames(res.data.data.games);
+      const data = await gameService.getGames();
+      setGames(data);
     } catch {
       message.error('加载游戏列表失败');
     } finally {
@@ -58,11 +44,7 @@ const GameManagement: React.FC = () => {
 
   const handleStatusChange = async (game: Game, status: string) => {
     try {
-      await axios.put(
-        `${API_BASE_URL}/games/${game.id}`,
-        { status },
-        { headers: { Authorization: `Bearer ${getToken()}` } }
-      );
+      await api.put(`/games/${game.id}`, { status });
       message.success(`「${game.name}」状态已更新`);
       setGames(prev => prev.map(g => g.id === game.id ? { ...g, status: status as Game['status'] } : g));
     } catch {
@@ -78,6 +60,7 @@ const GameManagement: React.FC = () => {
   };
 
   const handleEdit = (game: Game) => {
+    setMobileActionGame(null);
     setEditingGame(game);
     form.setFieldsValue({
       name: game.name,
@@ -93,14 +76,10 @@ const GameManagement: React.FC = () => {
     try {
       const values = await form.validateFields();
       if (editingGame) {
-        await axios.put(`${API_BASE_URL}/games/${editingGame.id}`, values, {
-          headers: { Authorization: `Bearer ${getToken()}` },
-        });
+        await api.put(`/games/${editingGame.id}`, values);
         message.success('游戏信息已更新');
       } else {
-        await axios.post(`${API_BASE_URL}/games`, values, {
-          headers: { Authorization: `Bearer ${getToken()}` },
-        });
+        await api.post('/games', values);
         message.success('游戏创建成功');
       }
       setModalVisible(false);
@@ -122,8 +101,8 @@ const GameManagement: React.FC = () => {
     const formData = new FormData();
     formData.append('cover', file);
     try {
-      const res = await axios.post(`${API_BASE_URL}/games/${gameId}/cover`, formData, {
-        headers: { Authorization: `Bearer ${getToken()}`, 'Content-Type': 'multipart/form-data' },
+      const res = await api.post(`/games/${gameId}/cover`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
       if (res.data.success) {
         message.success('封面上传成功');
@@ -198,12 +177,6 @@ const GameManagement: React.FC = () => {
       responsive: ['lg'],
     },
     {
-      title: '配色',
-      key: 'colors',
-      width: 120,
-      responsive: ['xl'],
-    },
-    {
       title: '状态',
       key: 'status',
       width: 140,
@@ -228,16 +201,22 @@ const GameManagement: React.FC = () => {
     },
   ];
 
+  const headerActions = (
+    <AdminActionBar>
+      <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+        添加游戏
+      </Button>
+    </AdminActionBar>
+  );
+
   return (
     <AdminLayout>
-      <Card
+      <AdminPageHeader
         title="游戏管理"
-        extra={
-          <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-            添加游戏
-          </Button>
-        }
-      >
+        description="管理游戏基础信息、封面与展示状态。"
+        actions={headerActions}
+      />
+      <Card title="游戏列表">
         {isMobile ? (
           <List
             loading={loading}

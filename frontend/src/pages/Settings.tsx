@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Form, Input, Button, message, Space, Typography, Divider, Switch, InputNumber, Table, Tag, Modal, Upload, Alert } from 'antd';
+import { Card, Form, Input, Button, message, Space, Typography, Divider, Switch, InputNumber, Table, Tag, Modal, Upload, Alert, Tabs } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { LockOutlined, ExportOutlined, DatabaseOutlined, MailOutlined, ToolOutlined, UploadOutlined, UndoOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
 import AdminLayout from '../components/AdminLayout';
+import AdminPageHeader from '../components/admin/AdminPageHeader';
 import api from '../services/api';
 import {
   trackService,
@@ -19,7 +20,7 @@ import {
 } from '../services/siteConfigService';
 import { feedbackService, type FeedbackItem } from '../services/feedbackService';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 const Settings: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -468,62 +469,78 @@ const Settings: React.FC = () => {
   return (
     <AdminLayout>
       <div className="settings-page" style={{ padding: 24, maxWidth: 980 }}>
-        <Title level={3}>设置</Title>
+        <AdminPageHeader
+          title="系统设置"
+          description="按功能分区管理账户安全、数据工具与站点配置。"
+        />
 
-        <Card title={<><LockOutlined /> 修改密码</>} style={{ marginBottom: 24 }}>
-          <Form form={form} layout="vertical" onFinish={handleChangePassword}>
-            <Form.Item
-              name="currentPassword"
-              label="当前密码"
-              rules={[{ required: true, message: '请输入当前密码' }]}
-            >
-              <Input.Password placeholder="输入当前密码" />
-            </Form.Item>
-            <Form.Item
-              name="newPassword"
-              label="新密码"
-              rules={[
-                { required: true, message: '请输入新密码' },
-                { min: 6, message: '密码至少6个字符' },
-              ]}
-            >
-              <Input.Password placeholder="输入新密码" />
-            </Form.Item>
-            <Form.Item
-              name="confirmPassword"
-              label="确认新密码"
-              rules={[{ required: true, message: '请确认新密码' }]}
-            >
-              <Input.Password placeholder="再次输入新密码" />
-            </Form.Item>
-            <Button type="primary" htmlType="submit" loading={loading}>
-              修改密码
-            </Button>
-          </Form>
-        </Card>
+        <Tabs
+          defaultActiveKey="security"
+          items={[
+            {
+              key: 'security',
+              label: '安全与账户',
+              children: (
+                <Card title={<><LockOutlined /> 修改密码</>}>
+                  <Form form={form} layout="vertical" onFinish={handleChangePassword}>
+                    <Form.Item
+                      name="currentPassword"
+                      label="当前密码"
+                      rules={[{ required: true, message: '请输入当前密码' }]}
+                    >
+                      <Input.Password placeholder="输入当前密码" />
+                    </Form.Item>
+                    <Form.Item
+                      name="newPassword"
+                      label="新密码"
+                      rules={[
+                        { required: true, message: '请输入新密码' },
+                        { min: 6, message: '密码至少6个字符' },
+                      ]}
+                    >
+                      <Input.Password placeholder="输入新密码" />
+                    </Form.Item>
+                    <Form.Item
+                      name="confirmPassword"
+                      label="确认新密码"
+                      rules={[{ required: true, message: '请确认新密码' }]}
+                    >
+                      <Input.Password placeholder="再次输入新密码" />
+                    </Form.Item>
+                    <Button type="primary" htmlType="submit" loading={loading}>
+                      修改密码
+                    </Button>
+                  </Form>
+                </Card>
+              ),
+            },
+            {
+              key: 'data-tools',
+              label: '数据与导入工具',
+              children: (
+                <Space direction="vertical" style={{ width: '100%' }} size={16}>
+                  <Card title={<><DatabaseOutlined /> 数据管理</>}>
+                    <Space direction="vertical">
+                      <Text type="secondary">导出全部曲目元数据</Text>
+                      <Space>
+                        <Button icon={<ExportOutlined />} onClick={() => handleExport('json')}>
+                          导出 JSON
+                        </Button>
+                        <Button icon={<ExportOutlined />} onClick={() => handleExport('csv')}>
+                          导出 CSV
+                        </Button>
+                        <Button icon={<MailOutlined />} onClick={() => setTestEmailVisible(true)}>
+                          测试邮件
+                        </Button>
+                      </Space>
+                    </Space>
+                    <Divider />
+                    <Text type="secondary">
+                      API 文档：<a href="/api/docs" target="_blank" rel="noopener noreferrer">打开 Swagger UI</a>
+                    </Text>
+                  </Card>
 
-        <Card title={<><DatabaseOutlined /> 数据管理</>}>
-          <Space direction="vertical">
-            <Text type="secondary">导出全部曲目元数据</Text>
-            <Space>
-              <Button icon={<ExportOutlined />} onClick={() => handleExport('json')}>
-                导出 JSON
-              </Button>
-              <Button icon={<ExportOutlined />} onClick={() => handleExport('csv')}>
-                导出 CSV
-              </Button>
-              <Button icon={<MailOutlined />} onClick={() => setTestEmailVisible(true)}>
-                测试邮件
-              </Button>
-            </Space>
-          </Space>
-          <Divider />
-          <Text type="secondary">
-            API 文档：<a href="/api/docs" target="_blank" rel="noopener noreferrer">打开 Swagger UI</a>
-          </Text>
-        </Card>
-
-        <Card title={<><DatabaseOutlined /> 专辑/曲目双语元数据导入导出</>} style={{ marginTop: 24 }}>
+                  <Card title={<><DatabaseOutlined /> 专辑/曲目双语元数据导入导出</>}>
           <Space direction="vertical" style={{ width: '100%' }} size={12}>
             <Text type="secondary">先导出 JSON，再在本地处理 title_cn/title_en，最后走 预览 → 提交。</Text>
             <Space wrap>
@@ -608,16 +625,23 @@ const Settings: React.FC = () => {
               />
             ) : null}
           </Space>
-        </Card>
+                  </Card>
 
-        <Card title={<><DatabaseOutlined /> Music Source 管理入口</>} style={{ marginTop: 24 }}>
-          <Space direction="vertical" style={{ width: '100%' }} size={10}>
-            <Text type="secondary">Music Source 导入已迁移至专用管理页，避免大 JSON 文本渲染卡顿，并支持候选项人工选择。</Text>
-            <Button type="primary" href="/admin/music-sources/library">打开 Music Source 库管理</Button>
-          </Space>
-        </Card>
-
-        <Card title="首访弹窗" loading={modalLoading} style={{ marginTop: 24 }}>
+                  <Card title={<><DatabaseOutlined /> Music Source 管理入口</>}>
+                    <Space direction="vertical" style={{ width: '100%' }} size={10}>
+                      <Text type="secondary">Music Source 导入已迁移至专用管理页，避免大 JSON 文本渲染卡顿，并支持候选项人工选择。</Text>
+                      <Button type="primary" href="/admin/music-sources/library">打开 Music Source 库管理</Button>
+                    </Space>
+                  </Card>
+                </Space>
+              ),
+            },
+            {
+              key: 'site-display',
+              label: '站点展示配置',
+              children: (
+                <Space direction="vertical" style={{ width: '100%' }} size={16}>
+                  <Card title="首访弹窗" loading={modalLoading}>
           <Form
             form={modalForm}
             layout="vertical"
@@ -657,9 +681,9 @@ const Settings: React.FC = () => {
               保存弹窗配置
             </Button>
           </Form>
-        </Card>
+                  </Card>
 
-        <Card title="备案信息" loading={complianceLoading} style={{ marginTop: 24 }}>
+                  <Card title="备案信息" loading={complianceLoading}>
           <Form
             form={complianceForm}
             layout="vertical"
@@ -692,9 +716,16 @@ const Settings: React.FC = () => {
               保存备案配置
             </Button>
           </Form>
-        </Card>
-
-        <Card title={<><ToolOutlined /> 站点维护</>} loading={maintenanceLoading} style={{ marginTop: 24 }}>
+                  </Card>
+                </Space>
+              ),
+            },
+            {
+              key: 'maintenance-feedback',
+              label: '维护与反馈',
+              children: (
+                <Space direction="vertical" style={{ width: '100%' }} size={16}>
+                  <Card title={<><ToolOutlined /> 站点维护</>} loading={maintenanceLoading}>
           <Form
             form={maintenanceForm}
             layout="vertical"
@@ -726,12 +757,11 @@ const Settings: React.FC = () => {
               保存维护配置
             </Button>
           </Form>
-        </Card>
+                  </Card>
 
-        <Card
+                  <Card
           title="用户反馈"
           extra={<Button onClick={() => loadFeedback(1, feedbackPagination.pageSize)} loading={feedbackLoading}>刷新</Button>}
-          style={{ marginTop: 24 }}
         >
           <Table
             rowKey="id"
@@ -750,7 +780,12 @@ const Settings: React.FC = () => {
               loadFeedback(pagination.current || 1, pagination.pageSize || feedbackPagination.pageSize);
             }}
           />
-        </Card>
+                  </Card>
+                </Space>
+              ),
+            },
+          ]}
+        />
 
         <Modal
           title="发送测试邮件"

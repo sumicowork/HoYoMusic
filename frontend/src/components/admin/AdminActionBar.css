@@ -1,0 +1,17 @@
+.admin-action-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-action-bar--compact {
+  gap: 6px;
+}
+
+@media (max-width: 768px) {
+  .admin-action-bar {
+    width: 100%;
+  }
+}
+

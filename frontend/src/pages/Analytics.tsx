@@ -13,6 +13,8 @@ import {
   ThunderboltOutlined, EyeOutlined, ReloadOutlined,
 } from '@ant-design/icons';
 import AdminLayout from '../components/AdminLayout';
+import AdminPageHeader from '../components/admin/AdminPageHeader';
+import AdminActionBar from '../components/admin/AdminActionBar';
 import api from '../services/api';
 import type { ColumnsType } from 'antd/es/table';
 import './Analytics.css';
@@ -506,10 +508,11 @@ const Analytics: React.FC = () => {
     <AdminLayout>
       <div className="analytics-page">
 
-        {/* ── Header ── */}
-        <div className="analytics-header">
-          <Title level={3} style={{ margin: 0 }}>📊 访问统计</Title>
-          <Space>
+        <AdminPageHeader
+          title="访问统计"
+          description="集中查看访问趋势、热点内容、终端分布与请求质量。"
+          actions={(
+            <AdminActionBar>
             <Text type="secondary" style={{ fontSize: 12 }}>
               <ClockCircleOutlined /> 最后更新 {lastRefresh.toLocaleTimeString('zh-CN')}
             </Text>
@@ -531,8 +534,9 @@ const Analytics: React.FC = () => {
               一键刷新预热
             </Button>
             <Button onClick={fetchCountryDebug}>地区映射诊断</Button>
-          </Space>
-        </div>
+            </AdminActionBar>
+          )}
+        />
 
         <Spin spinning={loading}>
 

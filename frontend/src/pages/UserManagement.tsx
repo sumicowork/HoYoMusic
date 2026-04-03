@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Button, Card, Descriptions, Form, Input, Modal, Popconfirm, Select, Space, Statistic, Table, Tabs, Tag, Typography, message, List, Drawer, Grid } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import AdminLayout from '../components/AdminLayout';
+import AdminActionBar from '../components/admin/AdminActionBar';
+import AdminPageHeader from '../components/admin/AdminPageHeader';
 import { useAuthStore } from '../store/authStore';
 import {
   userService,
@@ -13,7 +15,6 @@ import {
 } from '../services/userService';
 import { messageService } from '../services/messageService';
 
-const { Title } = Typography;
 const { useBreakpoint } = Grid;
 
 const UserManagement: React.FC = () => {
@@ -44,6 +45,10 @@ const UserManagement: React.FC = () => {
   const [siteMessageSubmitting, setSiteMessageSubmitting] = useState(false);
   const [messageForm] = Form.useForm<{ title: string; content: string; scope: 'broadcast' | 'selected'; recipient_user_ids: number[] }>();
   const [mobileActionUser, setMobileActionUser] = useState<AdminUserItem | null>(null);
+  const [statusReasonModalOpen, setStatusReasonModalOpen] = useState(false);
+  const [statusReasonValue, setStatusReasonValue] = useState('');
+  const [statusSubmitting, setStatusSubmitting] = useState(false);
+  const [pendingStatusUsers, setPendingStatusUsers] = useState<AdminUserItem[]>([]);
 
   const loadUsers = async (
     page = pagination.page,
@@ -96,40 +101,60 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  const handleStatusChange = async (record: AdminUserItem, nextStatus: 'active' | 'disabled') => {
-    let reason = '';
-    if (nextStatus === 'disabled') {
-      reason = window.prompt(`请输入停用原因（可选），用户：${record.username}`)?.trim() || '';
-    }
-
-    try {
-      const updated = await userService.updateStatus(record.id, nextStatus, reason);
-      updateLocalUser(updated);
-      message.success(`用户 ${record.username} 状态已更新`);
-    } catch (error: any) {
-      message.error(error?.message || '更新账号状态失败');
-    }
-  };
-
-  const handleBulkStatusChange = async (nextStatus: 'active' | 'disabled') => {
-    if (selectedUsers.length === 0) {
+  const applyStatusChange = async (users: AdminUserItem[], nextStatus: 'active' | 'disabled', reason = '') => {
+    if (users.length === 0) {
       return;
     }
 
-    const reason = nextStatus === 'disabled'
-      ? (window.prompt('请输入批量停用原因（可选）')?.trim() || '')
-      : '';
+    if (users.length === 1) {
+      const [record] = users;
+      try {
+        const updated = await userService.updateStatus(record.id, nextStatus, reason);
+        updateLocalUser(updated);
+        message.success(`用户 ${record.username} 状态已更新`);
+      } catch (error: any) {
+        message.error(error?.message || '更新账号状态失败');
+      }
+      return;
+    }
 
     setLoading(true);
     try {
-      await Promise.all(selectedUsers.map((item) => userService.updateStatus(item.id, nextStatus, reason)));
-      message.success(`已批量${nextStatus === 'disabled' ? '停用' : '启用'} ${selectedUsers.length} 位用户`);
+      await Promise.all(users.map((item) => userService.updateStatus(item.id, nextStatus, reason)));
+      message.success(`已批量${nextStatus === 'disabled' ? '停用' : '启用'} ${users.length} 位用户`);
       setSelectedRowKeys([]);
       await loadUsers(pagination.page, pagination.pageSize);
     } catch (error: any) {
       message.error(error?.message || '批量操作失败');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const requestStatusChange = (users: AdminUserItem[], nextStatus: 'active' | 'disabled') => {
+    if (users.length === 0) {
+      return;
+    }
+
+    if (nextStatus === 'disabled') {
+      setPendingStatusUsers(users);
+      setStatusReasonValue('');
+      setStatusReasonModalOpen(true);
+      return;
+    }
+
+    void applyStatusChange(users, nextStatus);
+  };
+
+  const handleConfirmStatusReason = async () => {
+    setStatusSubmitting(true);
+    try {
+      await applyStatusChange(pendingStatusUsers, 'disabled', statusReasonValue.trim());
+      setStatusReasonModalOpen(false);
+      setPendingStatusUsers([]);
+      setStatusReasonValue('');
+    } finally {
+      setStatusSubmitting(false);
     }
   };
 
@@ -335,7 +360,7 @@ const UserManagement: React.FC = () => {
 
             <Popconfirm
               title={record.account_status === 'active' ? '确认停用该账号？' : '确认启用该账号？'}
-              onConfirm={() => void handleStatusChange(record, record.account_status === 'active' ? 'disabled' : 'active')}
+              onConfirm={() => requestStatusChange([record], record.account_status === 'active' ? 'disabled' : 'active')}
               disabled={disableStatusChange}
             >
               <Button size="small" danger={record.account_status === 'active'} disabled={disableStatusChange}>
@@ -367,15 +392,23 @@ const UserManagement: React.FC = () => {
     },
   ];
 
+  const headerActions = (
+    <AdminActionBar>
+      <Button onClick={() => void loadUsers(1, pagination.pageSize)} loading={loading}>刷新列表</Button>
+    </AdminActionBar>
+  );
+
   return (
     <AdminLayout>
       <div className="user-management-page" style={{ padding: 24 }}>
-        <Card
-          title={<Title level={4} style={{ margin: 0 }}>用户管理</Title>}
-          extra={<Button onClick={() => void loadUsers(1, pagination.pageSize)} loading={loading}>刷新</Button>}
-        >
+        <AdminPageHeader
+          title="用户管理"
+          description="统一管理账号权限、状态、站内信与用户行为分析。"
+          actions={headerActions}
+        />
+        <Card title="用户列表">
           <Space direction="vertical" size={12} style={{ width: '100%', marginBottom: 16 }}>
-            <Space wrap>
+            <AdminActionBar>
               <Input
                 allowClear
                 placeholder="搜索用户名或邮箱"
@@ -416,19 +449,19 @@ const UserManagement: React.FC = () => {
               />
               <Button type="primary" onClick={applyFilters} loading={loading}>筛选</Button>
               <Button onClick={resetFilters} disabled={loading}>重置</Button>
-            </Space>
+            </AdminActionBar>
 
-            <Space wrap>
+            <AdminActionBar>
               <Popconfirm
                 title={`确认批量启用 ${selectedUserCount} 位用户？`}
-                onConfirm={() => void handleBulkStatusChange('active')}
+                onConfirm={() => requestStatusChange(selectedUsers, 'active')}
                 disabled={selectedUserCount === 0}
               >
                 <Button disabled={selectedUserCount === 0 || loading}>批量启用</Button>
               </Popconfirm>
               <Popconfirm
                 title={`确认批量停用 ${selectedUserCount} 位用户？`}
-                onConfirm={() => void handleBulkStatusChange('disabled')}
+                onConfirm={() => requestStatusChange(selectedUsers, 'disabled')}
                 disabled={selectedUserCount === 0}
               >
                 <Button danger disabled={selectedUserCount === 0 || loading}>批量停用</Button>
@@ -441,7 +474,7 @@ const UserManagement: React.FC = () => {
                 发送站内信
               </Button>
               <Typography.Text type="secondary">已选 {selectedUserCount} 位用户</Typography.Text>
-            </Space>
+            </AdminActionBar>
           </Space>
 
           {isMobile ? (
@@ -534,7 +567,7 @@ const UserManagement: React.FC = () => {
             </Button>
             <Button
               danger={mobileActionUser.account_status === 'active'}
-              onClick={() => void handleStatusChange(mobileActionUser, mobileActionUser.account_status === 'active' ? 'disabled' : 'active')}
+              onClick={() => requestStatusChange([mobileActionUser], mobileActionUser.account_status === 'active' ? 'disabled' : 'active')}
             >
               {mobileActionUser.account_status === 'active' ? '停用账号' : '启用账号'}
             </Button>
@@ -547,6 +580,36 @@ const UserManagement: React.FC = () => {
           </Space>
         )}
       </Drawer>
+
+      <Modal
+        title={pendingStatusUsers.length > 1 ? '批量停用用户' : '停用用户'}
+        open={statusReasonModalOpen}
+        onCancel={() => {
+          setStatusReasonModalOpen(false);
+          setPendingStatusUsers([]);
+          setStatusReasonValue('');
+        }}
+        onOk={() => void handleConfirmStatusReason()}
+        okText="确认停用"
+        cancelText="取消"
+        okButtonProps={{ loading: statusSubmitting }}
+      >
+        <Space direction="vertical" style={{ width: '100%' }} size={10}>
+          <Typography.Text>
+            {pendingStatusUsers.length > 1
+              ? `将停用 ${pendingStatusUsers.length} 位用户。`
+              : `将停用用户 ${pendingStatusUsers[0]?.username || ''}。`}
+          </Typography.Text>
+          <Typography.Text type="secondary">停用原因（可选）</Typography.Text>
+          <Input.TextArea
+            rows={3}
+            maxLength={500}
+            value={statusReasonValue}
+            onChange={(event) => setStatusReasonValue(event.target.value)}
+            placeholder="例如：异常行为待人工核验"
+          />
+        </Space>
+      </Modal>
 
       <Modal
         title={targetUser ? `重置密码 - ${targetUser.username}` : '重置密码'}

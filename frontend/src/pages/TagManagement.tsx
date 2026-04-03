@@ -12,6 +12,8 @@ import {
   getTagGroups, TagGroup, bulkDeleteTags, bulkMoveTagsToGroup
 } from '../services/tagService';
 import AdminLayout from '../components/AdminLayout';
+import AdminActionBar from '../components/admin/AdminActionBar';
+import AdminPageHeader from '../components/admin/AdminPageHeader';
 import TagGroupManager from '../components/TagGroupManager';
 import './TagManagement.css';
 
@@ -390,15 +392,15 @@ const TagManagement: React.FC = () => {
 
   return (
     <AdminLayout>
+      <div className="tag-management-page">
+      <AdminPageHeader
+        title="标签管理"
+        description="将标签分组、层级关系与批量操作整合在同一工作区。"
+      />
       <Card
-        title={
-          <Space>
-            <TagOutlined />
-            <span>标签管理</span>
-          </Space>
-        }
+        title="标签列表与分组"
         extra={
-          <Space>
+          <AdminActionBar compact>
             <Button
               onClick={handleToggleSelectionMode}
             >
@@ -417,7 +419,7 @@ const TagManagement: React.FC = () => {
             >
               创建标签
             </Button>
-          </Space>
+          </AdminActionBar>
         }
       >
         {selectionMode && (
@@ -597,6 +599,7 @@ const TagManagement: React.FC = () => {
         onClose={() => setGroupManagerVisible(false)}
         onGroupsChanged={fetchData}
       />
+      </div>
     </AdminLayout>
   );
 };

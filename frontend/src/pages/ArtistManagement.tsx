@@ -31,6 +31,8 @@ import type { TableRowSelection } from 'antd/es/table/interface';
 import api from '../services/api';
 import { trackService } from '../services/trackService';
 import AdminLayout from '../components/AdminLayout';
+import AdminActionBar from '../components/admin/AdminActionBar';
+import AdminPageHeader from '../components/admin/AdminPageHeader';
 
 const { useBreakpoint } = Grid;
 
@@ -184,6 +186,7 @@ const ArtistManagement: React.FC = () => {
   };
 
   const openEditModal = (artist: ArtistItem) => {
+    setMobileActionArtist(null);
     setEditingArtist(artist);
     setEditName(artist.name);
     setEditRoleMappings((artist.roles || []).filter(Boolean).map((r) => ({ from: r, to: r })));
@@ -338,39 +341,43 @@ const ArtistManagement: React.FC = () => {
     return grouped;
   }, [aliases]);
 
+  const headerActions = (
+    <AdminActionBar>
+      <Input.Search
+        placeholder="搜索艺术家..."
+        allowClear
+        style={{ width: isMobile ? '100%' : 240 }}
+        value={searchText}
+        onChange={(e) => setSearchText(e.target.value)}
+        onSearch={(value) => {
+          setSearchText(value);
+          void fetchArtists(1, value);
+        }}
+        enterButton={<SearchOutlined />}
+      />
+      {hasSelection && selectedArtistNames.length >= 2 && (
+        <Button
+          icon={<MergeCellsOutlined />}
+          onClick={() => {
+            setCanonicalName(selectedArtistNames[0]);
+            setMergeModalVisible(true);
+          }}
+        >
+          合并 ({selectedArtistNames.length})
+        </Button>
+      )}
+      <Button onClick={() => { void fetchAliases(); setAliasesModalVisible(true); }}>查看别名</Button>
+    </AdminActionBar>
+  );
+
   return (
     <AdminLayout>
-      <Card
+      <AdminPageHeader
         title="艺术家管理"
-        extra={
-          <Space wrap>
-            <Input.Search
-              placeholder="搜索艺术家..."
-              allowClear
-              style={{ width: isMobile ? '100%' : 240 }}
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              onSearch={(value) => {
-                setSearchText(value);
-                void fetchArtists(1, value);
-              }}
-              enterButton={<SearchOutlined />}
-            />
-            {hasSelection && selectedArtistNames.length >= 2 && (
-              <Button
-                icon={<MergeCellsOutlined />}
-                onClick={() => {
-                  setCanonicalName(selectedArtistNames[0]);
-                  setMergeModalVisible(true);
-                }}
-              >
-                合并 ({selectedArtistNames.length})
-              </Button>
-            )}
-            <Button onClick={() => { void fetchAliases(); setAliasesModalVisible(true); }}>查看别名</Button>
-          </Space>
-        }
-      >
+        description="统一维护艺术家主名称、别名、角色映射与头像。"
+        actions={headerActions}
+      />
+      <Card title="艺术家列表">
         {isMobile ? (
           <List
             loading={loading}

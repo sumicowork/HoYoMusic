@@ -4,6 +4,7 @@ import {
   Card,
   DatePicker,
   Drawer,
+  Dropdown,
   Form,
   Grid,
   Image,
@@ -34,6 +35,7 @@ import {
 import { Link } from 'react-router-dom';
 import dayjs from 'dayjs';
 import type { ColumnsType } from 'antd/es/table';
+import type { MenuProps } from 'antd';
 import type { TableRowSelection } from 'antd/es/table/interface';
 import { trackService, type AdminTrackFilterOptions, type AdminTrackFilters, type SameAlbumDuplicateGroup } from '../services/trackService';
 import type { Track } from '../types';
@@ -49,6 +51,8 @@ import LyricsEditor from '../components/LyricsEditor';
 import TrackNotesImportModal from '../components/TrackNotesImportModal';
 import TrackTagsManager from '../components/TrackTagsManager';
 import UploadModal from '../components/UploadModal';
+import AdminActionBar from '../components/admin/AdminActionBar';
+import AdminPageHeader from '../components/admin/AdminPageHeader';
 import './Admin.css';
 
 const { useBreakpoint } = Grid;
@@ -471,46 +475,91 @@ const Admin: React.FC = () => {
 
   const hasSelection = selectedRowKeys.length > 0;
 
+  const importMenuItems: MenuProps['items'] = [
+    {
+      key: 'import-credits',
+      icon: <TeamOutlined />,
+      label: '批量导入 Credits',
+      onClick: () => setCreditsImportModalVisible(true),
+    },
+    {
+      key: 'import-lrc',
+      icon: <ImportOutlined />,
+      label: '批量导入 LRC',
+      onClick: () => setLyricsImportModalVisible(true),
+    },
+    {
+      key: 'import-notes',
+      icon: <ImportOutlined />,
+      label: '批量导入备注',
+      onClick: () => setTrackNotesImportModalVisible(true),
+    },
+  ];
+
+  const utilityMenuItems: MenuProps['items'] = [
+    {
+      key: 'export-notes',
+      icon: <DownloadOutlined />,
+      label: '导出所有备注',
+      onClick: () => {
+        void handleExportTrackNotes();
+      },
+    },
+    {
+      key: 'scan-duplicates',
+      label: '重复检查',
+      onClick: () => {
+        void handleScanDuplicates();
+      },
+    },
+  ];
+
+  const headerActions = (
+    <AdminActionBar>
+      <Input.Search
+        placeholder="搜索曲名/专辑/备注..."
+        allowClear
+        style={{ width: 240 }}
+        value={searchText}
+        onChange={(event) => setSearchText(event.target.value)}
+        onSearch={(value) => { setSearchText(value); void fetchTracks(1, value, pagination.pageSize, serverFilters); }}
+        enterButton={<SearchOutlined />}
+      />
+      {hasSelection && (
+        <>
+          <Button icon={<TagsOutlined />} onClick={() => setBulkTagModalVisible(true)}>批量打标签 ({selectedRowKeys.length})</Button>
+          <Button icon={<AppstoreOutlined />} onClick={() => setBulkMoveModalVisible(true)}>批量移动专辑 ({selectedRowKeys.length})</Button>
+          <Popconfirm
+            title={`确定删除选中的 ${selectedRowKeys.length} 首曲目吗？`}
+            description="此操作不可撤销"
+            onConfirm={handleBulkDelete}
+            okText="删除"
+            cancelText="取消"
+            okType="danger"
+          >
+            <Button danger>批量删除 ({selectedRowKeys.length})</Button>
+          </Popconfirm>
+        </>
+      )}
+      <Button type="primary" icon={<UploadOutlined />} onClick={() => setUploadModalVisible(true)}>上传音乐</Button>
+      <Dropdown menu={{ items: importMenuItems }} trigger={['click']}>
+        <Button icon={<ImportOutlined />}>批量导入</Button>
+      </Dropdown>
+      <Dropdown menu={{ items: utilityMenuItems }} trigger={['click']}>
+        <Button loading={exportingTrackNotes || duplicateScanLoading}>更多工具</Button>
+      </Dropdown>
+    </AdminActionBar>
+  );
+
   return (
     <AdminLayout>
-      <Card
-        title="曲目管理"
-        extra={
-          <Space wrap>
-            <Input.Search
-              placeholder="搜索曲名/专辑/备注..."
-              allowClear
-              style={{ width: 240 }}
-              value={searchText}
-              onChange={(event) => setSearchText(event.target.value)}
-              onSearch={(value) => { setSearchText(value); void fetchTracks(1, value, pagination.pageSize, serverFilters); }}
-              enterButton={<SearchOutlined />}
-            />
-            {hasSelection && (
-              <>
-                <Button icon={<TagsOutlined />} onClick={() => setBulkTagModalVisible(true)}>批量打标签 ({selectedRowKeys.length})</Button>
-                <Button icon={<AppstoreOutlined />} onClick={() => setBulkMoveModalVisible(true)}>批量移动专辑 ({selectedRowKeys.length})</Button>
-                <Popconfirm
-                  title={`确定删除选中的 ${selectedRowKeys.length} 首曲目吗？`}
-                  description="此操作不可撤销"
-                  onConfirm={handleBulkDelete}
-                  okText="删除"
-                  cancelText="取消"
-                  okType="danger"
-                >
-                  <Button danger>批量删除 ({selectedRowKeys.length})</Button>
-                </Popconfirm>
-              </>
-            )}
-            <Button type="primary" icon={<UploadOutlined />} onClick={() => setUploadModalVisible(true)}>上传音乐</Button>
-            <Button icon={<TeamOutlined />} onClick={() => setCreditsImportModalVisible(true)}>批量导入 Credits</Button>
-            <Button icon={<ImportOutlined />} onClick={() => setLyricsImportModalVisible(true)}>批量导入 LRC</Button>
-            <Button icon={<ImportOutlined />} onClick={() => setTrackNotesImportModalVisible(true)}>批量导入备注</Button>
-            <Button icon={<DownloadOutlined />} loading={exportingTrackNotes} onClick={handleExportTrackNotes}>导出所有备注</Button>
-            <Button loading={duplicateScanLoading} onClick={handleScanDuplicates}>重复检查</Button>
-          </Space>
-        }
-      >
+      <div className="admin-page-container">
+        <AdminPageHeader
+          title="曲目管理"
+          description="统一处理曲目编辑、批量导入和内容校验工具。"
+          actions={headerActions}
+        />
+        <Card>
         {isMobile ? (
           <List
             loading={loading}
@@ -598,7 +647,7 @@ const Admin: React.FC = () => {
             }}
           />
         )}
-      </Card>
+        </Card>
 
       <Drawer
         title={mobileActionTrack ? `操作: ${getTitleCn(mobileActionTrack)}` : '操作'}
@@ -735,6 +784,7 @@ const Admin: React.FC = () => {
           ]}
         />
       </Modal>
+      </div>
     </AdminLayout>
   );
 };

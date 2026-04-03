@@ -4,13 +4,8 @@
   margin: 0 auto;
 }
 
-.analytics-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.analytics-page .admin-page-header {
   margin-bottom: 24px;
-  flex-wrap: wrap;
-  gap: 12px;
 }
 
 .analytics-card {
@@ -67,10 +62,6 @@
 @media (max-width: 768px) {
   .analytics-page {
     padding: 12px;
-  }
-  .analytics-header {
-    flex-direction: column;
-    align-items: flex-start;
   }
 }
 

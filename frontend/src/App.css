@@ -22,6 +22,11 @@ body {
   padding-bottom: 96px;
 }
 
+.app.admin-app,
+.app.admin-app.has-player {
+  padding-bottom: 24px;
+}
+
 /* Mobile: account for MobileTabBar (56px) */
 @media (max-width: 768px) {
   /* No player: just tab bar */
@@ -32,6 +37,11 @@ body {
   /* With player: player(~72px) sits above tab bar(56px) */
   .app.has-player {
     padding-bottom: calc(72px + 56px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .app.admin-app,
+  .app.admin-app.has-player {
+    padding-bottom: 16px;
   }
 
   /* Mobile table improvements */
