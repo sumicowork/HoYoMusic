@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Button,
@@ -217,24 +217,36 @@ const MusicSourceLibraryManagement: React.FC = () => {
     }
   };
 
+  const nodesRequestSeqRef = useRef(0);
+  const inFlightNodesKeyRef = useRef<string | null>(null);
+
   const loadAllNodes = async (gameId: number, categoryId: number) => {
+    const requestKey = `${gameId}:${categoryId}`;
+    if (inFlightNodesKeyRef.current === requestKey) {
+      return;
+    }
+
+    const requestSeq = ++nodesRequestSeqRef.current;
+    inFlightNodesKeyRef.current = requestKey;
     setLoadingNodes(true);
     try {
-      const collected: MusicSourceNode[] = [];
-      const queue: Array<number | null> = [null];
-
-      while (queue.length > 0) {
-        const parentId = queue.shift() ?? null;
-        const children = await musicSourceService.getNodes(gameId, categoryId, parentId === null ? undefined : parentId);
-        collected.push(...children);
-        children.forEach((child) => queue.push(child.id));
+      const allNodes = await musicSourceService.getAllNodes(gameId, categoryId);
+      if (requestSeq !== nodesRequestSeqRef.current) {
+        return;
       }
-
-      setNodes(collected);
+      setNodes(allNodes);
     } catch (error: any) {
+      if (requestSeq !== nodesRequestSeqRef.current) {
+        return;
+      }
       message.error(error?.message || '加载路径节点失败');
     } finally {
-      setLoadingNodes(false);
+      if (requestSeq === nodesRequestSeqRef.current) {
+        setLoadingNodes(false);
+      }
+      if (inFlightNodesKeyRef.current === requestKey) {
+        inFlightNodesKeyRef.current = null;
+      }
     }
   };
 
@@ -249,6 +261,9 @@ const MusicSourceLibraryManagement: React.FC = () => {
 
   useEffect(() => {
     if (!selectedGameId || !selectedCategoryId) {
+      nodesRequestSeqRef.current += 1;
+      inFlightNodesKeyRef.current = null;
+      setLoadingNodes(false);
       setNodes([]);
       setSelectedPathValue([]);
       return;
@@ -591,8 +606,4 @@ const MusicSourceLibraryManagement: React.FC = () => {
 };
 
 export default MusicSourceLibraryManagement;
-
-
-
-
 

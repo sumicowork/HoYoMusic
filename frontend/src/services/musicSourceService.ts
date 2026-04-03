@@ -176,6 +176,18 @@ export const musicSourceService = {
     throw new Error(response.data.error?.message || '加载路径节点失败');
   },
 
+  async getAllNodes(gameId: number, categoryId: number): Promise<MusicSourceNode[]> {
+    const response = await api.get<ApiResponse<{ nodes: MusicSourceNode[] }>>('/music-sources/nodes', {
+      params: {
+        game_id: gameId,
+        category_id: categoryId,
+        all: true,
+      },
+    });
+    if (response.data.success && response.data.data) return response.data.data.nodes;
+    throw new Error(response.data.error?.message || '加载路径节点失败');
+  },
+
   async createNode(payload: {
     game_id: number;
     category_id: number;
@@ -248,4 +260,3 @@ export const musicSourceService = {
     }
   },
 };
-

@@ -649,12 +649,28 @@ export const getMusicSourceNodes = async (req: Request, res: Response) => {
     const gameId = Number(req.query.game_id);
     const categoryId = Number(req.query.category_id);
     const parentRaw = req.query.parent_id;
+    const allRaw = req.query.all;
+    const fetchAll = String(allRaw || '').trim().toLowerCase();
+    const shouldFetchAll = fetchAll === '1' || fetchAll === 'true' || fetchAll === 'yes';
 
     if (!Number.isInteger(gameId) || gameId <= 0 || !Number.isInteger(categoryId) || categoryId <= 0) {
       return res.status(400).json({
         success: false,
         error: { code: 'INVALID_QUERY', message: 'game_id and category_id must be positive integers' },
       });
+    }
+
+    if (shouldFetchAll) {
+      const result = await pool.query(
+        `SELECT id, uuid::text AS uuid, game_id, category_id, parent_id, name, display_order, created_at, updated_at
+         FROM music_source_nodes
+         WHERE game_id = $1
+           AND category_id = $2
+         ORDER BY parent_id ASC NULLS FIRST, display_order ASC, name ASC`,
+        [gameId, categoryId]
+      );
+
+      return res.json({ success: true, data: { nodes: result.rows } });
     }
 
     let parentId: number | null = null;
@@ -1220,6 +1236,4 @@ export const exportMusicSources = async (req: Request, res: Response) => {
     return res.status(500).json({ success: false, error: { code: 'EXPORT_ERROR', message: 'Failed to export music sources' } });
   }
 };
-
-
 
