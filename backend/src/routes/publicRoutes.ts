@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import https from 'https';
 import http from 'http';
+import net from 'net';
 import sharp from 'sharp';
 import fs from 'fs';
 import path from 'path';
@@ -116,7 +117,24 @@ const isPrivateIpv4 = (host: string): boolean => {
 const isBlockedHost = (host: string): boolean => {
   const normalized = host.trim().toLowerCase();
   if (!normalized) return true;
+  if (normalized === '::' || normalized.startsWith('[') || normalized.includes('%')) return true;
   if (normalized === 'localhost' || normalized === '::1' || normalized.endsWith('.localhost')) return true;
+
+  const ipVersion = net.isIP(normalized);
+  if (ipVersion === 4) {
+    return isPrivateIpv4(normalized);
+  }
+  if (ipVersion === 6) {
+    // Block loopback/link-local/ULA and IPv4-mapped private addresses.
+    if (normalized === '::1') return true;
+    if (normalized.startsWith('fe80:')) return true;
+    if (normalized.startsWith('fc') || normalized.startsWith('fd')) return true;
+
+    const mapped = normalized.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/);
+    if (mapped?.[1] && isPrivateIpv4(mapped[1])) return true;
+    return false;
+  }
+
   return isPrivateIpv4(normalized);
 };
 

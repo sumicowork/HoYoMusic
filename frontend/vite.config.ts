@@ -22,7 +22,6 @@ export default defineConfig({
         manualChunks: {
           // Core vendor chunks
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-antd-core': ['antd'],
           'vendor-antd-icons': ['@ant-design/icons'],
           'vendor-utils': ['axios', 'zustand', 'howler', 'dayjs'],
           'vendor-markdown': ['react-markdown', 'remark-breaks', 'remark-gfm'],

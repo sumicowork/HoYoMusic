@@ -1,6 +1,4 @@
-import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
+import api from './api';
 
 export interface Tag {
   id: number;
@@ -79,137 +77,80 @@ export interface BulkTagOperationResult {
   failed: Array<{ id: number; message: string }>;
 }
 
-const getReadRequestConfig = () => {
-  const token = localStorage.getItem('token');
-  if (!token) return undefined;
-
-  return {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Cache-Control': 'no-cache',
-      Pragma: 'no-cache',
-    },
-  };
-};
-
 // Get all tags
 export const getTags = async (): Promise<Tag[]> => {
-  const response = await axios.get(`${API_URL}/tags`, getReadRequestConfig());
+  const response = await api.get('/tags');
   return response.data.data;
 };
 
 // Get tag by ID
 export const getTagById = async (id: number): Promise<Tag> => {
-  const response = await axios.get(`${API_URL}/tags/${id}`, getReadRequestConfig());
+  const response = await api.get(`/tags/${id}`);
   return response.data.data;
 };
 
 // Create new tag
 export const createTag = async (data: CreateTagDTO): Promise<Tag> => {
-  const token = localStorage.getItem('token');
-  const response = await axios.post(`${API_URL}/tags`, data, {
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  });
+  const response = await api.post('/tags', data);
   return response.data.data;
 };
 
 // Update tag
 export const updateTag = async (id: number, data: UpdateTagDTO): Promise<Tag> => {
-  const token = localStorage.getItem('token');
-  const response = await axios.put(`${API_URL}/tags/${id}`, data, {
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  });
+  const response = await api.put(`/tags/${id}`, data);
   return response.data.data;
 };
 
 // Delete tag
 export const deleteTag = async (id: number): Promise<void> => {
-  const token = localStorage.getItem('token');
-  await axios.delete(`${API_URL}/tags/${id}`, {
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  });
+  await api.delete(`/tags/${id}`);
 };
 
 // Get tags for a track
 export const getTrackTags = async (trackId: number): Promise<Tag[]> => {
-  const response = await axios.get(`${API_URL}/tags/track/${trackId}`, getReadRequestConfig());
+  const response = await api.get(`/tags/track/${trackId}`);
   return response.data.data;
 };
 
 // Add tag to track
 export const addTagToTrack = async (trackId: number, tagId: number): Promise<void> => {
-  const token = localStorage.getItem('token');
-  await axios.post(
-    `${API_URL}/tags/track/${trackId}`,
-    { tagId },
-    {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    }
-  );
+  await api.post(`/tags/track/${trackId}`, { tagId });
 };
 
 // Remove tag from track
 export const removeTagFromTrack = async (trackId: number, tagId: number): Promise<void> => {
-  const token = localStorage.getItem('token');
-  await axios.delete(`${API_URL}/tags/track/${trackId}/${tagId}`, {
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  });
+  await api.delete(`/tags/track/${trackId}/${tagId}`);
 };
 
 // ============ Tag Groups ============
 
 // Get all tag groups
 export const getTagGroups = async (): Promise<TagGroup[]> => {
-  const response = await axios.get(`${API_URL}/tags/groups/all`, getReadRequestConfig());
+  const response = await api.get('/tags/groups/all');
   return response.data.data;
 };
 
 // Get tag group by ID
 export const getTagGroupById = async (id: number): Promise<TagGroup> => {
-  const response = await axios.get(`${API_URL}/tags/groups/${id}`);
+  const response = await api.get(`/tags/groups/${id}`);
   return response.data.data;
 };
 
 // Create tag group
 export const createTagGroup = async (data: CreateTagGroupDTO): Promise<TagGroup> => {
-  const token = localStorage.getItem('token');
-  const response = await axios.post(`${API_URL}/tags/groups`, data, {
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  });
+  const response = await api.post('/tags/groups', data);
   return response.data.data;
 };
 
 // Update tag group
 export const updateTagGroup = async (id: number, data: UpdateTagGroupDTO): Promise<TagGroup> => {
-  const token = localStorage.getItem('token');
-  const response = await axios.put(`${API_URL}/tags/groups/${id}`, data, {
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  });
+  const response = await api.put(`/tags/groups/${id}`, data);
   return response.data.data;
 };
 
 // Delete tag group
 export const deleteTagGroup = async (id: number): Promise<void> => {
-  const token = localStorage.getItem('token');
-  await axios.delete(`${API_URL}/tags/groups/${id}`, {
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  });
+  await api.delete(`/tags/groups/${id}`);
 };
 
 // Bulk update track tags
@@ -218,12 +159,7 @@ export const bulkUpdateTrackTags = async (params: {
   addTagIds?: number[];
   removeTagIds?: number[];
 }): Promise<void> => {
-  const token = localStorage.getItem('token');
-  await axios.post(`${API_URL}/tags/bulk-update`, params, {
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  });
+  await api.post('/tags/bulk-update', params);
 };
 
 export const bulkDeleteTags = async (tagIds: number[]): Promise<BulkTagOperationResult> => {

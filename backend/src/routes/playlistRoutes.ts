@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticateJWT } from '../middleware/auth';
+import { noStore } from '../middleware/cacheHeaders';
 import {
   createPlaylist,
   getPlaylists,
@@ -15,6 +16,7 @@ const router = Router();
 
 // All playlist routes require authentication
 router.use(authenticateJWT as any);
+router.use(noStore);
 
 router.post('/', createPlaylist);
 router.get('/', getPlaylists);

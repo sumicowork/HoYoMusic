@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticateAdmin } from '../middleware/auth';
+import { noStore } from '../middleware/cacheHeaders';
 import {
   getUserFullProfile,
   getUserInsights,
@@ -18,6 +19,8 @@ import {
 } from '../validators/schemas';
 
 const router = Router();
+
+router.use(noStore);
 
 router.get('/', authenticateAdmin, listUsers);
 router.get('/:id/insights', authenticateAdmin, getUserInsights);

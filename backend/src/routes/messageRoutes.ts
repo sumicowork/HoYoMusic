@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticateAdmin, authenticateJWT } from '../middleware/auth';
+import { noStore } from '../middleware/cacheHeaders';
 import { validateBody } from '../middleware/validate';
 import {
   getInboxMessages,
@@ -14,6 +15,7 @@ import { sendSiteMessageSchema } from '../validators/schemas';
 const router = Router();
 
 router.use(authenticateJWT as any);
+router.use(noStore);
 
 router.get('/inbox', getInboxMessages);
 router.get('/unread-count', getUnreadCount);

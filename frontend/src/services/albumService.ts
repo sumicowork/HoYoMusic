@@ -1,25 +1,6 @@
-import api, { getOrCreateVisitorId } from './api';
-import axios from 'axios';
+import api, { createApiClient } from './api';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
-const publicApi = axios.create({
-  baseURL: API_BASE_URL,
-  headers: { 'Content-Type': 'application/json' },
-});
-
-publicApi.interceptors.request.use((config) => {
-  const visitorId = getOrCreateVisitorId();
-  if (visitorId) {
-    config.headers['x-visitor-id'] = visitorId;
-  }
-
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-
-  return config;
-});
+const publicApi = createApiClient({ noCacheForAuthedGet: false });
 
 export interface Album {
   id: number;

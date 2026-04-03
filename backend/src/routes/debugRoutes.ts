@@ -27,7 +27,8 @@ async function resolveInsideRoot(targetPath = '.'): Promise<string> {
   const absolutePath = path.resolve(DEBUG_ROOT_DIR, targetPath);
   const realRoot = await fs.realpath(DEBUG_ROOT_DIR);
   const realTarget = await fs.realpath(absolutePath).catch(() => absolutePath);
-  if (!realTarget.startsWith(realRoot)) {
+  const relative = path.relative(realRoot, realTarget);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
     throw new Error('Path escapes DEBUG_ROOT_DIR');
   }
   return realTarget;
