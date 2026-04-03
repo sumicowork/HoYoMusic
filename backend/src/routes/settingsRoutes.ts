@@ -10,7 +10,7 @@ import {
   maintenanceModeSchema,
 } from '../validators/schemas';
 import { getMailConfigurationError, sendTestEmail } from '../services/emailService';
-import { cacheControl, CACHE_TTL } from '../middleware/cacheHeaders';
+import { cacheControl, CACHE_TTL, noStore } from '../middleware/cacheHeaders';
 
 const router = Router();
 
@@ -31,6 +31,7 @@ interface SiteComplianceConfig {
 interface MaintenanceModeConfig {
   enabled: boolean;
   expected_end_time: string | null;
+  message: string;
   version: string;
 }
 
@@ -60,6 +61,7 @@ const DEFAULT_SITE_COMPLIANCE: SiteComplianceConfig = {
 const DEFAULT_MAINTENANCE_MODE: MaintenanceModeConfig = {
   enabled: false,
   expected_end_time: null,
+  message: '',
   version: '1',
 };
 
@@ -119,10 +121,12 @@ const normalizeMaintenanceModeConfig = (input: unknown): MaintenanceModeConfig =
   const expectedEnd = typeof raw.expected_end_time === 'string' && raw.expected_end_time.trim()
     ? raw.expected_end_time.trim()
     : null;
+  const message = typeof raw.message === 'string' ? raw.message.trim() : '';
 
   return {
     enabled: typeof raw.enabled === 'boolean' ? raw.enabled : DEFAULT_MAINTENANCE_MODE.enabled,
     expected_end_time: expectedEnd,
+    message,
     version: typeof raw.version === 'string' && raw.version.trim() ? raw.version.trim() : DEFAULT_MAINTENANCE_MODE.version,
   };
 };
@@ -409,7 +413,7 @@ router.put('/settings/compliance', authenticateAdmin, validateBody(siteComplianc
   }
 });
 
-router.get('/public/site-config/maintenance', cacheControl(CACHE_TTL.SHORT, { staleWhileRevalidate: 120 }), async (_req: Request, res: Response) => {
+router.get('/public/site-config/maintenance', noStore, async (_req: Request, res: Response) => {
   try {
     const config = await getMaintenanceModeConfig();
     res.json({ success: true, data: config });
@@ -437,14 +441,16 @@ router.get('/settings/maintenance', authenticateAdmin, async (_req: Request, res
 
 router.put('/settings/maintenance', authenticateAdmin, validateBody(maintenanceModeSchema), async (req: Request, res: Response) => {
   try {
-    const body = req.body as { enabled: boolean; expected_end_time?: string | null };
+    const body = req.body as { enabled: boolean; expected_end_time?: string | null; message?: string };
     const expectedEnd = typeof body.expected_end_time === 'string' && body.expected_end_time.trim()
       ? body.expected_end_time.trim()
       : null;
+    const message = typeof body.message === 'string' ? body.message.trim() : '';
 
     const nextConfig: MaintenanceModeConfig = {
       enabled: body.enabled,
       expected_end_time: expectedEnd,
+      message,
       version: new Date().toISOString(),
     };
 

@@ -666,7 +666,7 @@ const runMigrations = async () => {
       INSERT INTO app_settings (setting_key, setting_value)
       VALUES (
         'maintenance_mode',
-        '{"enabled":false,"expected_end_time":null,"version":"1"}'::jsonb
+        '{"enabled":false,"expected_end_time":null,"message":"","version":"1"}'::jsonb
       )
       ON CONFLICT (setting_key) DO NOTHING
     `);

@@ -96,6 +96,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
             ...prev,
             enabled: true,
             expected_end_time: error?.response?.data?.data?.expected_end_time ?? null,
+            message: error?.response?.data?.data?.message ?? prev.message,
             version: error?.response?.data?.data?.version ?? prev.version,
           }));
         } else {
@@ -165,10 +166,17 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
   if (forceMaintenancePage) {
     return (
       <Suspense fallback={<PageFallback />}>
-        <Routes>
-          <Route path="/maintenance" element={<Maintenance config={maintenanceConfig} />} />
-          <Route path="*" element={<Navigate to="/maintenance" replace />} />
-        </Routes>
+        <>
+          <Routes>
+            <Route
+              path="/maintenance"
+              element={<Maintenance config={maintenanceConfig} onOpenFeedback={onOpenFeedback} />}
+            />
+            <Route path="*" element={<Navigate to="/maintenance" replace />} />
+          </Routes>
+          <FeedbackModal open={feedbackOpen} onClose={onCloseFeedback} />
+          <AuthModal />
+        </>
       </Suspense>
     );
   }
@@ -280,7 +288,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
             path="/maintenance"
             element={
               maintenanceConfig.enabled && !canBypassMaintenance
-                ? <Maintenance config={maintenanceConfig} />
+                ? <Maintenance config={maintenanceConfig} onOpenFeedback={onOpenFeedback} />
                 : <Navigate to={canBypassMaintenance ? '/admin' : '/'} replace />
             }
           />

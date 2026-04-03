@@ -17,6 +17,7 @@ export interface SiteComplianceConfig {
 export interface MaintenanceModeConfig {
   enabled: boolean;
   expected_end_time: string | null;
+  message: string;
   version: string;
 }
 
@@ -50,6 +51,7 @@ export const DEFAULT_SITE_COMPLIANCE_CONFIG: SiteComplianceConfig = {
 export const DEFAULT_MAINTENANCE_MODE_CONFIG: MaintenanceModeConfig = {
   enabled: false,
   expected_end_time: null,
+  message: '',
   version: '1',
 };
 
@@ -135,6 +137,7 @@ export const siteConfigService = {
   async updateAdminMaintenanceMode(payload: {
     enabled: boolean;
     expected_end_time: string | null;
+    message: string;
   }): Promise<MaintenanceModeConfig> {
     const response = await api.put<ApiResponse<MaintenanceModeConfig>>('/settings/maintenance', payload);
     if (response.data.success && response.data.data) {

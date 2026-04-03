@@ -15,3 +15,10 @@
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
 }
 
+.maintenance-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+

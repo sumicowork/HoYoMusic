@@ -5,12 +5,14 @@ import pool from '../config/database';
 interface MaintenanceModeConfig {
   enabled: boolean;
   expected_end_time: string | null;
+  message: string;
   version: string;
 }
 
 const DEFAULT_MAINTENANCE: MaintenanceModeConfig = {
   enabled: false,
   expected_end_time: null,
+  message: '',
   version: '1',
 };
 
@@ -23,39 +25,30 @@ const EXEMPT_PATH_PREFIXES = [
   '/public/covers/proxy',
 ];
 
-const CACHE_TTL_MS = 5000;
-let cachedConfig: MaintenanceModeConfig = DEFAULT_MAINTENANCE;
-let cacheExpiresAt = 0;
-
 const normalizeConfig = (input: unknown): MaintenanceModeConfig => {
   const raw = (input && typeof input === 'object') ? input as Record<string, unknown> : {};
   const expectedEnd = typeof raw.expected_end_time === 'string' && raw.expected_end_time.trim()
     ? raw.expected_end_time.trim()
     : null;
+  const message = typeof raw.message === 'string' ? raw.message.trim() : '';
 
   return {
     enabled: typeof raw.enabled === 'boolean' ? raw.enabled : DEFAULT_MAINTENANCE.enabled,
     expected_end_time: expectedEnd,
+    message,
     version: typeof raw.version === 'string' && raw.version.trim() ? raw.version.trim() : DEFAULT_MAINTENANCE.version,
   };
 };
 
 const readMaintenanceConfig = async (): Promise<MaintenanceModeConfig> => {
-  const now = Date.now();
-  if (now < cacheExpiresAt) {
-    return cachedConfig;
-  }
-
   const result = await pool.query(
     'SELECT setting_value FROM app_settings WHERE setting_key = $1 LIMIT 1',
     ['maintenance_mode']
   );
 
-  cachedConfig = result.rows.length > 0
+  return result.rows.length > 0
     ? normalizeConfig(result.rows[0].setting_value)
     : DEFAULT_MAINTENANCE;
-  cacheExpiresAt = now + CACHE_TTL_MS;
-  return cachedConfig;
 };
 
 const isExemptPath = (path: string): boolean => EXEMPT_PATH_PREFIXES.some((prefix) => path.startsWith(prefix));
@@ -99,6 +92,7 @@ export const maintenanceModeGuard = async (req: Request, res: Response, next: Ne
       data: {
         enabled: true,
         expected_end_time: config.expected_end_time,
+        message: config.message,
         version: config.version,
       },
     });

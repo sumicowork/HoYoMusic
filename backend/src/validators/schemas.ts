@@ -269,6 +269,7 @@ export const maintenanceModeSchema = z.object({
     z.string().trim().datetime({ message: 'expected_end_time must be ISO datetime' }),
     z.null(),
   ]).optional().default(null),
+  message: z.string().trim().max(5000).optional().default(''),
 });
 
 export const feedbackSubmitSchema = z.object({

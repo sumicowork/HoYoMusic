@@ -234,6 +234,7 @@ const Settings: React.FC = () => {
       maintenanceForm.setFieldsValue({
         enabled: config.enabled,
         expected_end_time: toLocalDatetime(config.expected_end_time),
+        message: config.message || '',
       });
     } catch (err: any) {
       const msg = err?.response?.data?.error?.message || err?.message || '加载维护配置失败';
@@ -331,17 +332,22 @@ const Settings: React.FC = () => {
     }
   };
 
-  const handleSaveMaintenance = async (values: { enabled: boolean; expected_end_time?: string | null }) => {
+  const handleSaveMaintenance = async (values: { enabled: boolean; expected_end_time?: string | null; message?: string }) => {
     setMaintenanceSaving(true);
     try {
       const payload: Pick<MaintenanceModeConfig, 'enabled' | 'expected_end_time'> = {
         enabled: values.enabled,
         expected_end_time: toIsoDatetime(values.expected_end_time),
       };
-      const saved = await siteConfigService.updateAdminMaintenanceMode(payload);
+      const payloadWithMessage: Pick<MaintenanceModeConfig, 'enabled' | 'expected_end_time' | 'message'> = {
+        ...payload,
+        message: (values.message || '').trim(),
+      };
+      const saved = await siteConfigService.updateAdminMaintenanceMode(payloadWithMessage);
       maintenanceForm.setFieldsValue({
         enabled: saved.enabled,
         expected_end_time: toLocalDatetime(saved.expected_end_time),
+        message: saved.message || '',
       });
       message.success('维护配置已保存');
     } catch (err: any) {
@@ -692,7 +698,7 @@ const Settings: React.FC = () => {
           <Form
             form={maintenanceForm}
             layout="vertical"
-            initialValues={{ enabled: false, expected_end_time: null }}
+            initialValues={{ enabled: false, expected_end_time: null, message: '' }}
             onFinish={handleSaveMaintenance}
           >
             <Form.Item name="enabled" label="启用维护模式" valuePropName="checked">
@@ -705,6 +711,15 @@ const Settings: React.FC = () => {
               extra="用于维护页展示，可留空。"
             >
               <Input type="datetime-local" />
+            </Form.Item>
+
+            <Form.Item
+              name="message"
+              label="维护说明"
+              rules={[{ max: 5000, message: '维护说明最多 5000 字' }]}
+              extra="将展示在维护页，可留空（留空时使用默认文案）。"
+            >
+              <Input.TextArea rows={4} placeholder="例如：数据库迁移中，预计 20:00 恢复。" maxLength={5000} showCount />
             </Form.Item>
 
             <Button type="primary" htmlType="submit" loading={maintenanceSaving}>
