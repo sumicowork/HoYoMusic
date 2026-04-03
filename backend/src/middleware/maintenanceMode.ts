@@ -22,6 +22,7 @@ const EXEMPT_PATH_PREFIXES = [
   '/docs.json',
   '/auth/login',
   '/public/site-config/maintenance',
+  '/public/feedback',
   '/public/covers/proxy',
 ];
 
