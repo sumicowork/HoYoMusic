@@ -3,6 +3,7 @@ import {
   Alert,
   Button,
   Card,
+  Cascader,
   Form,
   Input,
   InputNumber,
@@ -33,6 +34,12 @@ interface NodeRow extends MusicSourceNode {
   pathText: string;
 }
 
+interface CascaderOption {
+  value: number;
+  label: string;
+  children?: CascaderOption[];
+}
+
 const MusicSourceLibraryManagement: React.FC = () => {
   const [games, setGames] = useState<Game[]>([]);
   const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
@@ -53,6 +60,7 @@ const MusicSourceLibraryManagement: React.FC = () => {
   const [nodeSubmitting, setNodeSubmitting] = useState(false);
   const [nodeForm] = Form.useForm();
   const [importModalOpen, setImportModalOpen] = useState(false);
+  const [selectedPathValue, setSelectedPathValue] = useState<number[]>([]);
 
   const gameOptions = useMemo(
     () => games.map((game) => ({ label: game.name, value: game.id })),
@@ -68,6 +76,18 @@ const MusicSourceLibraryManagement: React.FC = () => {
   const nodeLookup = useMemo(() => {
     const map = new Map<number, MusicSourceNode>();
     nodes.forEach((node) => map.set(node.id, node));
+    return map;
+  }, [nodes]);
+
+  const nodeChildrenLookup = useMemo(() => {
+    const map = new Map<number | null, MusicSourceNode[]>();
+    nodes.forEach((node) => {
+      const key = node.parent_id ?? null;
+      const prev = map.get(key) || [];
+      prev.push(node);
+      map.set(key, prev);
+    });
+    map.forEach((list) => list.sort((a, b) => (a.display_order - b.display_order) || a.name.localeCompare(b.name)));
     return map;
   }, [nodes]);
 
@@ -102,13 +122,28 @@ const MusicSourceLibraryManagement: React.FC = () => {
       });
   }, [nodes, nodeLookup]);
 
-  const nodeParentOptions = useMemo(
-    () => [
-      { label: '根节点（无 parent）', value: '__root__' },
-      ...nodeRows.map((row) => ({ label: row.pathText, value: String(row.id) })),
-    ],
-    [nodeRows]
-  );
+  const buildCascaderOptions = (parentId: number | null): CascaderOption[] => {
+    const children = nodeChildrenLookup.get(parentId) || [];
+    return children.map((node) => {
+      const nested = buildCascaderOptions(node.id);
+      return {
+        value: node.id,
+        label: node.name,
+        children: nested.length > 0 ? nested : undefined,
+      };
+    });
+  };
+
+  const nodeCascaderOptions = useMemo<CascaderOption[]>(() => buildCascaderOptions(null), [nodeChildrenLookup]);
+
+  const selectedPathNodeId = selectedPathValue.length > 0 ? selectedPathValue[selectedPathValue.length - 1] : null;
+  const selectedPathNode = selectedPathNodeId ? nodeLookup.get(selectedPathNodeId) || null : null;
+  const currentLevelRows = useMemo<NodeRow[]>(() => {
+    if (selectedPathNodeId == null) {
+      return nodeRows.filter((row) => row.parent_id == null);
+    }
+    return nodeRows.filter((row) => row.parent_id === selectedPathNodeId);
+  }, [nodeRows, selectedPathNodeId]);
 
   const loadGames = async () => {
     setLoadingGames(true);
@@ -174,9 +209,14 @@ const MusicSourceLibraryManagement: React.FC = () => {
   useEffect(() => {
     if (!selectedGameId || !selectedCategoryId) {
       setNodes([]);
+      setSelectedPathValue([]);
       return;
     }
     void loadAllNodes(selectedGameId, selectedCategoryId);
+  }, [selectedGameId, selectedCategoryId]);
+
+  useEffect(() => {
+    setSelectedPathValue([]);
   }, [selectedGameId, selectedCategoryId]);
 
   const openCreateCategory = () => {
@@ -240,7 +280,7 @@ const MusicSourceLibraryManagement: React.FC = () => {
     }
     setEditingNode(null);
     nodeForm.resetFields();
-    nodeForm.setFieldsValue({ parent_id: '__root__', display_order: nodes.length });
+    nodeForm.setFieldsValue({ parent_path: selectedPathValue, display_order: nodes.length });
     setNodeModalOpen(true);
   };
 
@@ -258,7 +298,8 @@ const MusicSourceLibraryManagement: React.FC = () => {
     if (!selectedGameId || !selectedCategoryId) return;
     try {
       const values = await nodeForm.validateFields();
-      const parentId = values.parent_id === '__root__' ? null : Number(values.parent_id);
+      const parentPath = Array.isArray(values.parent_path) ? values.parent_path as number[] : [];
+      const parentId = parentPath.length > 0 ? Number(parentPath[parentPath.length - 1]) : null;
       const payload = {
         name: values.name,
         display_order: values.display_order,
@@ -400,14 +441,34 @@ const MusicSourceLibraryManagement: React.FC = () => {
             extra={<Button type="primary" icon={<PlusOutlined />} onClick={openCreateNode} disabled={!selectedCategoryId}>新建节点</Button>}
             loading={loadingNodes}
           >
+            <Space direction="vertical" size={10} style={{ width: '100%' }}>
+              <Text type="secondary">使用多级联动下拉选择路径，行为类似地区选择器。</Text>
+              <Cascader
+                style={{ width: '100%' }}
+                options={nodeCascaderOptions}
+                value={selectedPathValue}
+                onChange={(value) => setSelectedPathValue((value as number[]) || [])}
+                placeholder="选择路径节点（可逐级展开）"
+                allowClear
+                changeOnSelect
+              />
+              <Alert
+                type="info"
+                showIcon
+                message={selectedPathNode ? `当前路径：${buildNodePath(selectedPathNode).join(' / ')}` : '当前显示：根节点列表'}
+              />
+            </Space>
+
+            <div style={{ marginTop: 12 }}>
             <Table<NodeRow>
               rowKey="id"
               size="small"
               columns={nodeColumns}
-              dataSource={nodeRows}
+              dataSource={currentLevelRows}
               pagination={false}
               scroll={{ x: 860 }}
             />
+            </div>
           </Card>
         </Space>
       </div>
@@ -443,8 +504,8 @@ const MusicSourceLibraryManagement: React.FC = () => {
       >
         <Form form={nodeForm} layout="vertical">
           {!editingNode ? (
-            <Form.Item name="parent_id" label="父节点" initialValue="__root__">
-              <Select options={nodeParentOptions} />
+            <Form.Item name="parent_path" label="父节点路径（多级联动，可留空表示根节点）" initialValue={[]}>
+              <Cascader options={nodeCascaderOptions} allowClear changeOnSelect placeholder="选择父节点路径" />
             </Form.Item>
           ) : null}
           <Form.Item name="name" label="节点名" rules={[{ required: true, message: '请输入节点名' }]}>
@@ -473,5 +534,8 @@ const MusicSourceLibraryManagement: React.FC = () => {
 };
 
 export default MusicSourceLibraryManagement;
+
+
+
 
 
