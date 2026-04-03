@@ -109,6 +109,15 @@ const musicSourcePathSchema = z.array(z.string().trim().min(1).max(200)).min(1).
 const musicSourceImportSourceSchema = z.object({
   category: z.string().trim().min(1, 'category is required').max(200),
   path: musicSourcePathSchema,
+  category_uuid: z.string().trim().uuid('category_uuid must be uuid').optional(),
+  node_uuid: z.string().trim().uuid('node_uuid must be uuid').optional(),
+  path_node_uuids: z.array(z.string().trim().uuid('path_node_uuids items must be uuid')).optional(),
+}).refine((value) => {
+  if (!value.path_node_uuids) return true;
+  return value.path_node_uuids.length === value.path.length;
+}, {
+  message: 'path_node_uuids length must match path length',
+  path: ['path_node_uuids'],
 });
 
 const musicSourceImportEntrySchema = z.object({
@@ -168,9 +177,10 @@ export const musicSourceImportCommitSchema = z.object({
 });
 
 export const exportMusicSourcesSchema = z.object({
-  scope: z.enum(['all', 'by_game', 'by_album']).optional().default('all'),
+  scope: z.enum(['all', 'by_game', 'by_album', 'by_category']).optional().default('all'),
   game_ids: z.array(z.number().int().positive()).optional().default([]),
   album_ids: z.array(z.number().int().positive()).optional().default([]),
+  category_ids: z.array(z.number().int().positive()).optional().default([]),
 });
 
 // ── Game ──────────────────────────────────────────────────────────

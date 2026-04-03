@@ -7,6 +7,7 @@ type ImportStatus = 'matched' | 'needs_manual' | 'not_found' | 'invalid' | 'impo
 
 interface MusicSourceNodeRecord {
   id: number;
+  uuid?: string;
   game_id: number;
   category_id: number;
   parent_id: number | null;
@@ -16,6 +17,17 @@ interface MusicSourceNodeRecord {
 interface MusicSourceImportSource {
   category: string;
   path: string[];
+  category_uuid?: string;
+  node_uuid?: string;
+  path_node_uuids?: string[];
+}
+
+interface NormalizedMusicSourceImportSource {
+  category: string;
+  path: string[];
+  category_uuid?: string;
+  node_uuid?: string;
+  path_node_uuids?: Array<string | null>;
 }
 
 interface MusicSourceImportEntry {
@@ -56,8 +68,10 @@ interface ResolvedImportEntry {
     artists: string;
   }>;
   has_empty_sources: boolean;
-  normalized_sources: MusicSourceImportSource[];
+  normalized_sources: NormalizedMusicSourceImportSource[];
 }
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const normalizeTrackNumber = (raw: unknown): number | null => {
   if (typeof raw === 'number' && Number.isInteger(raw) && raw > 0) return raw;
@@ -158,11 +172,18 @@ const searchTrackCandidatesForMusicSourceImport = async (keyword: string, limit:
   return result.rows.map(mapCandidate);
 };
 
-const validateImportSource = (source: MusicSourceImportSource): { normalized?: MusicSourceImportSource; message?: string } => {
+const validateImportSource = (source: MusicSourceImportSource): { normalized?: NormalizedMusicSourceImportSource; message?: string } => {
   const categoryName = String(source.category || '').trim();
   const pathSegments = Array.isArray(source.path)
     ? source.path.map((segment) => String(segment || '').trim()).filter(Boolean)
     : [];
+  const categoryUuid = typeof source.category_uuid === 'string' ? source.category_uuid.trim() : '';
+  const nodeUuid = typeof source.node_uuid === 'string' ? source.node_uuid.trim() : '';
+  const rawPathNodeUuids = Array.isArray(source.path_node_uuids) ? source.path_node_uuids : [];
+  const pathNodeUuids = rawPathNodeUuids.map((value) => {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    return normalized || null;
+  });
 
   if (!categoryName) {
     return { message: 'source.category is required' };
@@ -170,43 +191,125 @@ const validateImportSource = (source: MusicSourceImportSource): { normalized?: M
   if (pathSegments.length === 0) {
     return { message: 'source.path cannot be empty' };
   }
+  if (categoryUuid && !UUID_RE.test(categoryUuid)) {
+    return { message: 'source.category_uuid must be uuid' };
+  }
+  if (nodeUuid && !UUID_RE.test(nodeUuid)) {
+    return { message: 'source.node_uuid must be uuid' };
+  }
+  if (pathNodeUuids.length > 0 && pathNodeUuids.length !== pathSegments.length) {
+    return { message: 'source.path_node_uuids length must match source.path length' };
+  }
+  if (pathNodeUuids.some((uuid) => uuid != null && !UUID_RE.test(uuid))) {
+    return { message: 'source.path_node_uuids contains non-uuid value' };
+  }
+  if (nodeUuid && pathNodeUuids.length > 0) {
+    const leafUuid = pathNodeUuids[pathNodeUuids.length - 1];
+    if (leafUuid && leafUuid !== nodeUuid) {
+      return { message: 'source.node_uuid must match last item of source.path_node_uuids when both provided' };
+    }
+  }
 
   return {
     normalized: {
       category: categoryName,
       path: pathSegments,
+      category_uuid: categoryUuid || undefined,
+      node_uuid: nodeUuid || undefined,
+      path_node_uuids: pathNodeUuids.length > 0 ? pathNodeUuids : undefined,
     },
   };
 };
 
-const findCategoryId = async (client: PoolClient, gameId: number, categoryName: string): Promise<number | null> => {
+const findCategory = async (
+  client: PoolClient,
+  gameId: number,
+  categoryName: string,
+  categoryUuid?: string
+): Promise<{ id: number; uuid: string } | null> => {
+  if (categoryUuid) {
+    const byUuid = await client.query(
+      `SELECT id, uuid::text AS uuid, name
+       FROM music_source_categories
+       WHERE game_id = $1 AND uuid = $2
+       LIMIT 1`,
+      [gameId, categoryUuid]
+    );
+    if (byUuid.rows.length > 0) {
+      const row = byUuid.rows[0];
+      if (String(row.name || '').trim().toLowerCase() !== categoryName.toLowerCase()) {
+        await client.query(
+          'UPDATE music_source_categories SET name = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+          [categoryName, Number(row.id)]
+        );
+      }
+      return { id: Number(row.id), uuid: String(row.uuid) };
+    }
+  }
+
   const categoryResult = await client.query(
-    'SELECT id FROM music_source_categories WHERE game_id = $1 AND LOWER(TRIM(name)) = LOWER(TRIM($2)) LIMIT 1',
+    'SELECT id, uuid::text AS uuid FROM music_source_categories WHERE game_id = $1 AND LOWER(TRIM(name)) = LOWER(TRIM($2)) LIMIT 1',
     [gameId, categoryName]
   );
   if (categoryResult.rows.length === 0) return null;
-  return Number(categoryResult.rows[0].id);
+  return {
+    id: Number(categoryResult.rows[0].id),
+    uuid: String(categoryResult.rows[0].uuid),
+  };
 };
 
-const createCategory = async (client: PoolClient, gameId: number, categoryName: string): Promise<number> => {
+const createCategory = async (
+  client: PoolClient,
+  gameId: number,
+  categoryName: string,
+  categoryUuid?: string
+): Promise<{ id: number; uuid: string }> => {
   const insertResult = await client.query(
-    `INSERT INTO music_source_categories (game_id, name, display_order)
-     VALUES ($1, $2, COALESCE((SELECT MAX(display_order) + 1 FROM music_source_categories WHERE game_id = $1), 0))
-     RETURNING id`,
-    [gameId, categoryName]
+    `INSERT INTO music_source_categories (game_id, uuid, name, display_order)
+     VALUES ($1, COALESCE($2::uuid, gen_random_uuid()), $3, COALESCE((SELECT MAX(display_order) + 1 FROM music_source_categories WHERE game_id = $1), 0))
+     RETURNING id, uuid::text AS uuid`,
+    [gameId, categoryUuid || null, categoryName]
   );
-  return Number(insertResult.rows[0].id);
+  return {
+    id: Number(insertResult.rows[0].id),
+    uuid: String(insertResult.rows[0].uuid),
+  };
 };
 
-const findNodeId = async (
+const findNode = async (
   client: PoolClient,
   gameId: number,
   categoryId: number,
   parentId: number | null,
-  name: string
-): Promise<number | null> => {
-  const nodeResult: { rows: Array<{ id: number }> } = await client.query(
-    `SELECT id
+  name: string,
+  nodeUuid?: string
+): Promise<{ id: number; uuid: string } | null> => {
+  if (nodeUuid) {
+    const byUuid: { rows: Array<{ id: number; uuid: string; parent_id: number | null; name: string }> } = await client.query(
+      `SELECT id, uuid::text AS uuid, parent_id, name
+       FROM music_source_nodes
+       WHERE game_id = $1
+         AND category_id = $2
+         AND uuid = $3
+       LIMIT 1`,
+      [gameId, categoryId, nodeUuid]
+    );
+    if (byUuid.rows.length > 0) {
+      const row = byUuid.rows[0];
+      if ((row.parent_id == null ? null : Number(row.parent_id)) !== parentId || String(row.name || '').trim() !== name) {
+        await client.query(
+          `UPDATE music_source_nodes
+           SET parent_id = $1, name = $2, updated_at = CURRENT_TIMESTAMP
+           WHERE id = $3`,
+          [parentId, name, Number(row.id)]
+        );
+      }
+      return { id: Number(row.id), uuid: String(row.uuid) };
+    }
+  }
+
+  const nodeResult: { rows: Array<{ id: number; uuid: string }> } = await client.query(
+    `SELECT id, uuid::text AS uuid
      FROM music_source_nodes
      WHERE game_id = $1
        AND category_id = $2
@@ -216,7 +319,10 @@ const findNodeId = async (
     [gameId, categoryId, parentId, name]
   );
   if (nodeResult.rows.length === 0) return null;
-  return Number(nodeResult.rows[0].id);
+  return {
+    id: Number(nodeResult.rows[0].id),
+    uuid: String(nodeResult.rows[0].uuid),
+  };
 };
 
 const createNode = async (
@@ -224,61 +330,67 @@ const createNode = async (
   gameId: number,
   categoryId: number,
   parentId: number | null,
-  name: string
-): Promise<number> => {
+  name: string,
+  nodeUuid?: string
+): Promise<{ id: number; uuid: string }> => {
   const insertResult = await client.query(
-    `INSERT INTO music_source_nodes (game_id, category_id, parent_id, name, display_order)
+    `INSERT INTO music_source_nodes (game_id, category_id, parent_id, uuid, name, display_order)
      VALUES (
        $1,
        $2,
        $3,
-       $4,
+       COALESCE($4::uuid, gen_random_uuid()),
+       $5,
        COALESCE((SELECT MAX(display_order) + 1 FROM music_source_nodes WHERE game_id = $1 AND category_id = $2 AND ((parent_id IS NULL AND $3::int IS NULL) OR parent_id = $3)), 0)
      )
-     RETURNING id`,
-    [gameId, categoryId, parentId, name]
+     RETURNING id, uuid::text AS uuid`,
+    [gameId, categoryId, parentId, nodeUuid || null, name]
   );
-  return Number(insertResult.rows[0].id);
+  return {
+    id: Number(insertResult.rows[0].id),
+    uuid: String(insertResult.rows[0].uuid),
+  };
 };
 
-const ensureSourcePathNode = async (client: PoolClient, gameId: number, source: MusicSourceImportSource): Promise<number> => {
-  const validated = validateImportSource(source);
-  if (!validated.normalized) {
-    throw new Error(validated.message || 'Invalid source path');
-  }
+const ensureSourcePathNode = async (client: PoolClient, gameId: number, source: NormalizedMusicSourceImportSource): Promise<number> => {
+  const categoryName = source.category;
+  const pathSegments = source.path;
+  const pathNodeUuids = source.path_node_uuids || [];
+  const leafNodeUuid = source.node_uuid;
 
-  const categoryName = validated.normalized.category;
-  const pathSegments = validated.normalized.path;
-
-  let categoryId = await findCategoryId(client, gameId, categoryName);
-  if (!categoryId) {
+  let category = await findCategory(client, gameId, categoryName, source.category_uuid);
+  if (!category) {
     try {
-      categoryId = await createCategory(client, gameId, categoryName);
+      category = await createCategory(client, gameId, categoryName, source.category_uuid);
     } catch (error: any) {
       if (error?.code === '23505') {
-        categoryId = await findCategoryId(client, gameId, categoryName);
+        category = await findCategory(client, gameId, categoryName, source.category_uuid);
       }
-      if (!categoryId) throw error;
+      if (!category) throw error;
     }
   }
 
   let parentId: number | null = null;
   let currentNodeId: number | null = null;
 
-  for (const segment of pathSegments) {
-    let nextNodeId = await findNodeId(client, gameId, categoryId, parentId, segment);
-    if (!nextNodeId) {
+  for (let i = 0; i < pathSegments.length; i++) {
+    const segment = pathSegments[i];
+    const preferredUuid = pathNodeUuids[i]
+      || (i === pathSegments.length - 1 ? leafNodeUuid : undefined);
+
+    let nextNode = await findNode(client, gameId, category.id, parentId, segment, preferredUuid);
+    if (!nextNode) {
       try {
-        nextNodeId = await createNode(client, gameId, categoryId, parentId, segment);
+        nextNode = await createNode(client, gameId, category.id, parentId, segment, preferredUuid);
       } catch (error: any) {
         if (error?.code === '23505') {
-          nextNodeId = await findNodeId(client, gameId, categoryId, parentId, segment);
+          nextNode = await findNode(client, gameId, category.id, parentId, segment, preferredUuid);
         }
-        if (!nextNodeId) throw error;
+        if (!nextNode) throw error;
       }
     }
 
-    currentNodeId = nextNodeId;
+    currentNodeId = nextNode.id;
     parentId = currentNodeId;
   }
 
@@ -304,7 +416,7 @@ const resolveImportEntry = async (
   if (!trackNumber) return { status: 'invalid', message: 'song_number is required for matching', has_empty_sources: hasEmptySources, normalized_sources: [] };
   if (!Number.isInteger(gameId) || gameId <= 0) return { status: 'invalid', message: 'game_id must be positive integer', has_empty_sources: hasEmptySources, normalized_sources: [] };
 
-  const normalizedSources: MusicSourceImportSource[] = [];
+  const normalizedSources: NormalizedMusicSourceImportSource[] = [];
   if (!hasEmptySources) {
     for (const source of sources) {
       const validatedSource = validateImportSource(source);
@@ -370,12 +482,13 @@ const appendImportWarnings = (message: string | undefined, hasEmptySources: bool
 
 const listAllNodes = async (): Promise<Map<number, MusicSourceNodeRecord>> => {
   const result = await pool.query<MusicSourceNodeRecord>(
-    'SELECT id, game_id, category_id, parent_id, name FROM music_source_nodes'
+    'SELECT id, uuid::text AS uuid, game_id, category_id, parent_id, name FROM music_source_nodes'
   );
   const lookup = new Map<number, MusicSourceNodeRecord>();
   for (const row of result.rows) {
     lookup.set(Number(row.id), {
       id: Number(row.id),
+      uuid: row.uuid ? String(row.uuid) : undefined,
       game_id: Number(row.game_id),
       category_id: Number(row.category_id),
       parent_id: row.parent_id == null ? null : Number(row.parent_id),
@@ -403,6 +516,26 @@ const buildPathSegments = (nodeId: number, nodeLookup: Map<number, MusicSourceNo
   return segments;
 };
 
+const buildPathNodeUuids = (nodeId: number, nodeLookup: Map<number, MusicSourceNodeRecord>): string[] => {
+  const uuids: string[] = [];
+  let currentId: number | null = nodeId;
+  const guard = new Set<number>();
+
+  while (currentId != null) {
+    if (guard.has(currentId)) break;
+    guard.add(currentId);
+
+    const node = nodeLookup.get(currentId);
+    if (!node) break;
+    if (node.uuid) {
+      uuids.unshift(node.uuid);
+    }
+    currentId = node.parent_id;
+  }
+
+  return uuids;
+};
+
 export const getMusicSourceCategories = async (req: Request, res: Response) => {
   try {
     const gameId = Number(req.query.game_id);
@@ -414,7 +547,7 @@ export const getMusicSourceCategories = async (req: Request, res: Response) => {
     }
 
     const result = await pool.query(
-      `SELECT id, game_id, name, description, display_order, created_at, updated_at
+      `SELECT id, uuid::text AS uuid, game_id, name, description, display_order, created_at, updated_at
        FROM music_source_categories
        WHERE game_id = $1
        ORDER BY display_order ASC, name ASC`,
@@ -445,7 +578,7 @@ export const createMusicSourceCategory = async (req: Request, res: Response) => 
     const result = await pool.query(
       `INSERT INTO music_source_categories (game_id, name, description, display_order)
        VALUES ($1, $2, $3, $4)
-       RETURNING id, game_id, name, description, display_order, created_at, updated_at`,
+       RETURNING id, uuid::text AS uuid, game_id, name, description, display_order, created_at, updated_at`,
       [gameId, name, description, displayOrder]
     );
 
@@ -474,7 +607,7 @@ export const updateMusicSourceCategory = async (req: Request, res: Response) => 
       `UPDATE music_source_categories
        SET name = $1, description = $2, display_order = $3, updated_at = CURRENT_TIMESTAMP
        WHERE id = $4
-       RETURNING id, game_id, name, description, display_order, created_at, updated_at`,
+       RETURNING id, uuid::text AS uuid, game_id, name, description, display_order, created_at, updated_at`,
       [name, description, displayOrder, id]
     );
 
@@ -538,7 +671,7 @@ export const getMusicSourceNodes = async (req: Request, res: Response) => {
     }
 
     const result = await pool.query(
-      `SELECT id, game_id, category_id, parent_id, name, display_order, created_at, updated_at
+      `SELECT id, uuid::text AS uuid, game_id, category_id, parent_id, name, display_order, created_at, updated_at
        FROM music_source_nodes
        WHERE game_id = $1
          AND category_id = $2
@@ -582,7 +715,7 @@ export const createMusicSourceNode = async (req: Request, res: Response) => {
     const result = await pool.query(
       `INSERT INTO music_source_nodes (game_id, category_id, parent_id, name, display_order)
        VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, game_id, category_id, parent_id, name, display_order, created_at, updated_at`,
+       RETURNING id, uuid::text AS uuid, game_id, category_id, parent_id, name, display_order, created_at, updated_at`,
       [gameId, categoryId, parentId, name, displayOrder]
     );
 
@@ -610,7 +743,7 @@ export const updateMusicSourceNode = async (req: Request, res: Response) => {
       `UPDATE music_source_nodes
        SET name = $1, display_order = $2, updated_at = CURRENT_TIMESTAMP
        WHERE id = $3
-       RETURNING id, game_id, category_id, parent_id, name, display_order, created_at, updated_at`,
+       RETURNING id, uuid::text AS uuid, game_id, category_id, parent_id, name, display_order, created_at, updated_at`,
       [name, displayOrder, id]
     );
 
@@ -979,6 +1112,9 @@ export const exportMusicSources = async (req: Request, res: Response) => {
     const albumIds = Array.isArray(req.body?.album_ids)
       ? Array.from(new Set(req.body.album_ids.map((id: unknown) => Number(id)).filter((id: number) => Number.isInteger(id) && id > 0)))
       : [];
+    const categoryIds = Array.isArray(req.body?.category_ids)
+      ? Array.from(new Set(req.body.category_ids.map((id: unknown) => Number(id)).filter((id: number) => Number.isInteger(id) && id > 0)))
+      : [];
 
     const whereParts: string[] = [];
     const params: any[] = [];
@@ -995,8 +1131,14 @@ export const exportMusicSources = async (req: Request, res: Response) => {
       }
       params.push(albumIds);
       whereParts.push(`t.album_id = ANY($${params.length}::int[])`);
+    } else if (scope === 'by_category') {
+      if (categoryIds.length === 0) {
+        return res.status(400).json({ success: false, error: { code: 'INVALID_SCOPE_FILTER', message: 'category_ids is required for by_category export' } });
+      }
+      params.push(categoryIds);
+      whereParts.push(`tms.category_id = ANY($${params.length}::int[])`);
     } else if (scope !== 'all') {
-      return res.status(400).json({ success: false, error: { code: 'INVALID_SCOPE', message: 'scope must be one of all | by_game | by_album' } });
+      return res.status(400).json({ success: false, error: { code: 'INVALID_SCOPE', message: 'scope must be one of all | by_game | by_album | by_category' } });
     }
 
     const whereSql = whereParts.length > 0 ? `WHERE ${whereParts.join(' AND ')}` : '';
@@ -1010,6 +1152,7 @@ export const exportMusicSources = async (req: Request, res: Response) => {
          tms.game_id,
          COALESCE(g.name, '') AS game_name,
          tms.category_id,
+         c.uuid::text AS category_uuid,
          c.name AS category_name,
          tms.node_id
        FROM track_music_sources tms
@@ -1034,7 +1177,7 @@ export const exportMusicSources = async (req: Request, res: Response) => {
       song_number: string;
       game_id: number;
       game_name: string;
-      sources: Array<{ category: string; path: string[] }>;
+      sources: Array<{ category: string; category_uuid?: string; path: string[]; path_node_uuids?: string[]; node_uuid?: string }>;
     }>();
 
     for (const row of result.rows as any[]) {
@@ -1053,7 +1196,10 @@ export const exportMusicSources = async (req: Request, res: Response) => {
 
       grouped.get(key)?.sources.push({
         category: String(row.category_name || ''),
+        category_uuid: row.category_uuid ? String(row.category_uuid) : undefined,
         path: buildPathSegments(Number(row.node_id), nodeLookup),
+        path_node_uuids: buildPathNodeUuids(Number(row.node_id), nodeLookup),
+        node_uuid: nodeLookup.get(Number(row.node_id))?.uuid,
       });
     }
 

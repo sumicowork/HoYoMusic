@@ -6,10 +6,14 @@ export type MusicSourceImportStatus = 'matched' | 'needs_manual' | 'not_found' |
 export interface MusicSourceImportSource {
   category: string;
   path: string[];
+  category_uuid?: string;
+  node_uuid?: string;
+  path_node_uuids?: string[];
 }
 
 export interface MusicSourceCategory {
   id: number;
+  uuid?: string;
   game_id: number;
   name: string;
   description: string | null;
@@ -20,6 +24,7 @@ export interface MusicSourceCategory {
 
 export interface MusicSourceNode {
   id: number;
+  uuid?: string;
   game_id: number;
   category_id: number;
   parent_id: number | null;
@@ -82,12 +87,13 @@ export interface MusicSourceImportCommitResult {
 }
 
 export type MusicSourceConflictMode = 'overwrite' | 'append' | 'skip';
-export type MusicSourceExportScope = 'all' | 'by_game' | 'by_album';
+export type MusicSourceExportScope = 'all' | 'by_game' | 'by_album' | 'by_category';
 
 export interface MusicSourceExportPayload {
   scope: MusicSourceExportScope;
   game_ids?: number[];
   album_ids?: number[];
+  category_ids?: number[];
 }
 
 interface ExportMusicSourcesResult {

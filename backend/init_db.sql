@@ -406,6 +406,7 @@ COMMENT ON FUNCTION get_tag_path IS 'Get full hierarchical path of a tag';
 
 CREATE TABLE IF NOT EXISTS music_source_categories (
     id SERIAL PRIMARY KEY,
+    uuid UUID DEFAULT gen_random_uuid(),
     game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
     name VARCHAR(200) NOT NULL,
     description TEXT,
@@ -417,6 +418,7 @@ CREATE TABLE IF NOT EXISTS music_source_categories (
 
 CREATE TABLE IF NOT EXISTS music_source_nodes (
     id SERIAL PRIMARY KEY,
+    uuid UUID DEFAULT gen_random_uuid(),
     game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
     category_id INTEGER NOT NULL REFERENCES music_source_categories(id) ON DELETE CASCADE,
     parent_id INTEGER REFERENCES music_source_nodes(id) ON DELETE CASCADE,
@@ -440,7 +442,9 @@ CREATE TABLE IF NOT EXISTS track_music_sources (
 );
 
 CREATE INDEX IF NOT EXISTS idx_music_source_categories_game_id ON music_source_categories(game_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_music_source_categories_uuid ON music_source_categories(uuid);
 CREATE INDEX IF NOT EXISTS idx_music_source_nodes_lookup ON music_source_nodes(game_id, category_id, parent_id, display_order, name);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_music_source_nodes_uuid ON music_source_nodes(uuid);
 CREATE INDEX IF NOT EXISTS idx_track_music_sources_track_id ON track_music_sources(track_id);
 CREATE INDEX IF NOT EXISTS idx_track_music_sources_game_id ON track_music_sources(game_id);
 CREATE INDEX IF NOT EXISTS idx_track_music_sources_category_id ON track_music_sources(category_id);

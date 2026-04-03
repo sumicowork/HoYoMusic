@@ -17,12 +17,13 @@ import {
   message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { ImportOutlined, PlusOutlined } from '@ant-design/icons';
+import { ExportOutlined, ImportOutlined, PlusOutlined } from '@ant-design/icons';
 import AdminLayout from '../components/AdminLayout';
 import MusicSourceImportModal from '../components/MusicSourceImportModal';
 import { gameService, type Game } from '../services/gameService';
 import {
   musicSourceService,
+  type MusicSourceExportScope,
   type MusicSourceCategory,
   type MusicSourceNode,
 } from '../services/musicSourceService';
@@ -61,6 +62,8 @@ const MusicSourceLibraryManagement: React.FC = () => {
   const [nodeForm] = Form.useForm();
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [selectedPathValue, setSelectedPathValue] = useState<number[]>([]);
+  const [exportScope, setExportScope] = useState<MusicSourceExportScope>('by_game');
+  const [exportLoading, setExportLoading] = useState(false);
 
   const gameOptions = useMemo(
     () => games.map((game) => ({ label: game.name, value: game.id })),
@@ -157,6 +160,43 @@ const MusicSourceLibraryManagement: React.FC = () => {
       message.error(error?.message || '加载游戏列表失败');
     } finally {
       setLoadingGames(false);
+    }
+  };
+
+  const downloadBlob = (blob: Blob, fileName: string) => {
+    const objectUrl = window.URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = objectUrl;
+    anchor.download = fileName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.URL.revokeObjectURL(objectUrl);
+  };
+
+  const handleExport = async () => {
+    if (exportScope === 'by_game' && !selectedGameId) {
+      message.warning('请先选择游戏');
+      return;
+    }
+    if (exportScope === 'by_category' && !selectedCategoryId) {
+      message.warning('请选择要导出的分类');
+      return;
+    }
+
+    setExportLoading(true);
+    try {
+      const exported = await musicSourceService.exportMusicSources({
+        scope: exportScope,
+        game_ids: selectedGameId ? [selectedGameId] : [],
+        category_ids: selectedCategoryId ? [selectedCategoryId] : [],
+      });
+      downloadBlob(exported.blob, exported.fileName);
+      message.success('Music Source 导出成功');
+    } catch (error: any) {
+      message.error(error?.message || 'Music Source 导出失败');
+    } finally {
+      setExportLoading(false);
     }
   };
 
@@ -404,6 +444,19 @@ const MusicSourceLibraryManagement: React.FC = () => {
               />
               <Button icon={<ImportOutlined />} type="primary" onClick={() => setImportModalOpen(true)}>
                 批量导入 Music Source
+              </Button>
+              <Select<MusicSourceExportScope>
+                style={{ minWidth: 180 }}
+                value={exportScope}
+                onChange={setExportScope}
+                options={[
+                  { value: 'all', label: '导出范围：全部' },
+                  { value: 'by_game', label: '导出范围：当前游戏' },
+                  { value: 'by_category', label: '导出范围：当前分类' },
+                ]}
+              />
+              <Button icon={<ExportOutlined />} loading={exportLoading} onClick={handleExport}>
+                导出 Music Source
               </Button>
             </Space>
           </Card>

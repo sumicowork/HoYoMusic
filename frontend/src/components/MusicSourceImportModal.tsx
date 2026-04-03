@@ -119,6 +119,11 @@ const parseMusicSourceFile = async (file: File): Promise<{ entries: MusicSourceI
           path: Array.isArray(source?.path)
             ? source.path.map((segment: unknown) => String(segment ?? '').trim()).filter(Boolean)
             : [],
+            category_uuid: typeof source?.category_uuid === 'string' ? source.category_uuid.trim() : undefined,
+            node_uuid: typeof source?.node_uuid === 'string' ? source.node_uuid.trim() : undefined,
+            path_node_uuids: Array.isArray(source?.path_node_uuids)
+              ? source.path_node_uuids.map((uuid: unknown) => String(uuid ?? '').trim()).filter(Boolean)
+              : undefined,
         }))
       : [];
 

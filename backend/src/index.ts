@@ -532,9 +532,11 @@ const runMigrations = async () => {
 
   // music source module tables
   try {
+    await pool.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto`);
     await pool.query(`
       CREATE TABLE IF NOT EXISTS music_source_categories (
         id SERIAL PRIMARY KEY,
+        uuid UUID DEFAULT gen_random_uuid(),
         game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
         name VARCHAR(200) NOT NULL,
         description TEXT,
@@ -547,6 +549,7 @@ const runMigrations = async () => {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS music_source_nodes (
         id SERIAL PRIMARY KEY,
+        uuid UUID DEFAULT gen_random_uuid(),
         game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
         category_id INTEGER NOT NULL REFERENCES music_source_categories(id) ON DELETE CASCADE,
         parent_id INTEGER REFERENCES music_source_nodes(id) ON DELETE CASCADE,
@@ -570,6 +573,14 @@ const runMigrations = async () => {
         UNIQUE(track_id, node_id)
       )
     `);
+    await pool.query(`ALTER TABLE music_source_categories ADD COLUMN IF NOT EXISTS uuid UUID`);
+    await pool.query(`ALTER TABLE music_source_nodes ADD COLUMN IF NOT EXISTS uuid UUID`);
+    await pool.query(`ALTER TABLE music_source_categories ALTER COLUMN uuid SET DEFAULT gen_random_uuid()`);
+    await pool.query(`ALTER TABLE music_source_nodes ALTER COLUMN uuid SET DEFAULT gen_random_uuid()`);
+    await pool.query(`UPDATE music_source_categories SET uuid = gen_random_uuid() WHERE uuid IS NULL`);
+    await pool.query(`UPDATE music_source_nodes SET uuid = gen_random_uuid() WHERE uuid IS NULL`);
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_music_source_categories_uuid ON music_source_categories(uuid)`);
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_music_source_nodes_uuid ON music_source_nodes(uuid)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_music_source_categories_game ON music_source_categories(game_id)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_music_source_nodes_lookup ON music_source_nodes(game_id, category_id, parent_id, display_order, name)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_track_music_sources_track ON track_music_sources(track_id)`);
