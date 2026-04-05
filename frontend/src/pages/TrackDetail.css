@@ -127,8 +127,17 @@
   min-height: 42px;
 }
 
-.track-mobile-action-bar {
-  display: none;
+.track-main-actions.mobile {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.track-main-actions.mobile .ant-btn {
+  width: 100%;
+  min-height: 44px;
+  border-radius: 12px;
 }
 
 .track-info-container .ant-image {
@@ -208,46 +217,11 @@
   }
 
   .track-main-actions {
-    display: none;
+    margin-top: 16px;
   }
 
-  .track-info-card {
-    margin-bottom: 114px;
-  }
-
-  .track-mobile-action-bar {
-    position: fixed;
-    left: 10px;
-    right: 10px;
-    bottom: calc(64px + env(safe-area-inset-bottom, 0px));
-    z-index: 1002;
+  .track-main-actions.mobile {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    padding: 10px;
-    border-radius: 14px;
-    backdrop-filter: blur(18px) saturate(150%);
-    -webkit-backdrop-filter: blur(18px) saturate(150%);
-    border: 1px solid var(--glass-border);
-    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
-  }
-
-  [data-theme='light'] .track-mobile-action-bar {
-    background: rgba(255, 255, 255, 0.9);
-  }
-
-  [data-theme='dark'] .track-mobile-action-bar {
-    background: rgba(18, 16, 44, 0.82);
-  }
-
-  .track-mobile-action-bar.with-player {
-    bottom: calc(124px + env(safe-area-inset-bottom, 0px));
-  }
-
-  .track-mobile-action-bar .ant-btn {
-    min-height: 44px;
-    border-radius: 10px;
-    font-weight: 600;
   }
 }
 
@@ -260,10 +234,8 @@
     padding: 12px;
   }
 
-  .track-mobile-action-bar {
-    left: 8px;
-    right: 8px;
-    padding: 8px;
+  .track-main-actions.mobile {
+    grid-template-columns: 1fr;
   }
 }
 

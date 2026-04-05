@@ -48,7 +48,6 @@ const TrackDetail: React.FC = () => {
   );
 
   const { progress, playTrackOnly, seek } = usePlayerStore();
-  const currentTrack = usePlayerStore((state) => state.currentTrack);
   const screens = useBreakpoint();
   const isMobile = !screens.md;
   const canUseDebugFeatures = useDebugUserFeatures();
@@ -206,10 +205,6 @@ const TrackDetail: React.FC = () => {
     navigate('/');
   };
 
-  const mobileActionBarClass = currentTrack
-    ? 'track-mobile-action-bar with-player'
-    : 'track-mobile-action-bar';
-
   const handleAddToPlaylist = async (playlistId: number) => {
     if (!track) {
       return;
@@ -338,7 +333,7 @@ const TrackDetail: React.FC = () => {
                 </Card>
               )}
 
-              <Space className="track-main-actions" wrap>
+              <Space className={`track-main-actions${isMobile ? ' mobile' : ''}`} wrap>
                 <Button
                   type="primary"
                   icon={<PlayCircleOutlined />}
@@ -379,43 +374,6 @@ const TrackDetail: React.FC = () => {
             </div>
           </div>
         </Card>
-
-        {isMobile && (
-          <div className={mobileActionBarClass}>
-            <Button
-              type="primary"
-              icon={<PlayCircleOutlined />}
-              onClick={handlePlay}
-            >
-              播放
-            </Button>
-            <Tooltip title={!DOWNLOAD_ENABLED ? '服务器维护中，暂时关闭下载' : ''}>
-              <Button
-                icon={<DownloadOutlined />}
-                onClick={handleDownload}
-                disabled={!DOWNLOAD_ENABLED}
-              >
-                下载
-              </Button>
-            </Tooltip>
-            {canUseDebugFeatures && (
-              <Button
-                icon={favorited ? <HeartFilled style={{ color: '#ff4d6a' }} /> : <HeartOutlined />}
-                onClick={handleToggleFavorite}
-              >
-                {favorited ? '取消喜爱' : '喜爱'}
-              </Button>
-            )}
-            {canUseDebugFeatures && (
-              <Button
-                icon={<PlusOutlined />}
-                onClick={handleOpenPlaylistModal}
-              >
-                收藏到歌单
-              </Button>
-            )}
-          </div>
-        )}
 
         <PlaylistPickerModal
           title="收藏到歌单"

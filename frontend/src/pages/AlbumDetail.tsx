@@ -41,7 +41,7 @@ const AlbumDetail: React.FC = () => {
   const albumTitleCn = (album?.title_cn && album.title_cn.trim()) || album?.title || '';
   const albumTitleEn = (album?.title_en && album.title_en.trim()) || '';
 
-  const { play, setPlaylist, playTrackOnly, currentTrack } = usePlayerStore();
+  const { play, setPlaylist, playTrackOnly } = usePlayerStore();
   const screens = useBreakpoint();
   const isMobile = !screens.md;
 
@@ -123,10 +123,6 @@ const AlbumDetail: React.FC = () => {
     return groups.length > 0 ? groups : null;
   }, [tracks, discs]);
 
-  const mobileTrackActionBarOffsetClass = currentTrack
-    ? 'album-mobile-action-bar with-player'
-    : 'album-mobile-action-bar';
-
   const columns = [
     {
       title: '#',
@@ -198,18 +194,20 @@ const AlbumDetail: React.FC = () => {
         <List.Item>
           <div className="album-mobile-track-item">
             <div className="album-mobile-track-main">
-              <span className="album-mobile-track-no">{track.track_number || '-'}</span>
+              <span className="album-mobile-track-no">{track.track_number || '--'}</span>
               <div className="album-mobile-track-meta">
                 <a onClick={() => navigate(`/track/${track.id}`)}>{(track.title_cn && track.title_cn.trim()) || track.title}</a>
                 {track.title_en && <Text type="secondary">{track.title_en}</Text>}
                 {track.notes && <Text type="secondary">{track.notes}</Text>}
-                <Tag>{formatDuration(track.duration || 0)}</Tag>
+                <div className="album-mobile-track-tags">
+                  <Tag color="processing">{formatDuration(track.duration || 0)}</Tag>
+                </div>
               </div>
             </div>
-            <Space size={6} wrap>
-              <Button type="primary" size="small" icon={<PlayCircleOutlined />} onClick={() => handlePlay(track)}>播放</Button>
+            <Space size={8} className="album-mobile-track-actions" wrap>
+              <Button type="primary" size="middle" icon={<PlayCircleOutlined />} onClick={() => handlePlay(track)}>播放</Button>
               <Tooltip title={!DOWNLOAD_ENABLED ? '服务器维护中，暂时关闭下载' : ''}>
-                <Button size="small" icon={<DownloadOutlined />} onClick={() => handleDownload(track)} disabled={!DOWNLOAD_ENABLED}>下载</Button>
+                <Button size="middle" icon={<DownloadOutlined />} onClick={() => handleDownload(track)} disabled={!DOWNLOAD_ENABLED}>下载</Button>
               </Tooltip>
             </Space>
           </div>
@@ -225,8 +223,10 @@ const AlbumDetail: React.FC = () => {
       key: String(group.disc.id),
       label: (
         <div className="album-disc-header-mobile">
-          <span className="album-disc-number">Disc {group.disc.disc_number || '?'}</span>
-          {group.disc.disc_title && <span className="album-disc-title">{group.disc.disc_title}</span>}
+          <div className="album-disc-header-mobile-left">
+            <span className="album-disc-number">Disc {group.disc.disc_number || '?'}</span>
+            {group.disc.disc_title && <span className="album-disc-title">{group.disc.disc_title}</span>}
+          </div>
           <Tag color="blue">{group.tracks.length} 首</Tag>
         </div>
       ),
@@ -277,17 +277,34 @@ const AlbumDetail: React.FC = () => {
           <div className="album-hero-info">
             <h1>{albumTitleCn}</h1>
             {albumTitleEn && <Text type="secondary" className="album-subtitle">{albumTitleEn}</Text>}
-            <Descriptions column={1} size="small" className="album-descriptions">
-              <Descriptions.Item label="总曲目数">{album.track_count || 0}</Descriptions.Item>
-              <Descriptions.Item label="总时长">
-                {formatTotalDuration(album.total_duration)}
-              </Descriptions.Item>
-              {album.release_date && (
-                <Descriptions.Item label="发行日期">
-                  {new Date(album.release_date).toLocaleDateString('zh-CN')}
+            {isMobile ? (
+              <div className="album-mobile-meta-grid">
+                <div className="album-mobile-meta-card">
+                  <span>总曲目</span>
+                  <strong>{album.track_count || 0}</strong>
+                </div>
+                <div className="album-mobile-meta-card">
+                  <span>总时长</span>
+                  <strong>{formatTotalDuration(album.total_duration)}</strong>
+                </div>
+                <div className="album-mobile-meta-card full">
+                  <span>发行日期</span>
+                  <strong>{album.release_date ? new Date(album.release_date).toLocaleDateString('zh-CN') : '--'}</strong>
+                </div>
+              </div>
+            ) : (
+              <Descriptions column={1} size="small" className="album-descriptions">
+                <Descriptions.Item label="总曲目数">{album.track_count || 0}</Descriptions.Item>
+                <Descriptions.Item label="总时长">
+                  {formatTotalDuration(album.total_duration)}
                 </Descriptions.Item>
-              )}
-            </Descriptions>
+                {album.release_date && (
+                  <Descriptions.Item label="发行日期">
+                    {new Date(album.release_date).toLocaleDateString('zh-CN')}
+                  </Descriptions.Item>
+                )}
+              </Descriptions>
+            )}
             {album.notes && (
               <Card size="small" className="album-notes-card">
                 <Text type="secondary" className="album-notes-text">
@@ -295,7 +312,7 @@ const AlbumDetail: React.FC = () => {
                 </Text>
               </Card>
             )}
-            <Space className="album-hero-actions" wrap>
+            <Space className={`album-hero-actions${isMobile ? ' mobile' : ''}`} wrap>
               <Button
                 type="primary"
                 size="large"
@@ -361,28 +378,6 @@ const AlbumDetail: React.FC = () => {
               )
           )}
         </div>
-
-        {isMobile && (
-          <div className={mobileTrackActionBarOffsetClass}>
-            <Button
-              type="primary"
-              icon={<PlayCircleOutlined />}
-              onClick={handlePlayAll}
-              disabled={tracks.length === 0}
-            >
-              播放全部
-            </Button>
-            <Tooltip title={!DOWNLOAD_ENABLED ? '服务器维护中，暂时关闭下载' : ''}>
-              <Button
-                icon={<DownloadOutlined />}
-                onClick={handleDownloadAlbum}
-                disabled={tracks.length === 0 || !DOWNLOAD_ENABLED}
-              >
-                下载专辑
-              </Button>
-            </Tooltip>
-          </div>
-        )}
       </Content>
     </Layout>
   );
