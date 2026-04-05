@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Layout, Table, Button, Space, Image, Skeleton, Descriptions, message, Tooltip, Card, Typography, Grid, List, Tag } from 'antd';
+import { Layout, Table, Button, Space, Image, Skeleton, Descriptions, message, Tooltip, Card, Typography, Grid, List, Tag, Collapse } from 'antd';
 import { ArrowLeftOutlined, PlayCircleOutlined, DownloadOutlined } from '@ant-design/icons';
 import { Track } from '../types';
 import { trackService, DOWNLOAD_ENABLED } from '../services/trackService';
@@ -41,7 +41,7 @@ const AlbumDetail: React.FC = () => {
   const albumTitleCn = (album?.title_cn && album.title_cn.trim()) || album?.title || '';
   const albumTitleEn = (album?.title_en && album.title_en.trim()) || '';
 
-  const { play, setPlaylist, playTrackOnly } = usePlayerStore();
+  const { play, setPlaylist, playTrackOnly, currentTrack } = usePlayerStore();
   const screens = useBreakpoint();
   const isMobile = !screens.md;
 
@@ -107,7 +107,7 @@ const AlbumDetail: React.FC = () => {
     const groups: { disc: Disc; tracks: Track[] }[] = [];
 
     // Build groups in disc_number order
-    for (const disc of discs.sort((a, b) => a.disc_number - b.disc_number)) {
+    for (const disc of [...discs].sort((a, b) => a.disc_number - b.disc_number)) {
       const discTracks = tracks.filter(t => t.disc_id === disc.id);
       if (discTracks.length > 0) {
         groups.push({ disc, tracks: discTracks });
@@ -122,6 +122,10 @@ const AlbumDetail: React.FC = () => {
 
     return groups.length > 0 ? groups : null;
   }, [tracks, discs]);
+
+  const mobileTrackActionBarOffsetClass = currentTrack
+    ? 'album-mobile-action-bar with-player'
+    : 'album-mobile-action-bar';
 
   const columns = [
     {
@@ -214,6 +218,22 @@ const AlbumDetail: React.FC = () => {
     />
   );
 
+  const mobileDiscPanels = useMemo(() => {
+    if (!discGroups) return null;
+
+    return discGroups.map((group) => ({
+      key: String(group.disc.id),
+      label: (
+        <div className="album-disc-header-mobile">
+          <span className="album-disc-number">Disc {group.disc.disc_number || '?'}</span>
+          {group.disc.disc_title && <span className="album-disc-title">{group.disc.disc_title}</span>}
+          <Tag color="blue">{group.tracks.length} 首</Tag>
+        </div>
+      ),
+      children: renderMobileTrackList(group.tracks),
+    }));
+  }, [discGroups]);
+
   if (loading) {
     return (
       <Layout style={{ minHeight: '100vh' }}>
@@ -240,23 +260,23 @@ const AlbumDetail: React.FC = () => {
   return (
     <Layout className="album-detail-layout">
       <Content className="album-detail-content">
-        <div style={{ marginBottom: 16 }}>
+        <div className="album-detail-back-wrap">
           <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/albums')}>
             返回专辑列表
           </Button>
         </div>
         <div className="album-hero">
           <Image
-            width={250}
-            height={250}
+            width={isMobile ? 180 : 250}
+            height={isMobile ? 180 : 250}
             src={trackService.getCoverUrl(album.cover_path, true)}
             fallback={MUSIC_ICON_PLACEHOLDER}
-            style={{ borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.3)' }}
+            className="album-cover-image"
             preview={album.cover_path ? { src: trackService.getCoverUrl(album.cover_path) } : false}
           />
           <div className="album-hero-info">
             <h1>{albumTitleCn}</h1>
-            {albumTitleEn && <Text type="secondary" style={{ fontSize: 16 }}>{albumTitleEn}</Text>}
+            {albumTitleEn && <Text type="secondary" className="album-subtitle">{albumTitleEn}</Text>}
             <Descriptions column={1} size="small" className="album-descriptions">
               <Descriptions.Item label="总曲目数">{album.track_count || 0}</Descriptions.Item>
               <Descriptions.Item label="总时长">
@@ -269,13 +289,13 @@ const AlbumDetail: React.FC = () => {
               )}
             </Descriptions>
             {album.notes && (
-              <Card size="small" className="album-notes-card" style={{ marginTop: 16 }}>
-                <Text type="secondary" style={{ whiteSpace: 'pre-wrap', fontSize: 13 }}>
+              <Card size="small" className="album-notes-card">
+                <Text type="secondary" className="album-notes-text">
                   📝 {album.notes}
                 </Text>
               </Card>
             )}
-            <Space style={{ marginTop: 24 }}>
+            <Space className="album-hero-actions" wrap>
               <Button
                 type="primary"
                 size="large"
@@ -302,15 +322,22 @@ const AlbumDetail: React.FC = () => {
         <div className="album-tracks">
           <h2>曲目列表</h2>
           {discGroups ? (
-            discGroups.map(group => (
-              <div key={group.disc.id} style={{ marginBottom: 32 }}>
-                <div className="album-disc-header">
-                  <span className="album-disc-number">💿 Disc {group.disc.disc_number || '?'}</span>
-                  {group.disc.disc_title && (
-                    <span className="album-disc-title"> — {group.disc.disc_title}</span>
-                  )}
-                </div>
-                {isMobile ? renderMobileTrackList(group.tracks) : (
+            isMobile ? (
+              <Collapse
+                className="album-disc-collapse"
+                bordered={false}
+                defaultActiveKey={mobileDiscPanels?.[0] ? [mobileDiscPanels[0].key] : []}
+                items={mobileDiscPanels || []}
+              />
+            ) : (
+              discGroups.map(group => (
+                <div key={group.disc.id} style={{ marginBottom: 32 }}>
+                  <div className="album-disc-header">
+                    <span className="album-disc-number">💿 Disc {group.disc.disc_number || '?'}</span>
+                    {group.disc.disc_title && (
+                      <span className="album-disc-title"> — {group.disc.disc_title}</span>
+                    )}
+                  </div>
                   <Table
                     columns={columns}
                     dataSource={group.tracks}
@@ -318,9 +345,9 @@ const AlbumDetail: React.FC = () => {
                     pagination={false}
                     size="small"
                   />
-                )}
-              </div>
-            ))
+                </div>
+              ))
+            )
           ) : (
             isMobile
               ? renderMobileTrackList(tracks)
@@ -334,6 +361,28 @@ const AlbumDetail: React.FC = () => {
               )
           )}
         </div>
+
+        {isMobile && (
+          <div className={mobileTrackActionBarOffsetClass}>
+            <Button
+              type="primary"
+              icon={<PlayCircleOutlined />}
+              onClick={handlePlayAll}
+              disabled={tracks.length === 0}
+            >
+              播放全部
+            </Button>
+            <Tooltip title={!DOWNLOAD_ENABLED ? '服务器维护中，暂时关闭下载' : ''}>
+              <Button
+                icon={<DownloadOutlined />}
+                onClick={handleDownloadAlbum}
+                disabled={tracks.length === 0 || !DOWNLOAD_ENABLED}
+              >
+                下载专辑
+              </Button>
+            </Tooltip>
+          </div>
+        )}
       </Content>
     </Layout>
   );

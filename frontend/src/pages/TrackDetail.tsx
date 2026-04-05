@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Layout, Card, Button, Space, Image, Tag, Skeleton, Descriptions, message, Tooltip, Typography } from 'antd';
+import { Layout, Card, Button, Space, Image, Tag, Skeleton, Descriptions, message, Tooltip, Typography, Grid } from 'antd';
 import { ArrowLeftOutlined, PlayCircleOutlined, DownloadOutlined, HeartOutlined, HeartFilled, PlusOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import { Track, TrackMusicSourceItem } from '../types';
@@ -19,6 +19,7 @@ import { useDebugUserFeatures } from '../utils/debugFeature';
 import './TrackDetail.css';
 
 const { Content } = Layout;
+const { useBreakpoint } = Grid;
 const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
 
 interface Credit {
@@ -47,6 +48,9 @@ const TrackDetail: React.FC = () => {
   );
 
   const { progress, playTrackOnly, seek } = usePlayerStore();
+  const currentTrack = usePlayerStore((state) => state.currentTrack);
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
   const canUseDebugFeatures = useDebugUserFeatures();
   const titleCn = (track?.title_cn && track.title_cn.trim()) || track?.title || '';
   const titleEn = (track?.title_en && track.title_en.trim()) || '';
@@ -194,6 +198,18 @@ const TrackDetail: React.FC = () => {
     setPlaylistModalOpen(true);
   };
 
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate('/');
+  };
+
+  const mobileActionBarClass = currentTrack
+    ? 'track-mobile-action-bar with-player'
+    : 'track-mobile-action-bar';
+
   const handleAddToPlaylist = async (playlistId: number) => {
     if (!track) {
       return;
@@ -233,12 +249,12 @@ const TrackDetail: React.FC = () => {
   return (
     <Layout className="track-detail-layout">
       <Content className="track-detail-content">
-        <div style={{ marginBottom: 16 }}>
+        <div className="track-detail-back-wrap">
           <Button
             icon={<ArrowLeftOutlined />}
-            onClick={() => navigate('/')}
+            onClick={handleBack}
           >
-            返回首页
+            返回上一页
           </Button>
         </div>
         <Card className="track-info-card">
@@ -253,11 +269,11 @@ const TrackDetail: React.FC = () => {
                 : null;
               return (
                 <Image
-                  width={250}
-                  height={250}
+                  width={isMobile ? 200 : 250}
+                  height={isMobile ? 200 : 250}
                   src={thumbSrc || MUSIC_ICON_PLACEHOLDER}
                   fallback={MUSIC_ICON_PLACEHOLDER}
-                  style={{ borderRadius: 8 }}
+                  className="track-cover-image"
                   preview={fullSrc ? { src: fullSrc } : false}
                 />
               );
@@ -265,18 +281,18 @@ const TrackDetail: React.FC = () => {
 
             <div className="track-info-details">
               <h1>{titleCn}</h1>
-              {titleEn && <Typography.Text type="secondary" style={{ display: 'block', marginTop: -8 }}>{titleEn}</Typography.Text>}
+              {titleEn && <Typography.Text type="secondary" className="track-title-en">{titleEn}</Typography.Text>}
               {albumTitleCn && (
                 <h4>
                   专辑：
                   {track.album_id
                     ? <Link to={`/albums/${track.album_id}`}>{albumTitleCn}</Link>
                     : albumTitleCn}
-                  {albumTitleEn && <Typography.Text type="secondary" style={{ marginLeft: 8 }}>{albumTitleEn}</Typography.Text>}
+                  {albumTitleEn && <Typography.Text type="secondary" className="track-album-en">{albumTitleEn}</Typography.Text>}
                 </h4>
               )}
 
-              <Space style={{ marginTop: 16, marginBottom: 24 }} wrap>
+              <Space className="track-meta-tags" wrap>
                 <Tag color="blue">FLAC</Tag>
                 {track.sample_rate && track.bit_depth && (
                   <Tag color="green">
@@ -293,7 +309,7 @@ const TrackDetail: React.FC = () => {
                 ))}
               </Space>
 
-              <Descriptions column={1} size="small">
+              <Descriptions column={1} size="small" className="track-meta-descriptions">
                 {track.track_number && (
                   <Descriptions.Item label="曲目编号">
                     {track.track_number}
@@ -315,14 +331,14 @@ const TrackDetail: React.FC = () => {
               </Descriptions>
 
               {track.notes && (
-                <Card size="small" style={{ marginTop: 16, background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 12 }}>
-                  <Typography.Text type="secondary" style={{ whiteSpace: 'pre-wrap', fontSize: 13 }}>
+                <Card size="small" className="track-notes-card">
+                  <Typography.Text type="secondary" className="track-notes-text">
                     📝 {track.notes}
                   </Typography.Text>
                 </Card>
               )}
 
-              <Space style={{ marginTop: 24 }}>
+              <Space className="track-main-actions" wrap>
                 <Button
                   type="primary"
                   icon={<PlayCircleOutlined />}
@@ -363,6 +379,43 @@ const TrackDetail: React.FC = () => {
             </div>
           </div>
         </Card>
+
+        {isMobile && (
+          <div className={mobileActionBarClass}>
+            <Button
+              type="primary"
+              icon={<PlayCircleOutlined />}
+              onClick={handlePlay}
+            >
+              播放
+            </Button>
+            <Tooltip title={!DOWNLOAD_ENABLED ? '服务器维护中，暂时关闭下载' : ''}>
+              <Button
+                icon={<DownloadOutlined />}
+                onClick={handleDownload}
+                disabled={!DOWNLOAD_ENABLED}
+              >
+                下载
+              </Button>
+            </Tooltip>
+            {canUseDebugFeatures && (
+              <Button
+                icon={favorited ? <HeartFilled style={{ color: '#ff4d6a' }} /> : <HeartOutlined />}
+                onClick={handleToggleFavorite}
+              >
+                {favorited ? '取消喜爱' : '喜爱'}
+              </Button>
+            )}
+            {canUseDebugFeatures && (
+              <Button
+                icon={<PlusOutlined />}
+                onClick={handleOpenPlaylistModal}
+              >
+                收藏到歌单
+              </Button>
+            )}
+          </div>
+        )}
 
         <PlaylistPickerModal
           title="收藏到歌单"

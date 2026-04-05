@@ -28,11 +28,20 @@
   width: 100%;
 }
 
+.track-detail-back-wrap {
+  margin-bottom: 16px;
+}
+
 .track-info-card {
   margin-bottom: 24px;
   backdrop-filter: blur(18px) saturate(180%);
   -webkit-backdrop-filter: blur(18px) saturate(180%);
   border-radius: 20px !important;
+}
+
+.track-cover-image {
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.26);
 }
 
 [data-theme='light'] .track-info-card {
@@ -80,14 +89,67 @@
   margin-bottom: 16px;
 }
 
+.track-title-en {
+  display: block;
+  margin-top: -4px;
+}
+
+.track-album-en {
+  margin-left: 8px;
+}
+
+.track-meta-tags {
+  margin-top: 16px;
+  margin-bottom: 20px;
+}
+
+.track-meta-descriptions {
+  border-radius: 12px;
+}
+
+.track-notes-card {
+  margin-top: 16px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+}
+
+.track-notes-text {
+  white-space: pre-wrap;
+  font-size: 13px;
+}
+
+.track-main-actions {
+  margin-top: 24px;
+}
+
+.track-main-actions .ant-btn {
+  min-height: 42px;
+}
+
+.track-mobile-action-bar {
+  display: none;
+}
+
 .track-info-container .ant-image {
   flex-shrink: 0;
 }
 
 @media (max-width: 768px) {
+  .track-detail-back-wrap {
+    margin-bottom: 12px;
+  }
+
+  .track-detail-back-wrap .ant-btn {
+    width: 100%;
+    min-height: 44px;
+    border-radius: 12px;
+  }
+
   .track-info-container {
     flex-direction: column;
-    gap: 16px;
+    align-items: center;
+    gap: 14px;
   }
 
   .track-info-container .ant-image,
@@ -106,19 +168,102 @@
 
   .track-info-details h1 {
     font-size: 22px;
+    text-align: center;
   }
 
   .track-info-details h3 {
     font-size: 16px;
   }
 
+  .track-info-details h4 {
+    text-align: center;
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+
+  .track-title-en {
+    text-align: center;
+    font-size: 13px;
+  }
+
+  .track-album-en {
+    margin-left: 0;
+    display: block;
+    margin-top: 4px;
+  }
+
+  .track-meta-tags {
+    justify-content: center;
+    margin-top: 10px;
+    margin-bottom: 14px;
+  }
+
+  .track-meta-tags .ant-tag {
+    margin-inline-end: 6px;
+    margin-bottom: 6px;
+  }
+
   .track-info-details .ant-space {
     width: 100%;
   }
 
-  .track-info-details .ant-btn {
-    flex: 1 1 calc(50% - 6px);
-    min-width: 0;
+  .track-main-actions {
+    display: none;
+  }
+
+  .track-info-card {
+    margin-bottom: 114px;
+  }
+
+  .track-mobile-action-bar {
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+    z-index: 1002;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 10px;
+    border-radius: 14px;
+    backdrop-filter: blur(18px) saturate(150%);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+  }
+
+  [data-theme='light'] .track-mobile-action-bar {
+    background: rgba(255, 255, 255, 0.9);
+  }
+
+  [data-theme='dark'] .track-mobile-action-bar {
+    background: rgba(18, 16, 44, 0.82);
+  }
+
+  .track-mobile-action-bar.with-player {
+    bottom: calc(124px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .track-mobile-action-bar .ant-btn {
+    min-height: 44px;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+}
+
+@media (max-width: 420px) {
+  .track-detail-content {
+    padding: 12px 10px;
+  }
+
+  .track-info-card .ant-card-body {
+    padding: 12px;
+  }
+
+  .track-mobile-action-bar {
+    left: 8px;
+    right: 8px;
+    padding: 8px;
   }
 }
 
