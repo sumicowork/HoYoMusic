@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import pool from '../config/database';
 import type { PoolClient } from 'pg';
 
-type ConflictMode = 'overwrite' | 'append' | 'skip';
+type ConflictMode = 'overwrite' | 'append' | 'skip' | 'replace';
 type ImportStatus = 'matched' | 'needs_manual' | 'not_found' | 'invalid' | 'imported' | 'skipped' | 'error';
 
 interface MusicSourceNodeRecord {
@@ -83,7 +83,7 @@ const normalizeTrackNumber = (raw: unknown): number | null => {
 };
 
 const normalizeConflictMode = (value: unknown): ConflictMode => {
-  if (value === 'append' || value === 'skip') return value;
+  if (value === 'append' || value === 'skip' || value === 'replace') return value;
   return 'overwrite';
 };
 
@@ -399,6 +399,116 @@ const ensureSourcePathNode = async (client: PoolClient, gameId: number, source: 
   }
 
   return currentNodeId;
+};
+
+const resolveSourcePathNodeByUuid = async (
+  client: PoolClient,
+  gameId: number,
+  source: NormalizedMusicSourceImportSource
+): Promise<number> => {
+  if (!source.category_uuid) {
+    throw new Error(`replace mode requires source.category_uuid for category "${source.category}"`);
+  }
+
+  const categoryResult = await client.query<{ id: number; name: string }>(
+    `SELECT id, name
+     FROM music_source_categories
+     WHERE game_id = $1 AND uuid = $2
+     LIMIT 1`,
+    [gameId, source.category_uuid]
+  );
+  if (categoryResult.rows.length === 0) {
+    throw new Error(`category_uuid not found in current game: ${source.category_uuid}`);
+  }
+
+  const categoryId = Number(categoryResult.rows[0].id);
+  const currentCategoryName = String(categoryResult.rows[0].name || '').trim();
+  if (source.category && currentCategoryName !== source.category) {
+    await client.query(
+      'UPDATE music_source_categories SET name = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [source.category, categoryId]
+    );
+  }
+
+  const pathNodeUuids = source.path_node_uuids || [];
+  const leafUuid = source.node_uuid || (pathNodeUuids.length > 0 ? pathNodeUuids[pathNodeUuids.length - 1] : undefined);
+  if (!leafUuid) {
+    throw new Error(`replace mode requires source.node_uuid or source.path_node_uuids: category ${source.category}`);
+  }
+
+  if (pathNodeUuids.length > 0) {
+    let parentId: number | null = null;
+    let leafNodeId: number | null = null;
+
+    for (let i = 0; i < pathNodeUuids.length; i++) {
+      const nodeUuid = pathNodeUuids[i];
+      if (!nodeUuid) {
+        throw new Error(`path_node_uuids contains empty uuid at index ${i}`);
+      }
+
+      const nodeResult = await client.query<{ id: number; parent_id: number | null; name: string }>(
+        `SELECT id, parent_id, name
+         FROM music_source_nodes
+         WHERE game_id = $1
+           AND category_id = $2
+           AND uuid = $3
+         LIMIT 1`,
+        [gameId, categoryId, nodeUuid]
+      );
+      if (nodeResult.rows.length === 0) {
+        throw new Error(`node uuid not found in current game/category: ${nodeUuid}`);
+      }
+
+      const nodeId = Number(nodeResult.rows[0].id);
+      const currentParentId = nodeResult.rows[0].parent_id == null ? null : Number(nodeResult.rows[0].parent_id);
+      const targetName = source.path[i] || String(nodeResult.rows[0].name || '');
+      if (currentParentId !== parentId || String(nodeResult.rows[0].name || '') !== targetName) {
+        await client.query(
+          `UPDATE music_source_nodes
+           SET parent_id = $1, name = $2, updated_at = CURRENT_TIMESTAMP
+           WHERE id = $3`,
+          [parentId, targetName, nodeId]
+        );
+      }
+
+      parentId = nodeId;
+      leafNodeId = nodeId;
+    }
+
+    if (source.node_uuid && source.node_uuid !== pathNodeUuids[pathNodeUuids.length - 1]) {
+      throw new Error('source.node_uuid must match last item of source.path_node_uuids in replace mode');
+    }
+
+    if (!leafNodeId) {
+      throw new Error(`cannot resolve leaf node by uuid: ${leafUuid}`);
+    }
+
+    return leafNodeId;
+  }
+
+  const leafResult = await client.query<{ id: number; name: string }>(
+    `SELECT id, name
+     FROM music_source_nodes
+     WHERE game_id = $1
+       AND category_id = $2
+       AND uuid = $3
+     LIMIT 1`,
+    [gameId, categoryId, leafUuid]
+  );
+  if (leafResult.rows.length === 0) {
+    throw new Error(`node uuid not found in current game/category: ${leafUuid}`);
+  }
+
+  const leafId = Number(leafResult.rows[0].id);
+  const targetLeafName = source.path[source.path.length - 1];
+  if (targetLeafName && String(leafResult.rows[0].name || '') !== targetLeafName) {
+    await client.query(
+      'UPDATE music_source_nodes SET name = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [targetLeafName, leafId]
+    );
+  }
+
+  return leafId;
 };
 
 const resolveImportEntry = async (
@@ -1048,14 +1158,16 @@ export const commitMusicSourceImport = async (req: Request, res: Response) => {
           continue;
         }
 
-        if (conflictMode === 'overwrite') {
+        if (conflictMode === 'overwrite' || conflictMode === 'replace') {
           await client.query('DELETE FROM track_music_sources WHERE track_id = $1', [resolved.matched_track_id]);
         }
 
         const normalizedSources = resolved.normalized_sources;
         const sourceNodeIds: number[] = [];
         for (const source of normalizedSources) {
-          const nodeId = await ensureSourcePathNode(client, Number(entry.game_id), source);
+          const nodeId = conflictMode === 'replace'
+            ? await resolveSourcePathNodeByUuid(client, Number(entry.game_id), source)
+            : await ensureSourcePathNode(client, Number(entry.game_id), source);
           sourceNodeIds.push(nodeId);
         }
         const uniqueNodeIds = Array.from(new Set(sourceNodeIds));

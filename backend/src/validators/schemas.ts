@@ -173,7 +173,7 @@ export const musicSourceImportPreviewSchema = z.object({
 export const musicSourceImportCommitSchema = z.object({
   entries: z.array(musicSourceImportEntrySchema).min(1, 'entries is required').max(5000),
   resolutions: z.record(z.string(), z.number().int().positive()).optional().default({}),
-  conflict_mode: z.enum(['overwrite', 'append', 'skip']).optional().default('overwrite'),
+  conflict_mode: z.enum(['overwrite', 'append', 'skip', 'replace']).optional().default('overwrite'),
 });
 
 export const exportMusicSourcesSchema = z.object({

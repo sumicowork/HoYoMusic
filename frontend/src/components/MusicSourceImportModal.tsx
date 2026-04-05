@@ -34,6 +34,7 @@ interface MusicSourceImportModalProps {
 
 const conflictOptions = [
   { value: 'overwrite', label: '覆盖（overwrite）' },
+  { value: 'replace', label: '替换（replace，严格按 UUID）' },
   { value: 'append', label: '追加（append）' },
   { value: 'skip', label: '跳过已有来源（skip）' },
 ] as const;
@@ -301,6 +302,23 @@ const MusicSourceImportModal: React.FC<MusicSourceImportModalProps> = ({ visible
       message.info(`仍有 ${unresolvedManualCount} 条未人工匹配，提交后这些条目会保留为 needs_manual / not_found`);
     }
 
+    if (conflictMode === 'replace') {
+      const invalidRows = entries.filter((entry) =>
+        entry.sources.some((source) => {
+          const hasCategoryUuid = Boolean(source.category_uuid && source.category_uuid.trim());
+          const hasNodeUuid = Boolean(source.node_uuid && source.node_uuid.trim());
+          const hasPathNodeUuids = Array.isArray(source.path_node_uuids) && source.path_node_uuids.length > 0;
+          return !hasCategoryUuid || (!hasNodeUuid && !hasPathNodeUuids);
+        })
+      );
+      if (invalidRows.length > 0) {
+        const preview = invalidRows.slice(0, 8).map((row) => row.row_key).join(', ');
+        const suffix = invalidRows.length > 8 ? ' ...' : '';
+        message.error(`replace 模式要求每条 source 必须提供 category_uuid 且提供 node_uuid 或 path_node_uuids。缺失 row_key: ${preview}${suffix}`);
+        return;
+      }
+    }
+
     setCommitLoading(true);
     try {
       const data = await musicSourceService.commitImport(entries, resolutions, conflictMode);
@@ -424,7 +442,7 @@ const MusicSourceImportModal: React.FC<MusicSourceImportModalProps> = ({ visible
           description={(
             <>
               <Text strong>匹配规则：song_name + song_number；多结果时可用 album_name 消歧</Text>
-              <div>未唯一命中时，可在下拉框输入关键词搜索全库曲目后手动选择。提交时若 category/path 不存在，会自动按顺序创建。</div>
+              <div>未唯一命中时，可在下拉框输入关键词搜索全库曲目后手动选择。append/overwrite 会自动创建缺失的 category/path；replace 会严格按 UUID 匹配，缺失即报错。</div>
             </>
           )}
         />

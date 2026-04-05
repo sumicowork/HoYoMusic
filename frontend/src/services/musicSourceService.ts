@@ -86,7 +86,7 @@ export interface MusicSourceImportCommitResult {
   items: MusicSourceImportItem[];
 }
 
-export type MusicSourceConflictMode = 'overwrite' | 'append' | 'skip';
+export type MusicSourceConflictMode = 'overwrite' | 'append' | 'skip' | 'replace';
 export type MusicSourceExportScope = 'all' | 'by_game' | 'by_album' | 'by_category';
 
 export interface MusicSourceExportPayload {
