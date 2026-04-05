@@ -3,11 +3,12 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Layout, Card, Button, Space, Image, Tag, Skeleton, Descriptions, message, Tooltip, Typography } from 'antd';
 import { ArrowLeftOutlined, PlayCircleOutlined, DownloadOutlined, HeartOutlined, HeartFilled, PlusOutlined } from '@ant-design/icons';
 import axios from 'axios';
-import { Track } from '../types';
+import { Track, TrackMusicSourceItem } from '../types';
 import { trackService, DOWNLOAD_ENABLED } from '../services/trackService';
 import { usePlayerStore } from '../store/playerStore';
 import LyricsDisplay from '../components/LyricsDisplay';
 import CreditsDisplay from '../components/CreditsDisplay';
+import MusicSourcesDisplay from '../components/MusicSourcesDisplay';
 import { getTagGroups, getTags, getTrackTags, Tag as TagType, TagGroup } from '../services/tagService';
 import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
 import { buildTagPathLookup, getTagPathLabel } from '../utils/tagPath';
@@ -37,6 +38,7 @@ const TrackDetail: React.FC = () => {
   const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
   const [tags, setTags] = useState<TagType[]>([]);
   const [loading, setLoading] = useState(true);
+  const [musicSources, setMusicSources] = useState<TrackMusicSourceItem[]>([]);
   const [favorited, setFavorited] = useState(false);
   const [playlistModalOpen, setPlaylistModalOpen] = useState(false);
   const tagPathLookup = useMemo(
@@ -56,6 +58,7 @@ const TrackDetail: React.FC = () => {
       fetchTrackDetails();
       fetchLyrics();
       fetchCredits();
+      fetchMusicSources();
       fetchAllTags();
       fetchTagGroups();
       fetchTags();
@@ -141,6 +144,15 @@ const TrackDetail: React.FC = () => {
       }
     } catch (error) {
       console.error('获取制作人员信息失败:', error);
+    }
+  };
+
+  const fetchMusicSources = async () => {
+    try {
+      const data = await trackService.getTrackMusicSourcesPublic(parseInt(id!));
+      setMusicSources(data);
+    } catch (error) {
+      setMusicSources([]);
     }
   };
 
@@ -372,6 +384,8 @@ const TrackDetail: React.FC = () => {
         {credits.length > 0 && (
           <CreditsDisplay credits={credits} />
         )}
+
+        <MusicSourcesDisplay sources={musicSources} />
       </Content>
     </Layout>
   );

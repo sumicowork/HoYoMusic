@@ -1,5 +1,5 @@
 import api, { createApiClient } from './api';
-import { ApiResponse, Track } from '../types';
+import { ApiResponse, Track, TrackMusicSourceItem } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
 
@@ -446,6 +446,14 @@ export const trackService = {
       return response.data.data.track;
     }
     throw new Error('获取曲目详情失败');
+  },
+
+  async getTrackMusicSourcesPublic(id: number): Promise<TrackMusicSourceItem[]> {
+    const response = await publicApi.get<ApiResponse<{ items: TrackMusicSourceItem[] }>>(`/public/tracks/${id}/music-sources`);
+    if (response.data.success && response.data.data) {
+      return response.data.data.items;
+    }
+    throw new Error('获取音乐来源失败');
   },
 
   getStreamUrl(id: number): string {

@@ -1,0 +1,53 @@
+.music-sources-card {
+  margin: 20px 0;
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  border-radius: 16px !important;
+}
+
+.music-source-group {
+  border: 1px solid rgba(128, 128, 192, 0.18);
+  border-radius: 12px;
+  padding: 12px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.06), rgba(118, 75, 162, 0.04));
+}
+
+.music-source-path-list {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.music-source-path-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.music-source-segment {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(82, 101, 220, 0.12);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.music-source-separator {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+[data-theme='dark'] .music-source-group {
+  border-color: rgba(200, 200, 255, 0.22);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.16), rgba(118, 75, 162, 0.12));
+}
+
+[data-theme='dark'] .music-source-segment {
+  background: rgba(102, 126, 234, 0.22);
+}
+

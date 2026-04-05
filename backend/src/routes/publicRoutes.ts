@@ -6,6 +6,7 @@ import sharp from 'sharp';
 import fs from 'fs';
 import path from 'path';
 import { getTracks, getTrackById, streamTrack, downloadTrack } from '../controllers/trackController';
+import { getTrackMusicSources } from '../controllers/musicSourceController';
 import pool from '../config/database';
 import storageService from '../services/storageService';
 import remoteResourceCache from '../services/remoteResourceCache';
@@ -369,6 +370,7 @@ router.get('/tracks/random', cacheControl(CACHE_TTL.SHORT, { staleWhileRevalidat
 // Public routes - 无需认证
 router.get('/tracks', cacheControl(CACHE_TTL.MEDIUM, { staleWhileRevalidate: 300 }), getTracks);
 router.get('/tracks/:id', cacheControl(CACHE_TTL.SHORT, { staleWhileRevalidate: 120 }), getTrackById);
+router.get('/tracks/:trackId/music-sources', cacheControl(CACHE_TTL.SHORT, { staleWhileRevalidate: 120 }), getTrackMusicSources);
 router.get('/tracks/:id/stream', cacheControl(604800, { immutable: true }), streamTrack);
 router.get('/tracks/:id/download', cacheControl(604800, { immutable: true }), DOWNLOAD_ENABLED ? downloadTrack : downloadDisabled);
 

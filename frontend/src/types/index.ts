@@ -58,6 +58,21 @@ export interface Artist {
   name: string;
 }
 
+export interface TrackMusicSourceItem {
+  id: number;
+  track_id: number;
+  game_id: number;
+  game_name?: string | null;
+  category_id: number;
+  category_name: string;
+  node_id: number;
+  node_name: string;
+  display_order: number;
+  path: string[];
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Album {
   id: number;
   uuid?: string;
