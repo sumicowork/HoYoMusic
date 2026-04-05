@@ -512,6 +512,16 @@ export const trackService = {
     }
   },
 
+  async clearAllTrackNotes(): Promise<{ cleared_count: number }> {
+    const response = await api.post<ApiResponse<{ cleared_count: number }>>('/tracks/notes/clear-all', {
+      confirm: 'CLEAR_ALL_NOTES',
+    });
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data.error?.message || '清空全库备注失败');
+  },
+
   // Delete track
   async deleteTrack(id: number): Promise<void> {
     const response = await api.delete<ApiResponse<any>>(`/tracks/${id}`);

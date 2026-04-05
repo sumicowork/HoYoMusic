@@ -350,6 +350,25 @@ const Admin: React.FC = () => {
     }
   };
 
+  const handleClearAllTrackNotes = () => {
+    Modal.confirm({
+      title: '清空全库备注',
+      content: '将清空所有曲目的备注信息，此操作不可撤销。是否继续？',
+      okText: '确认清空',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          const data = await trackService.clearAllTrackNotes();
+          message.success(`已清空 ${data.cleared_count} 条备注`);
+          await fetchTracks(pagination.current, searchText, pagination.pageSize, serverFilters);
+        } catch (error: any) {
+          message.error(error.message || '清空全库备注失败');
+        }
+      },
+    });
+  };
+
   const rowSelection: TableRowSelection<Track> = {
     selectedRowKeys,
     onChange: (keys) => setSelectedRowKeys(keys),
@@ -536,6 +555,15 @@ const Admin: React.FC = () => {
       label: '导出所有备注',
       onClick: () => {
         void handleExportTrackNotes();
+      },
+    },
+    {
+      key: 'clear-all-notes',
+      icon: <DeleteOutlined />,
+      label: '清空全库备注',
+      danger: true,
+      onClick: () => {
+        handleClearAllTrackNotes();
       },
     },
     {

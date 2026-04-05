@@ -104,6 +104,10 @@ export const commitTrackNotesImportSchema = z.object({
   conflict_mode: z.enum(['overwrite', 'append', 'skip']).optional().default('overwrite'),
 });
 
+export const clearAllTrackNotesSchema = z.object({
+  confirm: z.literal('CLEAR_ALL_NOTES'),
+});
+
 const musicSourcePathSchema = z.array(z.string().trim().min(1).max(200)).min(1).max(20);
 
 const musicSourceImportSourceSchema = z.object({

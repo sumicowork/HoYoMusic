@@ -2024,6 +2024,32 @@ export const clearTrackNotes = async (req: Request, res: Response) => {
   }
 };
 
+export const clearAllTrackNotes = async (_req: Request, res: Response) => {
+  try {
+    const result = await pool.query(
+      `UPDATE tracks
+       SET notes = NULL,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE notes IS NOT NULL
+         AND BTRIM(notes) <> ''
+       RETURNING id`
+    );
+
+    return res.json({
+      success: true,
+      data: {
+        cleared_count: result.rowCount || 0,
+      },
+    });
+  } catch (error) {
+    console.error('Clear all track notes error:', error);
+    return res.status(500).json({
+      success: false,
+      error: { code: 'CLEAR_ALL_NOTES_ERROR', message: 'Failed to clear all track notes' },
+    });
+  }
+};
+
 // Delete track
 export const deleteTrack = async (req: Request, res: Response) => {
   try {

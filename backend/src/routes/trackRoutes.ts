@@ -1,10 +1,10 @@
 import { Router, Request, Response } from 'express';
-import { uploadTracks, getTracks, getTrackFilterOptions, getTrackById, streamTrack, downloadTrack, updateTrack, clearTrackNotes, deleteTrack, uploadTrackCover, bulkDeleteTracks, bulkMoveTracksToAlbum, previewCredits, precheckDuplicateTracks, scanSameAlbumDuplicateTracks, previewTrackNotesImport, commitTrackNotesImport, getTrackNotesImportCandidates, exportAllTrackNotes, exportCatalogMetadata, replaceCatalogMetadataByUuid, previewCatalogMetadataByUuid, commitCatalogMetadataByUuid, rollbackCatalogMetadataImportBatch } from '../controllers/trackController';
+import { uploadTracks, getTracks, getTrackFilterOptions, getTrackById, streamTrack, downloadTrack, updateTrack, clearTrackNotes, clearAllTrackNotes, deleteTrack, uploadTrackCover, bulkDeleteTracks, bulkMoveTracksToAlbum, previewCredits, precheckDuplicateTracks, scanSameAlbumDuplicateTracks, previewTrackNotesImport, commitTrackNotesImport, getTrackNotesImportCandidates, exportAllTrackNotes, exportCatalogMetadata, replaceCatalogMetadataByUuid, previewCatalogMetadataByUuid, commitCatalogMetadataByUuid, rollbackCatalogMetadataImportBatch } from '../controllers/trackController';
 import { authenticateAdmin } from '../middleware/auth';
 import { authenticateStream } from '../middleware/authenticateStream';
 import upload, { coverUpload } from '../middleware/upload';
 import { validateBody } from '../middleware/validate';
-import { updateTrackSchema, bulkDeleteTracksSchema, bulkMoveTracksSchema, previewTrackNotesImportSchema, commitTrackNotesImportSchema, importCatalogMetadataByUuidSchema, previewCatalogMetadataByUuidSchema, commitCatalogMetadataByUuidSchema, rollbackCatalogMetadataBatchSchema } from '../validators/schemas';
+import { updateTrackSchema, bulkDeleteTracksSchema, bulkMoveTracksSchema, previewTrackNotesImportSchema, commitTrackNotesImportSchema, clearAllTrackNotesSchema, importCatalogMetadataByUuidSchema, previewCatalogMetadataByUuidSchema, commitCatalogMetadataByUuidSchema, rollbackCatalogMetadataBatchSchema } from '../validators/schemas';
 import { cacheControl, CACHE_TTL, noStore } from '../middleware/cacheHeaders';
 
 const router = Router();
@@ -21,6 +21,7 @@ router.post('/precheck-duplicates', authenticateAdmin, precheckDuplicateTracks);
 router.post('/preview-credits', authenticateAdmin, upload.array('tracks', 20), previewCredits);
 router.post('/notes-import/preview', authenticateAdmin, validateBody(previewTrackNotesImportSchema), previewTrackNotesImport);
 router.post('/notes-import/commit', authenticateAdmin, validateBody(commitTrackNotesImportSchema), commitTrackNotesImport);
+router.post('/notes/clear-all', authenticateAdmin, validateBody(clearAllTrackNotesSchema), clearAllTrackNotes);
 router.get('/notes-import/candidates', authenticateAdmin, cacheControl(CACHE_TTL.NONE), getTrackNotesImportCandidates);
 router.get('/notes-export', authenticateAdmin, cacheControl(CACHE_TTL.NONE), exportAllTrackNotes);
 router.get('/metadata-export', authenticateAdmin, cacheControl(CACHE_TTL.NONE), exportCatalogMetadata);
