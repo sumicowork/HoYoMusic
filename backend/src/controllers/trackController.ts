@@ -1989,6 +1989,41 @@ export const updateTrack = async (req: Request, res: Response) => {
   }
 };
 
+export const clearTrackNotes = async (req: Request, res: Response) => {
+  try {
+    const trackId = Number(req.params.id);
+    if (!Number.isInteger(trackId) || trackId <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'INVALID_TRACK_ID', message: 'Invalid track id' },
+      });
+    }
+
+    const result = await pool.query(
+      'UPDATE tracks SET notes = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING id',
+      [trackId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Track not found' },
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: { track_id: trackId, cleared: true },
+    });
+  } catch (error) {
+    console.error('Clear track notes error:', error);
+    return res.status(500).json({
+      success: false,
+      error: { code: 'CLEAR_NOTES_ERROR', message: 'Failed to clear track notes' },
+    });
+  }
+};
+
 // Delete track
 export const deleteTrack = async (req: Request, res: Response) => {
   try {

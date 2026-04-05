@@ -505,6 +505,13 @@ export const trackService = {
     }
   },
 
+  async clearTrackNotes(id: number): Promise<void> {
+    const response = await api.delete<ApiResponse<any>>(`/tracks/${id}/notes`);
+    if (!response.data.success) {
+      throw new Error(response.data.error?.message || '清空备注失败');
+    }
+  },
+
   // Delete track
   async deleteTrack(id: number): Promise<void> {
     const response = await api.delete<ApiResponse<any>>(`/tracks/${id}`);

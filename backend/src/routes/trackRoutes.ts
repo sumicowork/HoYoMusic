@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { uploadTracks, getTracks, getTrackFilterOptions, getTrackById, streamTrack, downloadTrack, updateTrack, deleteTrack, uploadTrackCover, bulkDeleteTracks, bulkMoveTracksToAlbum, previewCredits, precheckDuplicateTracks, scanSameAlbumDuplicateTracks, previewTrackNotesImport, commitTrackNotesImport, getTrackNotesImportCandidates, exportAllTrackNotes, exportCatalogMetadata, replaceCatalogMetadataByUuid, previewCatalogMetadataByUuid, commitCatalogMetadataByUuid, rollbackCatalogMetadataImportBatch } from '../controllers/trackController';
+import { uploadTracks, getTracks, getTrackFilterOptions, getTrackById, streamTrack, downloadTrack, updateTrack, clearTrackNotes, deleteTrack, uploadTrackCover, bulkDeleteTracks, bulkMoveTracksToAlbum, previewCredits, precheckDuplicateTracks, scanSameAlbumDuplicateTracks, previewTrackNotesImport, commitTrackNotesImport, getTrackNotesImportCandidates, exportAllTrackNotes, exportCatalogMetadata, replaceCatalogMetadataByUuid, previewCatalogMetadataByUuid, commitCatalogMetadataByUuid, rollbackCatalogMetadataImportBatch } from '../controllers/trackController';
 import { authenticateAdmin } from '../middleware/auth';
 import { authenticateStream } from '../middleware/authenticateStream';
 import upload, { coverUpload } from '../middleware/upload';
@@ -35,6 +35,7 @@ router.get('/', authenticateAdmin, cacheControl(CACHE_TTL.NONE), getTracks);
 router.get('/filter-options', authenticateAdmin, cacheControl(CACHE_TTL.NONE), getTrackFilterOptions);
 router.get('/:id', authenticateAdmin, cacheControl(CACHE_TTL.NONE), getTrackById);
 router.put('/:id', authenticateAdmin, validateBody(updateTrackSchema), updateTrack);
+router.delete('/:id/notes', authenticateAdmin, clearTrackNotes);
 router.delete('/:id', authenticateAdmin, deleteTrack);
 router.post('/:id/cover', authenticateAdmin, coverUpload.single('cover'), uploadTrackCover);
 router.get('/:id/stream', authenticateStream, cacheControl(86400, { immutable: true }), streamTrack);

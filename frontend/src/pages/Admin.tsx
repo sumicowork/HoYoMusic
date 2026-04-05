@@ -294,6 +294,28 @@ const Admin: React.FC = () => {
     }
   };
 
+  const handleClearTrackNotes = async (track: Track) => {
+    const nextSeq = (noteSaveSeqRef.current[track.id] ?? 0) + 1;
+    noteSaveSeqRef.current[track.id] = nextSeq;
+    setSavingNoteById((prev) => ({ ...prev, [track.id]: true }));
+
+    try {
+      await trackService.clearTrackNotes(track.id);
+      setTracks((prev) => prev.map((item) => (item.id === track.id ? { ...item, notes: null } : item)));
+      setNoteDraftById((prev) => ({ ...prev, [track.id]: '' }));
+      if (editingTrack?.id === track.id) {
+        form.setFieldValue('notes', '');
+      }
+      message.success('备注已清空');
+    } catch (error: any) {
+      message.error(error.message || '清空备注失败');
+    } finally {
+      if (noteSaveSeqRef.current[track.id] === nextSeq) {
+        setSavingNoteById((prev) => ({ ...prev, [track.id]: false }));
+      }
+    }
+  };
+
   const handleScanDuplicates = async () => {
     setDuplicateScanLoading(true);
     try {
@@ -398,19 +420,30 @@ const Admin: React.FC = () => {
     {
       title: '备注',
       key: 'notes',
-      width: 220,
+      width: 300,
       responsive: ['sm'],
       render: (_, record: Track) => (
-        <Input
-          value={noteDraftById[record.id] ?? record.notes ?? ''}
-          placeholder="输入备注，失焦自动保存"
-          allowClear
-          maxLength={5000}
-          size="small"
-          disabled={savingNoteById[record.id]}
-          onChange={(e) => setNoteDraftById((prev) => ({ ...prev, [record.id]: e.target.value }))}
-          onBlur={(e) => { void handleNoteBlurSave(record, e.target.value); }}
-        />
+        <Space.Compact style={{ width: '100%' }}>
+          <Input
+            value={noteDraftById[record.id] ?? record.notes ?? ''}
+            placeholder="输入备注，失焦自动保存"
+            allowClear
+            maxLength={5000}
+            size="small"
+            disabled={savingNoteById[record.id]}
+            onChange={(e) => setNoteDraftById((prev) => ({ ...prev, [record.id]: e.target.value }))}
+            onBlur={(e) => { void handleNoteBlurSave(record, e.target.value); }}
+          />
+          <Popconfirm
+            title="清空备注"
+            description="确定清空该曲目的备注吗？"
+            okText="清空"
+            cancelText="取消"
+            onConfirm={() => { void handleClearTrackNotes(record); }}
+          >
+            <Button size="small" disabled={savingNoteById[record.id] || !(record.notes && record.notes.trim())}>清空</Button>
+          </Popconfirm>
+        </Space.Compact>
       ),
     },
     {
@@ -677,7 +710,23 @@ const Admin: React.FC = () => {
           <Form.Item name="album_title" label="专辑"><Input /></Form.Item>
           <Form.Item name="release_date" label="发行日期"><DatePicker style={{ width: '100%' }} placeholder="选择发行日期" /></Form.Item>
           <Form.Item name="track_number" label="曲目编号"><InputNumber min={1} style={{ width: '100%' }} placeholder="曲目编号" /></Form.Item>
-          <Form.Item name="notes" label="备注"><Input.TextArea rows={3} placeholder="曲目备注信息（可选）" maxLength={5000} showCount /></Form.Item>
+          <Form.Item
+            name="notes"
+            label="备注"
+            extra={editingTrack ? (
+              <Popconfirm
+                title="清空备注"
+                description="仅清空备注，不影响其他字段。"
+                okText="清空"
+                cancelText="取消"
+                onConfirm={() => { void handleClearTrackNotes(editingTrack); }}
+              >
+                <Button size="small">清空该曲目备注</Button>
+              </Popconfirm>
+            ) : null}
+          >
+            <Input.TextArea rows={3} placeholder="曲目备注信息（可选）" maxLength={5000} showCount />
+          </Form.Item>
         </Form>
       </Modal>
 
