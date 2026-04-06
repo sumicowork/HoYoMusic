@@ -46,10 +46,10 @@ const MusicSourcesDisplay: React.FC<MusicSourcesDisplayProps> = ({ sources }) =>
         {groupedSources.map((group) => (
           <article key={`${group.gameName}-${group.categoryName}`} className="rounded-2xl border border-white/20 bg-white/[0.14] p-4">
             <div className="mb-3 flex flex-wrap items-center gap-2">
-              <Tag icon={<ApartmentOutlined />} color="processing" className="!m-0 rounded-full !border-white/20 !bg-cyan-400/20 !px-3 !py-1 !text-cyan-100">
+              <Tag icon={<ApartmentOutlined />} color="processing" className="!m-0 rounded-full !border-white/25 !bg-cyan-300/20 !px-3 !py-1 !text-[color:var(--text-primary)]">
                 {group.gameName}
               </Tag>
-              <Tag className="!m-0 rounded-full !border-white/20 !bg-indigo-400/20 !px-3 !py-1 !text-indigo-100">
+              <Tag className="!m-0 rounded-full !border-white/25 !bg-indigo-300/20 !px-3 !py-1 !text-[color:var(--text-primary)]">
                 {group.categoryName}
               </Tag>
             </div>

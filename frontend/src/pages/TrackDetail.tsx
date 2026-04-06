@@ -55,35 +55,6 @@ const TrackDetail: React.FC = () => {
   const titleEn = (track?.title_en && track.title_en.trim()) || '';
   const albumTitleCn = (track?.album_title_cn && track.album_title_cn.trim()) || (track?.album_title || '');
   const albumTitleEn = (track?.album_title_en && track.album_title_en.trim()) || '';
-  const creatorSummary = useMemo(() => {
-    const rolePriority = [/作曲/i, /composer/i, /编曲/i, /arranger/i, /演唱/i, /vocal/i, /制作人/i, /producer/i];
-    const sortedCredits = [...credits].sort((a, b) => {
-      const aIndex = rolePriority.findIndex((rule) => rule.test(a.credit_key || ''));
-      const bIndex = rolePriority.findIndex((rule) => rule.test(b.credit_key || ''));
-      const aOrder = aIndex === -1 ? 999 : aIndex;
-      const bOrder = bIndex === -1 ? 999 : bIndex;
-      if (aOrder !== bOrder) return aOrder - bOrder;
-      return a.display_order - b.display_order;
-    });
-
-    const names: string[] = [];
-    const seen = new Set<string>();
-    for (const credit of sortedCredits) {
-      const parts = String(credit.credit_value || '')
-        .split(/\s*(?:\/|、|,|，|;|；|&|＆|\||｜|\+|＋)\s*/)
-        .map((item) => item.trim())
-        .filter(Boolean);
-      for (const name of parts) {
-        const key = name.toLowerCase();
-        if (!seen.has(key)) {
-          seen.add(key);
-          names.push(name);
-        }
-      }
-      if (names.length >= 4) break;
-    }
-    return names;
-  }, [credits]);
 
   const coverSrc = track?.cover_path || track?.album_cover || null;
   const coverThumbSrc = coverSrc ? trackService.getCoverUrl(coverSrc, true) : null;
@@ -329,17 +300,6 @@ const TrackDetail: React.FC = () => {
             <h1 className="mt-2 text-3xl font-black tracking-tight text-[color:var(--text-primary)] md:text-5xl">{titleCn}</h1>
             {titleEn && <p className="mt-2 text-sm text-[color:var(--text-secondary)]">{titleEn}</p>}
 
-            {creatorSummary.length > 0 && (
-              <p className="mt-3 text-sm text-[color:var(--text-secondary)]">
-                创作者：
-                {creatorSummary.map((name, index) => (
-                  <React.Fragment key={name}>
-                    <span className="font-semibold text-cyan-500">{name}</span>
-                    {index < creatorSummary.length - 1 ? <span className="mx-1 text-[color:var(--text-tertiary)]">/</span> : null}
-                  </React.Fragment>
-                ))}
-              </p>
-            )}
 
             {albumTitleCn && (
               <p className="mt-3 text-sm text-[color:var(--text-secondary)]">
@@ -369,7 +329,7 @@ const TrackDetail: React.FC = () => {
                 <Tag
                   key={tag.id}
                   color={tag.color}
-                  className="!m-0 rounded-full !border-white/20 !bg-white/10 !px-3 !py-1 !text-white"
+                  className="!m-0 rounded-full !border-white/25 !bg-white/[0.24] !px-3 !py-1 !text-[color:var(--text-primary)]"
                 >
                   {getTagPathLabel(tag, tagPathLookup)}
                 </Tag>
