@@ -142,24 +142,24 @@ const AlbumDetail: React.FC = () => {
             key={track.id}
             className="group grid grid-cols-[52px_minmax(0,1fr)_auto] items-center gap-2 border-b border-white/[0.08] px-2 py-2 transition-all duration-200 last:border-b-0 hover:bg-white/10 sm:grid-cols-[70px_minmax(0,1fr)_auto] sm:px-4 sm:py-3"
           >
-            <button
-              type="button"
+            <Button
+              type="text"
+              shape="circle"
               onClick={() => handlePlay(track)}
-              className="h-11 w-11 rounded-full text-sm font-semibold text-[color:var(--text-secondary)] transition-all hover:bg-white/10 hover:text-[color:var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-white/30"
+              className="!flex h-11 w-11 !items-center !justify-center rounded-full !border-0 !bg-transparent !p-0 text-sm font-semibold !text-[color:var(--text-secondary)] transition-all hover:!bg-white/10 hover:!text-[color:var(--text-primary)]"
               aria-label={`播放 ${trackTitleCn}`}
+              icon={<PlayCircleOutlined className="hidden text-base group-hover:inline" />}
             >
               <span className="group-hover:hidden">{track.track_number || idx + 1}</span>
-              <PlayCircleOutlined className="hidden text-base group-hover:inline" />
-            </button>
+            </Button>
 
             <div className="min-w-0">
-              <button
-                type="button"
+              <a
                 onClick={() => navigate(`/track/${track.id}`)}
-                className="max-w-full truncate text-left text-base font-semibold text-[color:var(--text-primary)] transition-colors hover:text-indigo-300"
+                className="block max-w-full cursor-pointer truncate bg-transparent text-left text-base font-semibold text-[color:var(--text-primary)] no-underline transition-colors hover:text-indigo-300"
               >
                 {trackTitleCn}
-              </button>
+              </a>
               {track.title_en && <p className="truncate text-xs text-[color:var(--text-secondary)]">{track.title_en}</p>}
               {track.notes && <p className="truncate text-xs text-[color:var(--text-tertiary)]">{track.notes}</p>}
             </div>
