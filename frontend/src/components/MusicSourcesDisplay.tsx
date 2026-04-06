@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Card, Empty, Space, Tag, Typography } from 'antd';
+import { Empty, Tag, Typography } from 'antd';
 import { ApartmentOutlined, RightOutlined } from '@ant-design/icons';
 import type { TrackMusicSourceItem } from '../types';
 import './MusicSourcesDisplay.css';
@@ -31,43 +31,51 @@ const MusicSourcesDisplay: React.FC<MusicSourcesDisplayProps> = ({ sources }) =>
 
   if (!sources || sources.length === 0) {
     return (
-      <Card className="music-sources-card" title="音乐来源">
+      <section className="music-sources-card mt-5 rounded-3xl border border-white/10 bg-white/[0.06] p-5 shadow-2xl backdrop-blur-md">
+        <h3 className="mb-4 text-xl font-bold text-white">音乐来源</h3>
         <Empty description="暂无音乐来源信息" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-      </Card>
+      </section>
     );
   }
 
   return (
-    <Card className="music-sources-card" title="音乐来源">
-      <Space direction="vertical" size={14} style={{ width: '100%' }}>
+    <section className="music-sources-card mt-5 rounded-3xl border border-white/10 bg-white/[0.06] p-5 shadow-2xl backdrop-blur-md">
+      <h3 className="mb-4 text-xl font-bold text-white">音乐来源</h3>
+
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
         {groupedSources.map((group) => (
-          <div key={`${group.gameName}-${group.categoryName}`} className="music-source-group">
-            <Space wrap>
-              <Tag icon={<ApartmentOutlined />} color="processing">
+          <article key={`${group.gameName}-${group.categoryName}`} className="rounded-2xl border border-white/[0.12] bg-black/25 p-4">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <Tag icon={<ApartmentOutlined />} color="processing" className="!m-0 rounded-full !border-white/20 !bg-cyan-400/20 !px-3 !py-1 !text-cyan-100">
                 {group.gameName}
               </Tag>
-              <Tag color="purple">{group.categoryName}</Tag>
-            </Space>
-            <div className="music-source-path-list">
+              <Tag className="!m-0 rounded-full !border-white/20 !bg-indigo-400/20 !px-3 !py-1 !text-indigo-100">
+                {group.categoryName}
+              </Tag>
+            </div>
+
+            <div className="space-y-2">
               {group.items.map((item) => (
-                <div key={item.id} className="music-source-path-row">
+                <div key={item.id} className="music-source-path-row rounded-xl border border-white/[0.08] bg-white/[0.05] p-2">
                   {item.path.length > 0 ? (
                     item.path.map((segment, index) => (
                       <React.Fragment key={`${item.id}-${segment}-${index}`}>
-                        <Typography.Text className="music-source-segment">{segment}</Typography.Text>
+                        <Typography.Text className="music-source-segment">
+                          {segment}
+                        </Typography.Text>
                         {index < item.path.length - 1 && <RightOutlined className="music-source-separator" />}
                       </React.Fragment>
                     ))
                   ) : (
-                    <Typography.Text type="secondary">{item.node_name}</Typography.Text>
+                    <Typography.Text className="text-white/60">{item.node_name}</Typography.Text>
                   )}
                 </div>
               ))}
             </div>
-          </div>
+          </article>
         ))}
-      </Space>
-    </Card>
+      </div>
+    </section>
   );
 };
 

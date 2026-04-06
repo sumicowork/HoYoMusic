@@ -9,12 +9,14 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.1.4",
     "@types/howler": "^2.2.12",
     "@types/react": "^19.2.13",
     "@types/react-beautiful-dnd": "^13.1.8",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.4",
     "rollup-plugin-visualizer": "^7.0.1",
+    "tailwindcss": "^4.1.4",
     "typescript": "~5.9.3",
     "vite": "^7.2.4"
   },

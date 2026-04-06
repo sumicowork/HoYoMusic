@@ -1,241 +1,84 @@
 .track-detail-layout {
-  min-height: 100vh;
-  background: transparent !important;
+  position: relative;
+  overflow: hidden;
 }
 
-.track-detail-header {
-  backdrop-filter: blur(18px) saturate(180%);
-  -webkit-backdrop-filter: blur(18px) saturate(180%);
-  padding: 0 24px;
+.track-immersive-orb {
+  position: fixed;
+  left: -20vmin;
+  top: -12vmin;
+  width: 50vmin;
+  height: 50vmin;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.2), transparent 70%);
+  filter: blur(14px);
+  pointer-events: none;
+  z-index: 0;
+  animation: trackOrbFloat 8s ease-in-out infinite;
 }
 
-[data-theme='dark'] .track-detail-header {
-  background: rgba(10, 8, 30, 0.85) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4) !important;
-}
-
-[data-theme='light'] .track-detail-header {
-  background: rgba(255, 255, 255, 0.72) !important;
-  border-bottom: 1px solid rgba(102, 126, 234, 0.15) !important;
-  box-shadow: 0 4px 24px rgba(102, 126, 234, 0.1) !important;
-}
-
-.track-detail-content {
-  padding: 24px;
-  max-width: 1200px;
-  margin: 0 auto;
-  width: 100%;
-}
-
-.track-detail-back-wrap {
-  margin-bottom: 16px;
-}
-
-.track-info-card {
-  margin-bottom: 24px;
-  backdrop-filter: blur(18px) saturate(180%);
-  -webkit-backdrop-filter: blur(18px) saturate(180%);
-  border-radius: 20px !important;
+.track-cover-glow {
+  position: absolute;
+  inset: 12% -10% -10% -10%;
+  z-index: 0;
+  border-radius: 24px;
+  background: radial-gradient(circle at 50% 45%, rgba(129, 140, 248, 0.52), rgba(129, 140, 248, 0));
+  filter: blur(28px);
+  animation: trackGlowPulse 4.5s ease-in-out infinite;
 }
 
 .track-cover-image {
-  border-radius: 14px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.26);
+  position: relative;
+  z-index: 1;
 }
 
-[data-theme='light'] .track-info-card {
-  background: rgba(255, 255, 255, 0.7) !important;
-  border: 1px solid rgba(255, 255, 255, 0.85) !important;
-  box-shadow: 0 4px 24px rgba(102, 126, 234, 0.12) !important;
+.track-cover-image .ant-image-img {
+  width: 100%;
+  border-radius: 1rem;
+  box-shadow: 0 20px 44px rgba(7, 10, 22, 0.44);
 }
 
-[data-theme='dark'] .track-info-card {
-  background: rgba(15, 12, 41, 0.65) !important;
+/* Keep a glass look for cards rendered by reusable sections (lyrics/credits/source). */
+.track-detail-content .ant-card {
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4) !important;
+  background: rgba(255, 255, 255, 0.07) !important;
+  box-shadow: 0 14px 32px rgba(2, 6, 23, 0.3) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
-.track-info-container {
-  display: flex;
-  gap: 32px;
+.track-detail-content .ant-card-head {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
-.track-info-details {
-  flex: 1;
+.track-detail-content .ant-btn:active {
+  transform: scale(0.97);
 }
 
-.track-info-details h1 {
-  font-family: var(--font-display, 'Noto Serif SC', serif);
-  font-size: 32px;
-  font-weight: 900;
-  letter-spacing: -0.03em;
-  margin-bottom: 8px;
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+@keyframes trackGlowPulse {
+  0%,
+  100% {
+    transform: scale(0.96);
+    opacity: 0.56;
+  }
+  50% {
+    transform: scale(1.02);
+    opacity: 0.82;
+  }
 }
 
-.track-info-details h3 {
-  font-size: 20px;
-  color: var(--text-secondary);
-  margin-bottom: 8px;
-}
-
-.track-info-details h4 {
-  font-size: 16px;
-  color: var(--text-tertiary);
-  margin-bottom: 16px;
-}
-
-.track-title-en {
-  display: block;
-  margin-top: -4px;
-}
-
-.track-album-en {
-  margin-left: 8px;
-}
-
-.track-meta-tags {
-  margin-top: 16px;
-  margin-bottom: 20px;
-}
-
-.track-meta-descriptions {
-  border-radius: 12px;
-}
-
-.track-notes-card {
-  margin-top: 16px;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: 12px;
-}
-
-.track-notes-text {
-  white-space: pre-wrap;
-  font-size: 13px;
-}
-
-.track-main-actions {
-  margin-top: 24px;
-}
-
-.track-main-actions .ant-btn {
-  min-height: 42px;
-}
-
-.track-main-actions.mobile {
-  width: 100%;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.track-main-actions.mobile .ant-btn {
-  width: 100%;
-  min-height: 44px;
-  border-radius: 12px;
-}
-
-.track-info-container .ant-image {
-  flex-shrink: 0;
+@keyframes trackOrbFloat {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(12px, 10px, 0);
+  }
 }
 
 @media (max-width: 768px) {
-  .track-detail-back-wrap {
-    margin-bottom: 12px;
-  }
-
-  .track-detail-back-wrap .ant-btn {
-    width: 100%;
+  .track-detail-content .ant-btn {
     min-height: 44px;
-    border-radius: 12px;
-  }
-
-  .track-info-container {
-    flex-direction: column;
-    align-items: center;
-    gap: 14px;
-  }
-
-  .track-info-container .ant-image,
-  .track-info-container .ant-image img {
-    width: min(100%, 220px) !important;
-    height: auto !important;
-  }
-
-  .track-detail-content {
-    padding: 16px 12px;
-  }
-
-  .track-info-card .ant-card-body {
-    padding: 14px;
-  }
-
-  .track-info-details h1 {
-    font-size: 22px;
-    text-align: center;
-  }
-
-  .track-info-details h3 {
-    font-size: 16px;
-  }
-
-  .track-info-details h4 {
-    text-align: center;
-    font-size: 14px;
-    margin-bottom: 12px;
-  }
-
-  .track-title-en {
-    text-align: center;
-    font-size: 13px;
-  }
-
-  .track-album-en {
-    margin-left: 0;
-    display: block;
-    margin-top: 4px;
-  }
-
-  .track-meta-tags {
-    justify-content: center;
-    margin-top: 10px;
-    margin-bottom: 14px;
-  }
-
-  .track-meta-tags .ant-tag {
-    margin-inline-end: 6px;
-    margin-bottom: 6px;
-  }
-
-  .track-info-details .ant-space {
-    width: 100%;
-  }
-
-  .track-main-actions {
-    margin-top: 16px;
-  }
-
-  .track-main-actions.mobile {
-    display: grid;
   }
 }
-
-@media (max-width: 420px) {
-  .track-detail-content {
-    padding: 12px 10px;
-  }
-
-  .track-info-card .ant-card-body {
-    padding: 12px;
-  }
-
-  .track-main-actions.mobile {
-    grid-template-columns: 1fr;
-  }
-}
-

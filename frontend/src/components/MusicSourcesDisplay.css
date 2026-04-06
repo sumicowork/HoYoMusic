@@ -24,21 +24,23 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
+  min-height: 44px;
 }
 
 .music-source-segment {
   display: inline-flex;
   align-items: center;
-  min-height: 26px;
-  padding: 0 10px;
+  min-height: 30px;
   border-radius: 999px;
-  background: rgba(82, 101, 220, 0.12);
-  color: var(--text-primary);
-  font-size: 13px;
+  padding: 0 10px;
+  background: rgba(147, 197, 253, 0.14);
+  border: 1px solid rgba(191, 219, 254, 0.24);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 12px;
 }
 
 .music-source-separator {
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.45);
   font-size: 11px;
 }
 
@@ -51,3 +53,6 @@
   background: rgba(102, 126, 234, 0.22);
 }
 
+.music-sources-card .ant-empty-description {
+  color: rgba(255, 255, 255, 0.62);
+}

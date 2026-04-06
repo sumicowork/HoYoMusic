@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Layout, Card, Button, Space, Image, Tag, Skeleton, Descriptions, message, Tooltip, Typography, Grid } from 'antd';
-import { ArrowLeftOutlined, PlayCircleOutlined, DownloadOutlined, HeartOutlined, HeartFilled, PlusOutlined } from '@ant-design/icons';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Button, Image, Skeleton, Tag, Tooltip, message } from 'antd';
+import { ArrowLeftOutlined, DownloadOutlined, HeartFilled, HeartOutlined, PlayCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import { Track, TrackMusicSourceItem } from '../types';
 import { trackService, DOWNLOAD_ENABLED } from '../services/trackService';
@@ -16,10 +16,9 @@ import favoriteService from '../services/favoriteService';
 import playlistService from '../services/playlistService';
 import PlaylistPickerModal from '../components/PlaylistPickerModal';
 import { useDebugUserFeatures } from '../utils/debugFeature';
+import { useDominantColor } from '../utils/useDominantColor';
 import './TrackDetail.css';
 
-const { Content } = Layout;
-const { useBreakpoint } = Grid;
 const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
 
 interface Credit {
@@ -48,13 +47,16 @@ const TrackDetail: React.FC = () => {
   );
 
   const { progress, playTrackOnly, seek } = usePlayerStore();
-  const screens = useBreakpoint();
-  const isMobile = !screens.md;
   const canUseDebugFeatures = useDebugUserFeatures();
   const titleCn = (track?.title_cn && track.title_cn.trim()) || track?.title || '';
   const titleEn = (track?.title_en && track.title_en.trim()) || '';
   const albumTitleCn = (track?.album_title_cn && track.album_title_cn.trim()) || (track?.album_title || '');
   const albumTitleEn = (track?.album_title_en && track.album_title_en.trim()) || '';
+
+  const coverSrc = track?.cover_path || track?.album_cover || null;
+  const coverThumbSrc = coverSrc ? trackService.getCoverUrl(coverSrc, true) : null;
+  const coverFullSrc = coverSrc ? trackService.getCoverUrl(coverSrc) : null;
+  const dominantColor = useDominantColor(coverThumbSrc || coverFullSrc);
 
   useEffect(() => {
     if (id) {
@@ -110,7 +112,7 @@ const TrackDetail: React.FC = () => {
 
   const fetchTags = async () => {
     try {
-      const data = await getTrackTags(parseInt(id!));
+      const data = await getTrackTags(parseInt(id!, 10));
       setTags(data);
     } catch (error) {
       console.error('Failed to load tags:', error);
@@ -119,7 +121,7 @@ const TrackDetail: React.FC = () => {
 
   const fetchTrackDetails = async () => {
     try {
-      const data = await trackService.getTrackByIdPublic(parseInt(id!));
+      const data = await trackService.getTrackByIdPublic(parseInt(id!, 10));
       setTrack(data);
     } catch (error: any) {
       message.error('加载曲目详情失败');
@@ -152,7 +154,7 @@ const TrackDetail: React.FC = () => {
 
   const fetchMusicSources = async () => {
     try {
-      const data = await trackService.getTrackMusicSourcesPublic(parseInt(id!));
+      const data = await trackService.getTrackMusicSourcesPublic(parseInt(id!, 10));
       setMusicSources(data);
     } catch (error) {
       setMusicSources([]);
@@ -161,7 +163,6 @@ const TrackDetail: React.FC = () => {
 
   const handlePlay = () => {
     if (track) {
-      // Only add this single track to queue
       playTrackOnly(track);
     }
   };
@@ -193,10 +194,6 @@ const TrackDetail: React.FC = () => {
     }
   };
 
-  const handleOpenPlaylistModal = async () => {
-    setPlaylistModalOpen(true);
-  };
-
   const handleBack = () => {
     if (window.history.length > 1) {
       navigate(-1);
@@ -218,162 +215,173 @@ const TrackDetail: React.FC = () => {
     }
   };
 
+  const formatDuration = (seconds: number | null) => {
+    if (!seconds) return '--';
+    return `${Math.floor(seconds / 60)}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`;
+  };
+
+  const bpmTag = useMemo(() => {
+    const hit = tags.find((item) => /\b\d{2,3}\s?bpm\b/i.test(item.name));
+    return hit ? hit.name.replace(/\s+/g, ' ').trim() : null;
+  }, [tags]);
+
+  const specCards = useMemo(() => {
+    if (!track) return [];
+    const cards: Array<{ label: string; value: string }> = [
+      { label: '格式', value: 'FLAC' },
+      { label: '时长', value: formatDuration(track.duration) },
+    ];
+
+    if (track.sample_rate && track.bit_depth) {
+      cards.push({ label: '规格', value: `${(track.sample_rate / 1000).toFixed(1)}kHz / ${track.bit_depth}bit` });
+    }
+
+    if (bpmTag) {
+      cards.push({ label: '节奏', value: bpmTag.toUpperCase() });
+    }
+
+    if (track.file_size) {
+      cards.push({ label: '大小', value: `${(track.file_size / (1024 * 1024)).toFixed(2)} MB` });
+    }
+
+    return cards;
+  }, [track, bpmTag]);
+
   if (loading) {
     return (
-      <Layout style={{ minHeight: '100vh' }}>
-        <Content style={{ padding: 24 }}>
-          <Skeleton active avatar={{ size: 250, shape: 'square' }} paragraph={{ rows: 8 }} />
-        </Content>
-      </Layout>
+      <div className="min-h-screen px-4 py-6 sm:px-6">
+        <Skeleton active avatar={{ size: 250, shape: 'square' }} paragraph={{ rows: 8 }} />
+      </div>
     );
   }
 
   if (!track) {
     return (
-      <Layout style={{ minHeight: '100vh' }}>
-        <Content style={{ padding: 24 }}>
-          <Card>
-            <p>曲目未找到</p>
-            <Button onClick={() => navigate('/')}>返回首页</Button>
-          </Card>
-        </Content>
-      </Layout>
+      <div className="min-h-screen px-4 py-6 sm:px-6">
+        <p className="text-white/85">曲目未找到</p>
+        <Button onClick={() => navigate('/')} className="mt-4">返回首页</Button>
+      </div>
     );
   }
 
+  const immersiveStyle: React.CSSProperties = {
+    background: dominantColor
+      ? `radial-gradient(circle at 16% 16%, rgba(${dominantColor}, 0.42), transparent 46%), radial-gradient(circle at 84% 10%, rgba(129, 140, 248, 0.24), transparent 40%), linear-gradient(165deg, rgba(7, 10, 22, 0.95) 0%, rgba(10, 15, 30, 0.92) 56%, rgba(8, 10, 20, 0.96) 100%)`
+      : undefined,
+  };
+
   return (
-    <Layout className="track-detail-layout">
-      <Content className="track-detail-content">
-        <div className="track-detail-back-wrap">
-          <Button
-            icon={<ArrowLeftOutlined />}
-            onClick={handleBack}
-          >
+    <div className="track-detail-layout min-h-screen" style={immersiveStyle}>
+      <div className="track-immersive-orb" aria-hidden="true" />
+
+      <main className="track-detail-content relative mx-auto w-full max-w-6xl px-3 pb-24 pt-6 sm:px-6">
+        <div className="track-detail-back-wrap mb-4">
+          <Button icon={<ArrowLeftOutlined />} onClick={handleBack} className="h-11 rounded-xl px-4">
             返回上一页
           </Button>
         </div>
-        <Card className="track-info-card">
-          <div className="track-info-container">
-            {(() => {
-              const coverSrc = track.cover_path || track.album_cover;
-              const thumbSrc = coverSrc
-                ? trackService.getCoverUrl(coverSrc, true)
-                : null;
-              const fullSrc = coverSrc
-                ? trackService.getCoverUrl(coverSrc)
-                : null;
-              return (
-                <Image
-                  width={isMobile ? 200 : 250}
-                  height={isMobile ? 200 : 250}
-                  src={thumbSrc || MUSIC_ICON_PLACEHOLDER}
-                  fallback={MUSIC_ICON_PLACEHOLDER}
-                  className="track-cover-image"
-                  preview={fullSrc ? { src: fullSrc } : false}
-                />
-              );
-            })()}
 
-            <div className="track-info-details">
-              <h1>{titleCn}</h1>
-              {titleEn && <Typography.Text type="secondary" className="track-title-en">{titleEn}</Typography.Text>}
-              {albumTitleCn && (
-                <h4>
-                  专辑：
-                  {track.album_id
-                    ? <Link to={`/albums/${track.album_id}`}>{albumTitleCn}</Link>
-                    : albumTitleCn}
-                  {albumTitleEn && <Typography.Text type="secondary" className="track-album-en">{albumTitleEn}</Typography.Text>}
-                </h4>
-              )}
+        <section className="track-hero-panel grid gap-6 rounded-3xl border border-white/10 bg-white/[0.07] p-4 shadow-2xl backdrop-blur-md lg:grid-cols-[300px_minmax(0,1fr)] lg:p-8">
+          <div className="relative mx-auto w-full max-w-[300px]">
+            <div className="track-cover-glow" aria-hidden="true" />
+            <Image
+              width="100%"
+              src={coverThumbSrc || MUSIC_ICON_PLACEHOLDER}
+              fallback={MUSIC_ICON_PLACEHOLDER}
+              preview={coverFullSrc ? { src: coverFullSrc } : false}
+              className="track-cover-image overflow-hidden rounded-2xl"
+            />
+          </div>
 
-              <Space className="track-meta-tags" wrap>
-                <Tag color="blue">FLAC</Tag>
-                {track.sample_rate && track.bit_depth && (
-                  <Tag color="green">
-                    {(track.sample_rate / 1000).toFixed(1)}kHz / {track.bit_depth}bit
-                  </Tag>
-                )}
-                {track.duration && (
-                  <Tag>{Math.floor(track.duration / 60)}:{Math.floor(track.duration % 60).toString().padStart(2, '0')}</Tag>
-                )}
-                {tags.map(tag => (
-                  <Tag key={tag.id} color={tag.color}>
-                    {getTagPathLabel(tag, tagPathLookup)}
-                  </Tag>
-                ))}
-              </Space>
+          <div className="min-w-0 text-center lg:text-left">
+            <p className="text-xs uppercase tracking-[0.32em] text-white/55">Track</p>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-white md:text-5xl">{titleCn}</h1>
+            {titleEn && <p className="mt-2 text-sm text-white/65">{titleEn}</p>}
 
-              <Descriptions column={1} size="small" className="track-meta-descriptions">
-                {track.track_number && (
-                  <Descriptions.Item label="曲目编号">
-                    {track.track_number}
-                  </Descriptions.Item>
+            {albumTitleCn && (
+              <p className="mt-3 text-sm text-white/70">
+                专辑：
+                {track.album_id ? (
+                  <Link to={`/albums/${track.album_id}`} className="font-semibold text-indigo-200 hover:text-indigo-100">
+                    {albumTitleCn}
+                  </Link>
+                ) : (
+                  <span className="font-semibold text-indigo-200">{albumTitleCn}</span>
                 )}
-                {track.file_size && (
-                  <Descriptions.Item label="文件大小">
-                    {(track.file_size / (1024 * 1024)).toFixed(2)} MB
-                  </Descriptions.Item>
-                )}
-                {track.release_date && (
-                  <Descriptions.Item label="发行日期">
-                    {new Date(track.release_date).toLocaleDateString('zh-CN')}
-                  </Descriptions.Item>
-                )}
-                <Descriptions.Item label="喜爱人数">
-                  {Number(track.favorite_count || 0)}
-                </Descriptions.Item>
-              </Descriptions>
+                {albumTitleEn && <span className="ml-2 text-white/45">{albumTitleEn}</span>}
+              </p>
+            )}
 
-              {track.notes && (
-                <Card size="small" className="track-notes-card">
-                  <Typography.Text type="secondary" className="track-notes-text">
-                    📝 {track.notes}
-                  </Typography.Text>
-                </Card>
-              )}
+            <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {specCards.map((card) => (
+                <div key={card.label} className="rounded-xl border border-white/[0.12] bg-black/20 px-3 py-3 text-left">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-white/50">{card.label}</p>
+                  <p className="mt-1 truncate text-sm font-semibold text-white">{card.value}</p>
+                </div>
+              ))}
+            </div>
 
-              <Space className={`track-main-actions${isMobile ? ' mobile' : ''}`} wrap>
-                <Button
-                  type="primary"
-                  icon={<PlayCircleOutlined />}
-                  size="large"
-                  onClick={handlePlay}
+            <div className="mt-4 flex flex-wrap justify-center gap-2 lg:justify-start">
+              {tags.map((tag) => (
+                <Tag
+                  key={tag.id}
+                  color={tag.color}
+                  className="!m-0 rounded-full !border-white/20 !bg-white/10 !px-3 !py-1 !text-white"
                 >
-                  播放
+                  {getTagPathLabel(tag, tagPathLookup)}
+                </Tag>
+              ))}
+            </div>
+
+            {track.notes && (
+              <p className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-white/75">{track.notes}</p>
+            )}
+
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
+              <Button
+                type="primary"
+                icon={<PlayCircleOutlined />}
+                size="large"
+                onClick={handlePlay}
+                className="h-12 min-w-[148px] rounded-xl border-0 bg-gradient-to-r from-indigo-500 to-violet-500 font-semibold"
+              >
+                播放
+              </Button>
+
+              <Tooltip title={!DOWNLOAD_ENABLED ? '服务器维护中，暂时关闭下载' : ''}>
+                <Button
+                  icon={<DownloadOutlined />}
+                  size="large"
+                  onClick={handleDownload}
+                  disabled={!DOWNLOAD_ENABLED}
+                  shape="circle"
+                  className="h-11 w-11 rounded-full border-white/20 bg-white/10 text-white hover:!border-white/35 hover:!bg-white/20"
+                />
+              </Tooltip>
+
+              {canUseDebugFeatures && (
+                <Button
+                  icon={favorited ? <HeartFilled style={{ color: '#ff4d6a' }} /> : <HeartOutlined />}
+                  size="large"
+                  onClick={handleToggleFavorite}
+                  shape="circle"
+                  className="h-11 w-11 rounded-full border-white/20 bg-white/10 text-white hover:!border-white/35 hover:!bg-white/20"
+                />
+              )}
+
+              {canUseDebugFeatures && (
+                <Button
+                  icon={<PlusOutlined />}
+                  size="large"
+                  onClick={() => setPlaylistModalOpen(true)}
+                  className="h-11 rounded-xl border-white/20 bg-white/10 px-4 text-white hover:!border-white/35 hover:!bg-white/20"
+                >
+                  收藏到歌单
                 </Button>
-                <Tooltip title={!DOWNLOAD_ENABLED ? '服务器维护中，暂时关闭下载' : ''}>
-                  <Button
-                    icon={<DownloadOutlined />}
-                    size="large"
-                    onClick={handleDownload}
-                    disabled={!DOWNLOAD_ENABLED}
-                  >
-                    下载
-                  </Button>
-                </Tooltip>
-                {canUseDebugFeatures && (
-                  <Button
-                    icon={favorited ? <HeartFilled style={{ color: '#ff4d6a' }} /> : <HeartOutlined />}
-                    size="large"
-                    onClick={handleToggleFavorite}
-                  >
-                    {favorited ? '取消喜爱' : '喜爱'}
-                  </Button>
-                )}
-                {canUseDebugFeatures && (
-                  <Button
-                    icon={<PlusOutlined />}
-                    size="large"
-                    onClick={handleOpenPlaylistModal}
-                  >
-                    收藏到歌单
-                  </Button>
-                )}
-              </Space>
+              )}
             </div>
           </div>
-        </Card>
+        </section>
 
         <PlaylistPickerModal
           title="收藏到歌单"
@@ -382,7 +390,6 @@ const TrackDetail: React.FC = () => {
           onSubmit={handleAddToPlaylist}
         />
 
-        {/* Lyrics Section */}
         {lyrics && (
           <LyricsDisplay
             lyricsContent={lyrics}
@@ -391,18 +398,14 @@ const TrackDetail: React.FC = () => {
           />
         )}
 
-        {/* Credits Section */}
-        {credits.length > 0 && (
-          <CreditsDisplay credits={credits} />
-        )}
+        {credits.length > 0 && <CreditsDisplay credits={credits} />}
 
         <MusicSourcesDisplay sources={musicSources} />
-      </Content>
-    </Layout>
+      </main>
+    </div>
   );
 };
 
 export default TrackDetail;
-
 
 

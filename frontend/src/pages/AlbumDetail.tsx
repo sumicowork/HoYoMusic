@@ -1,17 +1,14 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Layout, Table, Button, Space, Image, Skeleton, Descriptions, message, Tooltip, Card, Typography, Grid, List, Tag, Collapse } from 'antd';
-import { ArrowLeftOutlined, PlayCircleOutlined, DownloadOutlined } from '@ant-design/icons';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Button, Collapse, Image, Skeleton, Tag, Tooltip, message } from 'antd';
+import { ArrowLeftOutlined, DownloadOutlined, MoreOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import { Track } from '../types';
 import { trackService, DOWNLOAD_ENABLED } from '../services/trackService';
 import { albumService } from '../services/albumService';
 import { usePlayerStore } from '../store/playerStore';
 import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
+import { useDominantColor } from '../utils/useDominantColor';
 import './AlbumDetail.css';
-
-const { Content } = Layout;
-const { Text } = Typography;
-const { useBreakpoint } = Grid;
 
 interface Album {
   id: number;
@@ -41,9 +38,10 @@ const AlbumDetail: React.FC = () => {
   const albumTitleCn = (album?.title_cn && album.title_cn.trim()) || album?.title || '';
   const albumTitleEn = (album?.title_en && album.title_en.trim()) || '';
 
-  const { play, setPlaylist, playTrackOnly } = usePlayerStore();
-  const screens = useBreakpoint();
-  const isMobile = !screens.md;
+  const { play, playTrackOnly, setPlaylist } = usePlayerStore();
+  const coverThumbSrc = album?.cover_path ? trackService.getCoverUrl(album.cover_path, true) : null;
+  const coverFullSrc = album?.cover_path ? trackService.getCoverUrl(album.cover_path) : null;
+  const dominantColor = useDominantColor(coverThumbSrc || coverFullSrc);
 
   useEffect(() => {
     if (id) {
@@ -101,21 +99,18 @@ const AlbumDetail: React.FC = () => {
     return `${minutes} minutes`;
   };
 
-  // Group tracks by disc
   const discGroups = useMemo(() => {
     if (discs.length === 0) return null;
     const groups: { disc: Disc; tracks: Track[] }[] = [];
 
-    // Build groups in disc_number order
     for (const disc of [...discs].sort((a, b) => a.disc_number - b.disc_number)) {
-      const discTracks = tracks.filter(t => t.disc_id === disc.id);
+      const discTracks = tracks.filter((track) => track.disc_id === disc.id);
       if (discTracks.length > 0) {
         groups.push({ disc, tracks: discTracks });
       }
     }
 
-    // Tracks without disc assignment
-    const unassigned = tracks.filter(t => !t.disc_id);
+    const unassigned = tracks.filter((track) => !track.disc_id);
     if (unassigned.length > 0 && groups.length > 0) {
       groups.push({ disc: { id: 0, disc_number: 0, disc_title: '其他曲目' }, tracks: unassigned });
     }
@@ -123,99 +118,87 @@ const AlbumDetail: React.FC = () => {
     return groups.length > 0 ? groups : null;
   }, [tracks, discs]);
 
-  const columns = [
-    {
-      title: '#',
-      dataIndex: 'track_number',
-      key: 'track_number',
-      width: 60,
-      render: (num: number) => num || '-',
-    },
-    {
-      title: '标题',
-      dataIndex: 'title',
-      key: 'title',
-      render: (title: string, record: Track) => (
-        <span>
-          <a
-            onClick={() => navigate(`/track/${record.id}`)}
-            style={{ color: '#1890ff', cursor: 'pointer' }}
-          >
-            {(record.title_cn && record.title_cn.trim()) || title}
-          </a>
-          {record.title_en && <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>{record.title_en}</Text>}
-          {record.notes && (
-            <Text type="secondary" style={{ display: 'block', fontSize: 12, marginTop: 2 }}>
-              {record.notes}
-            </Text>
-          )}
-        </span>
-      ),
-    },
-    {
-      title: '时长',
-      dataIndex: 'duration',
-      key: 'duration',
-      width: 100,
-      render: formatDuration,
-    },
-    {
-      title: '操作',
-      key: 'actions',
-      width: 180,
-      render: (_: any, record: Track) => (
-        <Space>
-          <Button
-            type="primary"
-            icon={<PlayCircleOutlined />}
-            onClick={() => handlePlay(record)}
-            size="small"
-          >
-            播放
-          </Button>
-          <Tooltip title={!DOWNLOAD_ENABLED ? '服务器维护中，暂时关闭下载' : ''}>
-            <Button
-              icon={<DownloadOutlined />}
-              onClick={() => handleDownload(record)}
-              size="small"
-              disabled={!DOWNLOAD_ENABLED}
-            />
-          </Tooltip>
-        </Space>
-      ),
-    },
-  ];
+  const findBpmTag = (track: Track): string | null => {
+    const sourceTags = Array.isArray(track.tags) ? track.tags : [];
+    const bpmFromTag = sourceTags.find((item) => /\b\d{2,3}\s?bpm\b/i.test(item.name));
+    if (bpmFromTag) {
+      return bpmFromTag.name.replace(/\s+/g, ' ').trim();
+    }
+    const notesValue = (track.notes || '').match(/\b(\d{2,3})\s?bpm\b/i);
+    return notesValue ? `${notesValue[1]} BPM` : null;
+  };
 
-  const renderMobileTrackList = (list: Track[]) => (
-    <List
-      className="album-mobile-track-list"
-      dataSource={list}
-      renderItem={(track) => (
-        <List.Item>
-          <div className="album-mobile-track-item">
-            <div className="album-mobile-track-main">
-              <span className="album-mobile-track-no">{track.track_number || '--'}</span>
-              <div className="album-mobile-track-meta">
-                <a onClick={() => navigate(`/track/${track.id}`)}>{(track.title_cn && track.title_cn.trim()) || track.title}</a>
-                {track.title_en && <Text type="secondary">{track.title_en}</Text>}
-                {track.notes && <Text type="secondary">{track.notes}</Text>}
-                <div className="album-mobile-track-tags">
-                  <Tag color="processing">{formatDuration(track.duration || 0)}</Tag>
-                </div>
-              </div>
+  const specBadges = useMemo(() => {
+    const result: string[] = ['FLAC'];
+    const qualityTrack = tracks.find((item) => item.sample_rate && item.bit_depth);
+    if (qualityTrack?.sample_rate && qualityTrack?.bit_depth) {
+      result.push(`${(qualityTrack.sample_rate / 1000).toFixed(1)}kHz / ${qualityTrack.bit_depth}bit`);
+    }
+    const bpmTag = tracks.map(findBpmTag).find(Boolean);
+    if (bpmTag) {
+      result.push(bpmTag);
+    }
+    if (tracks.length > 0) {
+      result.push(`${tracks.length} Tracks`);
+    }
+    return result;
+  }, [tracks]);
+
+  const renderTrackList = (list: Track[]) => (
+    <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.05] backdrop-blur-md">
+      {list.map((track, idx) => {
+        const trackTitleCn = (track.title_cn && track.title_cn.trim()) || track.title;
+        return (
+          <div
+            key={track.id}
+            className="group grid grid-cols-[52px_minmax(0,1fr)_auto] items-center gap-2 border-b border-white/[0.06] px-2 py-2 transition-all duration-200 last:border-b-0 hover:bg-white/10 sm:grid-cols-[70px_minmax(0,1fr)_auto] sm:px-4 sm:py-3"
+          >
+            <button
+              type="button"
+              onClick={() => handlePlay(track)}
+              className="h-11 w-11 rounded-full text-sm font-semibold text-white/70 transition-all hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-white/40"
+              aria-label={`播放 ${trackTitleCn}`}
+            >
+              <span className="group-hover:hidden">{track.track_number || idx + 1}</span>
+              <PlayCircleOutlined className="hidden text-base group-hover:inline" />
+            </button>
+
+            <div className="min-w-0">
+              <button
+                type="button"
+                onClick={() => navigate(`/track/${track.id}`)}
+                className="max-w-full truncate text-left text-base font-semibold text-white transition-colors hover:text-indigo-200"
+              >
+                {trackTitleCn}
+              </button>
+              {track.title_en && <p className="truncate text-xs text-white/60">{track.title_en}</p>}
+              {track.notes && <p className="truncate text-xs text-white/45">{track.notes}</p>}
             </div>
-            <Space size={8} className="album-mobile-track-actions" wrap>
-              <Button type="primary" size="middle" icon={<PlayCircleOutlined />} onClick={() => handlePlay(track)}>播放</Button>
-              <Tooltip title={!DOWNLOAD_ENABLED ? '服务器维护中，暂时关闭下载' : ''}>
-                <Button size="middle" icon={<DownloadOutlined />} onClick={() => handleDownload(track)} disabled={!DOWNLOAD_ENABLED}>下载</Button>
-              </Tooltip>
-            </Space>
-          </div>
-        </List.Item>
-      )}
-    />
-  );
 
+            <div className="ml-2 flex items-center gap-1 sm:gap-2">
+              <span className="hidden min-w-14 text-right text-xs text-white/60 sm:inline">{formatDuration(track.duration || 0)}</span>
+              <Tooltip title={!DOWNLOAD_ENABLED ? '服务器维护中，暂时关闭下载' : ''}>
+                <Button
+                  type="text"
+                  shape="circle"
+                  icon={<DownloadOutlined />}
+                  onClick={() => handleDownload(track)}
+                  disabled={!DOWNLOAD_ENABLED}
+                  className="h-11 w-11 !text-white/80 hover:!text-white"
+                />
+              </Tooltip>
+              <Button
+                type="text"
+                shape="circle"
+                icon={<MoreOutlined />}
+                className="h-11 w-11 !text-white/80 hover:!text-white"
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
   const mobileDiscPanels = useMemo(() => {
     if (!discGroups) return null;
 
@@ -230,156 +213,122 @@ const AlbumDetail: React.FC = () => {
           <Tag color="blue">{group.tracks.length} 首</Tag>
         </div>
       ),
-      children: renderMobileTrackList(group.tracks),
+      children: renderTrackList(group.tracks),
     }));
   }, [discGroups]);
 
   if (loading) {
     return (
-      <Layout style={{ minHeight: '100vh' }}>
-        <Content style={{ padding: 24 }}>
+      <div className="min-h-screen px-4 py-6 sm:px-6">
           <Skeleton active avatar={{ size: 250, shape: 'square' }} paragraph={{ rows: 6 }} />
-        </Content>
-      </Layout>
+      </div>
     );
   }
 
   if (!album) {
     return (
-      <Layout style={{ minHeight: '100vh' }}>
-        <Content style={{ padding: 24 }}>
+      <div className="min-h-screen px-4 py-6 sm:px-6">
           <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/albums')}>
             返回专辑列表
           </Button>
-          <div style={{ marginTop: 24, textAlign: 'center' }}>专辑未找到</div>
-        </Content>
-      </Layout>
+          <div className="mt-6 text-center text-white/80">专辑未找到</div>
+      </div>
     );
   }
 
+  const immersiveStyle: React.CSSProperties = {
+    background: dominantColor
+      ? `radial-gradient(circle at 18% 14%, rgba(${dominantColor}, 0.42), transparent 48%), radial-gradient(circle at 84% 10%, rgba(99, 102, 241, 0.26), transparent 42%), linear-gradient(165deg, rgba(8, 10, 22, 0.96) 0%, rgba(11, 15, 28, 0.9) 52%, rgba(7, 9, 18, 0.95) 100%)`
+      : undefined,
+  };
+
   return (
-    <Layout className="album-detail-layout">
-      <Content className="album-detail-content">
-        <div className="album-detail-back-wrap">
-          <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/albums')}>
+    <div className="album-detail-layout min-h-screen" style={immersiveStyle}>
+      <div className="album-immersive-orb" aria-hidden="true" />
+
+      <main className="album-detail-content relative mx-auto w-full max-w-6xl px-3 pb-24 pt-6 sm:px-6">
+        <div className="album-detail-back-wrap mb-4">
+          <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/albums')} className="h-11 rounded-xl px-4">
             返回专辑列表
           </Button>
         </div>
-        <div className="album-hero">
-          <Image
-            width={isMobile ? 180 : 250}
-            height={isMobile ? 180 : 250}
-            src={trackService.getCoverUrl(album.cover_path, true)}
-            fallback={MUSIC_ICON_PLACEHOLDER}
-            className="album-cover-image"
-            preview={album.cover_path ? { src: trackService.getCoverUrl(album.cover_path) } : false}
-          />
-          <div className="album-hero-info">
-            <h1>{albumTitleCn}</h1>
-            {albumTitleEn && <Text type="secondary" className="album-subtitle">{albumTitleEn}</Text>}
-            {isMobile ? (
-              <div className="album-mobile-meta-grid">
-                <div className="album-mobile-meta-card">
-                  <span>总曲目</span>
-                  <strong>{album.track_count || 0}</strong>
-                </div>
-                <div className="album-mobile-meta-card">
-                  <span>总时长</span>
-                  <strong>{formatTotalDuration(album.total_duration)}</strong>
-                </div>
-                <div className="album-mobile-meta-card full">
-                  <span>发行日期</span>
-                  <strong>{album.release_date ? new Date(album.release_date).toLocaleDateString('zh-CN') : '--'}</strong>
-                </div>
-              </div>
-            ) : (
-              <Descriptions column={1} size="small" className="album-descriptions">
-                <Descriptions.Item label="总曲目数">{album.track_count || 0}</Descriptions.Item>
-                <Descriptions.Item label="总时长">
-                  {formatTotalDuration(album.total_duration)}
-                </Descriptions.Item>
-                {album.release_date && (
-                  <Descriptions.Item label="发行日期">
-                    {new Date(album.release_date).toLocaleDateString('zh-CN')}
-                  </Descriptions.Item>
-                )}
-              </Descriptions>
-            )}
-            {album.notes && (
-              <Card size="small" className="album-notes-card">
-                <Text type="secondary" className="album-notes-text">
-                  📝 {album.notes}
-                </Text>
-              </Card>
-            )}
-            <Space className={`album-hero-actions${isMobile ? ' mobile' : ''}`} wrap>
+
+        <section className="album-hero-shell relative grid gap-6 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.08] p-4 shadow-2xl backdrop-blur-md md:grid-cols-[320px_minmax(0,1fr)] md:p-8">
+          <div className="relative mx-auto w-full max-w-[320px]">
+            <div className="album-cover-glow" aria-hidden="true" />
+            <Image
+              width="100%"
+              src={coverThumbSrc || MUSIC_ICON_PLACEHOLDER}
+              fallback={MUSIC_ICON_PLACEHOLDER}
+              className="album-cover-image overflow-hidden rounded-2xl"
+              preview={coverFullSrc ? { src: coverFullSrc } : false}
+            />
+          </div>
+
+          <div className="album-hero-info flex min-w-0 flex-col justify-center text-center md:text-left">
+            <p className="text-xs uppercase tracking-[0.32em] text-white/55">Album</p>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-white drop-shadow md:text-5xl">{albumTitleCn}</h1>
+            {albumTitleEn && <p className="mt-2 text-sm text-white/65 md:text-base">{albumTitleEn}</p>}
+
+            <div className="mt-5 grid grid-cols-1 gap-2 text-sm text-white/70 sm:grid-cols-3">
+              <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">总曲目: <span className="font-semibold text-white">{album.track_count || 0}</span></div>
+              <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">总时长: <span className="font-semibold text-white">{formatTotalDuration(album.total_duration)}</span></div>
+              <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">发行日期: <span className="font-semibold text-white">{album.release_date ? new Date(album.release_date).toLocaleDateString('zh-CN') : '--'}</span></div>
+            </div>
+
+            <div className="mt-5 flex flex-wrap justify-center gap-2 md:justify-start">
+              {specBadges.map((spec) => (
+                <span key={spec} className="rounded-full border border-cyan-200/35 bg-gradient-to-r from-cyan-300/15 to-indigo-300/15 px-3 py-1 text-xs font-semibold tracking-wide text-cyan-100">
+                  {spec}
+                </span>
+              ))}
+            </div>
+
+            {album.notes && <p className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-white/75">{album.notes}</p>}
+
+            <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 md:max-w-md">
               <Button
                 type="primary"
                 size="large"
                 icon={<PlayCircleOutlined />}
                 onClick={handlePlayAll}
                 disabled={tracks.length === 0}
+                className="h-12 rounded-xl border-0 bg-gradient-to-r from-indigo-500 to-violet-500 font-semibold"
               >
                 播放全部
               </Button>
+
               <Tooltip title={!DOWNLOAD_ENABLED ? '服务器维护中，暂时关闭下载' : ''}>
                 <Button
                   size="large"
                   icon={<DownloadOutlined />}
                   onClick={handleDownloadAlbum}
                   disabled={tracks.length === 0 || !DOWNLOAD_ENABLED}
+                  className="h-12 rounded-xl border-white/20 bg-white/10 text-white hover:!border-white/40 hover:!bg-white/15"
                 >
                   下载专辑
                 </Button>
               </Tooltip>
-            </Space>
+            </div>
           </div>
-        </div>
+        </section>
 
-        <div className="album-tracks">
-          <h2>曲目列表</h2>
+        <section className="album-track-shell mt-6 rounded-3xl border border-white/10 bg-white/[0.06] p-3 shadow-2xl backdrop-blur-md sm:p-5">
+          <h2 className="mb-4 text-xl font-bold text-white sm:text-2xl">曲目列表</h2>
+
           {discGroups ? (
-            isMobile ? (
-              <Collapse
-                className="album-disc-collapse"
-                bordered={false}
-                defaultActiveKey={mobileDiscPanels?.[0] ? [mobileDiscPanels[0].key] : []}
-                items={mobileDiscPanels || []}
-              />
-            ) : (
-              discGroups.map(group => (
-                <div key={group.disc.id} style={{ marginBottom: 32 }}>
-                  <div className="album-disc-header">
-                    <span className="album-disc-number">💿 Disc {group.disc.disc_number || '?'}</span>
-                    {group.disc.disc_title && (
-                      <span className="album-disc-title"> — {group.disc.disc_title}</span>
-                    )}
-                  </div>
-                  <Table
-                    columns={columns}
-                    dataSource={group.tracks}
-                    rowKey="id"
-                    pagination={false}
-                    size="small"
-                  />
-                </div>
-              ))
-            )
+            <Collapse
+              className="album-disc-collapse"
+              bordered={false}
+              defaultActiveKey={mobileDiscPanels?.[0] ? [mobileDiscPanels[0].key] : []}
+              items={mobileDiscPanels || []}
+            />
           ) : (
-            isMobile
-              ? renderMobileTrackList(tracks)
-              : (
-                <Table
-                  columns={columns}
-                  dataSource={tracks}
-                  rowKey="id"
-                  pagination={false}
-                />
-              )
+            renderTrackList(tracks)
           )}
-        </div>
-      </Content>
-    </Layout>
+        </section>
+      </main>
+    </div>
   );
 };
 

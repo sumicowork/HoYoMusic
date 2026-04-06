@@ -207,7 +207,6 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
           <Route path="/track/:id" element={<TrackDetail />} />
           <Route path="/albums" element={<Albums />} />
           <Route path="/albums/:id" element={<AlbumDetail />} />
-          <Route path="/album/:id" element={<AlbumDetail />} />
           <Route path="/artists" element={<Artists />} />
           <Route path="/artists/:id" element={<ArtistDetail />} />
           <Route path="/tags" element={<Tags />} />
