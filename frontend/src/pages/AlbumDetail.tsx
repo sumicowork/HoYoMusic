@@ -239,7 +239,7 @@ const AlbumDetail: React.FC = () => {
   const immersiveStyle: React.CSSProperties = {
     background: dominantColor
       ? `radial-gradient(circle at 18% 14%, rgba(${dominantColor}, 0.42), transparent 48%), radial-gradient(circle at 84% 10%, rgba(99, 102, 241, 0.26), transparent 42%), linear-gradient(165deg, rgba(8, 10, 22, 0.96) 0%, rgba(11, 15, 28, 0.9) 52%, rgba(7, 9, 18, 0.95) 100%)`
-      : undefined,
+      : 'linear-gradient(165deg, rgba(8, 10, 22, 0.96) 0%, rgba(11, 15, 28, 0.9) 52%, rgba(7, 9, 18, 0.95) 100%)',
   };
 
   return (
@@ -317,15 +317,28 @@ const AlbumDetail: React.FC = () => {
           <h2 className="mb-4 text-xl font-bold text-white sm:text-2xl">曲目列表</h2>
 
           {discGroups ? (
-            <Collapse
-              className="album-disc-collapse"
-              bordered={false}
-              defaultActiveKey={mobileDiscPanels?.[0] ? [mobileDiscPanels[0].key] : []}
-              items={mobileDiscPanels || []}
-            />
-          ) : (
-            renderTrackList(tracks)
-          )}
+            <>
+              <div className="hidden md:block space-y-5">
+                {discGroups.map((group) => (
+                  <div key={group.disc.id}>
+                    <div className="mb-2 flex items-center gap-2 text-sm text-white/75">
+                      <span className="font-semibold text-white">Disc {group.disc.disc_number || '?'}</span>
+                      {group.disc.disc_title && <span className="text-white/55">- {group.disc.disc_title}</span>}
+                    </div>
+                    {renderTrackList(group.tracks)}
+                  </div>
+                ))}
+              </div>
+              <div className="md:hidden">
+                <Collapse
+                  className="album-disc-collapse"
+                  bordered={false}
+                  defaultActiveKey={mobileDiscPanels?.[0] ? [mobileDiscPanels[0].key] : []}
+                  items={mobileDiscPanels || []}
+                />
+              </div>
+            </>
+          ) : renderTrackList(tracks)}
         </section>
       </main>
     </div>

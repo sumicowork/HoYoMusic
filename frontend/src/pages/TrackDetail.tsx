@@ -267,7 +267,7 @@ const TrackDetail: React.FC = () => {
   const immersiveStyle: React.CSSProperties = {
     background: dominantColor
       ? `radial-gradient(circle at 16% 16%, rgba(${dominantColor}, 0.42), transparent 46%), radial-gradient(circle at 84% 10%, rgba(129, 140, 248, 0.24), transparent 40%), linear-gradient(165deg, rgba(7, 10, 22, 0.95) 0%, rgba(10, 15, 30, 0.92) 56%, rgba(8, 10, 20, 0.96) 100%)`
-      : undefined,
+      : 'linear-gradient(165deg, rgba(7, 10, 22, 0.95) 0%, rgba(10, 15, 30, 0.92) 56%, rgba(8, 10, 20, 0.96) 100%)',
   };
 
   return (
