@@ -52,6 +52,7 @@ const TrackDetail: React.FC = () => {
   const titleEn = (track?.title_en && track.title_en.trim()) || '';
   const albumTitleCn = (track?.album_title_cn && track.album_title_cn.trim()) || (track?.album_title || '');
   const albumTitleEn = (track?.album_title_en && track.album_title_en.trim()) || '';
+  const creators = useMemo(() => (track?.artists || []).filter((artist) => Boolean(artist?.name)), [track?.artists]);
 
   const coverSrc = track?.cover_path || track?.album_cover || null;
   const coverThumbSrc = coverSrc ? trackService.getCoverUrl(coverSrc, true) : null;
@@ -220,11 +221,6 @@ const TrackDetail: React.FC = () => {
     return `${Math.floor(seconds / 60)}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`;
   };
 
-  const bpmTag = useMemo(() => {
-    const hit = tags.find((item) => /\b\d{2,3}\s?bpm\b/i.test(item.name));
-    return hit ? hit.name.replace(/\s+/g, ' ').trim() : null;
-  }, [tags]);
-
   const specCards = useMemo(() => {
     if (!track) return [];
     const cards: Array<{ label: string; value: string }> = [
@@ -236,16 +232,12 @@ const TrackDetail: React.FC = () => {
       cards.push({ label: '规格', value: `${(track.sample_rate / 1000).toFixed(1)}kHz / ${track.bit_depth}bit` });
     }
 
-    if (bpmTag) {
-      cards.push({ label: '节奏', value: bpmTag.toUpperCase() });
-    }
-
     if (track.file_size) {
       cards.push({ label: '大小', value: `${(track.file_size / (1024 * 1024)).toFixed(2)} MB` });
     }
 
     return cards;
-  }, [track, bpmTag]);
+  }, [track]);
 
   if (loading) {
     return (
@@ -281,7 +273,7 @@ const TrackDetail: React.FC = () => {
           </Button>
         </div>
 
-        <section className="track-hero-panel grid gap-6 rounded-3xl border border-white/10 bg-white/[0.07] p-4 shadow-2xl backdrop-blur-md lg:grid-cols-[300px_minmax(0,1fr)] lg:p-8">
+        <section className="track-hero-panel grid gap-6 rounded-3xl border border-white/15 bg-black/45 p-4 shadow-2xl backdrop-blur-md lg:grid-cols-[300px_minmax(0,1fr)] lg:p-8">
           <div className="relative mx-auto w-full max-w-[300px]">
             <div className="track-cover-glow" aria-hidden="true" />
             <Image
@@ -297,6 +289,20 @@ const TrackDetail: React.FC = () => {
             <p className="text-xs uppercase tracking-[0.32em] text-white/55">Track</p>
             <h1 className="mt-2 text-3xl font-black tracking-tight text-white md:text-5xl">{titleCn}</h1>
             {titleEn && <p className="mt-2 text-sm text-white/65">{titleEn}</p>}
+
+            {creators.length > 0 && (
+              <p className="mt-3 text-sm text-white/80">
+                创作者：
+                {creators.map((artist, index) => (
+                  <React.Fragment key={artist.id}>
+                    <Link to={`/artists/${encodeURIComponent(artist.name)}`} className="font-semibold text-cyan-100 hover:text-cyan-50">
+                      {artist.name}
+                    </Link>
+                    {index < creators.length - 1 ? <span className="mx-1 text-white/45">/</span> : null}
+                  </React.Fragment>
+                ))}
+              </p>
+            )}
 
             {albumTitleCn && (
               <p className="mt-3 text-sm text-white/70">
@@ -314,7 +320,7 @@ const TrackDetail: React.FC = () => {
 
             <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3">
               {specCards.map((card) => (
-                <div key={card.label} className="rounded-xl border border-white/[0.12] bg-black/20 px-3 py-3 text-left">
+                <div key={card.label} className="rounded-xl border border-white/[0.15] bg-black/45 px-3 py-3 text-left">
                   <p className="text-[11px] uppercase tracking-[0.18em] text-white/50">{card.label}</p>
                   <p className="mt-1 truncate text-sm font-semibold text-white">{card.value}</p>
                 </div>
@@ -334,7 +340,7 @@ const TrackDetail: React.FC = () => {
             </div>
 
             {track.notes && (
-              <p className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-white/75">{track.notes}</p>
+              <p className="mt-4 rounded-xl border border-white/15 bg-black/45 p-3 text-sm text-white/80">{track.notes}</p>
             )}
 
             <div className="mt-6 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
@@ -355,7 +361,7 @@ const TrackDetail: React.FC = () => {
                   onClick={handleDownload}
                   disabled={!DOWNLOAD_ENABLED}
                   shape="circle"
-                  className="h-11 w-11 rounded-full border-white/20 bg-white/10 text-white hover:!border-white/35 hover:!bg-white/20"
+                  className="h-11 w-11 rounded-full border-white/30 bg-black/45 text-white hover:!border-white/55 hover:!bg-black/55"
                 />
               </Tooltip>
 
@@ -365,7 +371,7 @@ const TrackDetail: React.FC = () => {
                   size="large"
                   onClick={handleToggleFavorite}
                   shape="circle"
-                  className="h-11 w-11 rounded-full border-white/20 bg-white/10 text-white hover:!border-white/35 hover:!bg-white/20"
+                  className="h-11 w-11 rounded-full border-white/30 bg-black/45 text-white hover:!border-white/55 hover:!bg-black/55"
                 />
               )}
 
@@ -374,7 +380,7 @@ const TrackDetail: React.FC = () => {
                   icon={<PlusOutlined />}
                   size="large"
                   onClick={() => setPlaylistModalOpen(true)}
-                  className="h-11 rounded-xl border-white/20 bg-white/10 px-4 text-white hover:!border-white/35 hover:!bg-white/20"
+                  className="h-11 rounded-xl border-white/30 bg-black/45 px-4 text-white hover:!border-white/55 hover:!bg-black/55"
                 >
                   收藏到歌单
                 </Button>

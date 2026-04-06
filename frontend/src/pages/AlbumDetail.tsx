@@ -118,25 +118,11 @@ const AlbumDetail: React.FC = () => {
     return groups.length > 0 ? groups : null;
   }, [tracks, discs]);
 
-  const findBpmTag = (track: Track): string | null => {
-    const sourceTags = Array.isArray(track.tags) ? track.tags : [];
-    const bpmFromTag = sourceTags.find((item) => /\b\d{2,3}\s?bpm\b/i.test(item.name));
-    if (bpmFromTag) {
-      return bpmFromTag.name.replace(/\s+/g, ' ').trim();
-    }
-    const notesValue = (track.notes || '').match(/\b(\d{2,3})\s?bpm\b/i);
-    return notesValue ? `${notesValue[1]} BPM` : null;
-  };
-
   const specBadges = useMemo(() => {
     const result: string[] = ['FLAC'];
     const qualityTrack = tracks.find((item) => item.sample_rate && item.bit_depth);
     if (qualityTrack?.sample_rate && qualityTrack?.bit_depth) {
       result.push(`${(qualityTrack.sample_rate / 1000).toFixed(1)}kHz / ${qualityTrack.bit_depth}bit`);
-    }
-    const bpmTag = tracks.map(findBpmTag).find(Boolean);
-    if (bpmTag) {
-      result.push(bpmTag);
     }
     if (tracks.length > 0) {
       result.push(`${tracks.length} Tracks`);
@@ -145,13 +131,13 @@ const AlbumDetail: React.FC = () => {
   }, [tracks]);
 
   const renderTrackList = (list: Track[]) => (
-    <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.05] backdrop-blur-md">
+    <div className="overflow-hidden rounded-2xl border border-white/15 bg-black/45 backdrop-blur-md">
       {list.map((track, idx) => {
         const trackTitleCn = (track.title_cn && track.title_cn.trim()) || track.title;
         return (
           <div
             key={track.id}
-            className="group grid grid-cols-[52px_minmax(0,1fr)_auto] items-center gap-2 border-b border-white/[0.06] px-2 py-2 transition-all duration-200 last:border-b-0 hover:bg-white/10 sm:grid-cols-[70px_minmax(0,1fr)_auto] sm:px-4 sm:py-3"
+            className="group grid grid-cols-[52px_minmax(0,1fr)_auto] items-center gap-2 border-b border-white/[0.08] px-2 py-2 transition-all duration-200 last:border-b-0 hover:bg-white/10 sm:grid-cols-[70px_minmax(0,1fr)_auto] sm:px-4 sm:py-3"
           >
             <button
               type="button"
@@ -253,7 +239,7 @@ const AlbumDetail: React.FC = () => {
           </Button>
         </div>
 
-        <section className="album-hero-shell relative grid gap-6 overflow-hidden rounded-3xl border border-white/10 bg-white/[0.08] p-4 shadow-2xl backdrop-blur-md md:grid-cols-[320px_minmax(0,1fr)] md:p-8">
+        <section className="album-hero-shell relative grid gap-6 overflow-hidden rounded-3xl border border-white/15 bg-black/45 p-4 shadow-2xl backdrop-blur-md md:grid-cols-[320px_minmax(0,1fr)] md:p-8">
           <div className="relative mx-auto w-full max-w-[320px]">
             <div className="album-cover-glow" aria-hidden="true" />
             <Image
@@ -271,20 +257,20 @@ const AlbumDetail: React.FC = () => {
             {albumTitleEn && <p className="mt-2 text-sm text-white/65 md:text-base">{albumTitleEn}</p>}
 
             <div className="mt-5 grid grid-cols-1 gap-2 text-sm text-white/70 sm:grid-cols-3">
-              <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">总曲目: <span className="font-semibold text-white">{album.track_count || 0}</span></div>
-              <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">总时长: <span className="font-semibold text-white">{formatTotalDuration(album.total_duration)}</span></div>
-              <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">发行日期: <span className="font-semibold text-white">{album.release_date ? new Date(album.release_date).toLocaleDateString('zh-CN') : '--'}</span></div>
+              <div className="rounded-xl border border-white/15 bg-black/40 px-3 py-2">总曲目: <span className="font-semibold text-white">{album.track_count || 0}</span></div>
+              <div className="rounded-xl border border-white/15 bg-black/40 px-3 py-2">总时长: <span className="font-semibold text-white">{formatTotalDuration(album.total_duration)}</span></div>
+              <div className="rounded-xl border border-white/15 bg-black/40 px-3 py-2">发行日期: <span className="font-semibold text-white">{album.release_date ? new Date(album.release_date).toLocaleDateString('zh-CN') : '--'}</span></div>
             </div>
 
             <div className="mt-5 flex flex-wrap justify-center gap-2 md:justify-start">
               {specBadges.map((spec) => (
-                <span key={spec} className="rounded-full border border-cyan-200/35 bg-gradient-to-r from-cyan-300/15 to-indigo-300/15 px-3 py-1 text-xs font-semibold tracking-wide text-cyan-100">
+                <span key={spec} className="rounded-full border border-cyan-200/40 bg-gradient-to-r from-cyan-300/20 to-indigo-300/20 px-3 py-1 text-xs font-semibold tracking-wide text-cyan-50">
                   {spec}
                 </span>
               ))}
             </div>
 
-            {album.notes && <p className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-white/75">{album.notes}</p>}
+            {album.notes && <p className="mt-4 rounded-xl border border-white/15 bg-black/45 p-3 text-sm text-white/80">{album.notes}</p>}
 
             <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 md:max-w-md">
               <Button
@@ -304,7 +290,7 @@ const AlbumDetail: React.FC = () => {
                   icon={<DownloadOutlined />}
                   onClick={handleDownloadAlbum}
                   disabled={tracks.length === 0 || !DOWNLOAD_ENABLED}
-                  className="h-12 rounded-xl border-white/20 bg-white/10 text-white hover:!border-white/40 hover:!bg-white/15"
+                  className="h-12 rounded-xl border-white/30 bg-black/45 text-white hover:!border-white/55 hover:!bg-black/55"
                 >
                   下载专辑
                 </Button>
@@ -313,7 +299,7 @@ const AlbumDetail: React.FC = () => {
           </div>
         </section>
 
-        <section className="album-track-shell mt-6 rounded-3xl border border-white/10 bg-white/[0.06] p-3 shadow-2xl backdrop-blur-md sm:p-5">
+        <section className="album-track-shell mt-6 rounded-3xl border border-white/15 bg-black/45 p-3 shadow-2xl backdrop-blur-md sm:p-5">
           <h2 className="mb-4 text-xl font-bold text-white sm:text-2xl">曲目列表</h2>
 
           {discGroups ? (

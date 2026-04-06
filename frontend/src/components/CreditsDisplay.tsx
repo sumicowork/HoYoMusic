@@ -24,7 +24,7 @@ const CreditsDisplay: React.FC<CreditsDisplayProps> = ({ credits }) => {
 
   if (!credits || credits.length === 0) {
     return (
-      <section className="credits-card mt-5 rounded-3xl border border-white/10 bg-white/[0.06] p-5 shadow-2xl backdrop-blur-md">
+      <section className="credits-card mt-5 rounded-3xl border border-white/15 bg-black/45 p-5 shadow-2xl backdrop-blur-md">
         <h3 className="mb-4 text-xl font-bold text-white">制作信息</h3>
         <Empty description="暂无制作信息" image={Empty.PRESENTED_IMAGE_SIMPLE} />
       </section>
@@ -32,7 +32,7 @@ const CreditsDisplay: React.FC<CreditsDisplayProps> = ({ credits }) => {
   }
 
   return (
-    <section className="credits-card mt-5 rounded-3xl border border-white/10 bg-white/[0.06] p-5 shadow-2xl backdrop-blur-md">
+    <section className="credits-card mt-5 rounded-3xl border border-white/15 bg-black/45 p-5 shadow-2xl backdrop-blur-md">
       <h3 className="mb-4 text-xl font-bold text-white">制作信息</h3>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {credits.map((credit) => {

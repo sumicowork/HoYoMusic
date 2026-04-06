@@ -3,6 +3,15 @@
   overflow: hidden;
 }
 
+.track-detail-layout::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(5, 8, 18, 0.4), rgba(5, 8, 18, 0.56));
+  pointer-events: none;
+  z-index: 0;
+}
+
 .track-immersive-orb {
   position: fixed;
   left: -20vmin;
