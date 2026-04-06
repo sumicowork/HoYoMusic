@@ -131,7 +131,7 @@ const AlbumDetail: React.FC = () => {
   }, [tracks]);
 
   const renderTrackList = (list: Track[]) => (
-    <div className="overflow-hidden rounded-2xl border border-white/15 bg-black/45 backdrop-blur-md">
+    <div className="overflow-hidden rounded-2xl border border-white/20 bg-white/[0.12] backdrop-blur-md">
       {list.map((track, idx) => {
         const trackTitleCn = (track.title_cn && track.title_cn.trim()) || track.title;
         return (
@@ -142,7 +142,7 @@ const AlbumDetail: React.FC = () => {
             <button
               type="button"
               onClick={() => handlePlay(track)}
-              className="h-11 w-11 rounded-full text-sm font-semibold text-white/70 transition-all hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-white/40"
+              className="h-11 w-11 rounded-full text-sm font-semibold text-[color:var(--text-secondary)] transition-all hover:bg-white/10 hover:text-[color:var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-white/30"
               aria-label={`播放 ${trackTitleCn}`}
             >
               <span className="group-hover:hidden">{track.track_number || idx + 1}</span>
@@ -153,16 +153,16 @@ const AlbumDetail: React.FC = () => {
               <button
                 type="button"
                 onClick={() => navigate(`/track/${track.id}`)}
-                className="max-w-full truncate text-left text-base font-semibold text-white transition-colors hover:text-indigo-200"
+                className="max-w-full truncate text-left text-base font-semibold text-[color:var(--text-primary)] transition-colors hover:text-indigo-300"
               >
                 {trackTitleCn}
               </button>
-              {track.title_en && <p className="truncate text-xs text-white/60">{track.title_en}</p>}
-              {track.notes && <p className="truncate text-xs text-white/45">{track.notes}</p>}
+              {track.title_en && <p className="truncate text-xs text-[color:var(--text-secondary)]">{track.title_en}</p>}
+              {track.notes && <p className="truncate text-xs text-[color:var(--text-tertiary)]">{track.notes}</p>}
             </div>
 
             <div className="ml-2 flex items-center gap-1 sm:gap-2">
-              <span className="hidden min-w-14 text-right text-xs text-white/60 sm:inline">{formatDuration(track.duration || 0)}</span>
+              <span className="hidden min-w-14 text-right text-xs text-[color:var(--text-secondary)] sm:inline">{formatDuration(track.duration || 0)}</span>
               <Tooltip title={!DOWNLOAD_ENABLED ? '服务器维护中，暂时关闭下载' : ''}>
                 <Button
                   type="text"
@@ -170,14 +170,14 @@ const AlbumDetail: React.FC = () => {
                   icon={<DownloadOutlined />}
                   onClick={() => handleDownload(track)}
                   disabled={!DOWNLOAD_ENABLED}
-                  className="h-11 w-11 !text-white/80 hover:!text-white"
+                  className="h-11 w-11 !text-[color:var(--text-secondary)] hover:!text-[color:var(--text-primary)]"
                 />
               </Tooltip>
               <Button
                 type="text"
                 shape="circle"
                 icon={<MoreOutlined />}
-                className="h-11 w-11 !text-white/80 hover:!text-white"
+                className="h-11 w-11 !text-[color:var(--text-secondary)] hover:!text-[color:var(--text-primary)]"
               />
             </div>
           </div>
@@ -239,7 +239,7 @@ const AlbumDetail: React.FC = () => {
           </Button>
         </div>
 
-        <section className="album-hero-shell relative grid gap-6 overflow-hidden rounded-3xl border border-white/15 bg-black/45 p-4 shadow-2xl backdrop-blur-md md:grid-cols-[320px_minmax(0,1fr)] md:p-8">
+        <section className="album-hero-shell relative grid gap-6 overflow-hidden rounded-3xl border border-white/20 bg-white/[0.14] p-4 shadow-2xl backdrop-blur-md md:grid-cols-[320px_minmax(0,1fr)] md:p-8">
           <div className="relative mx-auto w-full max-w-[320px]">
             <div className="album-cover-glow" aria-hidden="true" />
             <Image
@@ -252,14 +252,14 @@ const AlbumDetail: React.FC = () => {
           </div>
 
           <div className="album-hero-info flex min-w-0 flex-col justify-center text-center md:text-left">
-            <p className="text-xs uppercase tracking-[0.32em] text-white/55">Album</p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight text-white drop-shadow md:text-5xl">{albumTitleCn}</h1>
-            {albumTitleEn && <p className="mt-2 text-sm text-white/65 md:text-base">{albumTitleEn}</p>}
+            <p className="text-xs uppercase tracking-[0.32em] text-[color:var(--text-tertiary)]">Album</p>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-[color:var(--text-primary)] drop-shadow md:text-5xl">{albumTitleCn}</h1>
+            {albumTitleEn && <p className="mt-2 text-sm text-[color:var(--text-secondary)] md:text-base">{albumTitleEn}</p>}
 
-            <div className="mt-5 grid grid-cols-1 gap-2 text-sm text-white/70 sm:grid-cols-3">
-              <div className="rounded-xl border border-white/15 bg-black/40 px-3 py-2">总曲目: <span className="font-semibold text-white">{album.track_count || 0}</span></div>
-              <div className="rounded-xl border border-white/15 bg-black/40 px-3 py-2">总时长: <span className="font-semibold text-white">{formatTotalDuration(album.total_duration)}</span></div>
-              <div className="rounded-xl border border-white/15 bg-black/40 px-3 py-2">发行日期: <span className="font-semibold text-white">{album.release_date ? new Date(album.release_date).toLocaleDateString('zh-CN') : '--'}</span></div>
+            <div className="mt-5 grid grid-cols-1 gap-2 text-sm text-[color:var(--text-secondary)] sm:grid-cols-3">
+              <div className="rounded-xl border border-white/20 bg-white/[0.15] px-3 py-2">总曲目: <span className="font-semibold text-[color:var(--text-primary)]">{album.track_count || 0}</span></div>
+              <div className="rounded-xl border border-white/20 bg-white/[0.15] px-3 py-2">总时长: <span className="font-semibold text-[color:var(--text-primary)]">{formatTotalDuration(album.total_duration)}</span></div>
+              <div className="rounded-xl border border-white/20 bg-white/[0.15] px-3 py-2">发行日期: <span className="font-semibold text-[color:var(--text-primary)]">{album.release_date ? new Date(album.release_date).toLocaleDateString('zh-CN') : '--'}</span></div>
             </div>
 
             <div className="mt-5 flex flex-wrap justify-center gap-2 md:justify-start">
@@ -270,7 +270,7 @@ const AlbumDetail: React.FC = () => {
               ))}
             </div>
 
-            {album.notes && <p className="mt-4 rounded-xl border border-white/15 bg-black/45 p-3 text-sm text-white/80">{album.notes}</p>}
+            {album.notes && <p className="mt-4 rounded-xl border border-white/20 bg-white/[0.14] p-3 text-sm text-[color:var(--text-secondary)]">{album.notes}</p>}
 
             <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 md:max-w-md">
               <Button
@@ -290,7 +290,7 @@ const AlbumDetail: React.FC = () => {
                   icon={<DownloadOutlined />}
                   onClick={handleDownloadAlbum}
                   disabled={tracks.length === 0 || !DOWNLOAD_ENABLED}
-                  className="h-12 rounded-xl border-white/30 bg-black/45 text-white hover:!border-white/55 hover:!bg-black/55"
+                  className="h-12 rounded-xl border-white/30 bg-white/[0.14] text-[color:var(--text-primary)] hover:!border-white/55 hover:!bg-white/[0.2]"
                 >
                   下载专辑
                 </Button>
@@ -299,17 +299,17 @@ const AlbumDetail: React.FC = () => {
           </div>
         </section>
 
-        <section className="album-track-shell mt-6 rounded-3xl border border-white/15 bg-black/45 p-3 shadow-2xl backdrop-blur-md sm:p-5">
-          <h2 className="mb-4 text-xl font-bold text-white sm:text-2xl">曲目列表</h2>
+        <section className="album-track-shell mt-6 rounded-3xl border border-white/20 bg-white/[0.12] p-3 shadow-2xl backdrop-blur-md sm:p-5">
+          <h2 className="mb-4 text-xl font-bold text-[color:var(--text-primary)] sm:text-2xl">曲目列表</h2>
 
           {discGroups ? (
             <>
               <div className="hidden md:block space-y-5">
                 {discGroups.map((group) => (
                   <div key={group.disc.id}>
-                    <div className="mb-2 flex items-center gap-2 text-sm text-white/75">
-                      <span className="font-semibold text-white">Disc {group.disc.disc_number || '?'}</span>
-                      {group.disc.disc_title && <span className="text-white/55">- {group.disc.disc_title}</span>}
+                    <div className="mb-2 flex items-center gap-2 text-sm text-[color:var(--text-secondary)]">
+                      <span className="font-semibold text-[color:var(--text-primary)]">Disc {group.disc.disc_number || '?'}</span>
+                      {group.disc.disc_title && <span className="text-[color:var(--text-tertiary)]">- {group.disc.disc_title}</span>}
                     </div>
                     {renderTrackList(group.tracks)}
                   </div>

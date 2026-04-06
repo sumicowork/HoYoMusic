@@ -7,7 +7,7 @@
   content: '';
   position: fixed;
   inset: 0;
-  background: linear-gradient(180deg, rgba(5, 8, 18, 0.4), rgba(5, 8, 18, 0.56));
+  background: linear-gradient(180deg, rgba(8, 12, 24, 0.16), rgba(8, 12, 24, 0.26));
   pointer-events: none;
   z-index: 0;
 }
