@@ -6,6 +6,7 @@ import { Track } from '../types';
 import { trackService, DOWNLOAD_ENABLED } from '../services/trackService';
 import { albumService } from '../services/albumService';
 import { usePlayerStore } from '../store/playerStore';
+import { useThemeStore } from '../store/themeStore';
 import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
 import { useDominantColor } from '../utils/useDominantColor';
 import './AlbumDetail.css';
@@ -39,6 +40,8 @@ const AlbumDetail: React.FC = () => {
   const albumTitleEn = (album?.title_en && album.title_en.trim()) || '';
 
   const { play, playTrackOnly, setPlaylist } = usePlayerStore();
+  const mode = useThemeStore((state) => state.mode);
+  const isDark = mode === 'dark';
   const coverThumbSrc = album?.cover_path ? trackService.getCoverUrl(album.cover_path, true) : null;
   const coverFullSrc = album?.cover_path ? trackService.getCoverUrl(album.cover_path) : null;
   const dominantColor = useDominantColor(coverThumbSrc || coverFullSrc);
@@ -223,9 +226,17 @@ const AlbumDetail: React.FC = () => {
   }
 
   const immersiveStyle: React.CSSProperties = {
-    background: dominantColor
-      ? `radial-gradient(circle at 18% 14%, rgba(${dominantColor}, 0.42), transparent 48%), radial-gradient(circle at 84% 10%, rgba(99, 102, 241, 0.26), transparent 42%), linear-gradient(165deg, rgba(8, 10, 22, 0.96) 0%, rgba(11, 15, 28, 0.9) 52%, rgba(7, 9, 18, 0.95) 100%)`
-      : 'linear-gradient(165deg, rgba(8, 10, 22, 0.96) 0%, rgba(11, 15, 28, 0.9) 52%, rgba(7, 9, 18, 0.95) 100%)',
+    background: isDark
+      ? (
+        dominantColor
+          ? `radial-gradient(circle at 18% 14%, rgba(${dominantColor}, 0.42), transparent 48%), radial-gradient(circle at 84% 10%, rgba(99, 102, 241, 0.26), transparent 42%), linear-gradient(165deg, rgba(8, 10, 22, 0.96) 0%, rgba(11, 15, 28, 0.9) 52%, rgba(7, 9, 18, 0.95) 100%)`
+          : 'linear-gradient(165deg, rgba(8, 10, 22, 0.96) 0%, rgba(11, 15, 28, 0.9) 52%, rgba(7, 9, 18, 0.95) 100%)'
+      )
+      : (
+        dominantColor
+          ? `radial-gradient(circle at 18% 14%, rgba(${dominantColor}, 0.22), transparent 48%), radial-gradient(circle at 84% 10%, rgba(99, 102, 241, 0.12), transparent 42%), linear-gradient(165deg, #eef3ff 0%, #f8f7ff 52%, #edf3ff 100%)`
+          : 'linear-gradient(165deg, #eef3ff 0%, #f8f7ff 52%, #edf3ff 100%)'
+      ),
   };
 
   return (

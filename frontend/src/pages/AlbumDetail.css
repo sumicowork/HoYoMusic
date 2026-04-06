@@ -8,9 +8,16 @@
   content: '';
   position: fixed;
   inset: 0;
-  background: linear-gradient(180deg, rgba(8, 12, 24, 0.18), rgba(8, 12, 24, 0.28));
   pointer-events: none;
   z-index: 0;
+}
+
+[data-theme='light'] .album-detail-layout::before {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.16));
+}
+
+[data-theme='dark'] .album-detail-layout::before {
+  background: linear-gradient(180deg, rgba(8, 12, 24, 0.18), rgba(8, 12, 24, 0.28));
 }
 
 .album-immersive-orb {

@@ -16,6 +16,7 @@ import favoriteService from '../services/favoriteService';
 import playlistService from '../services/playlistService';
 import PlaylistPickerModal from '../components/PlaylistPickerModal';
 import { useDebugUserFeatures } from '../utils/debugFeature';
+import { useThemeStore } from '../store/themeStore';
 import { useDominantColor } from '../utils/useDominantColor';
 import './TrackDetail.css';
 
@@ -47,12 +48,42 @@ const TrackDetail: React.FC = () => {
   );
 
   const { progress, playTrackOnly, seek } = usePlayerStore();
+  const mode = useThemeStore((state) => state.mode);
+  const isDark = mode === 'dark';
   const canUseDebugFeatures = useDebugUserFeatures();
   const titleCn = (track?.title_cn && track.title_cn.trim()) || track?.title || '';
   const titleEn = (track?.title_en && track.title_en.trim()) || '';
   const albumTitleCn = (track?.album_title_cn && track.album_title_cn.trim()) || (track?.album_title || '');
   const albumTitleEn = (track?.album_title_en && track.album_title_en.trim()) || '';
-  const creators = useMemo(() => (track?.artists || []).filter((artist) => Boolean(artist?.name)), [track?.artists]);
+  const creatorSummary = useMemo(() => {
+    const rolePriority = [/作曲/i, /composer/i, /编曲/i, /arranger/i, /演唱/i, /vocal/i, /制作人/i, /producer/i];
+    const sortedCredits = [...credits].sort((a, b) => {
+      const aIndex = rolePriority.findIndex((rule) => rule.test(a.credit_key || ''));
+      const bIndex = rolePriority.findIndex((rule) => rule.test(b.credit_key || ''));
+      const aOrder = aIndex === -1 ? 999 : aIndex;
+      const bOrder = bIndex === -1 ? 999 : bIndex;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      return a.display_order - b.display_order;
+    });
+
+    const names: string[] = [];
+    const seen = new Set<string>();
+    for (const credit of sortedCredits) {
+      const parts = String(credit.credit_value || '')
+        .split(/\s*(?:\/|、|,|，|;|；|&|＆|\||｜|\+|＋)\s*/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+      for (const name of parts) {
+        const key = name.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          names.push(name);
+        }
+      }
+      if (names.length >= 4) break;
+    }
+    return names;
+  }, [credits]);
 
   const coverSrc = track?.cover_path || track?.album_cover || null;
   const coverThumbSrc = coverSrc ? trackService.getCoverUrl(coverSrc, true) : null;
@@ -257,9 +288,17 @@ const TrackDetail: React.FC = () => {
   }
 
   const immersiveStyle: React.CSSProperties = {
-    background: dominantColor
-      ? `radial-gradient(circle at 16% 16%, rgba(${dominantColor}, 0.42), transparent 46%), radial-gradient(circle at 84% 10%, rgba(129, 140, 248, 0.24), transparent 40%), linear-gradient(165deg, rgba(7, 10, 22, 0.95) 0%, rgba(10, 15, 30, 0.92) 56%, rgba(8, 10, 20, 0.96) 100%)`
-      : 'linear-gradient(165deg, rgba(7, 10, 22, 0.95) 0%, rgba(10, 15, 30, 0.92) 56%, rgba(8, 10, 20, 0.96) 100%)',
+    background: isDark
+      ? (
+        dominantColor
+          ? `radial-gradient(circle at 16% 16%, rgba(${dominantColor}, 0.42), transparent 46%), radial-gradient(circle at 84% 10%, rgba(129, 140, 248, 0.24), transparent 40%), linear-gradient(165deg, rgba(7, 10, 22, 0.95) 0%, rgba(10, 15, 30, 0.92) 56%, rgba(8, 10, 20, 0.96) 100%)`
+          : 'linear-gradient(165deg, rgba(7, 10, 22, 0.95) 0%, rgba(10, 15, 30, 0.92) 56%, rgba(8, 10, 20, 0.96) 100%)'
+      )
+      : (
+        dominantColor
+          ? `radial-gradient(circle at 16% 16%, rgba(${dominantColor}, 0.2), transparent 46%), radial-gradient(circle at 84% 10%, rgba(129, 140, 248, 0.14), transparent 40%), linear-gradient(165deg, #eef3ff 0%, #f8f7ff 56%, #edf3ff 100%)`
+          : 'linear-gradient(165deg, #eef3ff 0%, #f8f7ff 56%, #edf3ff 100%)'
+      ),
   };
 
   return (
@@ -290,15 +329,13 @@ const TrackDetail: React.FC = () => {
             <h1 className="mt-2 text-3xl font-black tracking-tight text-[color:var(--text-primary)] md:text-5xl">{titleCn}</h1>
             {titleEn && <p className="mt-2 text-sm text-[color:var(--text-secondary)]">{titleEn}</p>}
 
-            {creators.length > 0 && (
+            {creatorSummary.length > 0 && (
               <p className="mt-3 text-sm text-[color:var(--text-secondary)]">
                 创作者：
-                {creators.map((artist, index) => (
-                  <React.Fragment key={artist.id}>
-                    <Link to={`/artists/${encodeURIComponent(artist.name)}`} className="font-semibold text-cyan-400 hover:text-cyan-500">
-                      {artist.name}
-                    </Link>
-                    {index < creators.length - 1 ? <span className="mx-1 text-[color:var(--text-tertiary)]">/</span> : null}
+                {creatorSummary.map((name, index) => (
+                  <React.Fragment key={name}>
+                    <span className="font-semibold text-cyan-500">{name}</span>
+                    {index < creatorSummary.length - 1 ? <span className="mx-1 text-[color:var(--text-tertiary)]">/</span> : null}
                   </React.Fragment>
                 ))}
               </p>
