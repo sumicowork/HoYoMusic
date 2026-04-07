@@ -66,6 +66,11 @@ interface RoleAliasItem {
   created_at: string;
 }
 
+interface RoleStatItem {
+  role: string;
+  usage_count: number;
+}
+
 const ArtistManagement: React.FC = () => {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
@@ -87,6 +92,7 @@ const ArtistManagement: React.FC = () => {
   const [aliases, setAliases] = useState<AliasItem[]>([]);
   const [aliasesModalVisible, setAliasesModalVisible] = useState(false);
   const [roleAliases, setRoleAliases] = useState<RoleAliasItem[]>([]);
+  const [allRoles, setAllRoles] = useState<RoleStatItem[]>([]);
   const [roleAliasesModalVisible, setRoleAliasesModalVisible] = useState(false);
   const [roleMergeModalVisible, setRoleMergeModalVisible] = useState(false);
   const [mergeRoleCandidates, setMergeRoleCandidates] = useState<string[]>([]);
@@ -132,6 +138,15 @@ const ArtistManagement: React.FC = () => {
       if (response.data.success) setRoleAliases(response.data.data.aliases);
     } catch {
       message.error('获取角色别名列表失败');
+    }
+  };
+
+  const fetchAllRoles = async () => {
+    try {
+      const response = await api.get('/artists/roles');
+      if (response.data.success) setAllRoles(response.data.data.roles || []);
+    } catch {
+      message.error('获取角色列表失败');
     }
   };
 
@@ -253,6 +268,7 @@ const ArtistManagement: React.FC = () => {
         setSelectedRoles([]);
         setCanonicalRole('');
         void fetchRoleAliases();
+        void fetchAllRoles();
         void fetchArtists(pagination.current, searchText, pagination.pageSize);
       }
     } catch (error: any) {
@@ -443,6 +459,17 @@ const ArtistManagement: React.FC = () => {
         </Button>
       )}
       <Button onClick={() => { void fetchAliases(); setAliasesModalVisible(true); }}>查看别名</Button>
+      <Button
+        onClick={() => {
+          void fetchAllRoles();
+          setMergeRoleCandidates([]);
+          setSelectedRoles([]);
+          setCanonicalRole('');
+          setRoleMergeModalVisible(true);
+        }}
+      >
+        全局合并角色
+      </Button>
       <Button onClick={() => { void fetchRoleAliases(); setRoleAliasesModalVisible(true); }}>查看角色别名</Button>
     </AdminActionBar>
   );
@@ -637,20 +664,6 @@ const ArtistManagement: React.FC = () => {
             </Space>
           ))}
         </Space>
-        <div style={{ marginTop: 14 }}>
-          <Button
-            disabled={editRoleMappings.length < 2}
-            onClick={() => {
-              const roles = Array.from(new Set(editRoleMappings.map((item) => item.from).filter(Boolean)));
-              setMergeRoleCandidates(roles);
-              setSelectedRoles([]);
-              setCanonicalRole('');
-              setRoleMergeModalVisible(true);
-            }}
-          >
-            合并该艺术家的角色别名
-          </Button>
-        </div>
       </Modal>
 
       <Modal
@@ -669,8 +682,19 @@ const ArtistManagement: React.FC = () => {
         width={520}
       >
         <div style={{ marginBottom: 12 }}>
-          <p>请先勾选需要参与合并的角色（至少 2 项），再选择主角色。</p>
+          <p>请先勾选需要参与合并的全局角色（至少 2 项），再选择主角色。</p>
         </div>
+
+        {allRoles.length > 0 && (
+          <div style={{ marginBottom: 10 }}>
+            <p style={{ marginBottom: 8, color: 'var(--text-secondary)' }}>可选角色（按使用次数排序）：</p>
+            <Space wrap>
+              {allRoles.map((item) => (
+                <Tag key={item.role}>{item.role} ({item.usage_count})</Tag>
+              ))}
+            </Space>
+          </div>
+        )}
 
         <Checkbox.Group
           style={{ width: '100%', marginBottom: 12 }}
@@ -684,7 +708,10 @@ const ArtistManagement: React.FC = () => {
           }}
         >
           <Space wrap>
-            {mergeRoleCandidates.map((role) => (
+            {(mergeRoleCandidates.length > 0
+              ? mergeRoleCandidates
+              : allRoles.map((item) => item.role)
+            ).map((role) => (
               <Checkbox key={role} value={role}>{role}</Checkbox>
             ))}
           </Space>

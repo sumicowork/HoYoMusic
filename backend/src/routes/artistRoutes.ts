@@ -12,6 +12,7 @@ import {
   mergeArtistRoles,
   getRoleAliases,
   deleteRoleAlias,
+  getArtistRoles,
 } from '../controllers/artistController';
 import { coverUpload } from '../middleware/upload';
 import { validateBody } from '../middleware/validate';
@@ -23,6 +24,7 @@ const router = express.Router();
 // Public routes
 router.get('/', getArtists);
 router.get('/aliases', getAliases);
+router.get('/roles', getArtistRoles);
 router.get('/roles/aliases', getRoleAliases);
 router.get('/avatars', getAllArtistAvatars);
 router.get('/avatar/:name', getArtistAvatar);

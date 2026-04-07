@@ -516,6 +516,45 @@ const ensureRoleAliasTable = async () => {
   `);
 };
 
+export const getArtistRoles = async (req: Request, res: Response) => {
+  try {
+    await ensureRoleAliasTable();
+    const search = String(req.query.search || '').trim();
+    const params: any[] = [];
+    let whereSql = '';
+    if (search) {
+      params.push(`%${search}%`);
+      whereSql = 'WHERE LOWER(role_name) LIKE LOWER($1)';
+    }
+
+    const result = await pool.query(
+      `WITH canonical_roles AS (
+         SELECT COALESCE(ara.canonical_role, tc.credit_key) AS role_name
+         FROM track_credits tc
+         LEFT JOIN artist_role_aliases ara ON LOWER(tc.credit_key) = LOWER(ara.alias_role)
+         WHERE tc.credit_key IS NOT NULL AND BTRIM(tc.credit_key) <> ''
+       )
+       SELECT role_name AS role, COUNT(*)::int AS usage_count
+       FROM canonical_roles
+       ${whereSql}
+       GROUP BY role_name
+       ORDER BY usage_count DESC, role_name ASC`,
+      params
+    );
+
+    return res.json({
+      success: true,
+      data: { roles: result.rows },
+    });
+  } catch (error) {
+    console.error('Get artist roles error:', error);
+    return res.status(500).json({
+      success: false,
+      error: { code: 'FETCH_ERROR', message: '获取角色列表失败' },
+    });
+  }
+};
+
 // Merge artists: create alias relationships
 export const mergeArtists = async (req: Request, res: Response) => {
   try {
