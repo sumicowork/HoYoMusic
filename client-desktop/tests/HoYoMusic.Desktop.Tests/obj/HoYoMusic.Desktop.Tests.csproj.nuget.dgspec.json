@@ -1,0 +1,260 @@
+{
+  "format": 1,
+  "restore": {
+    "C:\\Users\\sumi\\WebstormProjects\\HoYoMusic\\client-desktop\\tests\\HoYoMusic.Desktop.Tests\\HoYoMusic.Desktop.Tests.csproj": {}
+  },
+  "projects": {
+    "C:\\Users\\sumi\\WebstormProjects\\HoYoMusic\\client-desktop\\src\\HoYoMusic.Desktop.Core\\HoYoMusic.Desktop.Core.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\sumi\\WebstormProjects\\HoYoMusic\\client-desktop\\src\\HoYoMusic.Desktop.Core\\HoYoMusic.Desktop.Core.csproj",
+        "projectName": "HoYoMusic.Desktop.Core",
+        "projectPath": "C:\\Users\\sumi\\WebstormProjects\\HoYoMusic\\client-desktop\\src\\HoYoMusic.Desktop.Core\\HoYoMusic.Desktop.Core.csproj",
+        "packagesPath": "C:\\Users\\sumi\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\sumi\\WebstormProjects\\HoYoMusic\\client-desktop\\src\\HoYoMusic.Desktop.Core\\obj\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\sumi\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://repo.huaweicloud.com/repository/nuget/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0": {
+            "targetAlias": "net8.0",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "10.0.100"
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.104/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "C:\\Users\\sumi\\WebstormProjects\\HoYoMusic\\client-desktop\\src\\HoYoMusic.Desktop.Infrastructure\\HoYoMusic.Desktop.Infrastructure.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\sumi\\WebstormProjects\\HoYoMusic\\client-desktop\\src\\HoYoMusic.Desktop.Infrastructure\\HoYoMusic.Desktop.Infrastructure.csproj",
+        "projectName": "HoYoMusic.Desktop.Infrastructure",
+        "projectPath": "C:\\Users\\sumi\\WebstormProjects\\HoYoMusic\\client-desktop\\src\\HoYoMusic.Desktop.Infrastructure\\HoYoMusic.Desktop.Infrastructure.csproj",
+        "packagesPath": "C:\\Users\\sumi\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\sumi\\WebstormProjects\\HoYoMusic\\client-desktop\\src\\HoYoMusic.Desktop.Infrastructure\\obj\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\sumi\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0-windows10.0.17763.0"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://repo.huaweicloud.com/repository/nuget/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0-windows10.0.17763": {
+            "targetAlias": "net8.0-windows10.0.17763.0",
+            "projectReferences": {
+              "C:\\Users\\sumi\\WebstormProjects\\HoYoMusic\\client-desktop\\src\\HoYoMusic.Desktop.Core\\HoYoMusic.Desktop.Core.csproj": {
+                "projectPath": "C:\\Users\\sumi\\WebstormProjects\\HoYoMusic\\client-desktop\\src\\HoYoMusic.Desktop.Core\\HoYoMusic.Desktop.Core.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "10.0.100"
+      },
+      "frameworks": {
+        "net8.0-windows10.0.17763": {
+          "targetAlias": "net8.0-windows10.0.17763.0",
+          "dependencies": {
+            "Microsoft.Extensions.DependencyInjection.Abstractions": {
+              "target": "Package",
+              "version": "[8.0.2, )"
+            },
+            "Microsoft.Extensions.Http": {
+              "target": "Package",
+              "version": "[8.0.1, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "downloadDependencies": [
+            {
+              "name": "Microsoft.Windows.SDK.NET.Ref",
+              "version": "[10.0.17763.57, 10.0.17763.57]"
+            }
+          ],
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            },
+            "Microsoft.Windows.SDK.NET.Ref.Windows": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.104/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "C:\\Users\\sumi\\WebstormProjects\\HoYoMusic\\client-desktop\\tests\\HoYoMusic.Desktop.Tests\\HoYoMusic.Desktop.Tests.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\sumi\\WebstormProjects\\HoYoMusic\\client-desktop\\tests\\HoYoMusic.Desktop.Tests\\HoYoMusic.Desktop.Tests.csproj",
+        "projectName": "HoYoMusic.Desktop.Tests",
+        "projectPath": "C:\\Users\\sumi\\WebstormProjects\\HoYoMusic\\client-desktop\\tests\\HoYoMusic.Desktop.Tests\\HoYoMusic.Desktop.Tests.csproj",
+        "packagesPath": "C:\\Users\\sumi\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\sumi\\WebstormProjects\\HoYoMusic\\client-desktop\\tests\\HoYoMusic.Desktop.Tests\\obj\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\sumi\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0-windows10.0.17763.0"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://repo.huaweicloud.com/repository/nuget/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0-windows10.0.17763": {
+            "targetAlias": "net8.0-windows10.0.17763.0",
+            "projectReferences": {
+              "C:\\Users\\sumi\\WebstormProjects\\HoYoMusic\\client-desktop\\src\\HoYoMusic.Desktop.Core\\HoYoMusic.Desktop.Core.csproj": {
+                "projectPath": "C:\\Users\\sumi\\WebstormProjects\\HoYoMusic\\client-desktop\\src\\HoYoMusic.Desktop.Core\\HoYoMusic.Desktop.Core.csproj"
+              },
+              "C:\\Users\\sumi\\WebstormProjects\\HoYoMusic\\client-desktop\\src\\HoYoMusic.Desktop.Infrastructure\\HoYoMusic.Desktop.Infrastructure.csproj": {
+                "projectPath": "C:\\Users\\sumi\\WebstormProjects\\HoYoMusic\\client-desktop\\src\\HoYoMusic.Desktop.Infrastructure\\HoYoMusic.Desktop.Infrastructure.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "10.0.100"
+      },
+      "frameworks": {
+        "net8.0-windows10.0.17763": {
+          "targetAlias": "net8.0-windows10.0.17763.0",
+          "dependencies": {
+            "Microsoft.NET.Test.Sdk": {
+              "target": "Package",
+              "version": "[17.8.0, )"
+            },
+            "coverlet.collector": {
+              "target": "Package",
+              "version": "[6.0.0, )"
+            },
+            "xunit": {
+              "target": "Package",
+              "version": "[2.5.3, )"
+            },
+            "xunit.runner.visualstudio": {
+              "target": "Package",
+              "version": "[2.5.3, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "downloadDependencies": [
+            {
+              "name": "Microsoft.Windows.SDK.NET.Ref",
+              "version": "[10.0.17763.57, 10.0.17763.57]"
+            }
+          ],
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            },
+            "Microsoft.Windows.SDK.NET.Ref.Windows": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.104/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    }
+  }
+}
