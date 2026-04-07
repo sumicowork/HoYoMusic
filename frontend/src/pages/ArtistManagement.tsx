@@ -98,6 +98,7 @@ const ArtistManagement: React.FC = () => {
   const [mergeRoleCandidates, setMergeRoleCandidates] = useState<string[]>([]);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [canonicalRole, setCanonicalRole] = useState('');
+  const [roleFilterKeyword, setRoleFilterKeyword] = useState('');
   const [avatars, setAvatars] = useState<Record<string, string>>({});
 
   const [mobileActionArtist, setMobileActionArtist] = useState<ArtistItem | null>(null);
@@ -267,6 +268,7 @@ const ArtistManagement: React.FC = () => {
         setMergeRoleCandidates([]);
         setSelectedRoles([]);
         setCanonicalRole('');
+        setRoleFilterKeyword('');
         void fetchRoleAliases();
         void fetchAllRoles();
         void fetchArtists(pagination.current, searchText, pagination.pageSize);
@@ -433,6 +435,17 @@ const ArtistManagement: React.FC = () => {
     return grouped;
   }, [roleAliases]);
 
+  const roleOptionPool = useMemo(
+    () => (mergeRoleCandidates.length > 0 ? mergeRoleCandidates : allRoles.map((item) => item.role)),
+    [mergeRoleCandidates, allRoles]
+  );
+
+  const filteredRoleOptions = useMemo(() => {
+    const keyword = roleFilterKeyword.trim().toLowerCase();
+    if (!keyword) return roleOptionPool;
+    return roleOptionPool.filter((role) => role.toLowerCase().includes(keyword));
+  }, [roleOptionPool, roleFilterKeyword]);
+
   const headerActions = (
     <AdminActionBar>
       <Input.Search
@@ -465,6 +478,7 @@ const ArtistManagement: React.FC = () => {
           setMergeRoleCandidates([]);
           setSelectedRoles([]);
           setCanonicalRole('');
+          setRoleFilterKeyword('');
           setRoleMergeModalVisible(true);
         }}
       >
@@ -675,6 +689,7 @@ const ArtistManagement: React.FC = () => {
           setMergeRoleCandidates([]);
           setSelectedRoles([]);
           setCanonicalRole('');
+          setRoleFilterKeyword('');
         }}
         okText="合并"
         cancelText="取消"
@@ -689,12 +704,22 @@ const ArtistManagement: React.FC = () => {
           <div style={{ marginBottom: 10 }}>
             <p style={{ marginBottom: 8, color: 'var(--text-secondary)' }}>可选角色（按使用次数排序）：</p>
             <Space wrap>
-              {allRoles.map((item) => (
+              {allRoles
+                .filter((item) => !roleFilterKeyword.trim() || item.role.toLowerCase().includes(roleFilterKeyword.trim().toLowerCase()))
+                .map((item) => (
                 <Tag key={item.role}>{item.role} ({item.usage_count})</Tag>
               ))}
             </Space>
           </div>
         )}
+
+        <Input.Search
+          allowClear
+          placeholder="筛选角色关键词"
+          value={roleFilterKeyword}
+          onChange={(e) => setRoleFilterKeyword(e.target.value)}
+          style={{ marginBottom: 12 }}
+        />
 
         <Checkbox.Group
           style={{ width: '100%', marginBottom: 12 }}
@@ -708,14 +733,15 @@ const ArtistManagement: React.FC = () => {
           }}
         >
           <Space wrap>
-            {(mergeRoleCandidates.length > 0
-              ? mergeRoleCandidates
-              : allRoles.map((item) => item.role)
-            ).map((role) => (
+            {filteredRoleOptions.map((role) => (
               <Checkbox key={role} value={role}>{role}</Checkbox>
             ))}
           </Space>
         </Checkbox.Group>
+
+        {filteredRoleOptions.length === 0 && (
+          <p style={{ marginBottom: 12, color: 'var(--text-secondary)' }}>没有匹配的角色。</p>
+        )}
 
         <Select
           style={{ width: '100%', marginBottom: 12 }}
