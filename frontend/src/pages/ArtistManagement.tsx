@@ -89,6 +89,7 @@ const ArtistManagement: React.FC = () => {
   const [roleAliases, setRoleAliases] = useState<RoleAliasItem[]>([]);
   const [roleAliasesModalVisible, setRoleAliasesModalVisible] = useState(false);
   const [roleMergeModalVisible, setRoleMergeModalVisible] = useState(false);
+  const [mergeRoleCandidates, setMergeRoleCandidates] = useState<string[]>([]);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [canonicalRole, setCanonicalRole] = useState('');
   const [avatars, setAvatars] = useState<Record<string, string>>({});
@@ -248,6 +249,7 @@ const ArtistManagement: React.FC = () => {
       if (response.data.success) {
         message.success(response.data.data.message || '角色别名合并成功');
         setRoleMergeModalVisible(false);
+        setMergeRoleCandidates([]);
         setSelectedRoles([]);
         setCanonicalRole('');
         void fetchRoleAliases();
@@ -639,9 +641,10 @@ const ArtistManagement: React.FC = () => {
           <Button
             disabled={editRoleMappings.length < 2}
             onClick={() => {
-              const roles = editRoleMappings.map((item) => item.from).filter(Boolean);
-              setSelectedRoles(roles);
-              setCanonicalRole(roles[0] || '');
+              const roles = Array.from(new Set(editRoleMappings.map((item) => item.from).filter(Boolean)));
+              setMergeRoleCandidates(roles);
+              setSelectedRoles([]);
+              setCanonicalRole('');
               setRoleMergeModalVisible(true);
             }}
           >
@@ -656,21 +659,49 @@ const ArtistManagement: React.FC = () => {
         onOk={handleMergeRoles}
         onCancel={() => {
           setRoleMergeModalVisible(false);
+          setMergeRoleCandidates([]);
           setSelectedRoles([]);
           setCanonicalRole('');
         }}
         okText="合并"
         cancelText="取消"
+        okButtonProps={{ disabled: selectedRoles.length < 2 || !canonicalRole }}
         width={520}
       >
         <div style={{ marginBottom: 12 }}>
-          <p>已选角色 <strong>{selectedRoles.length}</strong> 项，请选择主角色：</p>
+          <p>请先勾选需要参与合并的角色（至少 2 项），再选择主角色。</p>
         </div>
-        <Select style={{ width: '100%', marginBottom: 12 }} value={canonicalRole} onChange={setCanonicalRole}>
+
+        <Checkbox.Group
+          style={{ width: '100%', marginBottom: 12 }}
+          value={selectedRoles}
+          onChange={(values) => {
+            const next = values as string[];
+            setSelectedRoles(next);
+            if (canonicalRole && !next.includes(canonicalRole)) {
+              setCanonicalRole('');
+            }
+          }}
+        >
+          <Space wrap>
+            {mergeRoleCandidates.map((role) => (
+              <Checkbox key={role} value={role}>{role}</Checkbox>
+            ))}
+          </Space>
+        </Checkbox.Group>
+
+        <Select
+          style={{ width: '100%', marginBottom: 12 }}
+          placeholder="选择主角色"
+          value={canonicalRole || undefined}
+          onChange={setCanonicalRole}
+          disabled={selectedRoles.length < 2}
+        >
           {selectedRoles.map((role) => (
             <Select.Option key={role} value={role}>{role}</Select.Option>
           ))}
         </Select>
+
         <div>
           {selectedRoles.map((role) => (
             <Tag key={role} style={{ marginBottom: 8 }}>{role}</Tag>
