@@ -291,6 +291,11 @@ export const mergeArtistsSchema = z.object({
   aliasNames: z.array(z.string().min(1).max(500)).min(1, 'aliasNames is required'),
 });
 
+export const mergeArtistRolesSchema = z.object({
+  canonicalRole: z.string().min(1, 'canonicalRole is required').max(200),
+  aliasRoles: z.array(z.string().min(1).max(200)).min(1, 'aliasRoles is required'),
+});
+
 export const updateArtistSchema = z.object({
   name: z.string().min(1, 'name is required').max(500),
   roleMappings: z.array(

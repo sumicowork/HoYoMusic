@@ -59,6 +59,13 @@ interface AliasItem {
   created_at: string;
 }
 
+interface RoleAliasItem {
+  id: number;
+  canonical_role: string;
+  alias_role: string;
+  created_at: string;
+}
+
 const ArtistManagement: React.FC = () => {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
@@ -79,6 +86,11 @@ const ArtistManagement: React.FC = () => {
 
   const [aliases, setAliases] = useState<AliasItem[]>([]);
   const [aliasesModalVisible, setAliasesModalVisible] = useState(false);
+  const [roleAliases, setRoleAliases] = useState<RoleAliasItem[]>([]);
+  const [roleAliasesModalVisible, setRoleAliasesModalVisible] = useState(false);
+  const [roleMergeModalVisible, setRoleMergeModalVisible] = useState(false);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [canonicalRole, setCanonicalRole] = useState('');
   const [avatars, setAvatars] = useState<Record<string, string>>({});
 
   const [mobileActionArtist, setMobileActionArtist] = useState<ArtistItem | null>(null);
@@ -113,6 +125,15 @@ const ArtistManagement: React.FC = () => {
     }
   };
 
+  const fetchRoleAliases = async () => {
+    try {
+      const response = await api.get('/artists/roles/aliases');
+      if (response.data.success) setRoleAliases(response.data.data.aliases);
+    } catch {
+      message.error('获取角色别名列表失败');
+    }
+  };
+
   const fetchAvatars = async () => {
     try {
       const response = await api.get('/artists/avatars');
@@ -125,6 +146,7 @@ const ArtistManagement: React.FC = () => {
   useEffect(() => {
     void fetchArtists();
     void fetchAliases();
+    void fetchRoleAliases();
     void fetchAvatars();
   }, []);
 
@@ -185,12 +207,55 @@ const ArtistManagement: React.FC = () => {
     }
   };
 
+  const handleDeleteRoleAlias = async (id: number) => {
+    try {
+      await api.delete(`/artists/roles/aliases/${id}`);
+      message.success('角色别名已删除');
+      void fetchRoleAliases();
+      void fetchArtists(pagination.current, searchText, pagination.pageSize);
+    } catch {
+      message.error('删除角色别名失败');
+    }
+  };
+
   const openEditModal = (artist: ArtistItem) => {
     setMobileActionArtist(null);
     setEditingArtist(artist);
     setEditName(artist.name);
     setEditRoleMappings((artist.roles || []).filter(Boolean).map((r) => ({ from: r, to: r })));
+    setSelectedRoles([]);
+    setCanonicalRole('');
     setEditModalVisible(true);
+  };
+
+  const handleMergeRoles = async () => {
+    if (!canonicalRole.trim()) {
+      message.warning('请选择主角色');
+      return;
+    }
+
+    const aliasRoles = selectedRoles.filter((role) => role !== canonicalRole.trim());
+    if (aliasRoles.length === 0) {
+      message.warning('请至少选择一个别名角色');
+      return;
+    }
+
+    try {
+      const response = await api.post('/artists/roles/merge', {
+        canonicalRole: canonicalRole.trim(),
+        aliasRoles,
+      });
+      if (response.data.success) {
+        message.success(response.data.data.message || '角色别名合并成功');
+        setRoleMergeModalVisible(false);
+        setSelectedRoles([]);
+        setCanonicalRole('');
+        void fetchRoleAliases();
+        void fetchArtists(pagination.current, searchText, pagination.pageSize);
+      }
+    } catch (error: any) {
+      message.error(error?.response?.data?.error?.message || error.message || '角色别名合并失败');
+    }
   };
 
   const handleSaveArtistEdit = async () => {
@@ -341,6 +406,15 @@ const ArtistManagement: React.FC = () => {
     return grouped;
   }, [aliases]);
 
+  const roleAliasGroups = useMemo(() => {
+    const grouped: Record<string, RoleAliasItem[]> = {};
+    roleAliases.forEach((item) => {
+      if (!grouped[item.canonical_role]) grouped[item.canonical_role] = [];
+      grouped[item.canonical_role].push(item);
+    });
+    return grouped;
+  }, [roleAliases]);
+
   const headerActions = (
     <AdminActionBar>
       <Input.Search
@@ -367,6 +441,7 @@ const ArtistManagement: React.FC = () => {
         </Button>
       )}
       <Button onClick={() => { void fetchAliases(); setAliasesModalVisible(true); }}>查看别名</Button>
+      <Button onClick={() => { void fetchRoleAliases(); setRoleAliasesModalVisible(true); }}>查看角色别名</Button>
     </AdminActionBar>
   );
 
@@ -560,6 +635,79 @@ const ArtistManagement: React.FC = () => {
             </Space>
           ))}
         </Space>
+        <div style={{ marginTop: 14 }}>
+          <Button
+            disabled={editRoleMappings.length < 2}
+            onClick={() => {
+              const roles = editRoleMappings.map((item) => item.from).filter(Boolean);
+              setSelectedRoles(roles);
+              setCanonicalRole(roles[0] || '');
+              setRoleMergeModalVisible(true);
+            }}
+          >
+            合并该艺术家的角色别名
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        title="合并角色（别名）"
+        open={roleMergeModalVisible}
+        onOk={handleMergeRoles}
+        onCancel={() => {
+          setRoleMergeModalVisible(false);
+          setSelectedRoles([]);
+          setCanonicalRole('');
+        }}
+        okText="合并"
+        cancelText="取消"
+        width={520}
+      >
+        <div style={{ marginBottom: 12 }}>
+          <p>已选角色 <strong>{selectedRoles.length}</strong> 项，请选择主角色：</p>
+        </div>
+        <Select style={{ width: '100%', marginBottom: 12 }} value={canonicalRole} onChange={setCanonicalRole}>
+          {selectedRoles.map((role) => (
+            <Select.Option key={role} value={role}>{role}</Select.Option>
+          ))}
+        </Select>
+        <div>
+          {selectedRoles.map((role) => (
+            <Tag key={role} style={{ marginBottom: 8 }}>{role}</Tag>
+          ))}
+        </div>
+      </Modal>
+
+      <Modal
+        title="角色别名列表"
+        open={roleAliasesModalVisible}
+        onCancel={() => setRoleAliasesModalVisible(false)}
+        footer={null}
+        width={640}
+      >
+        {Object.keys(roleAliasGroups).length === 0 ? (
+          <p style={{ textAlign: 'center', color: '#999' }}>暂无角色别名记录</p>
+        ) : (
+          Object.entries(roleAliasGroups).map(([canonical, list]) => (
+            <Card key={canonical} size="small" style={{ marginBottom: 12 }} title={<><strong>{canonical}</strong> <Tag color="blue">主角色</Tag></>}>
+              <List
+                size="small"
+                dataSource={list}
+                renderItem={(item) => (
+                  <List.Item
+                    actions={[
+                      <Popconfirm key="del" title="确定删除此角色别名？" onConfirm={() => void handleDeleteRoleAlias(item.id)}>
+                        <Button size="small" danger icon={<DeleteOutlined />} />
+                      </Popconfirm>,
+                    ]}
+                  >
+                    <Tag color="purple">{item.alias_role}</Tag>
+                  </List.Item>
+                )}
+              />
+            </Card>
+          ))
+        )}
       </Modal>
     </AdminLayout>
   );

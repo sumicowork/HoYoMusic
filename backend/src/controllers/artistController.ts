@@ -16,6 +16,7 @@ interface UpdateArtistBody {
 // Get all "artists" from track_credits (unique credit_value, with track count)
 export const getArtists = async (req: Request, res: Response) => {
   try {
+    await ensureRoleAliasTable();
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 100;
     const offset = (page - 1) * limit;
@@ -39,9 +40,10 @@ export const getArtists = async (req: Request, res: Response) => {
           SELECT
             COALESCE(aa.canonical_name, tc.credit_value) AS canonical_name,
             tc.track_id,
-            tc.credit_key
+            COALESCE(ara.canonical_role, tc.credit_key) AS credit_key
           FROM track_credits tc
           LEFT JOIN artist_aliases aa ON LOWER(tc.credit_value) = LOWER(aa.alias_name)
+          LEFT JOIN artist_role_aliases ara ON LOWER(tc.credit_key) = LOWER(ara.alias_role)
           WHERE tc.credit_value IS NOT NULL AND tc.credit_value <> ''
         ),
         canonical_stats AS (
@@ -86,9 +88,10 @@ export const getArtists = async (req: Request, res: Response) => {
           SELECT
             COALESCE(aa.canonical_name, tc.credit_value) AS canonical_name,
             tc.track_id,
-            tc.credit_key
+            COALESCE(ara.canonical_role, tc.credit_key) AS credit_key
           FROM track_credits tc
           LEFT JOIN artist_aliases aa ON LOWER(tc.credit_value) = LOWER(aa.alias_name)
+          LEFT JOIN artist_role_aliases ara ON LOWER(tc.credit_key) = LOWER(ara.alias_role)
           WHERE tc.credit_value IS NOT NULL AND tc.credit_value <> ''
         ),
         canonical_stats AS (
@@ -164,6 +167,7 @@ export const getArtists = async (req: Request, res: Response) => {
            SELECT COALESCE(aa.canonical_name, tc.credit_value) AS canonical_name
            FROM track_credits tc
            LEFT JOIN artist_aliases aa ON LOWER(tc.credit_value) = LOWER(aa.alias_name)
+           LEFT JOIN artist_role_aliases ara ON LOWER(tc.credit_key) = LOWER(ara.alias_role)
            WHERE tc.credit_value IS NOT NULL AND tc.credit_value <> ''
          ),
          alias_matches AS (
@@ -184,9 +188,10 @@ export const getArtists = async (req: Request, res: Response) => {
            SELECT
              COALESCE(aa.canonical_name, tc.credit_value) AS canonical_name,
              tc.track_id,
-             tc.credit_key
+             COALESCE(ara.canonical_role, tc.credit_key) AS credit_key
            FROM track_credits tc
            LEFT JOIN artist_aliases aa ON LOWER(tc.credit_value) = LOWER(aa.alias_name)
+           LEFT JOIN artist_role_aliases ara ON LOWER(tc.credit_key) = LOWER(ara.alias_role)
            WHERE tc.credit_value IS NOT NULL AND tc.credit_value <> ''
          ),
          alias_matches AS (
@@ -224,6 +229,7 @@ export const getArtists = async (req: Request, res: Response) => {
         SELECT COALESCE(aa.canonical_name, tc.credit_value) AS canonical_name
         FROM track_credits tc
         LEFT JOIN artist_aliases aa ON LOWER(tc.credit_value) = LOWER(aa.alias_name)
+        LEFT JOIN artist_role_aliases ara ON LOWER(tc.credit_key) = LOWER(ara.alias_role)
         WHERE tc.credit_value IS NOT NULL AND tc.credit_value <> ''
       )
       SELECT COUNT(DISTINCT canonical_name)
@@ -236,9 +242,10 @@ export const getArtists = async (req: Request, res: Response) => {
          SELECT
            COALESCE(aa.canonical_name, tc.credit_value) AS canonical_name,
            tc.track_id,
-           tc.credit_key
+             COALESCE(ara.canonical_role, tc.credit_key) AS credit_key
          FROM track_credits tc
          LEFT JOIN artist_aliases aa ON LOWER(tc.credit_value) = LOWER(aa.alias_name)
+           LEFT JOIN artist_role_aliases ara ON LOWER(tc.credit_key) = LOWER(ara.alias_role)
          WHERE tc.credit_value IS NOT NULL AND tc.credit_value <> ''
        )
        SELECT
@@ -278,6 +285,7 @@ export const getArtists = async (req: Request, res: Response) => {
 // Get "artist" detail: all tracks/albums where this person appears in credits
 export const getArtistById = async (req: Request, res: Response) => {
   try {
+    await ensureRoleAliasTable();
     const name = decodeURIComponent(String(req.params.id || ''));
 
     // Cache by artist name (lowercased)
@@ -315,12 +323,13 @@ export const getArtistById = async (req: Request, res: Response) => {
         t.*,
         a.title  AS album_title,
         a.cover_path AS album_cover,
-        array_agg(DISTINCT tc2.credit_key) AS roles,
+        array_agg(DISTINCT COALESCE(ara2.canonical_role, tc2.credit_key)) AS roles,
         array_agg(json_build_object('id', ar.id, 'name', ar.name)) AS artists
       FROM track_credits tc
       JOIN tracks t         ON tc.track_id  = t.id
       LEFT JOIN albums a    ON t.album_id   = a.id
       LEFT JOIN track_credits tc2 ON tc2.track_id = t.id AND LOWER(tc2.credit_value) IN (${nameParams})
+      LEFT JOIN artist_role_aliases ara2 ON LOWER(tc2.credit_key) = LOWER(ara2.alias_role)
       LEFT JOIN track_artists ta  ON t.id = ta.track_id
       LEFT JOIN artists ar        ON ta.artist_id = ar.id
       WHERE LOWER(tc.credit_value) IN (${nameParams})
@@ -365,9 +374,10 @@ export const getArtistById = async (req: Request, res: Response) => {
       SELECT
         COUNT(DISTINCT tc.track_id)       AS track_count,
         COUNT(DISTINCT t.album_id)        AS album_count,
-        array_agg(DISTINCT tc.credit_key) AS roles
+        array_agg(DISTINCT COALESCE(ara.canonical_role, tc.credit_key)) AS roles
       FROM track_credits tc
       LEFT JOIN tracks t ON tc.track_id = t.id
+      LEFT JOIN artist_role_aliases ara ON LOWER(tc.credit_key) = LOWER(ara.alias_role)
       WHERE LOWER(tc.credit_value) IN (${nameParams})
     `;
     const statsResult = await pool.query(statsQuery, allNames);
@@ -494,6 +504,18 @@ const ensureAliasTable = async () => {
   `);
 };
 
+const ensureRoleAliasTable = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS artist_role_aliases (
+      id SERIAL PRIMARY KEY,
+      canonical_role VARCHAR(200) NOT NULL,
+      alias_role VARCHAR(200) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(canonical_role, alias_role)
+    )
+  `);
+};
+
 // Merge artists: create alias relationships
 export const mergeArtists = async (req: Request, res: Response) => {
   try {
@@ -533,6 +555,77 @@ export const mergeArtists = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: { code: 'MERGE_ERROR', message: '合并艺术家失败' }
+    });
+  }
+};
+
+export const mergeArtistRoles = async (req: Request, res: Response) => {
+  try {
+    await ensureRoleAliasTable();
+    const { canonicalRole, aliasRoles } = req.body as { canonicalRole: string; aliasRoles: string[] };
+    if (!canonicalRole || !Array.isArray(aliasRoles) || aliasRoles.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'INVALID_INPUT', message: '请提供主角色和别名角色列表' },
+      });
+    }
+
+    let created = 0;
+    const canonical = canonicalRole.trim();
+    for (const role of aliasRoles) {
+      const alias = String(role || '').trim();
+      if (!alias || alias.toLowerCase() === canonical.toLowerCase()) continue;
+      await pool.query(
+        `INSERT INTO artist_role_aliases (canonical_role, alias_role)
+         VALUES ($1, $2)
+         ON CONFLICT (canonical_role, alias_role) DO NOTHING`,
+        [canonical, alias]
+      );
+      created += 1;
+    }
+
+    cache.invalidatePattern('artist');
+    cache.invalidatePattern('artists');
+    return res.json({
+      success: true,
+      data: { created, message: `成功添加 ${created} 条角色别名` },
+    });
+  } catch (error) {
+    console.error('Merge artist roles error:', error);
+    return res.status(500).json({
+      success: false,
+      error: { code: 'MERGE_ERROR', message: '合并角色别名失败' },
+    });
+  }
+};
+
+export const getRoleAliases = async (req: Request, res: Response) => {
+  try {
+    await ensureRoleAliasTable();
+    const result = await pool.query('SELECT * FROM artist_role_aliases ORDER BY canonical_role, alias_role');
+    return res.json({ success: true, data: { aliases: result.rows } });
+  } catch (error) {
+    console.error('Get role aliases error:', error);
+    return res.status(500).json({
+      success: false,
+      error: { code: 'FETCH_ERROR', message: '获取角色别名失败' },
+    });
+  }
+};
+
+export const deleteRoleAlias = async (req: Request, res: Response) => {
+  try {
+    await ensureRoleAliasTable();
+    const { id } = req.params;
+    await pool.query('DELETE FROM artist_role_aliases WHERE id = $1', [id]);
+    cache.invalidatePattern('artist');
+    cache.invalidatePattern('artists');
+    return res.json({ success: true, data: { message: '角色别名已删除' } });
+  } catch (error) {
+    console.error('Delete role alias error:', error);
+    return res.status(500).json({
+      success: false,
+      error: { code: 'DELETE_ERROR', message: '删除角色别名失败' },
     });
   }
 };

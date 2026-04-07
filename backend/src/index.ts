@@ -268,7 +268,24 @@ const runMigrations = async () => {
       CREATE INDEX IF NOT EXISTS idx_artist_aliases_canonical
       ON artist_aliases (LOWER(canonical_name))
     `);
-    console.log('✅ DB migrations up to date (artist_aliases)');
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS artist_role_aliases (
+        id SERIAL PRIMARY KEY,
+        canonical_role VARCHAR(200) NOT NULL,
+        alias_role VARCHAR(200) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(canonical_role, alias_role)
+      )
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_artist_role_aliases_alias
+      ON artist_role_aliases (LOWER(alias_role))
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_artist_role_aliases_canonical
+      ON artist_role_aliases (LOWER(canonical_role))
+    `);
+    console.log('✅ DB migrations up to date (artist_aliases, artist_role_aliases)');
   } catch (err) {
     console.error('⚠️  Migration warning (non-fatal):', err);
   }
