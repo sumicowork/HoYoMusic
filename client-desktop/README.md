@@ -58,3 +58,9 @@ dotnet run --project .\src\HoYoMusic.Desktop.App\HoYoMusic.Desktop.App.csproj -r
 1. Download executor: implement actual file transfer, retry, and persistence.
 2. Update mechanism: release channel support and rollback-safe updater.
 3. Logging/reporting: local structured logs and optional remote diagnostics upload.
+
+## Delivery Docs
+
+- `client-desktop/docs/00_DOC_INDEX.md` - desktop docs entrypoint and reading order.
+- `client-desktop/docs/01_EXECUTION_TRACKER.md` - phase execution tracker and current sprint tasks.
+

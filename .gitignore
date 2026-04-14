@@ -54,3 +54,9 @@ ip_geo_cache.json
 # Obsidian workspace
 .obsidian/
 
+# Desktop .NET build artifacts
+client-desktop/**/bin/
+client-desktop/**/obj/
+client-desktop/**/obj_temp/
+client-desktop/**/TestResults/
+
