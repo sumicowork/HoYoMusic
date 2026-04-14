@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <!-- Prevent accidental compilation of generated temp artifacts -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);**\obj_temp\**</DefaultItemExcludes>
+  </PropertyGroup>
+</Project>
+

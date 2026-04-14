@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "HoYoMusic.Desktop.App (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "HoYoMusic.Desktop.App (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
