@@ -1,0 +1,9 @@
+<UserControl
+    x:Class="HoYoMusic.Desktop.App.Controls.HoYoSideBar"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <!-- Split content for HoYoSideBar -->
+        <TextBlock Text="HoYoSideBar Component" />
+    </Grid>
+</UserControl>
