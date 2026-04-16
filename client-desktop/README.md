@@ -35,15 +35,23 @@ Windows native desktop PoC built with .NET 8, WinUI 3, and MVVM.
 
 ```powershell
 Set-Location "C:\Users\sumi\WebstormProjects\HoYoMusic\client-desktop"
-dotnet build HoYoMusic.Desktop.sln
-dotnet test .\tests\HoYoMusic.Desktop.Tests\HoYoMusic.Desktop.Tests.csproj --no-build
+dotnet restore "HoYoMusic.Desktop.sln"
+dotnet build "HoYoMusic.Desktop.sln" -c Debug
+dotnet test "HoYoMusic.Desktop.sln" -c Debug --no-build
 ```
 
 ## Run (PoC)
 
 ```powershell
 Set-Location "C:\Users\sumi\WebstormProjects\HoYoMusic\client-desktop"
-dotnet run --project .\src\HoYoMusic.Desktop.App\HoYoMusic.Desktop.App.csproj -r win-x86
+dotnet run --project .\src\HoYoMusic.Desktop.App\HoYoMusic.Desktop.App.csproj
+```
+
+## Startup Smoke (Launch Acceptance)
+
+```powershell
+Set-Location "C:\Users\sumi\WebstormProjects\HoYoMusic\client-desktop"
+powershell -ExecutionPolicy Bypass -File ".\scripts\startup-smoke.ps1" -SkipBuild -SkipTest -LaunchWaitSeconds 12
 ```
 
 ## Known Limitations

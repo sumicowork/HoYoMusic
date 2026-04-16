@@ -77,6 +77,36 @@ public static class ServiceCollectionExtensions
             client.BaseAddress = baseUri;
         });
 
+        services.AddHttpClient<ISiteConfigService, SiteConfigService>(client =>
+        {
+            client.BaseAddress = baseUri;
+        });
+
+        services.AddHttpClient<ITagService, TagService>(client =>
+        {
+            client.BaseAddress = baseUri;
+        });
+
+        services.AddHttpClient<IUserService, UserService>(client =>
+        {
+            client.BaseAddress = baseUri;
+        });
+
+        services.AddHttpClient<IFeedbackService, FeedbackService>(client =>
+        {
+            client.BaseAddress = baseUri;
+        });
+
+        services.AddHttpClient<IDiscService, DiscService>(client =>
+        {
+            client.BaseAddress = baseUri;
+        });
+
+        services.AddHttpClient<ILyricsImportService, LyricsImportService>(client =>
+        {
+            client.BaseAddress = baseUri;
+        });
+
         return services;
     }
 }

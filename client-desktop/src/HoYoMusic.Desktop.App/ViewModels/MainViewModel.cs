@@ -5,6 +5,8 @@ using HoYoMusic.Desktop.Core.Abstractions;
 using HoYoMusic.Desktop.Core.Contracts;
 using HoYoMusic.Desktop.Core.Models;
 using System.Threading;
+using Windows.Storage;
+using Windows.System;
 
 namespace HoYoMusic.Desktop.App.ViewModels;
 
@@ -12,12 +14,26 @@ public partial class MainViewModel : ObservableObject
 {
     private const string SectionDiscover = "discover";
     private const string SectionAlbumDetail = "album-detail";
+    private const string SectionGames = "games";
+    private const string SectionAlbums = "albums";
+    private const string SectionArtists = "artists";
+    private const string SectionTags = "tags";
+    private const string SectionSearch = "search";
     private const string SectionLibrary = "library";
     private const string SectionFavorites = "favorites";
     private const string SectionPlaylists = "playlists";
     private const string SectionProfile = "profile";
+    private const string SectionSettings = "settings";
     private const string SectionDownloads = "downloads";
     private const string SectionAdmin = "admin";
+    private const string AdminSectionUsers = "users";
+    private const string AdminSectionTags = "tags";
+    private const string AdminSectionGames = "games";
+    private const string AdminSectionArtists = "artists";
+    private const string AdminSectionAlbums = "albums";
+    private const string AdminSectionMusicSources = "music-sources";
+    private const string AdminSectionAnalytics = "analytics";
+    private const string AdminSectionSettings = "settings";
     private const string PlayModeSequence = "sequence";
     private const string PlayModeLoop = "loop";
     private const string PlayModeShuffle = "shuffle";
@@ -36,16 +52,28 @@ public partial class MainViewModel : ObservableObject
     private readonly IMusicSourceService _musicSourceService;
     private readonly IMessageService _messageService;
     private readonly IDownloadService _downloadService;
+    private readonly ISiteConfigService _siteConfigService;
+    private readonly IUserService _userService;
+    private readonly ITagService _tagService;
+    private readonly IFeedbackService _feedbackService;
+    private readonly IDiscService _discService;
+    private readonly ILyricsImportService _lyricsImportService;
     private readonly Random _random = new();
     private CancellationTokenSource? _inboxSearchDebounceCts;
+    private CancellationTokenSource? _firstVisitCountdownCts;
     private DateTimeOffset _confirmClearQueueUntil;
     private DateTimeOffset _confirmCancelAllDownloadsUntil;
     private DateTimeOffset _confirmDeletePlaylistUntil;
+    private string _activeFirstVisitVersion = "1";
 
     private readonly string _sessionKey = Guid.NewGuid().ToString("N");
     private readonly List<PlaybackQueueItem> _playbackQueue = [];
     private int _playbackIndex = -1;
     private bool _isInitializing;
+    private bool _effectivePlayReported;
+    private int? _activeTrackDurationSeconds;
+    private string _activePlaySessionKey = Guid.NewGuid().ToString("N");
+    private string? _pendingSectionAfterLogin;
 
     [ObservableProperty]
     private string _identifier = string.Empty;
@@ -243,6 +271,210 @@ public partial class MainViewModel : ObservableObject
     private string _themeMode = "system";
 
     [ObservableProperty]
+    private string _selectedAdminSection = AdminSectionUsers;
+
+    [ObservableProperty]
+    private string _adminUserKeyword = string.Empty;
+
+    [ObservableProperty]
+    private string _adminUserRole = "all";
+
+    [ObservableProperty]
+    private string _adminUserStatus = "all";
+
+    [ObservableProperty]
+    private int _adminUsersPage = 1;
+
+    [ObservableProperty]
+    private int _adminUsersTotalPages = 1;
+
+    [ObservableProperty]
+    private int _adminUsersTotal;
+
+    [ObservableProperty]
+    private bool _isAdminUsersLoading;
+
+    [ObservableProperty]
+    private string _adminUsersStatusMessage = string.Empty;
+
+    [ObservableProperty]
+    private bool _showAdminUsersStatus;
+
+    [ObservableProperty]
+    private AdminUserItem? _selectedAdminUser;
+
+    [ObservableProperty]
+    private bool _isAdminTagsLoading;
+
+    [ObservableProperty]
+    private string _adminTagsStatusMessage = string.Empty;
+
+    [ObservableProperty]
+    private bool _showAdminTagsStatus;
+
+    [ObservableProperty]
+    private TagItem? _selectedAdminTag;
+
+    [ObservableProperty]
+    private TagGroupItem? _selectedAdminTagGroup;
+
+    [ObservableProperty]
+    private string _adminTagName = string.Empty;
+
+    [ObservableProperty]
+    private string _adminTagColor = "#6B9EFF";
+
+    [ObservableProperty]
+    private string _adminTagDescription = string.Empty;
+
+    [ObservableProperty]
+    private string _adminTagGroupIdText = string.Empty;
+
+    [ObservableProperty]
+    private TagGroupItem? _selectedAdminTagAssignGroup;
+
+    [ObservableProperty]
+    private string _adminTagParentIdText = string.Empty;
+
+    [ObservableProperty]
+    private TagItem? _selectedAdminTagParent;
+
+    [ObservableProperty]
+    private string _adminTagIcon = string.Empty;
+
+    [ObservableProperty]
+    private string _adminTagDisplayOrderText = string.Empty;
+
+    [ObservableProperty]
+    private string _adminTagGroupName = string.Empty;
+
+    [ObservableProperty]
+    private string _adminTagGroupDescription = string.Empty;
+
+    [ObservableProperty]
+    private string _adminTagGroupIcon = string.Empty;
+
+    [ObservableProperty]
+    private string _adminTagGroupDisplayOrderText = string.Empty;
+
+    [ObservableProperty]
+    private string _adminTagGroupParentIdText = string.Empty;
+
+    [ObservableProperty]
+    private TagGroupItem? _selectedAdminTagGroupParent;
+
+    [ObservableProperty]
+    private string _adminTestEmail = string.Empty;
+
+    [ObservableProperty]
+    private bool _adminFirstVisitEnabled;
+
+    [ObservableProperty]
+    private string _adminFirstVisitTitle = string.Empty;
+
+    [ObservableProperty]
+    private string _adminFirstVisitContent = string.Empty;
+
+    [ObservableProperty]
+    private string _adminFirstVisitMinStaySecondsText = "0";
+
+    [ObservableProperty]
+    private string _adminFirstVisitVersion = string.Empty;
+
+    [ObservableProperty]
+    private bool _adminComplianceEnabled;
+
+    [ObservableProperty]
+    private string _adminComplianceIcpNumber = string.Empty;
+
+    [ObservableProperty]
+    private string _adminCompliancePublicSecurityNumber = string.Empty;
+
+    [ObservableProperty]
+    private string _adminMessageTitle = string.Empty;
+
+    [ObservableProperty]
+    private string _adminMessageContent = string.Empty;
+
+    [ObservableProperty]
+    private bool _adminMessageIsBroadcast = true;
+
+    [ObservableProperty]
+    private string _adminMessageRecipientIdsText = string.Empty;
+
+    [ObservableProperty]
+    private string _adminMessageExpiresAtText = string.Empty;
+
+    [ObservableProperty]
+    private bool _adminMaintenanceEnabled;
+
+    [ObservableProperty]
+    private string _adminMaintenanceMessage = string.Empty;
+
+    [ObservableProperty]
+    private string _adminMaintenanceExpectedEndTime = string.Empty;
+
+    [ObservableProperty]
+    private string _adminAlbumIdText = string.Empty;
+
+    [ObservableProperty]
+    private DiscItem? _selectedAdminDisc;
+
+    [ObservableProperty]
+    private string _adminDiscNumberText = string.Empty;
+
+    [ObservableProperty]
+    private string _adminDiscTitle = string.Empty;
+
+    [ObservableProperty]
+    private string _adminDiscTrackIdText = string.Empty;
+
+    [ObservableProperty]
+    private bool _isAdminAlbumsLoading;
+
+    [ObservableProperty]
+    private string _adminAlbumsStatusMessage = string.Empty;
+
+    [ObservableProperty]
+    private bool _showAdminAlbumsStatus;
+
+    [ObservableProperty]
+    private string _adminLyricsImportPathsText = string.Empty;
+
+    [ObservableProperty]
+    private string _adminLyricsResolutionsText = string.Empty;
+
+    [ObservableProperty]
+    private string _adminLyricsPreviewSummary = string.Empty;
+
+    [ObservableProperty]
+    private string _adminLyricsCommitSummary = string.Empty;
+
+    [ObservableProperty]
+    private bool _isAdminLyricsImportLoading;
+
+    [ObservableProperty]
+    private int _adminFeedbackPage = 1;
+
+    [ObservableProperty]
+    private int _adminFeedbackTotalPages = 1;
+
+    [ObservableProperty]
+    private int _adminFeedbackTotal;
+
+    [ObservableProperty]
+    private string _feedbackContent = string.Empty;
+
+    [ObservableProperty]
+    private string _feedbackContact = string.Empty;
+
+    [ObservableProperty]
+    private string _adminSettingsStatusMessage = string.Empty;
+
+    [ObservableProperty]
+    private bool _showAdminSettingsStatus;
+
+    [ObservableProperty]
     private string _selectedSection = SectionDiscover;
 
     [ObservableProperty]
@@ -359,14 +591,116 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string _albumStatusMessage = string.Empty;
 
+    [ObservableProperty]
+    private bool _isMaintenanceMode;
+
+    [ObservableProperty]
+    private string _maintenanceMessage = string.Empty;
+
+    [ObservableProperty]
+    private string _maintenanceExpectedEndTimeText = string.Empty;
+
+    [ObservableProperty]
+    private bool _showFirstVisitModal;
+
+    [ObservableProperty]
+    private string _firstVisitTitle = "欢迎来到 HoYoMusic";
+
+    [ObservableProperty]
+    private string _firstVisitContent = "请先阅读并确认使用须知。";
+
+    [ObservableProperty]
+    private int _firstVisitCountdownSeconds;
+
+    [ObservableProperty]
+    private bool _firstVisitAcknowledgeEnabled;
+
+    [ObservableProperty]
+    private bool _showComplianceFooter;
+
+    [ObservableProperty]
+    private string _complianceIcpNumber = string.Empty;
+
+    [ObservableProperty]
+    private string _compliancePublicSecurityNumber = string.Empty;
+
+    [ObservableProperty]
+    private string _complianceIcpUrl = "https://beian.miit.gov.cn/";
+
+    [ObservableProperty]
+    private string _compliancePublicSecurityUrl = "http://www.beian.gov.cn/portal/registerSystemInfo";
+
     public bool IsDiscoverSection => SelectedSection == SectionDiscover;
     public bool IsAlbumDetailSection => SelectedSection == SectionAlbumDetail;
+    public bool IsGamesSection => SelectedSection == SectionGames;
+    public bool IsAlbumsSection => SelectedSection == SectionAlbums;
+    public bool IsArtistsSection => SelectedSection == SectionArtists;
+    public bool IsTagsSection => SelectedSection == SectionTags;
+    public bool IsSearchSection => SelectedSection == SectionSearch;
     public bool IsLibrarySection => SelectedSection == SectionLibrary;
     public bool IsFavoritesSection => SelectedSection == SectionFavorites;
     public bool IsPlaylistsSection => SelectedSection == SectionPlaylists;
     public bool IsProfileSection => SelectedSection == SectionProfile;
+    public bool IsSettingsSection => SelectedSection == SectionSettings;
     public bool IsDownloadsSection => SelectedSection == SectionDownloads;
     public bool IsAdminSection => SelectedSection == SectionAdmin;
+    public bool IsAdminUsersSection => SelectedAdminSection == AdminSectionUsers;
+    public bool IsAdminTagsSection => SelectedAdminSection == AdminSectionTags;
+    public bool IsAdminGamesSection => SelectedAdminSection == AdminSectionGames;
+    public bool IsAdminArtistsSection => SelectedAdminSection == AdminSectionArtists;
+    public bool IsAdminAlbumsSection => SelectedAdminSection == AdminSectionAlbums;
+    public bool IsAdminMusicSourcesSection => SelectedAdminSection == AdminSectionMusicSources;
+    public bool IsAdminAnalyticsSection => SelectedAdminSection == AdminSectionAnalytics;
+    public bool IsAdminSettingsSection => SelectedAdminSection == AdminSectionSettings;
+    public bool ShowMaintenanceOverlay => IsMaintenanceMode && !IsAdmin;
+    public bool HasRecommendedAlbums => SelectedGameAlbums.Count > 0;
+    public bool HasRandomTracks => RandomTracksView.Count > 0;
+    public bool HasTopTracks => TopTracksView.Count > 0;
+    public bool HasPublicTracks => PublicTracks.Count > 0;
+    public bool HasFavoriteTracks => FavoriteTracksView.Count > 0;
+    public bool HasPlaylistTracks => PlaylistTracksView.Count > 0;
+    public bool HasArtistFacets => ArtistFacetItems.Count > 0;
+    public bool HasTagFacets => TagFacetItems.Count > 0;
+    public bool HasRecentSearchKeywords => RecentSearchKeywords.Count > 0;
+    public string FirstVisitCountdownDisplay => FirstVisitAcknowledgeEnabled
+        ? "可确认"
+        : $"可确认倒计时：{FirstVisitCountdownSeconds}s";
+    public string CurrentSectionTitle => SelectedSection switch
+    {
+        SectionDiscover => "发现",
+        SectionAlbumDetail => "专辑详情",
+        SectionGames => "游戏",
+        SectionAlbums => "专辑",
+        SectionArtists => "艺人",
+        SectionTags => "标签",
+        SectionSearch => "搜索",
+        SectionLibrary => "曲库",
+        SectionFavorites => "收藏",
+        SectionPlaylists => "歌单",
+        SectionProfile => "个人中心",
+        SectionSettings => "设置",
+        SectionDownloads => "下载中心",
+        SectionAdmin => "管理",
+        _ => "发现",
+    };
+    public string CurrentSectionSubtitle => SelectedSection switch
+    {
+        SectionDiscover => DiscoverSummary,
+        SectionAlbumDetail => CurrentAlbum?.Title ?? "浏览专辑与曲目详情",
+        SectionGames => "按游戏浏览内容入口",
+        SectionAlbums => "按专辑浏览并进入详情",
+        SectionArtists => "按艺人聚合并快速筛选到曲库",
+        SectionTags => "按时长和歌词状态等标签筛选",
+        SectionSearch => HasRecentSearchKeywords ? $"最近搜索 {RecentSearchKeywords.Count} 条" : "输入关键词快速定位曲目",
+        SectionLibrary => LibraryPaginationSummary,
+        SectionFavorites => IsAuthenticated ? $"收藏曲目 {FavoriteTracksView.Count} 首" : "登录后可管理收藏",
+        SectionPlaylists => IsAuthenticated ? SelectedPlaylistSummary : "登录后可管理歌单",
+        SectionProfile => ProfileSummary,
+        SectionSettings => QueueBehaviorSummary,
+        SectionDownloads => DownloadStatusSummary,
+        SectionAdmin => IsAdmin ? $"管理员管理入口 · {CurrentAdminSectionLabel}" : "仅管理员可访问",
+        _ => string.Empty,
+    };
     public bool IsGuest => !IsAuthenticated;
     public bool ShowAdminEntry => IsAdmin;
     public bool HasErrorMessage => !string.IsNullOrWhiteSpace(ErrorMessage);
@@ -401,6 +735,31 @@ public partial class MainViewModel : ObservableObject
     public string SleepTimerSummary => IsSleepTimerEnabled ? $"睡眠定时：{SleepTimerMinutes} 分钟" : "睡眠定时：关闭";
     public string DiscoverSummary => $"推荐专辑 {SelectedGameAlbums.Count} · 随机曲目 {RandomTracks.Count} · 热门曲目 {TopTracks.Count}";
     public string LyricsStyleSummary => $"歌词字号：{LyricsFontSize}px";
+    public string CurrentAdminSectionLabel => SelectedAdminSection switch
+    {
+        AdminSectionUsers => "用户管理",
+        AdminSectionTags => "标签管理",
+        AdminSectionGames => "游戏管理",
+        AdminSectionArtists => "艺人管理",
+        AdminSectionAlbums => "专辑管理",
+        AdminSectionMusicSources => "音乐来源管理",
+        AdminSectionAnalytics => "数据分析",
+        AdminSectionSettings => "站点设置",
+        _ => "用户管理",
+    };
+    public string AdminUsersPaginationSummary => $"第 {AdminUsersPage}/{Math.Max(AdminUsersTotalPages, 1)} 页 · 共 {AdminUsersTotal} 人";
+    public bool HasPreviousAdminUsersPage => AdminUsersPage > 1;
+    public bool HasNextAdminUsersPage => AdminUsersPage < AdminUsersTotalPages;
+    public string AdminAnalyticsSummary => $"用户 {AdminUsersTotal} · 标签 {AdminTags.Count} · 分组 {AdminTagGroups.Count} · 曲目 {Tracks.Count}";
+    public string AdminTagSelectionSummary => SelectedAdminTag is null
+        ? "未选中标签"
+        : $"已选中标签 #{SelectedAdminTag.Id} · {SelectedAdminTag.Name}";
+    public string AdminTagGroupSelectionSummary => SelectedAdminTagGroup is null
+        ? "未选中分组"
+        : $"已选中分组 #{SelectedAdminTagGroup.Id} · {SelectedAdminTagGroup.Name}";
+    public string AdminFeedbackPaginationSummary => $"第 {AdminFeedbackPage}/{Math.Max(AdminFeedbackTotalPages, 1)} 页 · 共 {AdminFeedbackTotal} 条";
+    public bool HasPreviousAdminFeedbackPage => AdminFeedbackPage > 1;
+    public bool HasNextAdminFeedbackPage => AdminFeedbackPage < AdminFeedbackTotalPages;
     public bool HasPreviousInboxPage => InboxPage > 1;
     public bool HasNextInboxPage => InboxPage < InboxTotalPages;
     public string DetailLyricsPreview => string.IsNullOrWhiteSpace(DetailLyrics)
@@ -443,6 +802,18 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<PlaylistItem> PlaylistsView { get; } = [];
     public ObservableCollection<PlaybackQueueItem> PlaybackQueueView { get; } = [];
     public ObservableCollection<DownloadTaskItem> DownloadTasks { get; } = [];
+    public ObservableCollection<FacetItem> ArtistFacetItems { get; } = [];
+    public ObservableCollection<FacetItem> TagFacetItems { get; } = [];
+    public ObservableCollection<string> RecentSearchKeywords { get; } = [];
+    public ObservableCollection<AdminUserItem> AdminUsers { get; } = [];
+    public ObservableCollection<TagItem> AdminTags { get; } = [];
+    public ObservableCollection<TagGroupItem> AdminTagGroups { get; } = [];
+    public ObservableCollection<FeedbackItem> AdminFeedbackItems { get; } = [];
+    public ObservableCollection<DiscItem> AdminDiscs { get; } = [];
+    public ObservableCollection<LyricsImportItem> AdminLyricsPreviewItems { get; } = [];
+    public ObservableCollection<LyricsImportItem> AdminLyricsCommitItems { get; } = [];
+
+    public sealed record FacetItem(string Label, string Value, int Count);
     public class AlbumTrackRow : ObservableObject
     {
         public int Id { get; init; }
@@ -493,7 +864,13 @@ public partial class MainViewModel : ObservableObject
         ICreditsService creditsService,
         IMusicSourceService musicSourceService,
         IMessageService messageService,
-        IDownloadService downloadService)
+        IDownloadService downloadService,
+        ISiteConfigService siteConfigService,
+        IUserService userService,
+        ITagService tagService,
+        IFeedbackService feedbackService,
+        IDiscService discService,
+        ILyricsImportService lyricsImportService)
     {
         _authService = authService;
         _trackService = trackService;
@@ -507,6 +884,66 @@ public partial class MainViewModel : ObservableObject
         _musicSourceService = musicSourceService;
         _messageService = messageService;
         _downloadService = downloadService;
+        _siteConfigService = siteConfigService;
+        _userService = userService;
+        _tagService = tagService;
+        _feedbackService = feedbackService;
+        _discService = discService;
+        _lyricsImportService = lyricsImportService;
+
+        RegisterDerivedStateObservers();
+    }
+
+    private void RegisterDerivedStateObservers()
+    {
+        SelectedGameAlbums.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasRecommendedAlbums));
+            OnPropertyChanged(nameof(SelectedGameSummary));
+            OnPropertyChanged(nameof(DiscoverSummary));
+        };
+
+        RandomTracksView.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasRandomTracks));
+        };
+
+        TopTracksView.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasTopTracks));
+        };
+
+        PublicTracks.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasPublicTracks));
+            RefreshFacetCollections();
+        };
+
+        FavoriteTracks.CollectionChanged += (_, _) => RefreshFacetCollections();
+        PlaylistTracks.CollectionChanged += (_, _) => RefreshFacetCollections();
+
+        FavoriteTracksView.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasFavoriteTracks));
+            OnPropertyChanged(nameof(ProfileSummary));
+            OnPropertyChanged(nameof(CurrentSectionSubtitle));
+        };
+
+        PlaylistTracksView.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasPlaylistTracks));
+        };
+
+        ArtistFacetItems.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasArtistFacets));
+        TagFacetItems.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasTagFacets));
+        RecentSearchKeywords.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasRecentSearchKeywords));
+            OnPropertyChanged(nameof(CurrentSectionSubtitle));
+        };
+
+        AdminTags.CollectionChanged += (_, _) => OnPropertyChanged(nameof(AdminAnalyticsSummary));
+        AdminTagGroups.CollectionChanged += (_, _) => OnPropertyChanged(nameof(AdminAnalyticsSummary));
     }
 
     private async Task HandleApiExceptionAsync(ApiException exception, string fallbackMessage)
@@ -543,12 +980,44 @@ public partial class MainViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(IsDiscoverSection));
         OnPropertyChanged(nameof(IsAlbumDetailSection));
+        OnPropertyChanged(nameof(IsGamesSection));
+        OnPropertyChanged(nameof(IsAlbumsSection));
+        OnPropertyChanged(nameof(IsArtistsSection));
+        OnPropertyChanged(nameof(IsTagsSection));
+        OnPropertyChanged(nameof(IsSearchSection));
         OnPropertyChanged(nameof(IsLibrarySection));
         OnPropertyChanged(nameof(IsFavoritesSection));
         OnPropertyChanged(nameof(IsPlaylistsSection));
         OnPropertyChanged(nameof(IsProfileSection));
+        OnPropertyChanged(nameof(IsSettingsSection));
         OnPropertyChanged(nameof(IsDownloadsSection));
         OnPropertyChanged(nameof(IsAdminSection));
+        OnPropertyChanged(nameof(CurrentSectionTitle));
+        OnPropertyChanged(nameof(CurrentSectionSubtitle));
+
+        if (value == SectionAdmin && IsAdmin)
+        {
+            _ = EnsureAdminSectionDataAsync(forceReload: false);
+        }
+    }
+
+    partial void OnSelectedAdminSectionChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsAdminUsersSection));
+        OnPropertyChanged(nameof(IsAdminTagsSection));
+        OnPropertyChanged(nameof(IsAdminGamesSection));
+        OnPropertyChanged(nameof(IsAdminArtistsSection));
+        OnPropertyChanged(nameof(IsAdminAlbumsSection));
+        OnPropertyChanged(nameof(IsAdminMusicSourcesSection));
+        OnPropertyChanged(nameof(IsAdminAnalyticsSection));
+        OnPropertyChanged(nameof(IsAdminSettingsSection));
+        OnPropertyChanged(nameof(CurrentAdminSectionLabel));
+        OnPropertyChanged(nameof(CurrentSectionSubtitle));
+
+        if (IsAdminSection && IsAdmin)
+        {
+            _ = EnsureAdminSectionDataAsync(forceReload: false);
+        }
     }
 
     partial void OnIsAuthenticatedChanged(bool value)
@@ -575,6 +1044,23 @@ public partial class MainViewModel : ObservableObject
     partial void OnIsAdminChanged(bool value)
     {
         OnPropertyChanged(nameof(ShowAdminEntry));
+        OnPropertyChanged(nameof(ShowMaintenanceOverlay));
+        OnPropertyChanged(nameof(CurrentSectionSubtitle));
+    }
+
+    partial void OnIsMaintenanceModeChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowMaintenanceOverlay));
+    }
+
+    partial void OnFirstVisitCountdownSecondsChanged(int value)
+    {
+        OnPropertyChanged(nameof(FirstVisitCountdownDisplay));
+    }
+
+    partial void OnFirstVisitAcknowledgeEnabledChanged(bool value)
+    {
+        OnPropertyChanged(nameof(FirstVisitCountdownDisplay));
     }
 
     partial void OnPlayModeChanged(string value)
@@ -598,6 +1084,43 @@ public partial class MainViewModel : ObservableObject
     partial void OnLibraryTotalChanged(int value)
     {
         OnPropertyChanged(nameof(LibraryPaginationSummary));
+    }
+
+    partial void OnAdminUsersPageChanged(int value)
+    {
+        OnPropertyChanged(nameof(AdminUsersPaginationSummary));
+        OnPropertyChanged(nameof(HasPreviousAdminUsersPage));
+        OnPropertyChanged(nameof(HasNextAdminUsersPage));
+    }
+
+    partial void OnAdminUsersTotalPagesChanged(int value)
+    {
+        OnPropertyChanged(nameof(AdminUsersPaginationSummary));
+        OnPropertyChanged(nameof(HasNextAdminUsersPage));
+    }
+
+    partial void OnAdminUsersTotalChanged(int value)
+    {
+        OnPropertyChanged(nameof(AdminUsersPaginationSummary));
+        OnPropertyChanged(nameof(AdminAnalyticsSummary));
+    }
+
+    partial void OnAdminFeedbackPageChanged(int value)
+    {
+        OnPropertyChanged(nameof(AdminFeedbackPaginationSummary));
+        OnPropertyChanged(nameof(HasPreviousAdminFeedbackPage));
+        OnPropertyChanged(nameof(HasNextAdminFeedbackPage));
+    }
+
+    partial void OnAdminFeedbackTotalPagesChanged(int value)
+    {
+        OnPropertyChanged(nameof(AdminFeedbackPaginationSummary));
+        OnPropertyChanged(nameof(HasNextAdminFeedbackPage));
+    }
+
+    partial void OnAdminFeedbackTotalChanged(int value)
+    {
+        OnPropertyChanged(nameof(AdminFeedbackPaginationSummary));
     }
 
     partial void OnUnreadMessageCountChanged(int value)
@@ -713,6 +1236,90 @@ public partial class MainViewModel : ObservableObject
     partial void OnDiscoverFilterTextChanged(string value)
     {
         ApplyDiscoverFilters();
+    }
+
+    partial void OnAdminUserKeywordChanged(string value)
+    {
+        _ = LoadAdminUsersAsync(1);
+    }
+
+    partial void OnAdminUserRoleChanged(string value)
+    {
+        _ = LoadAdminUsersAsync(1);
+    }
+
+    partial void OnAdminUserStatusChanged(string value)
+    {
+        _ = LoadAdminUsersAsync(1);
+    }
+
+    partial void OnSelectedAdminTagChanged(TagItem? value)
+    {
+        OnPropertyChanged(nameof(AdminTagSelectionSummary));
+
+        if (value is null)
+        {
+            return;
+        }
+
+        AdminTagName = value.Name;
+        AdminTagColor = string.IsNullOrWhiteSpace(value.Color) ? "#6B9EFF" : value.Color;
+        AdminTagDescription = value.Description ?? string.Empty;
+        AdminTagGroupIdText = value.GroupId?.ToString() ?? string.Empty;
+        AdminTagParentIdText = value.ParentId?.ToString() ?? string.Empty;
+        AdminTagIcon = value.Icon ?? string.Empty;
+        AdminTagDisplayOrderText = value.DisplayOrder?.ToString() ?? string.Empty;
+        SelectedAdminTagAssignGroup = value.GroupId.HasValue
+            ? AdminTagGroups.FirstOrDefault(item => item.Id == value.GroupId.Value)
+            : null;
+        SelectedAdminTagParent = value.ParentId.HasValue
+            ? AdminTags.FirstOrDefault(item => item.Id == value.ParentId.Value)
+            : null;
+    }
+
+    partial void OnSelectedAdminTagGroupChanged(TagGroupItem? value)
+    {
+        OnPropertyChanged(nameof(AdminTagGroupSelectionSummary));
+
+        if (value is null)
+        {
+            return;
+        }
+
+        AdminTagGroupName = value.Name;
+        AdminTagGroupDescription = value.Description ?? string.Empty;
+        AdminTagGroupIcon = value.Icon ?? string.Empty;
+        AdminTagGroupDisplayOrderText = value.DisplayOrder.ToString();
+        AdminTagGroupParentIdText = value.ParentGroupId?.ToString() ?? string.Empty;
+        SelectedAdminTagGroupParent = value.ParentGroupId.HasValue
+            ? AdminTagGroups.FirstOrDefault(item => item.Id == value.ParentGroupId.Value)
+            : null;
+    }
+
+    partial void OnSelectedAdminTagAssignGroupChanged(TagGroupItem? value)
+    {
+        AdminTagGroupIdText = value?.Id.ToString() ?? string.Empty;
+    }
+
+    partial void OnSelectedAdminTagParentChanged(TagItem? value)
+    {
+        AdminTagParentIdText = value?.Id.ToString() ?? string.Empty;
+    }
+
+    partial void OnSelectedAdminTagGroupParentChanged(TagGroupItem? value)
+    {
+        AdminTagGroupParentIdText = value?.Id.ToString() ?? string.Empty;
+    }
+
+    partial void OnSelectedAdminDiscChanged(DiscItem? value)
+    {
+        if (value is null)
+        {
+            return;
+        }
+
+        AdminDiscNumberText = value.DiscNumber.ToString();
+        AdminDiscTitle = value.DiscTitle ?? string.Empty;
     }
 
     partial void OnLibraryHasLyricsOnlyChanged(bool value)
@@ -851,6 +1458,7 @@ public partial class MainViewModel : ObservableObject
             }
 
             LoadingStage = "加载游戏与发现";
+            await LoadSiteConfigAsync();
             await LoadGamesAsync();
             await LoadSelectedGameAlbumsAsync();
             await LoadDiscoverAsync();
@@ -907,6 +1515,7 @@ public partial class MainViewModel : ObservableObject
             await LoadFavoritesAsync();
             await LoadPlaylistsAsync();
             await RefreshInboxAsync();
+            await TryRestorePendingSectionAfterLoginAsync();
         }
         catch (ApiException ex)
         {
@@ -1003,6 +1612,7 @@ public partial class MainViewModel : ObservableObject
             await LoadFavoritesAsync();
             await LoadPlaylistsAsync();
             await RefreshInboxAsync();
+            await TryRestorePendingSectionAfterLoginAsync();
             ErrorMessage = "注册成功，已自动登录。";
         }
         catch (ApiException ex)
@@ -1022,10 +1632,16 @@ public partial class MainViewModel : ObservableObject
         {
             SectionDiscover => SectionDiscover,
             SectionAlbumDetail => SectionAlbumDetail,
+            SectionGames => SectionGames,
+            SectionAlbums => SectionAlbums,
+            SectionArtists => SectionArtists,
+            SectionTags => SectionTags,
+            SectionSearch => SectionSearch,
             SectionLibrary => SectionLibrary,
             SectionFavorites => SectionFavorites,
             SectionPlaylists => SectionPlaylists,
             SectionProfile => SectionProfile,
+            SectionSettings => SectionSettings,
             SectionDownloads => SectionDownloads,
             SectionAdmin => SectionAdmin,
             _ => SectionDiscover,
@@ -1033,18 +1649,48 @@ public partial class MainViewModel : ObservableObject
 
         if (!IsAuthenticated && IsRestrictedSection(requestedSection))
         {
+            RememberPendingSection(requestedSection);
             ErrorMessage = "请先登录后再访问收藏和歌单。";
             requestedSection = SectionLibrary;
         }
 
         if (requestedSection == SectionAdmin && !IsAdmin)
         {
+            RememberPendingSection(SectionAdmin);
             ErrorMessage = "仅管理员可访问管理页面。";
             requestedSection = SectionDiscover;
         }
 
         SelectedSection = requestedSection;
         SelectedSectionIndex = SectionToIndex(SelectedSection);
+
+        if (requestedSection == SectionAdmin && IsAdmin)
+        {
+            _ = EnsureAdminSectionDataAsync(forceReload: false);
+        }
+    }
+
+    [RelayCommand]
+    private void OpenAdminSection(string? section)
+    {
+        if (!IsAdmin)
+        {
+            ErrorMessage = "仅管理员可访问管理页面。";
+            return;
+        }
+
+        SelectedAdminSection = section switch
+        {
+            AdminSectionUsers => AdminSectionUsers,
+            AdminSectionTags => AdminSectionTags,
+            AdminSectionGames => AdminSectionGames,
+            AdminSectionArtists => AdminSectionArtists,
+            AdminSectionAlbums => AdminSectionAlbums,
+            AdminSectionMusicSources => AdminSectionMusicSources,
+            AdminSectionAnalytics => AdminSectionAnalytics,
+            AdminSectionSettings => AdminSectionSettings,
+            _ => AdminSectionUsers,
+        };
     }
 
     partial void OnSelectedSectionIndexChanged(int value)
@@ -1052,24 +1698,32 @@ public partial class MainViewModel : ObservableObject
         var requestedSection = value switch
         {
             0 => SectionDiscover,
-            1 => SectionLibrary,
-            2 => SectionFavorites,
-            3 => SectionPlaylists,
-            4 => SectionProfile,
-            5 => SectionDownloads,
-            6 => SectionAdmin,
+            1 => SectionGames,
+            2 => SectionAlbums,
+            3 => SectionArtists,
+            4 => SectionTags,
+            5 => SectionSearch,
+            6 => SectionLibrary,
+            7 => SectionFavorites,
+            8 => SectionPlaylists,
+            9 => SectionProfile,
+            10 => SectionSettings,
+            11 => SectionDownloads,
+            12 => SectionAdmin,
             _ => SectionDiscover,
         };
 
         if (!IsAuthenticated && IsRestrictedSection(requestedSection))
         {
+            RememberPendingSection(requestedSection);
             ErrorMessage = "请先登录后再访问收藏和歌单。";
             requestedSection = SectionLibrary;
-            value = 1;
+            value = 6;
         }
 
         if (requestedSection == SectionAdmin && !IsAdmin)
         {
+            RememberPendingSection(SectionAdmin);
             ErrorMessage = "仅管理员可访问管理页面。";
             requestedSection = SectionDiscover;
             value = 0;
@@ -1097,20 +1751,1057 @@ public partial class MainViewModel : ObservableObject
         {
             SectionDiscover => 0,
             SectionAlbumDetail => 0,
-            SectionLibrary => 1,
-            SectionFavorites => 2,
-            SectionPlaylists => 3,
-            SectionProfile => 4,
-            SectionDownloads => 5,
-            SectionAdmin => 6,
+            SectionGames => 1,
+            SectionAlbums => 2,
+            SectionArtists => 3,
+            SectionTags => 4,
+            SectionSearch => 5,
+            SectionLibrary => 6,
+            SectionFavorites => 7,
+            SectionPlaylists => 8,
+            SectionProfile => 9,
+            SectionSettings => 10,
+            SectionDownloads => 11,
+            SectionAdmin => 12,
             _ => 0,
         };
+    }
+
+    [RelayCommand]
+    private async Task OpenSearchCenterAsync()
+    {
+        OpenSection(SectionSearch);
+
+        var keyword = SearchKeyword.Trim();
+        if (string.IsNullOrWhiteSpace(keyword))
+        {
+            ErrorMessage = "请输入搜索关键词。";
+            return;
+        }
+
+        PushRecentSearchKeyword(keyword);
+        LibraryPage = 1;
+        await LoadPublicTracksAsync(1, keyword);
+    }
+
+    [RelayCommand]
+    private async Task ApplyArtistFacetAsync(FacetItem? facet)
+    {
+        if (facet is null)
+        {
+            return;
+        }
+
+        SearchArtist = facet.Value;
+        OpenSection(SectionLibrary);
+        LibraryPage = 1;
+        await LoadPublicTracksAsync(1);
+    }
+
+    [RelayCommand]
+    private async Task ApplyTagFacetAsync(FacetItem? facet)
+    {
+        if (facet is null)
+        {
+            return;
+        }
+
+        if (facet.Value.StartsWith("duration:", StringComparison.OrdinalIgnoreCase))
+        {
+            DurationBucket = facet.Value["duration:".Length..];
+        }
+        else if (facet.Value.StartsWith("lyrics:", StringComparison.OrdinalIgnoreCase))
+        {
+            LyricsStatus = facet.Value["lyrics:".Length..];
+        }
+
+        OpenSection(SectionLibrary);
+        LibraryPage = 1;
+        await LoadPublicTracksAsync(1);
+    }
+
+    [RelayCommand]
+    private async Task ApplyRecentSearchKeywordAsync(string? keyword)
+    {
+        if (string.IsNullOrWhiteSpace(keyword))
+        {
+            return;
+        }
+
+        SearchKeyword = keyword;
+        await OpenSearchCenterAsync();
+    }
+
+    [RelayCommand]
+    private void ClearRecentSearchKeywords()
+    {
+        RecentSearchKeywords.Clear();
+    }
+
+    [RelayCommand]
+    private void AcknowledgeFirstVisit()
+    {
+        if (!FirstVisitAcknowledgeEnabled)
+        {
+            return;
+        }
+
+        var ackKey = $"first_visit_ack_{_activeFirstVisitVersion}";
+        TrySetLocalSetting(ackKey, true);
+        ShowFirstVisitModal = false;
+        FirstVisitAcknowledgeEnabled = false;
+        _firstVisitCountdownCts?.Cancel();
+    }
+
+    [RelayCommand]
+    private async Task OpenComplianceLinkAsync(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return;
+        }
+
+        try
+        {
+            await Launcher.LaunchUriAsync(new Uri(url));
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"打开链接失败：{ex.Message}";
+        }
     }
 
     [RelayCommand]
     private async Task RefreshTracksAsync()
     {
         await LoadTracksAsync();
+    }
+
+    [RelayCommand]
+    private async Task RefreshGamesAsync()
+    {
+        await LoadGamesAsync();
+    }
+
+    [RelayCommand]
+    private async Task RefreshAdminUsersAsync()
+    {
+        await LoadAdminUsersAsync(Math.Max(AdminUsersPage, 1));
+    }
+
+    [RelayCommand]
+    private async Task PreviousAdminUsersPageAsync()
+    {
+        if (!HasPreviousAdminUsersPage)
+        {
+            return;
+        }
+
+        await LoadAdminUsersAsync(Math.Max(1, AdminUsersPage - 1));
+    }
+
+    [RelayCommand]
+    private async Task NextAdminUsersPageAsync()
+    {
+        if (!HasNextAdminUsersPage)
+        {
+            return;
+        }
+
+        await LoadAdminUsersAsync(AdminUsersPage + 1);
+    }
+
+    [RelayCommand]
+    private async Task ToggleAdminUserRoleAsync(AdminUserItem? user)
+    {
+        if (!IsAdmin || user is null)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            await _userService.UpdateRoleAsync(user.Id, !user.IsAdmin);
+            await LoadAdminUsersAsync(Math.Max(AdminUsersPage, 1));
+            SuccessMessage = $"已更新用户角色：{user.Username}";
+        }
+        catch (ApiException ex)
+        {
+            await HandleApiExceptionAsync(ex, "更新用户角色失败，请稍后重试。");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ToggleAdminUserStatusAsync(AdminUserItem? user)
+    {
+        if (!IsAdmin || user is null)
+        {
+            return;
+        }
+
+        var nextStatus = string.Equals(user.AccountStatus, "disabled", StringComparison.OrdinalIgnoreCase)
+            ? "active"
+            : "disabled";
+
+        IsBusy = true;
+        try
+        {
+            await _userService.UpdateStatusAsync(user.Id, nextStatus);
+            await LoadAdminUsersAsync(Math.Max(AdminUsersPage, 1));
+            SuccessMessage = $"已更新用户状态：{user.Username} -> {nextStatus}";
+        }
+        catch (ApiException ex)
+        {
+            await HandleApiExceptionAsync(ex, "更新用户状态失败，请稍后重试。");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ResetAdminUserPasswordAsync(AdminUserItem? user)
+    {
+        if (!IsAdmin || user is null)
+        {
+            return;
+        }
+
+        var temporaryPassword = $"Temp{DateTime.Now:MMddHHmm}!";
+        IsBusy = true;
+        try
+        {
+            await _userService.ResetPasswordAsync(user.Id, temporaryPassword);
+            SuccessMessage = $"{user.Username} 密码已重置为临时密码：{temporaryPassword}";
+        }
+        catch (ApiException ex)
+        {
+            await HandleApiExceptionAsync(ex, "重置用户密码失败，请稍后重试。");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task RefreshAdminTagsAsync()
+    {
+        await LoadAdminTagsAsync();
+    }
+
+    [RelayCommand]
+    private void ClearAdminTagForm()
+    {
+        SelectedAdminTag = null;
+        SelectedAdminTagAssignGroup = null;
+        SelectedAdminTagParent = null;
+        AdminTagName = string.Empty;
+        AdminTagColor = "#6B9EFF";
+        AdminTagDescription = string.Empty;
+        AdminTagGroupIdText = string.Empty;
+        AdminTagParentIdText = string.Empty;
+        AdminTagIcon = string.Empty;
+        AdminTagDisplayOrderText = string.Empty;
+    }
+
+    [RelayCommand]
+    private async Task CreateAdminTagAsync()
+    {
+        if (!IsAdmin)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(AdminTagName))
+        {
+            ErrorMessage = "请输入标签名称。";
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            var created = await _tagService.CreateTagAsync(new TagUpsertRequest
+            {
+                Name = AdminTagName.Trim(),
+                Color = string.IsNullOrWhiteSpace(AdminTagColor) ? null : AdminTagColor.Trim(),
+                Description = string.IsNullOrWhiteSpace(AdminTagDescription) ? null : AdminTagDescription.Trim(),
+                GroupId = ParseIntOrNull(AdminTagGroupIdText),
+                ParentId = ParseIntOrNull(AdminTagParentIdText),
+                Icon = string.IsNullOrWhiteSpace(AdminTagIcon) ? null : AdminTagIcon.Trim(),
+                DisplayOrder = ParseIntOrNull(AdminTagDisplayOrderText),
+            });
+
+            await LoadAdminTagsAsync();
+            SelectedAdminTag = AdminTags.FirstOrDefault(item => item.Id == created.Id);
+            SuccessMessage = $"标签已创建：{created.Name}";
+        }
+        catch (ApiException ex)
+        {
+            await HandleApiExceptionAsync(ex, "创建标签失败，请稍后重试。");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task UpdateAdminTagAsync()
+    {
+        if (!IsAdmin || SelectedAdminTag is null)
+        {
+            ErrorMessage = "请先选择要更新的标签。";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(AdminTagName))
+        {
+            ErrorMessage = "请输入标签名称。";
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            var updated = await _tagService.UpdateTagAsync(SelectedAdminTag.Id, new TagUpsertRequest
+            {
+                Name = AdminTagName.Trim(),
+                Color = string.IsNullOrWhiteSpace(AdminTagColor) ? null : AdminTagColor.Trim(),
+                Description = string.IsNullOrWhiteSpace(AdminTagDescription) ? null : AdminTagDescription.Trim(),
+                GroupId = ParseIntOrNull(AdminTagGroupIdText),
+                ParentId = ParseIntOrNull(AdminTagParentIdText),
+                Icon = string.IsNullOrWhiteSpace(AdminTagIcon) ? null : AdminTagIcon.Trim(),
+                DisplayOrder = ParseIntOrNull(AdminTagDisplayOrderText),
+            });
+
+            await LoadAdminTagsAsync();
+            SelectedAdminTag = AdminTags.FirstOrDefault(item => item.Id == updated.Id);
+            SuccessMessage = $"标签已更新：{updated.Name}";
+        }
+        catch (ApiException ex)
+        {
+            await HandleApiExceptionAsync(ex, "更新标签失败，请稍后重试。");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task DeleteAdminTagAsync()
+    {
+        if (!IsAdmin || SelectedAdminTag is null)
+        {
+            ErrorMessage = "请先选择要删除的标签。";
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            var removedName = SelectedAdminTag.Name;
+            await _tagService.DeleteTagAsync(SelectedAdminTag.Id);
+            await LoadAdminTagsAsync();
+            ClearAdminTagForm();
+            SuccessMessage = $"标签已删除：{removedName}";
+        }
+        catch (ApiException ex)
+        {
+            await HandleApiExceptionAsync(ex, "删除标签失败，请稍后重试。");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private void ClearAdminTagGroupForm()
+    {
+        SelectedAdminTagGroup = null;
+        SelectedAdminTagGroupParent = null;
+        AdminTagGroupName = string.Empty;
+        AdminTagGroupDescription = string.Empty;
+        AdminTagGroupIcon = string.Empty;
+        AdminTagGroupDisplayOrderText = string.Empty;
+        AdminTagGroupParentIdText = string.Empty;
+    }
+
+    [RelayCommand]
+    private async Task CreateAdminTagGroupAsync()
+    {
+        if (!IsAdmin)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(AdminTagGroupName))
+        {
+            ErrorMessage = "请输入标签分组名称。";
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            var created = await _tagService.CreateTagGroupAsync(new TagGroupUpsertRequest
+            {
+                Name = AdminTagGroupName.Trim(),
+                Description = string.IsNullOrWhiteSpace(AdminTagGroupDescription) ? null : AdminTagGroupDescription.Trim(),
+                Icon = string.IsNullOrWhiteSpace(AdminTagGroupIcon) ? null : AdminTagGroupIcon.Trim(),
+                DisplayOrder = ParseIntOrNull(AdminTagGroupDisplayOrderText),
+                ParentGroupId = ParseIntOrNull(AdminTagGroupParentIdText),
+            });
+
+            await LoadAdminTagsAsync();
+            SelectedAdminTagGroup = AdminTagGroups.FirstOrDefault(item => item.Id == created.Id);
+            SuccessMessage = $"标签分组已创建：{created.Name}";
+        }
+        catch (ApiException ex)
+        {
+            await HandleApiExceptionAsync(ex, "创建标签分组失败，请稍后重试。");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task UpdateAdminTagGroupAsync()
+    {
+        if (!IsAdmin || SelectedAdminTagGroup is null)
+        {
+            ErrorMessage = "请先选择要更新的标签分组。";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(AdminTagGroupName))
+        {
+            ErrorMessage = "请输入标签分组名称。";
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            var updated = await _tagService.UpdateTagGroupAsync(SelectedAdminTagGroup.Id, new TagGroupUpsertRequest
+            {
+                Name = AdminTagGroupName.Trim(),
+                Description = string.IsNullOrWhiteSpace(AdminTagGroupDescription) ? null : AdminTagGroupDescription.Trim(),
+                Icon = string.IsNullOrWhiteSpace(AdminTagGroupIcon) ? null : AdminTagGroupIcon.Trim(),
+                DisplayOrder = ParseIntOrNull(AdminTagGroupDisplayOrderText),
+                ParentGroupId = ParseIntOrNull(AdminTagGroupParentIdText),
+            });
+
+            await LoadAdminTagsAsync();
+            SelectedAdminTagGroup = AdminTagGroups.FirstOrDefault(item => item.Id == updated.Id);
+            SuccessMessage = $"标签分组已更新：{updated.Name}";
+        }
+        catch (ApiException ex)
+        {
+            await HandleApiExceptionAsync(ex, "更新标签分组失败，请稍后重试。");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task DeleteAdminTagGroupAsync()
+    {
+        if (!IsAdmin || SelectedAdminTagGroup is null)
+        {
+            ErrorMessage = "请先选择要删除的标签分组。";
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            var removedName = SelectedAdminTagGroup.Name;
+            await _tagService.DeleteTagGroupAsync(SelectedAdminTagGroup.Id);
+            await LoadAdminTagsAsync();
+            ClearAdminTagGroupForm();
+            SuccessMessage = $"标签分组已删除：{removedName}";
+        }
+        catch (ApiException ex)
+        {
+            await HandleApiExceptionAsync(ex, "删除标签分组失败，请稍后重试。");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task RefreshAdminSettingsAsync()
+    {
+        await LoadAdminMaintenanceConfigAsync();
+        await LoadAdminFeedbackAsync(Math.Max(AdminFeedbackPage, 1));
+    }
+
+    [RelayCommand]
+    private async Task SaveAdminMaintenanceConfigAsync()
+    {
+        if (!IsAdmin)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            if (!TryParseAdminIsoDateTime(AdminMaintenanceExpectedEndTime, out var normalizedExpectedEndTime))
+            {
+                ErrorMessage = "预计结束时间格式无效，请使用 ISO 时间，例如 2026-04-15T20:00:00+08:00。";
+                return;
+            }
+
+            var updated = await _siteConfigService.UpdateAdminMaintenanceModeAsync(new MaintenanceModeConfig
+            {
+                Enabled = AdminMaintenanceEnabled,
+                Message = AdminMaintenanceMessage,
+                ExpectedEndTime = normalizedExpectedEndTime,
+                Version = "desktop-admin",
+            });
+
+            AdminMaintenanceEnabled = updated.Enabled;
+            AdminMaintenanceMessage = updated.Message;
+            AdminMaintenanceExpectedEndTime = updated.ExpectedEndTime ?? string.Empty;
+            ShowAdminSettingsStatus = true;
+            AdminSettingsStatusMessage = "维护配置已保存并通过格式校验。";
+            SuccessMessage = "维护配置已保存。";
+        }
+        catch (ApiException ex)
+        {
+            await HandleApiExceptionAsync(ex, "保存维护配置失败，请稍后重试。");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task SaveAdminFirstVisitConfigAsync()
+    {
+        if (!IsAdmin)
+        {
+            return;
+        }
+
+        var minStaySeconds = ParseIntOrNull(AdminFirstVisitMinStaySecondsText) ?? 5;
+        minStaySeconds = Math.Clamp(minStaySeconds, 5, 120);
+
+        IsBusy = true;
+        try
+        {
+            var updated = await _siteConfigService.UpdateAdminFirstVisitModalAsync(new FirstVisitModalConfig
+            {
+                Enabled = AdminFirstVisitEnabled,
+                Title = AdminFirstVisitTitle,
+                Content = AdminFirstVisitContent,
+                MinStaySeconds = minStaySeconds,
+                Version = string.IsNullOrWhiteSpace(AdminFirstVisitVersion) ? "desktop-admin" : AdminFirstVisitVersion.Trim(),
+            });
+
+            AdminFirstVisitEnabled = updated.Enabled;
+            AdminFirstVisitTitle = updated.Title;
+            AdminFirstVisitContent = updated.Content;
+            AdminFirstVisitMinStaySecondsText = updated.MinStaySeconds.ToString();
+            AdminFirstVisitVersion = updated.Version;
+            ShowAdminSettingsStatus = true;
+            AdminSettingsStatusMessage = "首次访问配置已保存（最短停留秒数已按后端规则校验）。";
+            SuccessMessage = "首次访问弹窗配置已保存。";
+        }
+        catch (ApiException ex)
+        {
+            await HandleApiExceptionAsync(ex, "保存首次访问弹窗配置失败，请稍后重试。");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task SaveAdminComplianceConfigAsync()
+    {
+        if (!IsAdmin)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            var updated = await _siteConfigService.UpdateAdminComplianceConfigAsync(new SiteComplianceConfig
+            {
+                Enabled = AdminComplianceEnabled,
+                IcpNumber = AdminComplianceIcpNumber.Trim(),
+                PublicSecurityNumber = AdminCompliancePublicSecurityNumber.Trim(),
+            });
+
+            AdminComplianceEnabled = updated.Enabled;
+            AdminComplianceIcpNumber = updated.IcpNumber;
+            AdminCompliancePublicSecurityNumber = updated.PublicSecurityNumber;
+            ShowAdminSettingsStatus = true;
+            AdminSettingsStatusMessage = "备案配置已保存。";
+            SuccessMessage = "备案配置已保存。";
+        }
+        catch (ApiException ex)
+        {
+            await HandleApiExceptionAsync(ex, "保存备案配置失败，请稍后重试。");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task SendAdminTestEmailAsync()
+    {
+        if (!IsAdmin)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(AdminTestEmail))
+        {
+            ErrorMessage = "请输入测试邮箱。";
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            var responseMessage = await _siteConfigService.SendAdminTestEmailAsync(AdminTestEmail.Trim());
+            SuccessMessage = string.IsNullOrWhiteSpace(responseMessage) ? "测试邮件发送成功。" : responseMessage;
+        }
+        catch (ApiException ex)
+        {
+            await HandleApiExceptionAsync(ex, "发送测试邮件失败，请稍后重试。");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task SubmitFeedbackAsync()
+    {
+        if (string.IsNullOrWhiteSpace(FeedbackContent))
+        {
+            ErrorMessage = "请输入反馈内容。";
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            await _feedbackService.SubmitAsync(FeedbackContent.Trim(), string.IsNullOrWhiteSpace(FeedbackContact) ? null : FeedbackContact.Trim());
+            FeedbackContent = string.Empty;
+            FeedbackContact = string.Empty;
+            SuccessMessage = "反馈已提交，感谢你的建议。";
+        }
+        catch (ApiException ex)
+        {
+            await HandleApiExceptionAsync(ex, "提交反馈失败，请稍后重试。");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task RefreshAdminFeedbackAsync()
+    {
+        await LoadAdminFeedbackAsync(Math.Max(AdminFeedbackPage, 1));
+    }
+
+    [RelayCommand]
+    private async Task PreviousAdminFeedbackPageAsync()
+    {
+        if (!HasPreviousAdminFeedbackPage)
+        {
+            return;
+        }
+
+        await LoadAdminFeedbackAsync(Math.Max(1, AdminFeedbackPage - 1));
+    }
+
+    [RelayCommand]
+    private async Task NextAdminFeedbackPageAsync()
+    {
+        if (!HasNextAdminFeedbackPage)
+        {
+            return;
+        }
+
+        await LoadAdminFeedbackAsync(AdminFeedbackPage + 1);
+    }
+
+    [RelayCommand]
+    private async Task LoadAdminDiscsAsync()
+    {
+        if (!IsAdmin)
+        {
+            return;
+        }
+
+        var albumId = ParsePositiveIntOrNull(AdminAlbumIdText);
+        if (!albumId.HasValue)
+        {
+            ErrorMessage = "请输入有效的专辑 ID。";
+            return;
+        }
+
+        await LoadAdminDiscsCoreAsync(albumId.Value);
+    }
+
+    [RelayCommand]
+    private void ClearAdminDiscForm()
+    {
+        SelectedAdminDisc = null;
+        AdminDiscNumberText = string.Empty;
+        AdminDiscTitle = string.Empty;
+    }
+
+    [RelayCommand]
+    private async Task CreateAdminDiscAsync()
+    {
+        if (!IsAdmin)
+        {
+            return;
+        }
+
+        var albumId = ParsePositiveIntOrNull(AdminAlbumIdText);
+        if (!albumId.HasValue)
+        {
+            ErrorMessage = "请输入有效的专辑 ID。";
+            return;
+        }
+
+        var discNumber = ParsePositiveIntOrNull(AdminDiscNumberText);
+        if (!discNumber.HasValue)
+        {
+            ErrorMessage = "请输入有效的 Disc 编号。";
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            var created = await _discService.CreateDiscAsync(albumId.Value, new DiscUpsertRequest
+            {
+                DiscNumber = discNumber.Value,
+                DiscTitle = string.IsNullOrWhiteSpace(AdminDiscTitle) ? null : AdminDiscTitle.Trim(),
+            });
+
+            await LoadAdminDiscsCoreAsync(albumId.Value);
+            SelectedAdminDisc = AdminDiscs.FirstOrDefault(item => item.Id == created.Id);
+            SuccessMessage = $"已创建 Disc #{created.DiscNumber}。";
+        }
+        catch (ApiException ex)
+        {
+            await HandleApiExceptionAsync(ex, "创建 Disc 失败，请稍后重试。");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task UpdateAdminDiscAsync()
+    {
+        if (!IsAdmin || SelectedAdminDisc is null)
+        {
+            ErrorMessage = "请先选择要更新的 Disc。";
+            return;
+        }
+
+        var discNumber = ParsePositiveIntOrNull(AdminDiscNumberText);
+        if (!discNumber.HasValue)
+        {
+            ErrorMessage = "请输入有效的 Disc 编号。";
+            return;
+        }
+
+        var albumId = ParsePositiveIntOrNull(AdminAlbumIdText);
+        if (!albumId.HasValue)
+        {
+            ErrorMessage = "请输入有效的专辑 ID。";
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            var updated = await _discService.UpdateDiscAsync(SelectedAdminDisc.Id, new DiscUpsertRequest
+            {
+                DiscNumber = discNumber.Value,
+                DiscTitle = string.IsNullOrWhiteSpace(AdminDiscTitle) ? null : AdminDiscTitle.Trim(),
+            });
+
+            await LoadAdminDiscsCoreAsync(albumId.Value);
+            SelectedAdminDisc = AdminDiscs.FirstOrDefault(item => item.Id == updated.Id);
+            SuccessMessage = $"已更新 Disc #{updated.DiscNumber}。";
+        }
+        catch (ApiException ex)
+        {
+            await HandleApiExceptionAsync(ex, "更新 Disc 失败，请稍后重试。");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task DeleteAdminDiscAsync()
+    {
+        if (!IsAdmin || SelectedAdminDisc is null)
+        {
+            ErrorMessage = "请先选择要删除的 Disc。";
+            return;
+        }
+
+        var albumId = ParsePositiveIntOrNull(AdminAlbumIdText);
+        if (!albumId.HasValue)
+        {
+            ErrorMessage = "请输入有效的专辑 ID。";
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            await _discService.DeleteDiscAsync(SelectedAdminDisc.Id);
+            await LoadAdminDiscsCoreAsync(albumId.Value);
+            ClearAdminDiscForm();
+            SuccessMessage = "已删除 Disc。";
+        }
+        catch (ApiException ex)
+        {
+            await HandleApiExceptionAsync(ex, "删除 Disc 失败，请稍后重试。");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task AssignTrackToAdminDiscAsync()
+    {
+        if (!IsAdmin)
+        {
+            return;
+        }
+
+        var trackId = ParsePositiveIntOrNull(AdminDiscTrackIdText);
+        if (!trackId.HasValue)
+        {
+            ErrorMessage = "请输入有效的曲目 ID。";
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            await _discService.AssignTrackToDiscAsync(trackId.Value, SelectedAdminDisc?.Id);
+            SuccessMessage = SelectedAdminDisc is null
+                ? $"已将曲目 #{trackId.Value} 从 Disc 解绑。"
+                : $"已将曲目 #{trackId.Value} 绑定到 Disc #{SelectedAdminDisc.DiscNumber}。";
+        }
+        catch (ApiException ex)
+        {
+            await HandleApiExceptionAsync(ex, "曲目绑定 Disc 失败，请稍后重试。");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task PreviewAdminLyricsImportAsync()
+    {
+        if (!IsAdmin)
+        {
+            return;
+        }
+
+        var filePaths = ParsePathList(AdminLyricsImportPathsText);
+        if (filePaths.Count == 0)
+        {
+            ErrorMessage = "请先填写歌词文件路径（换行/逗号/分号分隔）。";
+            return;
+        }
+
+        IsAdminLyricsImportLoading = true;
+        try
+        {
+            var preview = await _lyricsImportService.PreviewImportAsync(filePaths);
+            AdminLyricsPreviewItems.Clear();
+            foreach (var item in preview.Items)
+            {
+                AdminLyricsPreviewItems.Add(item);
+            }
+
+            var summary = preview.Summary;
+            AdminLyricsPreviewSummary = summary is null
+                ? $"预览完成，共 {preview.Items.Count} 条。"
+                : $"预览：总 {summary.Total}，匹配 {summary.Matched}，歧义 {summary.Ambiguous}，未命中 {summary.NotFound}，无效 {summary.Invalid}";
+            SuccessMessage = "歌词导入预览完成。";
+        }
+        catch (ApiException ex)
+        {
+            await HandleApiExceptionAsync(ex, "歌词导入预览失败，请稍后重试。");
+        }
+        finally
+        {
+            IsAdminLyricsImportLoading = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task CommitAdminLyricsImportAsync()
+    {
+        if (!IsAdmin)
+        {
+            return;
+        }
+
+        var filePaths = ParsePathList(AdminLyricsImportPathsText);
+        if (filePaths.Count == 0)
+        {
+            ErrorMessage = "请先填写歌词文件路径（换行/逗号/分号分隔）。";
+            return;
+        }
+
+        var resolutions = ParseResolutionMap(AdminLyricsResolutionsText);
+        IsAdminLyricsImportLoading = true;
+        try
+        {
+            var result = await _lyricsImportService.CommitImportAsync(filePaths, resolutions);
+            AdminLyricsCommitItems.Clear();
+            foreach (var item in result.Items)
+            {
+                AdminLyricsCommitItems.Add(item);
+            }
+
+            var summary = result.Summary;
+            AdminLyricsCommitSummary = summary is null
+                ? $"提交完成，共 {result.Items.Count} 条。"
+                : $"提交：总 {summary.Total}，导入 {summary.Imported}，歧义 {summary.Ambiguous}，未命中 {summary.NotFound}，无效 {summary.Invalid}，错误 {summary.Error}";
+            SuccessMessage = "歌词导入提交完成。";
+        }
+        catch (ApiException ex)
+        {
+            await HandleApiExceptionAsync(ex, "歌词导入提交失败，请稍后重试。");
+        }
+        finally
+        {
+            IsAdminLyricsImportLoading = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task SendAdminMessageAsync()
+    {
+        if (!IsAdmin)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(AdminMessageTitle) || string.IsNullOrWhiteSpace(AdminMessageContent))
+        {
+            ErrorMessage = "请输入站内信标题和内容。";
+            return;
+        }
+
+        var recipients = ParseCsvPositiveIntList(AdminMessageRecipientIdsText);
+        if (!AdminMessageIsBroadcast && recipients.Count == 0)
+        {
+            ErrorMessage = "非广播消息需要填写至少一个用户 ID。";
+            return;
+        }
+
+        DateTimeOffset? expiresAt = null;
+        if (!string.IsNullOrWhiteSpace(AdminMessageExpiresAtText))
+        {
+            if (!DateTimeOffset.TryParse(AdminMessageExpiresAtText.Trim(), out var parsedExpiresAt))
+            {
+                ErrorMessage = "过期时间格式不正确，请使用可解析的日期时间文本。";
+                return;
+            }
+
+            expiresAt = parsedExpiresAt;
+        }
+
+        IsBusy = true;
+        try
+        {
+            var deliveryCount = await _messageService.SendAdminMessageAsync(
+                AdminMessageTitle.Trim(),
+                AdminMessageContent.Trim(),
+                AdminMessageIsBroadcast,
+                recipients,
+                expiresAt);
+
+            SuccessMessage = $"站内信发送成功，投递 {deliveryCount} 条。";
+            AdminMessageTitle = string.Empty;
+            AdminMessageContent = string.Empty;
+            AdminMessageRecipientIdsText = string.Empty;
+            AdminMessageExpiresAtText = string.Empty;
+            await RefreshInboxAsync();
+        }
+        catch (ApiException ex)
+        {
+            await HandleApiExceptionAsync(ex, "发送站内信失败，请稍后重试。");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private void AddSelectedAdminUserToMessageRecipients()
+    {
+        if (SelectedAdminUser is null)
+        {
+            ErrorMessage = "请先在“用户”分区选择目标用户。";
+            return;
+        }
+
+        var recipients = ParseCsvPositiveIntList(AdminMessageRecipientIdsText).ToHashSet();
+        recipients.Add(SelectedAdminUser.Id);
+        AdminMessageRecipientIdsText = string.Join(",", recipients.OrderBy(id => id));
+        SuccessMessage = $"已加入接收用户：{SelectedAdminUser.Username}（#{SelectedAdminUser.Id}）。";
+    }
+
+    [RelayCommand]
+    private void ClearAdminMessageRecipients()
+    {
+        AdminMessageRecipientIdsText = string.Empty;
     }
 
     [RelayCommand]
@@ -2297,6 +3988,7 @@ public partial class MainViewModel : ObservableObject
             PlaybackQueue.Clear();
             PlaybackQueueView.Clear();
             CurrentTrackId = null;
+            ResetPlaySession();
             SyncAlbumTrackPlayingState();
             NowPlaying = "暂无播放";
             StopRequested?.Invoke(this, EventArgs.Empty);
@@ -2340,6 +4032,7 @@ public partial class MainViewModel : ObservableObject
         PlaybackQueue.Clear();
         PlaybackQueueView.Clear();
         CurrentTrackId = null;
+        ResetPlaySession();
         SyncAlbumTrackPlayingState();
         NowPlaying = "暂无播放";
         StopRequested?.Invoke(this, EventArgs.Empty);
@@ -2632,12 +4325,12 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task PlayPlaylistFromSelectedTrackAsync()
+    private Task PlayPlaylistFromSelectedTrackAsync()
     {
         if (SelectedPlaylistTrack is null)
         {
             ErrorMessage = "请先选择歌单曲目。";
-            return;
+            return Task.CompletedTask;
         }
 
         var startIndex = PlaylistTracksView.IndexOf(SelectedPlaylistTrack);
@@ -2651,10 +4344,11 @@ public partial class MainViewModel : ObservableObject
             .ToList();
         if (queue.Count == 0)
         {
-            return;
+            return Task.CompletedTask;
         }
 
         PlayFromQueue(queue, queue[0].Id);
+        return Task.CompletedTask;
     }
 
     [RelayCommand]
@@ -2822,16 +4516,62 @@ public partial class MainViewModel : ObservableObject
         {
             var streamUri = _trackService.BuildPublicStreamUri(trackId);
             CurrentTrackId = trackId;
+            BeginPlaySession(trackId, durationSeconds);
             SyncAlbumTrackPlayingState();
             NowPlaying = nowPlayingText;
             ErrorMessage = string.Empty;
             PlayRequested?.Invoke(this, streamUri);
-            _ = RecordPlayBestEffortAsync(trackId, durationSeconds);
         }
         catch (Exception ex)
         {
             ErrorMessage = $"无法开始播放：{ex.Message}";
         }
+    }
+
+    public void NotifyPlaybackProgress(double playedSeconds, double? durationSeconds = null)
+    {
+        if (!CurrentTrackId.HasValue)
+        {
+            return;
+        }
+
+        var normalizedPlayedSeconds = (int)Math.Floor(Math.Max(playedSeconds, 0));
+        var durationForRule = ResolveDurationForPlayReport(durationSeconds);
+        if (!EffectivePlayReportRules.ShouldReport(normalizedPlayedSeconds, durationForRule, _effectivePlayReported))
+        {
+            return;
+        }
+
+        _effectivePlayReported = true;
+        _ = RecordPlayBestEffortAsync(CurrentTrackId.Value, normalizedPlayedSeconds, durationForRule, _activePlaySessionKey);
+    }
+
+    private int? ResolveDurationForPlayReport(double? durationSeconds)
+    {
+        if (durationSeconds.HasValue && durationSeconds.Value > 0)
+        {
+            return (int)Math.Round(durationSeconds.Value, MidpointRounding.AwayFromZero);
+        }
+
+        if (_activeTrackDurationSeconds.HasValue && _activeTrackDurationSeconds.Value > 0)
+        {
+            return _activeTrackDurationSeconds.Value;
+        }
+
+        return null;
+    }
+
+    private void BeginPlaySession(int trackId, int? durationSeconds)
+    {
+        _activeTrackDurationSeconds = durationSeconds;
+        _effectivePlayReported = false;
+        _activePlaySessionKey = $"{trackId}-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}-{Guid.NewGuid():N}";
+    }
+
+    private void ResetPlaySession()
+    {
+        _effectivePlayReported = false;
+        _activeTrackDurationSeconds = null;
     }
 
     private void PlayFromQueue(IReadOnlyList<PlaybackQueueItem> queue, int trackId)
@@ -2885,11 +4625,11 @@ public partial class MainViewModel : ObservableObject
         PlayTrackById(item.Id, display, item.DurationSeconds);
     }
 
-    private async Task RecordPlayBestEffortAsync(int trackId, int? durationSeconds)
+    private async Task RecordPlayBestEffortAsync(int trackId, int playedSeconds, int? durationSeconds, string? sessionKey)
     {
         try
         {
-            await _trackService.RecordPlayAsync(trackId, Math.Max(15, (durationSeconds ?? 0) / 2), durationSeconds, _sessionKey);
+            await _trackService.RecordPlayAsync(trackId, playedSeconds, durationSeconds, sessionKey ?? _sessionKey);
         }
         catch
         {
@@ -2923,6 +4663,485 @@ public partial class MainViewModel : ObservableObject
         {
             IsBusy = false;
         }
+    }
+
+    private async Task EnsureAdminSectionDataAsync(bool forceReload)
+    {
+        if (!IsAdmin || !IsAdminSection)
+        {
+            return;
+        }
+
+        switch (SelectedAdminSection)
+        {
+            case AdminSectionUsers:
+                if (forceReload || AdminUsers.Count == 0)
+                {
+                    await LoadAdminUsersAsync(Math.Max(AdminUsersPage, 1));
+                }
+                break;
+            case AdminSectionTags:
+                if (forceReload || (AdminTags.Count == 0 && AdminTagGroups.Count == 0))
+                {
+                    await LoadAdminTagsAsync();
+                }
+                break;
+            case AdminSectionGames:
+                if (forceReload || Games.Count == 0)
+                {
+                    await LoadGamesAsync();
+                }
+                break;
+            case AdminSectionArtists:
+                if (forceReload)
+                {
+                    await LoadTracksAsync();
+                }
+                break;
+            case AdminSectionAlbums:
+                if (forceReload)
+                {
+                    await LoadTracksAsync();
+                    var albumId = ParsePositiveIntOrNull(AdminAlbumIdText);
+                    if (albumId.HasValue)
+                    {
+                        await LoadAdminDiscsCoreAsync(albumId.Value);
+                    }
+                }
+                break;
+            case AdminSectionMusicSources:
+                if (forceReload)
+                {
+                    AdminLyricsPreviewItems.Clear();
+                    AdminLyricsCommitItems.Clear();
+                    AdminLyricsPreviewSummary = string.Empty;
+                    AdminLyricsCommitSummary = string.Empty;
+                }
+                break;
+            case AdminSectionSettings:
+                if (forceReload || string.IsNullOrWhiteSpace(AdminMaintenanceMessage) || string.IsNullOrWhiteSpace(AdminFirstVisitTitle))
+                {
+                    await LoadAdminMaintenanceConfigAsync();
+                }
+
+                if (forceReload || AdminFeedbackItems.Count == 0)
+                {
+                    await LoadAdminFeedbackAsync(Math.Max(AdminFeedbackPage, 1));
+                }
+                break;
+        }
+    }
+
+    private void RememberPendingSection(string section)
+    {
+        if (string.IsNullOrWhiteSpace(section))
+        {
+            return;
+        }
+
+        if (section == SectionAdmin || IsRestrictedSection(section))
+        {
+            _pendingSectionAfterLogin = section;
+        }
+    }
+
+    private async Task TryRestorePendingSectionAfterLoginAsync()
+    {
+        var pending = _pendingSectionAfterLogin;
+        _pendingSectionAfterLogin = null;
+        if (string.IsNullOrWhiteSpace(pending))
+        {
+            return;
+        }
+
+        if (pending == SectionAdmin && !IsAdmin)
+        {
+            return;
+        }
+
+        if (IsRestrictedSection(pending) && !IsAuthenticated)
+        {
+            return;
+        }
+
+        OpenSection(pending);
+        if (pending == SectionAdmin && IsAdmin)
+        {
+            await EnsureAdminSectionDataAsync(forceReload: false);
+        }
+    }
+
+    private async Task LoadAdminUsersAsync(int page = 1)
+    {
+        if (!IsAdmin)
+        {
+            AdminUsers.Clear();
+            return;
+        }
+
+        IsAdminUsersLoading = true;
+        ShowAdminUsersStatus = true;
+        AdminUsersStatusMessage = "正在加载用户列表...";
+        try
+        {
+            var result = await _userService.GetUsersAsync(
+                page: Math.Max(1, page),
+                pageSize: 20,
+                filters: new UserListFilters
+                {
+                    Keyword = AdminUserKeyword,
+                    Role = AdminUserRole,
+                    Status = AdminUserStatus,
+                    Verified = "all",
+                });
+
+            AdminUsers.Clear();
+            foreach (var item in result.Items)
+            {
+                AdminUsers.Add(item);
+            }
+
+            AdminUsersPage = result.Pagination?.Page > 0 ? result.Pagination.Page : Math.Max(1, page);
+            AdminUsersTotalPages = Math.Max(1, result.Pagination?.TotalPages ?? 1);
+            AdminUsersTotal = Math.Max(0, result.Pagination?.Total ?? result.Items.Count);
+
+            if (AdminUsers.Count == 0)
+            {
+                ShowAdminUsersStatus = true;
+                AdminUsersStatusMessage = "没有匹配的用户。";
+            }
+            else
+            {
+                ShowAdminUsersStatus = false;
+                AdminUsersStatusMessage = string.Empty;
+            }
+        }
+        catch (ApiException ex)
+        {
+            ShowAdminUsersStatus = true;
+            AdminUsersStatusMessage = HoYoMusic.Desktop.Core.Contracts.ApiErrorMapper.Resolve(ex, "加载用户列表失败，请稍后重试。");
+            await HandleApiExceptionAsync(ex, "加载用户列表失败，请稍后重试。");
+        }
+        finally
+        {
+            IsAdminUsersLoading = false;
+        }
+    }
+
+    private async Task LoadAdminTagsAsync()
+    {
+        if (!IsAdmin)
+        {
+            AdminTags.Clear();
+            AdminTagGroups.Clear();
+            return;
+        }
+
+        IsAdminTagsLoading = true;
+        ShowAdminTagsStatus = true;
+        AdminTagsStatusMessage = "正在加载标签与分组...";
+        try
+        {
+            var tagsTask = _tagService.GetTagsAsync();
+            var groupsTask = _tagService.GetTagGroupsAsync();
+            var tags = await tagsTask;
+            var groups = await groupsTask;
+
+            AdminTags.Clear();
+            foreach (var item in tags)
+            {
+                AdminTags.Add(item);
+            }
+
+            AdminTagGroups.Clear();
+            foreach (var item in groups)
+            {
+                AdminTagGroups.Add(item);
+            }
+
+            if (SelectedAdminTag is not null)
+            {
+                SelectedAdminTag = AdminTags.FirstOrDefault(item => item.Id == SelectedAdminTag.Id);
+            }
+
+            if (SelectedAdminTagGroup is not null)
+            {
+                SelectedAdminTagGroup = AdminTagGroups.FirstOrDefault(item => item.Id == SelectedAdminTagGroup.Id);
+            }
+
+            if (SelectedAdminTagAssignGroup is not null)
+            {
+                SelectedAdminTagAssignGroup = AdminTagGroups.FirstOrDefault(item => item.Id == SelectedAdminTagAssignGroup.Id);
+            }
+
+            if (SelectedAdminTagParent is not null)
+            {
+                SelectedAdminTagParent = AdminTags.FirstOrDefault(item => item.Id == SelectedAdminTagParent.Id);
+            }
+
+            if (SelectedAdminTagGroupParent is not null)
+            {
+                SelectedAdminTagGroupParent = AdminTagGroups.FirstOrDefault(item => item.Id == SelectedAdminTagGroupParent.Id);
+            }
+
+            ShowAdminTagsStatus = false;
+            AdminTagsStatusMessage = string.Empty;
+            OnPropertyChanged(nameof(AdminAnalyticsSummary));
+        }
+        catch (ApiException ex)
+        {
+            ShowAdminTagsStatus = true;
+            AdminTagsStatusMessage = HoYoMusic.Desktop.Core.Contracts.ApiErrorMapper.Resolve(ex, "加载标签失败，请稍后重试。");
+            await HandleApiExceptionAsync(ex, "加载标签失败，请稍后重试。");
+        }
+        finally
+        {
+            IsAdminTagsLoading = false;
+        }
+    }
+
+    private async Task LoadAdminMaintenanceConfigAsync()
+    {
+        if (!IsAdmin)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            var maintenanceTask = _siteConfigService.GetAdminMaintenanceModeAsync();
+            var firstVisitTask = _siteConfigService.GetAdminFirstVisitModalAsync();
+            var complianceTask = _siteConfigService.GetAdminComplianceConfigAsync();
+
+            var maintenance = await maintenanceTask;
+            var firstVisit = await firstVisitTask;
+            var compliance = await complianceTask;
+
+            AdminMaintenanceEnabled = maintenance.Enabled;
+            AdminMaintenanceMessage = maintenance.Message;
+            AdminMaintenanceExpectedEndTime = maintenance.ExpectedEndTime ?? string.Empty;
+
+            AdminFirstVisitEnabled = firstVisit.Enabled;
+            AdminFirstVisitTitle = firstVisit.Title;
+            AdminFirstVisitContent = firstVisit.Content;
+            AdminFirstVisitMinStaySecondsText = Math.Max(0, firstVisit.MinStaySeconds).ToString();
+            AdminFirstVisitVersion = firstVisit.Version;
+
+            AdminComplianceEnabled = compliance.Enabled;
+            AdminComplianceIcpNumber = compliance.IcpNumber;
+            AdminCompliancePublicSecurityNumber = compliance.PublicSecurityNumber;
+
+            ShowAdminSettingsStatus = true;
+            AdminSettingsStatusMessage = "已同步服务器设置。";
+        }
+        catch (ApiException ex)
+        {
+            await HandleApiExceptionAsync(ex, "加载维护配置失败，请稍后重试。");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task LoadAdminFeedbackAsync(int page)
+    {
+        if (!IsAdmin)
+        {
+            AdminFeedbackItems.Clear();
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            var result = await _feedbackService.GetAdminListAsync(Math.Max(1, page), 20);
+            AdminFeedbackItems.Clear();
+            foreach (var item in result.Items)
+            {
+                AdminFeedbackItems.Add(item);
+            }
+
+            AdminFeedbackPage = result.Pagination?.Page > 0 ? result.Pagination.Page : Math.Max(1, page);
+            AdminFeedbackTotalPages = Math.Max(1, result.Pagination?.TotalPages ?? 1);
+            AdminFeedbackTotal = Math.Max(0, result.Pagination?.Total ?? result.Items.Count);
+        }
+        catch (ApiException ex)
+        {
+            await HandleApiExceptionAsync(ex, "加载反馈列表失败，请稍后重试。");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task LoadAdminDiscsCoreAsync(int albumId)
+    {
+        IsAdminAlbumsLoading = true;
+        ShowAdminAlbumsStatus = true;
+        AdminAlbumsStatusMessage = "正在加载 Disc 列表...";
+        try
+        {
+            var discs = await _discService.GetDiscsByAlbumAsync(albumId);
+            AdminDiscs.Clear();
+            foreach (var item in discs.OrderBy(item => item.DiscNumber))
+            {
+                AdminDiscs.Add(item);
+            }
+
+            ShowAdminAlbumsStatus = false;
+            AdminAlbumsStatusMessage = string.Empty;
+            if (SelectedAdminDisc is not null)
+            {
+                SelectedAdminDisc = AdminDiscs.FirstOrDefault(item => item.Id == SelectedAdminDisc.Id);
+            }
+        }
+        catch (ApiException ex)
+        {
+            ShowAdminAlbumsStatus = true;
+            AdminAlbumsStatusMessage = HoYoMusic.Desktop.Core.Contracts.ApiErrorMapper.Resolve(ex, "加载 Disc 列表失败，请稍后重试。");
+            await HandleApiExceptionAsync(ex, "加载 Disc 列表失败，请稍后重试。");
+        }
+        finally
+        {
+            IsAdminAlbumsLoading = false;
+        }
+    }
+
+    private async Task LoadSiteConfigAsync()
+    {
+        try
+        {
+            var maintenanceTask = _siteConfigService.GetPublicMaintenanceModeAsync();
+            var firstVisitTask = _siteConfigService.GetPublicFirstVisitModalAsync();
+            var complianceTask = _siteConfigService.GetPublicComplianceConfigAsync();
+
+            var maintenance = await maintenanceTask;
+            IsMaintenanceMode = maintenance.Enabled;
+            MaintenanceMessage = string.IsNullOrWhiteSpace(maintenance.Message) ? "站点维护中，请稍后再试。" : maintenance.Message.Trim();
+            MaintenanceExpectedEndTimeText = string.IsNullOrWhiteSpace(maintenance.ExpectedEndTime)
+                ? ""
+                : $"预计恢复时间：{maintenance.ExpectedEndTime}";
+
+            var firstVisit = await firstVisitTask;
+            _activeFirstVisitVersion = string.IsNullOrWhiteSpace(firstVisit.Version) ? "1" : firstVisit.Version.Trim();
+            FirstVisitTitle = string.IsNullOrWhiteSpace(firstVisit.Title) ? "欢迎来到 HoYoMusic" : firstVisit.Title.Trim();
+            FirstVisitContent = string.IsNullOrWhiteSpace(firstVisit.Content) ? "请先阅读并确认使用须知。" : firstVisit.Content.Trim();
+
+            var ackKey = $"first_visit_ack_{_activeFirstVisitVersion}";
+            var hasAck = TryGetLocalSettingBool(ackKey);
+
+            if (firstVisit.Enabled && !hasAck)
+            {
+                var minStaySeconds = Math.Clamp(firstVisit.MinStaySeconds, 0, 60);
+                ShowFirstVisitModal = true;
+                FirstVisitAcknowledgeEnabled = minStaySeconds == 0;
+                FirstVisitCountdownSeconds = minStaySeconds;
+                _ = RunFirstVisitCountdownAsync(minStaySeconds);
+            }
+            else
+            {
+                ShowFirstVisitModal = false;
+                FirstVisitAcknowledgeEnabled = false;
+                FirstVisitCountdownSeconds = 0;
+            }
+
+            var compliance = await complianceTask;
+            ShowComplianceFooter = compliance.Enabled;
+            ComplianceIcpNumber = compliance.IcpNumber;
+            CompliancePublicSecurityNumber = compliance.PublicSecurityNumber;
+        }
+        catch
+        {
+            // Site config is best-effort; keep app usable when this public endpoint is unavailable.
+            ShowComplianceFooter = false;
+            IsMaintenanceMode = false;
+            ShowFirstVisitModal = false;
+            FirstVisitAcknowledgeEnabled = false;
+            FirstVisitCountdownSeconds = 0;
+        }
+    }
+
+    private async Task RunFirstVisitCountdownAsync(int seconds)
+    {
+        _firstVisitCountdownCts?.Cancel();
+        _firstVisitCountdownCts?.Dispose();
+        _firstVisitCountdownCts = new CancellationTokenSource();
+        var token = _firstVisitCountdownCts.Token;
+
+        for (var remaining = seconds; remaining > 0; remaining--)
+        {
+            FirstVisitCountdownSeconds = remaining;
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1), token);
+            }
+            catch (TaskCanceledException)
+            {
+                return;
+            }
+        }
+
+        FirstVisitCountdownSeconds = 0;
+        FirstVisitAcknowledgeEnabled = true;
+    }
+
+    private void PushRecentSearchKeyword(string keyword)
+    {
+        for (var i = RecentSearchKeywords.Count - 1; i >= 0; i--)
+        {
+            if (string.Equals(RecentSearchKeywords[i], keyword, StringComparison.OrdinalIgnoreCase))
+            {
+                RecentSearchKeywords.RemoveAt(i);
+            }
+        }
+
+        RecentSearchKeywords.Insert(0, keyword);
+        while (RecentSearchKeywords.Count > 8)
+        {
+            RecentSearchKeywords.RemoveAt(RecentSearchKeywords.Count - 1);
+        }
+    }
+
+    private void RefreshFacetCollections()
+    {
+        var sourceTracks = PublicTracks
+            .Concat(FavoriteTracks)
+            .Concat(PlaylistTracks)
+            .GroupBy(item => item.Id)
+            .Select(group => group.First())
+            .ToList();
+
+        ArtistFacetItems.Clear();
+        foreach (var facet in sourceTracks
+                     .SelectMany(item => item.Artists)
+                     .GroupBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
+                     .OrderByDescending(group => group.Count())
+                     .ThenBy(group => group.Key)
+                     .Take(20)
+                     .Select(group => new FacetItem(group.Key, group.Key, group.Count())))
+        {
+            ArtistFacetItems.Add(facet);
+        }
+
+        var durationFacets = sourceTracks
+            .Where(item => item.Duration is not null)
+            .GroupBy(item => item.Duration switch
+            {
+                <= 120 => "short",
+                <= 300 => "medium",
+                _ => "long",
+            })
+            .Select(group => new FacetItem($"时长 {group.Key}", $"duration:{group.Key}", group.Count()));
+
+        TagFacetItems.Clear();
+        foreach (var facet in durationFacets.OrderByDescending(item => item.Count))
+        {
+            TagFacetItems.Add(facet);
+        }
+
     }
 
     private async Task LoadDiscoverAsync()
@@ -3334,6 +5553,11 @@ public partial class MainViewModel : ObservableObject
 
     private async Task ApplyLoggedOutStateAsync(bool clearError = true)
     {
+        if (SelectedSection == SectionAdmin || IsRestrictedSection(SelectedSection))
+        {
+            RememberPendingSection(SelectedSection);
+        }
+
         await _authService.LogoutAsync();
         Tracks.Clear();
         FavoriteTracks.Clear();
@@ -3357,6 +5581,13 @@ public partial class MainViewModel : ObservableObject
         DetailLyricsStatus = string.Empty;
         DetailCredits.Clear();
         DetailMusicSources.Clear();
+        AdminUsers.Clear();
+        AdminTags.Clear();
+        AdminTagGroups.Clear();
+        AdminFeedbackItems.Clear();
+        AdminDiscs.Clear();
+        AdminLyricsPreviewItems.Clear();
+        AdminLyricsCommitItems.Clear();
         ShowInboxStatus = false;
         InboxStatusMessage = string.Empty;
         ShowTrackDetailStatus = false;
@@ -3948,6 +6179,32 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(DownloadStatusSummary));
     }
 
+    private static bool TryGetLocalSettingBool(string key)
+    {
+        try
+        {
+            return ApplicationData.Current.LocalSettings.Values.TryGetValue(key, out var value)
+                && value is bool parsed
+                && parsed;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static void TrySetLocalSetting(string key, object value)
+    {
+        try
+        {
+            ApplicationData.Current.LocalSettings.Values[key] = value;
+        }
+        catch
+        {
+            // Ignore settings persistence errors when running unpackaged.
+        }
+    }
+
     private static int? ParsePositiveIntOrNull(string? raw)
     {
         if (!int.TryParse(raw, out var parsed) || parsed <= 0)
@@ -3956,5 +6213,92 @@ public partial class MainViewModel : ObservableObject
         }
 
         return parsed;
+    }
+
+    private static int? ParseIntOrNull(string? raw)
+    {
+        if (!int.TryParse(raw, out var parsed))
+        {
+            return null;
+        }
+
+        return parsed;
+    }
+
+    private static bool TryParseAdminIsoDateTime(string? raw, out string? isoDateTime)
+    {
+        isoDateTime = null;
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return true;
+        }
+
+        if (!DateTimeOffset.TryParse(raw.Trim(), out var parsed))
+        {
+            return false;
+        }
+
+        isoDateTime = parsed.ToString("O");
+        return true;
+    }
+
+    private static IReadOnlyList<int> ParseCsvPositiveIntList(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return Array.Empty<int>();
+        }
+
+        return raw
+            .Split([',', ';', ' ', '\n', '\r', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(value => int.TryParse(value, out var parsed) ? parsed : 0)
+            .Where(value => value > 0)
+            .Distinct()
+            .ToArray();
+    }
+
+    private static IReadOnlyList<string> ParsePathList(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return Array.Empty<string>();
+        }
+
+        return raw
+            .Split(['\n', '\r', ';', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static IReadOnlyDictionary<string, int> ParseResolutionMap(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var lines = raw.Split(['\n', '\r'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        foreach (var line in lines)
+        {
+            var separators = new[] { '=', ':', '\t' };
+            var splitIndex = line.IndexOfAny(separators);
+            if (splitIndex <= 0 || splitIndex >= line.Length - 1)
+            {
+                continue;
+            }
+
+            var key = line[..splitIndex].Trim();
+            var valueRaw = line[(splitIndex + 1)..].Trim();
+            if (string.IsNullOrWhiteSpace(key) || !int.TryParse(valueRaw, out var trackId) || trackId <= 0)
+            {
+                continue;
+            }
+
+            map[key] = trackId;
+        }
+
+        return map;
     }
 }

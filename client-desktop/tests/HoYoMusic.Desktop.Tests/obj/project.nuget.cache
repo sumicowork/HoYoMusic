@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "1FKU97ixW3E=",
+  "dgSpecHash": "IOCm1QpgZwM=",
   "success": true,
   "projectFilePath": "C:\\Users\\sumi\\WebstormProjects\\HoYoMusic\\client-desktop\\tests\\HoYoMusic.Desktop.Tests\\HoYoMusic.Desktop.Tests.csproj",
   "expectedPackageFiles": [
@@ -106,7 +106,7 @@
     "C:\\Users\\sumi\\.nuget\\packages\\xunit.extensibility.core\\2.5.3\\xunit.extensibility.core.2.5.3.nupkg.sha512",
     "C:\\Users\\sumi\\.nuget\\packages\\xunit.extensibility.execution\\2.5.3\\xunit.extensibility.execution.2.5.3.nupkg.sha512",
     "C:\\Users\\sumi\\.nuget\\packages\\xunit.runner.visualstudio\\2.5.3\\xunit.runner.visualstudio.2.5.3.nupkg.sha512",
-    "C:\\Users\\sumi\\.nuget\\packages\\microsoft.windows.sdk.net.ref\\10.0.17763.57\\microsoft.windows.sdk.net.ref.10.0.17763.57.nupkg.sha512"
+    "C:\\Users\\sumi\\.nuget\\packages\\microsoft.windows.sdk.net.ref\\10.0.17763.56\\microsoft.windows.sdk.net.ref.10.0.17763.56.nupkg.sha512"
   ],
   "logs": []
 }

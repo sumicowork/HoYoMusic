@@ -8,5 +8,6 @@ public interface IMessageService
     Task<int> GetUnreadCountAsync(CancellationToken cancellationToken = default);
     Task MarkMessageReadAsync(int deliveryId, CancellationToken cancellationToken = default);
     Task MarkAllMessagesReadAsync(CancellationToken cancellationToken = default);
+    Task<int> SendAdminMessageAsync(string title, string content, bool isBroadcast, IReadOnlyList<int>? recipientUserIds = null, DateTimeOffset? expiresAt = null, CancellationToken cancellationToken = default);
 }
 

@@ -132,7 +132,7 @@ public sealed partial class MainWindow : Window
         UpdateSectionVisibility();
         await ViewModel.InitializeCommand.ExecuteAsync(null);
         UpdateSectionVisibility();
-        var savedTheme = ApplicationData.Current.LocalSettings.Values[ThemeModeSettingKey] as string;
+        var savedTheme = TryGetLocalSettingString(ThemeModeSettingKey);
         if (!string.IsNullOrWhiteSpace(savedTheme))
         {
             ViewModel.ThemeMode = savedTheme;
@@ -158,7 +158,31 @@ public sealed partial class MainWindow : Window
         if (e.PropertyName == nameof(MainViewModel.ThemeMode))
         {
             ApplyThemeMode(ViewModel.ThemeMode);
-            ApplicationData.Current.LocalSettings.Values[ThemeModeSettingKey] = ViewModel.ThemeMode;
+            TrySetLocalSetting(ThemeModeSettingKey, ViewModel.ThemeMode);
+        }
+    }
+
+    private static string? TryGetLocalSettingString(string key)
+    {
+        try
+        {
+            return ApplicationData.Current.LocalSettings.Values[key] as string;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static void TrySetLocalSetting(string key, object value)
+    {
+        try
+        {
+            ApplicationData.Current.LocalSettings.Values[key] = value;
+        }
+        catch
+        {
+            // Ignore settings persistence errors when running unpackaged.
         }
     }
 
@@ -166,12 +190,45 @@ public sealed partial class MainWindow : Window
     {
         DiscoverSectionPanel.Visibility = ViewModel.IsDiscoverSection ? Visibility.Visible : Visibility.Collapsed;
         AlbumDetailSectionPanel.Visibility = ViewModel.IsAlbumDetailSection ? Visibility.Visible : Visibility.Collapsed;
+        GamesSectionPanel.Visibility = ViewModel.IsGamesSection ? Visibility.Visible : Visibility.Collapsed;
+        AlbumsSectionPanel.Visibility = ViewModel.IsAlbumsSection ? Visibility.Visible : Visibility.Collapsed;
+        ArtistsSectionPanel.Visibility = ViewModel.IsArtistsSection ? Visibility.Visible : Visibility.Collapsed;
+        TagsSectionPanel.Visibility = ViewModel.IsTagsSection ? Visibility.Visible : Visibility.Collapsed;
+        SearchSectionPanel.Visibility = ViewModel.IsSearchSection ? Visibility.Visible : Visibility.Collapsed;
         LibrarySectionPanel.Visibility = ViewModel.IsLibrarySection ? Visibility.Visible : Visibility.Collapsed;
         FavoritesSectionPanel.Visibility = ViewModel.IsFavoritesSection ? Visibility.Visible : Visibility.Collapsed;
         PlaylistsSectionPanel.Visibility = ViewModel.IsPlaylistsSection ? Visibility.Visible : Visibility.Collapsed;
         ProfileSectionPanel.Visibility = ViewModel.IsProfileSection ? Visibility.Visible : Visibility.Collapsed;
+        SettingsSectionPanel.Visibility = ViewModel.IsSettingsSection ? Visibility.Visible : Visibility.Collapsed;
         DownloadsSectionPanel.Visibility = ViewModel.IsDownloadsSection ? Visibility.Visible : Visibility.Collapsed;
         AdminSectionPanel.Visibility = ViewModel.ShowAdminEntry && ViewModel.IsAdminSection ? Visibility.Visible : Visibility.Collapsed;
+        UpdateSectionNavVisualState();
+    }
+
+    private void UpdateSectionNavVisualState()
+    {
+        ApplySectionButtonStyle(DiscoverNavButton, ViewModel.IsDiscoverSection || ViewModel.IsAlbumDetailSection);
+        ApplySectionButtonStyle(GamesNavButton, ViewModel.IsGamesSection);
+        ApplySectionButtonStyle(AlbumsNavButton, ViewModel.IsAlbumsSection);
+        ApplySectionButtonStyle(ArtistsNavButton, ViewModel.IsArtistsSection);
+        ApplySectionButtonStyle(TagsNavButton, ViewModel.IsTagsSection);
+        ApplySectionButtonStyle(SearchNavButton, ViewModel.IsSearchSection);
+        ApplySectionButtonStyle(LibraryNavButton, ViewModel.IsLibrarySection);
+        ApplySectionButtonStyle(FavoritesNavButton, ViewModel.IsFavoritesSection);
+        ApplySectionButtonStyle(PlaylistsNavButton, ViewModel.IsPlaylistsSection);
+        ApplySectionButtonStyle(ProfileNavButton, ViewModel.IsProfileSection);
+        ApplySectionButtonStyle(SettingsNavButton, ViewModel.IsSettingsSection);
+        ApplySectionButtonStyle(DownloadsNavButton, ViewModel.IsDownloadsSection);
+        ApplySectionButtonStyle(AdminNavButton, ViewModel.IsAdminSection);
+    }
+
+    private void ApplySectionButtonStyle(Button button, bool isActive)
+    {
+        var styleKey = isActive ? "PrimaryButtonStyle" : "SecondaryButtonStyle";
+        if (Application.Current.Resources.TryGetValue(styleKey, out var style) && style is Style resolvedStyle)
+        {
+            button.Style = resolvedStyle;
+        }
     }
 
     private async void LoginButton_OnClick(object sender, RoutedEventArgs e)
@@ -410,6 +467,7 @@ public sealed partial class MainWindow : Window
 
             ProgressSlider.Value = Math.Min(ProgressSlider.Maximum, position.TotalSeconds);
             CurrentTimeText.Text = FormatTime(position);
+            ViewModel.NotifyPlaybackProgress(position.TotalSeconds, duration.TotalSeconds > 0 ? duration.TotalSeconds : null);
         }
     }
 
@@ -504,8 +562,8 @@ public sealed partial class MainWindow : Window
     {
         if (sender is Image image)
         {
-            // Keep the icon rail readable even when one cover URL is unavailable.
-            image.Visibility = Visibility.Collapsed;
+            // Set opacity to indicate it's missing but avoid Layout collapsing completely
+            image.Opacity = 0.2;
         }
     }
 

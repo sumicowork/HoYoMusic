@@ -24,12 +24,24 @@ public partial class App : Application
         InitializeComponent();
         UnhandledException += OnUnhandledException;
 
-        var services = new ServiceCollection();
-        var apiBaseUrl = Environment.GetEnvironmentVariable(ApiBaseUrlEnvName);
-        services.AddHoYoMusicInfrastructure(apiBaseUrl);
-        services.AddSingleton<MainViewModel>();
+        try
+        {
+            var services = new ServiceCollection();
+            var apiBaseUrl = Environment.GetEnvironmentVariable(ApiBaseUrlEnvName);
+            services.AddHoYoMusicInfrastructure(apiBaseUrl);
+            services.AddSingleton<MainViewModel>();
 
-        Services = services.BuildServiceProvider();
+            Services = services.BuildServiceProvider(new ServiceProviderOptions
+            {
+                ValidateOnBuild = true,
+                ValidateScopes = true,
+            });
+        }
+        catch (Exception ex)
+        {
+            LogStartupError("BuildServiceProvider", ex);
+            throw;
+        }
     }
 
     public static ServiceProvider Services { get; private set; } = null!;

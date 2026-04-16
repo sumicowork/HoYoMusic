@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "Hwun24JhbYw=",
+  "dgSpecHash": "/TJpdk1knOY=",
   "success": true,
   "projectFilePath": "C:\\Users\\sumi\\WebstormProjects\\HoYoMusic\\client-desktop\\src\\HoYoMusic.Desktop.App\\HoYoMusic.Desktop.App.csproj",
   "expectedPackageFiles": [
@@ -32,16 +32,16 @@
     "C:\\Users\\sumi\\.nuget\\packages\\microsoft.windowsappsdk.widgets\\1.8.251231004\\microsoft.windowsappsdk.widgets.1.8.251231004.nupkg.sha512",
     "C:\\Users\\sumi\\.nuget\\packages\\microsoft.windowsappsdk.winui\\1.8.260224000\\microsoft.windowsappsdk.winui.1.8.260224000.nupkg.sha512",
     "C:\\Users\\sumi\\.nuget\\packages\\system.numerics.tensors\\9.0.0\\system.numerics.tensors.9.0.0.nupkg.sha512",
-    "C:\\Users\\sumi\\.nuget\\packages\\microsoft.netcore.app.runtime.win-x86\\8.0.25\\microsoft.netcore.app.runtime.win-x86.8.0.25.nupkg.sha512",
-    "C:\\Users\\sumi\\.nuget\\packages\\microsoft.netcore.app.runtime.win-x64\\8.0.25\\microsoft.netcore.app.runtime.win-x64.8.0.25.nupkg.sha512",
-    "C:\\Users\\sumi\\.nuget\\packages\\microsoft.netcore.app.runtime.win-arm64\\8.0.25\\microsoft.netcore.app.runtime.win-arm64.8.0.25.nupkg.sha512",
-    "C:\\Users\\sumi\\.nuget\\packages\\microsoft.windowsdesktop.app.runtime.win-x86\\8.0.25\\microsoft.windowsdesktop.app.runtime.win-x86.8.0.25.nupkg.sha512",
-    "C:\\Users\\sumi\\.nuget\\packages\\microsoft.windowsdesktop.app.runtime.win-x64\\8.0.25\\microsoft.windowsdesktop.app.runtime.win-x64.8.0.25.nupkg.sha512",
-    "C:\\Users\\sumi\\.nuget\\packages\\microsoft.windowsdesktop.app.runtime.win-arm64\\8.0.25\\microsoft.windowsdesktop.app.runtime.win-arm64.8.0.25.nupkg.sha512",
-    "C:\\Users\\sumi\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-x86\\8.0.25\\microsoft.aspnetcore.app.runtime.win-x86.8.0.25.nupkg.sha512",
-    "C:\\Users\\sumi\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-x64\\8.0.25\\microsoft.aspnetcore.app.runtime.win-x64.8.0.25.nupkg.sha512",
-    "C:\\Users\\sumi\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-arm64\\8.0.25\\microsoft.aspnetcore.app.runtime.win-arm64.8.0.25.nupkg.sha512",
-    "C:\\Users\\sumi\\.nuget\\packages\\microsoft.windows.sdk.net.ref\\10.0.26100.57\\microsoft.windows.sdk.net.ref.10.0.26100.57.nupkg.sha512"
+    "C:\\Users\\sumi\\.nuget\\packages\\microsoft.netcore.app.runtime.win-x64\\8.0.26\\microsoft.netcore.app.runtime.win-x64.8.0.26.nupkg.sha512",
+    "C:\\Users\\sumi\\.nuget\\packages\\microsoft.netcore.app.runtime.win-x86\\8.0.26\\microsoft.netcore.app.runtime.win-x86.8.0.26.nupkg.sha512",
+    "C:\\Users\\sumi\\.nuget\\packages\\microsoft.netcore.app.runtime.win-arm64\\8.0.26\\microsoft.netcore.app.runtime.win-arm64.8.0.26.nupkg.sha512",
+    "C:\\Users\\sumi\\.nuget\\packages\\microsoft.windowsdesktop.app.runtime.win-x64\\8.0.26\\microsoft.windowsdesktop.app.runtime.win-x64.8.0.26.nupkg.sha512",
+    "C:\\Users\\sumi\\.nuget\\packages\\microsoft.windowsdesktop.app.runtime.win-x86\\8.0.26\\microsoft.windowsdesktop.app.runtime.win-x86.8.0.26.nupkg.sha512",
+    "C:\\Users\\sumi\\.nuget\\packages\\microsoft.windowsdesktop.app.runtime.win-arm64\\8.0.26\\microsoft.windowsdesktop.app.runtime.win-arm64.8.0.26.nupkg.sha512",
+    "C:\\Users\\sumi\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-x64\\8.0.26\\microsoft.aspnetcore.app.runtime.win-x64.8.0.26.nupkg.sha512",
+    "C:\\Users\\sumi\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-x86\\8.0.26\\microsoft.aspnetcore.app.runtime.win-x86.8.0.26.nupkg.sha512",
+    "C:\\Users\\sumi\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-arm64\\8.0.26\\microsoft.aspnetcore.app.runtime.win-arm64.8.0.26.nupkg.sha512",
+    "C:\\Users\\sumi\\.nuget\\packages\\microsoft.windows.sdk.net.ref\\10.0.26100.56\\microsoft.windows.sdk.net.ref.10.0.26100.56.nupkg.sha512"
   ],
   "logs": []
 }

@@ -63,6 +63,28 @@ public sealed class MessageService : IMessageService
         await SendWithoutDataAsync(request, "Failed to mark all messages as read.", cancellationToken);
     }
 
+    public async Task<int> SendAdminMessageAsync(string title, string content, bool isBroadcast, IReadOnlyList<int>? recipientUserIds = null, DateTimeOffset? expiresAt = null, CancellationToken cancellationToken = default)
+    {
+        using var request = await CreateAuthenticatedRequestAsync(HttpMethod.Post, "messages/admin/send", cancellationToken);
+        request.Content = JsonContent.Create(new
+        {
+            title,
+            content,
+            is_broadcast = isBroadcast,
+            recipient_user_ids = recipientUserIds,
+            expires_at = expiresAt?.ToString("O"),
+        }, options: JsonOptions);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        var envelope = await ReadEnvelopeAsync<SendAdminMessageResponseData>(response, cancellationToken);
+        if (!response.IsSuccessStatusCode || envelope?.Success != true || envelope.Data is null)
+        {
+            throw await CreateApiExceptionAsync(response.StatusCode, envelope?.Error?.Message ?? "Failed to send admin message.", envelope?.Error?.Code, cancellationToken);
+        }
+
+        return envelope.Data.DeliveryCount;
+    }
+
     private async Task SendWithoutDataAsync(HttpRequestMessage request, string fallbackError, CancellationToken cancellationToken)
     {
         using var response = await _httpClient.SendAsync(request, cancellationToken);

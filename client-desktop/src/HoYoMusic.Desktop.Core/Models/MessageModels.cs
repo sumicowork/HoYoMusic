@@ -61,3 +61,9 @@ public sealed class UnreadCountResponseData
     public int Unread { get; init; }
 }
 
+public sealed class SendAdminMessageResponseData
+{
+    [JsonPropertyName("delivery_count")]
+    public int DeliveryCount { get; init; }
+}
+

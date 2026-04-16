@@ -3,7 +3,7 @@
 ## Build/Runtime
 
 - First-time restore for WinUI dependencies can be slow on unstable networks.
-- PoC is validated through `dotnet build` and `dotnet test`; no packaged installer flow yet.
+- PoC is validated through `dotnet build` + `dotnet test` + `scripts/startup-smoke.ps1`; no packaged installer flow yet.
 
 ## Functional
 
