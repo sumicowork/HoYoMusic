@@ -260,7 +260,7 @@
                                 <TextBlock Margin="0,4,0,0" Foreground="{StaticResource TextSecondaryBrush}" Text="{Binding NowPlaying}" TextWrapping="Wrap" />
                             </StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                <ProgressRing Width="14" Height="14" IsActive="{Binding IsBusy}" />
+                                <ProgressRing Width="14" Height="14" IsActive="{Binding IsBusy}" Visibility="{Binding ShowGlobalBusy, Converter={StaticResource BoolToVisibilityConverter}}" />
                                 <TextBlock Foreground="{StaticResource TextSecondaryBrush}" Text="{Binding CurrentUserDisplay}" />
                                 <TextBlock Foreground="{StaticResource TextSecondaryBrush}" Text="{Binding LoadingStage}" />
                             </StackPanel>
@@ -314,6 +314,7 @@
                                                 <TextBlock Foreground="{StaticResource TextSecondaryBrush}" Text="{Binding DiscoverSummary}" />
                                             </StackPanel>
                                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                <ProgressRing Width="14" Height="14" IsActive="{Binding IsBusy}" Visibility="{Binding IsDiscoverLoading, Converter={StaticResource BoolToVisibilityConverter}}" />
                                                 <Button Content="刷新" Command="{Binding RefreshDiscoverCommand}" Style="{StaticResource SecondaryButtonStyle}" />
                                                 <TextBox Width="160" PlaceholderText="筛选发现曲目" Text="{Binding DiscoverFilterText, Mode=TwoWay}" Style="{StaticResource AppTextBoxStyle}" />
                                                 <ComboBox Width="92" SelectedItem="{Binding DiscoverRandomCount, Mode=TwoWay}">

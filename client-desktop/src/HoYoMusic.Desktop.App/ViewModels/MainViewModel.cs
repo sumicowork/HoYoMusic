@@ -156,6 +156,8 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isTrackDetailLoading;
 
+    public bool ShowGlobalBusy => IsBusy && !IsLibraryLoading && !IsPlaylistsLoading && !IsFavoritesLoading && !IsDiscoverLoading && !IsTrackDetailLoading;
+
     [ObservableProperty]
     private TrackItem? _currentDetailTrack;
 
