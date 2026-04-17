@@ -42,6 +42,16 @@ public static class ServiceCollectionExtensions
             client.BaseAddress = baseUri;
         });
 
+        services.AddHttpClient<IArtistService, ArtistService>(client =>
+        {
+            client.BaseAddress = baseUri;
+        });
+
+        services.AddHttpClient<IAnalyticsService, AnalyticsService>(client =>
+        {
+            client.BaseAddress = baseUri;
+        });
+
         services.AddHttpClient<IAlbumService, AlbumService>(client =>
         {
             client.BaseAddress = baseUri;

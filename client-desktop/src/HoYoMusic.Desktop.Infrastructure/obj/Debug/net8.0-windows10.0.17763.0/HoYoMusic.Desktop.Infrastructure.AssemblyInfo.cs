@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("HoYoMusic.Desktop.Infrastructure")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d6c41450c0e79c7caa61051f1de9ec13913e2f93")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a3f20483e7012571202fad200dec7168ccb4852a")]
 [assembly: System.Reflection.AssemblyProductAttribute("HoYoMusic.Desktop.Infrastructure")]
 [assembly: System.Reflection.AssemblyTitleAttribute("HoYoMusic.Desktop.Infrastructure")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

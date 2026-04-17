@@ -11,5 +11,20 @@ public interface ITrackService
     Task RecordPlayAsync(int trackId, int playedSeconds, int? trackDurationSeconds, string? sessionKey = null, CancellationToken cancellationToken = default);
     Uri BuildPublicStreamUri(int trackId);
     Uri BuildPublicDownloadUri(int trackId);
+
+    Task<TrackFilterOptions> GetTrackFilterOptionsAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<SameAlbumDuplicateGroup>> GetSameAlbumDuplicateTracksAsync(CancellationToken cancellationToken = default);
+    Task BulkDeleteTracksAsync(IReadOnlyCollection<int> ids, CancellationToken cancellationToken = default);
+    Task BulkMoveTracksToAlbumAsync(IReadOnlyCollection<int> trackIds, int? albumId, CancellationToken cancellationToken = default);
+
+    Task<TrackNotesImportPreviewResult> PreviewTrackNotesImportAsync(IReadOnlyList<TrackNotesImportEntry> entries, CancellationToken cancellationToken = default);
+    Task<TrackNotesImportCommitResult> CommitTrackNotesImportAsync(IReadOnlyList<TrackNotesImportEntry> entries, IReadOnlyDictionary<string, int> resolutions, string conflictMode, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<TrackNotesImportCandidate>> SearchTrackNotesImportCandidatesAsync(string keyword, int limit = 30, CancellationToken cancellationToken = default);
+    Task<BinaryFileResult> ExportAllTrackNotesAsync(CancellationToken cancellationToken = default);
+
+    Task<BinaryFileResult> ExportCatalogMetadataAsync(CancellationToken cancellationToken = default);
+    Task<CatalogMetadataImportResult> PreviewCatalogMetadataImportByUuidAsync(CatalogMetadataImportPayload payload, CancellationToken cancellationToken = default);
+    Task<CatalogMetadataImportResult> CommitCatalogMetadataImportByUuidAsync(CatalogMetadataImportPayload payload, CancellationToken cancellationToken = default);
+    Task<CatalogMetadataRollbackResult> RollbackCatalogMetadataBatchAsync(string batchUuid, CancellationToken cancellationToken = default);
 }
 

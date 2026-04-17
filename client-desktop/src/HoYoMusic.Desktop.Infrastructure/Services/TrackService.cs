@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using HoYoMusic.Desktop.Core.Abstractions;
 using HoYoMusic.Desktop.Core.Contracts;
@@ -146,6 +147,219 @@ public sealed class TrackService : ITrackService
     {
         var baseUri = _httpClient.BaseAddress ?? ApiConstants.ResolveBaseUri(null);
         return new Uri(baseUri, $"public/tracks/{trackId}/download");
+    }
+
+    public async Task<TrackFilterOptions> GetTrackFilterOptionsAsync(CancellationToken cancellationToken = default)
+    {
+        using var request = await CreateAuthedRequestAsync(HttpMethod.Get, "tracks/filter-options", cancellationToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        var envelope = await ReadEnvelopeAsync<TrackFilterOptions>(response, cancellationToken);
+        if (!response.IsSuccessStatusCode || envelope?.Success != true || envelope.Data is null)
+        {
+            throw new ApiException(envelope?.Error?.Message ?? "Failed to load track filter options.", envelope?.Error?.Code);
+        }
+
+        return envelope.Data;
+    }
+
+    public async Task<IReadOnlyList<SameAlbumDuplicateGroup>> GetSameAlbumDuplicateTracksAsync(CancellationToken cancellationToken = default)
+    {
+        using var request = await CreateAuthedRequestAsync(HttpMethod.Get, "tracks/duplicates/same-album-title", cancellationToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        var envelope = await ReadEnvelopeAsync<SameAlbumDuplicateResponseData>(response, cancellationToken);
+        if (!response.IsSuccessStatusCode || envelope?.Success != true || envelope.Data is null)
+        {
+            throw new ApiException(envelope?.Error?.Message ?? "Failed to load duplicates.", envelope?.Error?.Code);
+        }
+
+        return envelope.Data.Groups;
+    }
+
+    public async Task BulkDeleteTracksAsync(IReadOnlyCollection<int> ids, CancellationToken cancellationToken = default)
+    {
+        using var request = await CreateAuthedRequestAsync(HttpMethod.Delete, "tracks/bulk", cancellationToken, new { ids });
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        var envelope = await ReadEnvelopeAsync<object>(response, cancellationToken);
+        if (!response.IsSuccessStatusCode || envelope?.Success != true)
+        {
+            throw new ApiException(envelope?.Error?.Message ?? "Failed to delete tracks.", envelope?.Error?.Code);
+        }
+    }
+
+    public async Task BulkMoveTracksToAlbumAsync(IReadOnlyCollection<int> trackIds, int? albumId, CancellationToken cancellationToken = default)
+    {
+        using var request = await CreateAuthedRequestAsync(HttpMethod.Post, "tracks/bulk-move", cancellationToken, new { trackIds, albumId });
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        var envelope = await ReadEnvelopeAsync<object>(response, cancellationToken);
+        if (!response.IsSuccessStatusCode || envelope?.Success != true)
+        {
+            throw new ApiException(envelope?.Error?.Message ?? "Failed to move tracks.", envelope?.Error?.Code);
+        }
+    }
+
+    public async Task<TrackNotesImportPreviewResult> PreviewTrackNotesImportAsync(IReadOnlyList<TrackNotesImportEntry> entries, CancellationToken cancellationToken = default)
+    {
+        using var request = await CreateAuthedRequestAsync(HttpMethod.Post, "tracks/notes-import/preview", cancellationToken, new { entries });
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        var envelope = await ReadEnvelopeAsync<TrackNotesImportPreviewResult>(response, cancellationToken);
+        if (!response.IsSuccessStatusCode || envelope?.Success != true || envelope.Data is null)
+        {
+            throw new ApiException(envelope?.Error?.Message ?? "Failed to preview notes import.", envelope?.Error?.Code);
+        }
+
+        return envelope.Data;
+    }
+
+    public async Task<TrackNotesImportCommitResult> CommitTrackNotesImportAsync(IReadOnlyList<TrackNotesImportEntry> entries, IReadOnlyDictionary<string, int> resolutions, string conflictMode, CancellationToken cancellationToken = default)
+    {
+        using var request = await CreateAuthedRequestAsync(HttpMethod.Post, "tracks/notes-import/commit", cancellationToken, new
+        {
+            entries,
+            resolutions,
+            conflict_mode = string.IsNullOrWhiteSpace(conflictMode) ? "overwrite" : conflictMode,
+        });
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        var envelope = await ReadEnvelopeAsync<TrackNotesImportCommitResult>(response, cancellationToken);
+        if (!response.IsSuccessStatusCode || envelope?.Success != true || envelope.Data is null)
+        {
+            throw new ApiException(envelope?.Error?.Message ?? "Failed to commit notes import.", envelope?.Error?.Code);
+        }
+
+        return envelope.Data;
+    }
+
+    public async Task<IReadOnlyList<TrackNotesImportCandidate>> SearchTrackNotesImportCandidatesAsync(string keyword, int limit = 30, CancellationToken cancellationToken = default)
+    {
+        var query = new QueryStringBuilder()
+            .Add("keyword", string.IsNullOrWhiteSpace(keyword) ? null : keyword.Trim())
+            .Add("limit", Math.Clamp(limit, 1, 200))
+            .ToString();
+        using var request = await CreateAuthedRequestAsync(HttpMethod.Get, $"tracks/notes-import/candidates{query}", cancellationToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        var envelope = await ReadEnvelopeAsync<TrackNotesImportCandidatesResponseData>(response, cancellationToken);
+        if (!response.IsSuccessStatusCode || envelope?.Success != true || envelope.Data is null)
+        {
+            throw new ApiException(envelope?.Error?.Message ?? "Failed to search notes import candidates.", envelope?.Error?.Code);
+        }
+
+        return envelope.Data.Candidates;
+    }
+
+    public async Task<BinaryFileResult> ExportAllTrackNotesAsync(CancellationToken cancellationToken = default)
+    {
+        using var request = await CreateAuthedRequestAsync(HttpMethod.Get, "tracks/notes-export", cancellationToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        return await ReadBinaryFileResponseAsync(response, "track-notes-export.json", "Failed to export track notes.", cancellationToken);
+    }
+
+    public async Task<BinaryFileResult> ExportCatalogMetadataAsync(CancellationToken cancellationToken = default)
+    {
+        using var request = await CreateAuthedRequestAsync(HttpMethod.Get, "tracks/metadata-export", cancellationToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        return await ReadBinaryFileResponseAsync(response, "catalog-metadata-export.json", "Failed to export catalog metadata.", cancellationToken);
+    }
+
+    public async Task<CatalogMetadataImportResult> PreviewCatalogMetadataImportByUuidAsync(CatalogMetadataImportPayload payload, CancellationToken cancellationToken = default)
+    {
+        using var request = await CreateAuthedRequestAsync(HttpMethod.Post, "tracks/metadata-import/preview", cancellationToken, payload);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        var envelope = await ReadEnvelopeAsync<CatalogMetadataImportResult>(response, cancellationToken);
+        if (!response.IsSuccessStatusCode || envelope?.Success != true || envelope.Data is null)
+        {
+            throw new ApiException(envelope?.Error?.Message ?? "Failed to preview metadata import.", envelope?.Error?.Code);
+        }
+
+        return envelope.Data;
+    }
+
+    public async Task<CatalogMetadataImportResult> CommitCatalogMetadataImportByUuidAsync(CatalogMetadataImportPayload payload, CancellationToken cancellationToken = default)
+    {
+        using var request = await CreateAuthedRequestAsync(HttpMethod.Post, "tracks/metadata-import/commit", cancellationToken, payload);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        var envelope = await ReadEnvelopeAsync<CatalogMetadataImportResult>(response, cancellationToken);
+        if (!response.IsSuccessStatusCode || envelope?.Success != true || envelope.Data is null)
+        {
+            throw new ApiException(envelope?.Error?.Message ?? "Failed to commit metadata import.", envelope?.Error?.Code);
+        }
+
+        return envelope.Data;
+    }
+
+    public async Task<CatalogMetadataRollbackResult> RollbackCatalogMetadataBatchAsync(string batchUuid, CancellationToken cancellationToken = default)
+    {
+        using var request = await CreateAuthedRequestAsync(HttpMethod.Post, "tracks/metadata-import/rollback", cancellationToken, new { batch_uuid = batchUuid });
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        var envelope = await ReadEnvelopeAsync<CatalogMetadataRollbackResult>(response, cancellationToken);
+        if (!response.IsSuccessStatusCode || envelope?.Success != true || envelope.Data is null)
+        {
+            throw new ApiException(envelope?.Error?.Message ?? "Failed to rollback metadata batch.", envelope?.Error?.Code);
+        }
+
+        return envelope.Data;
+    }
+
+    private async Task<HttpRequestMessage> CreateAuthedRequestAsync<TPayload>(HttpMethod method, string uri, CancellationToken cancellationToken, TPayload payload)
+    {
+        var request = await CreateAuthedRequestAsync(method, uri, cancellationToken);
+        request.Content = JsonContent.Create(payload, options: JsonOptions);
+        return request;
+    }
+
+    private async Task<HttpRequestMessage> CreateAuthedRequestAsync(HttpMethod method, string uri, CancellationToken cancellationToken)
+    {
+        var token = await _tokenStore.GetTokenAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            throw new ApiException("Not authenticated.", "MISSING_TOKEN");
+        }
+
+        var request = new HttpRequestMessage(method, uri);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return request;
+    }
+
+    private async Task<BinaryFileResult> ReadBinaryFileResponseAsync(HttpResponseMessage response, string fallbackFileName, string fallbackErrorMessage, CancellationToken cancellationToken)
+    {
+        if (!response.IsSuccessStatusCode)
+        {
+            var envelope = await ReadEnvelopeAsync<object>(response, cancellationToken);
+            throw new ApiException(envelope?.Error?.Message ?? fallbackErrorMessage, envelope?.Error?.Code);
+        }
+
+        var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+        return new BinaryFileResult
+        {
+            Content = bytes,
+            FileName = ParseFileName(response.Content.Headers.ContentDisposition?.ToString(), fallbackFileName),
+            ContentType = response.Content.Headers.ContentType?.MediaType ?? "application/octet-stream",
+        };
+    }
+
+    private static string ParseFileName(string? contentDisposition, string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(contentDisposition))
+        {
+            return fallback;
+        }
+
+        var utf8Match = System.Text.RegularExpressions.Regex.Match(contentDisposition, "filename\\*=UTF-8''([^;]+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (utf8Match.Success)
+        {
+            return Uri.UnescapeDataString(utf8Match.Groups[1].Value).Trim('"');
+        }
+
+        var plainMatch = System.Text.RegularExpressions.Regex.Match(contentDisposition, "filename=\"?([^\";]+)\"?", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        return plainMatch.Success ? plainMatch.Groups[1].Value.Trim() : fallback;
+    }
+
+    private sealed class SameAlbumDuplicateResponseData
+    {
+        public IReadOnlyList<SameAlbumDuplicateGroup> Groups { get; init; } = Array.Empty<SameAlbumDuplicateGroup>();
+    }
+
+    private sealed class TrackNotesImportCandidatesResponseData
+    {
+        public IReadOnlyList<TrackNotesImportCandidate> Candidates { get; init; } = Array.Empty<TrackNotesImportCandidate>();
     }
 
     private static async Task<ApiEnvelope<TData>?> ReadEnvelopeAsync<TData>(HttpResponseMessage response, CancellationToken cancellationToken)

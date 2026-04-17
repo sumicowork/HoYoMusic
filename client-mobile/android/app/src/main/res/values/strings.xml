@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">HoYoMusic</string>
+    <string name="playback_play">播放</string>
+    <string name="playback_pause">暂停</string>
+    <string name="playback_next">下一首</string>
+    <string name="playback_prev">上一首</string>
+    <string name="playback_stop">停止</string>
+    <string name="notification_permission_rationale">允许通知后可使用后台播放控制</string>
+</resources>
+

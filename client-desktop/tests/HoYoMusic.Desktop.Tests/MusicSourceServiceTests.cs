@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using HoYoMusic.Desktop.Core.Abstractions;
 using HoYoMusic.Desktop.Infrastructure.Services;
 
 namespace HoYoMusic.Desktop.Tests;
@@ -30,7 +31,7 @@ public class MusicSourceServiceTests
             {
                 Content = new StringContent(json, Encoding.UTF8, "application/json"),
             }))
-            { BaseAddress = new Uri("https://music.hoyodb.com/api/") });
+            { BaseAddress = new Uri("https://music.hoyodb.com/api/") }, new FakeTokenStore("token"));
 
         var items = await service.GetTrackMusicSourcesAsync(8);
 
@@ -49,6 +50,25 @@ public class MusicSourceServiceTests
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             => Task.FromResult(_handler(request));
+    }
+
+    private sealed class FakeTokenStore : ITokenStore
+    {
+        private readonly string? _token;
+
+        public FakeTokenStore(string? token)
+        {
+            _token = token;
+        }
+
+        public Task SaveTokenAsync(string token, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task<string?> GetTokenAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(_token);
+
+        public Task ClearTokenAsync(CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
     }
 }
 

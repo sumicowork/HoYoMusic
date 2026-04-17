@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using HoYoMusic.Desktop.Core.Abstractions;
 using HoYoMusic.Desktop.Core.Contracts;
 using HoYoMusic.Desktop.Infrastructure.Services;
 
@@ -8,6 +9,8 @@ namespace HoYoMusic.Desktop.Tests;
 
 public class GameServiceTests
 {
+    private static readonly ITokenStore TokenStore = new FakeTokenStore();
+
     [Fact]
     public async Task GetGamesAsync_ReturnsRemoteGames()
     {
@@ -38,7 +41,7 @@ public class GameServiceTests
             BaseAddress = new Uri("https://music.hoyodb.com/api/"),
         };
 
-        var service = new GameService(client);
+        var service = new GameService(client, TokenStore);
         var games = await service.GetGamesAsync();
 
         Assert.Single(games);
@@ -77,7 +80,7 @@ public class GameServiceTests
             BaseAddress = new Uri("https://music.hoyodb.com/api/"),
         };
 
-        var service = new GameService(client);
+        var service = new GameService(client, TokenStore);
         var games = await service.GetGamesAsync();
 
         Assert.Single(games);
@@ -108,7 +111,7 @@ public class GameServiceTests
             BaseAddress = new Uri("https://music.hoyodb.com/api/"),
         };
 
-        var service = new GameService(client);
+        var service = new GameService(client, TokenStore);
 
         var ex = await Assert.ThrowsAsync<ApiException>(() => service.GetGamesAsync());
 
@@ -143,7 +146,7 @@ public class GameServiceTests
             BaseAddress = new Uri("https://music.hoyodb.com/api/"),
         };
 
-        var service = new GameService(client);
+        var service = new GameService(client, TokenStore);
         var albums = await service.GetGameAlbumsAsync(3);
 
         Assert.Single(albums);
@@ -188,7 +191,7 @@ public class GameServiceTests
             BaseAddress = new Uri("https://music.hoyodb.com/api/"),
         };
 
-        var service = new GameService(client);
+        var service = new GameService(client, TokenStore);
         var games = await service.GetGamesAsync();
 
         Assert.Equal(2, games.Count);
@@ -209,6 +212,13 @@ public class GameServiceTests
         {
             return Task.FromResult(_handler(request));
         }
+    }
+
+    private sealed class FakeTokenStore : ITokenStore
+    {
+        public Task SaveTokenAsync(string? token, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<string?> GetTokenAsync(CancellationToken cancellationToken = default) => Task.FromResult<string?>(null);
+        public Task ClearTokenAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 }
 

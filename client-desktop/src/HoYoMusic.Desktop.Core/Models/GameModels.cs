@@ -71,3 +71,24 @@ public sealed class GameDetailResponseData
     public IReadOnlyList<GameAlbumItem> Albums { get; init; } = Array.Empty<GameAlbumItem>();
 }
 
+public sealed class GameUpsertRequest
+{
+    [JsonPropertyName("name")]
+    public string? Name { get; init; }
+
+    [JsonPropertyName("name_en")]
+    public string? NameEn { get; init; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; init; }
+
+    [JsonPropertyName("display_order")]
+    public int? DisplayOrder { get; init; }
+
+    [JsonPropertyName("status")]
+    public string? Status { get; init; }
+
+    [JsonPropertyName("cover_path")]
+    public string? CoverPath { get; init; }
+}
+
