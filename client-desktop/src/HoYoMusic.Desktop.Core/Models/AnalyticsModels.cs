@@ -36,6 +36,9 @@ public sealed class AnalyticsHourlyItem
 
     [JsonIgnore]
     public string HourDisplay => $"{Hour:00}:00";
+
+    [JsonIgnore]
+    public string DisplayText => $"{Hour:00}:00 — {Requests} 请求";
 }
 
 public sealed class AnalyticsRecentVisitItem

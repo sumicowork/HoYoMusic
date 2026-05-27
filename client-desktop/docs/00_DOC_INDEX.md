@@ -15,6 +15,13 @@
 8. `client-desktop/docs/04_FRONTEND_WINDOWS_CURRENT_COMPARISON.md`：全量对齐进度复核快照。
 9. `client-desktop/docs/05_WEB_FULL_PARITY_TODO.md`：基于 Web 全量实现的待开发清单。
 10. `client-desktop/docs/06_WEB_FILE_BY_FILE_PARITY_FULL.md`：逐文件全量对齐明细（覆盖 `frontend/src` 每个文件）。
+11. `client-desktop/docs/07_FRONTEND_DESKTOP_CODE_AUDIT_2026-04-16.md`：基于代码遍历的自动化审计报告。
+12. `client-desktop/docs/08_BEHAVIOR_PARITY_ANALYSIS.md`：详情页返回导航行为一致性分析。
+13. `client-desktop/docs/09_BEHAVIOR_PARITY_MATRIX.md`：行为一致性任务矩阵（第一阶段）。
+14. `client-desktop/docs/10_BEHAVIOR_PARITY_RISK_ORDER.md`：行为一致性风险优先级。
+15. `client-desktop/docs/11_BEHAVIOR_PARITY_CHECKLISTS.md`：行为一致性检查清单。
+16. `client-desktop/docs/12_BEHAVIOR_PARITY_EXECUTION_LOG.md`：行为一致性执行日志。
+17. `client-desktop/docs/13_DEVELOPMENT_PROGRESS.md`：**开发进度总文档** — 当前完成度、差距分析、推荐开发路线。
 
 ## 文档职责划分
 - `README.md`：对外入口与开发者快速上手。

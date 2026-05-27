@@ -14,7 +14,7 @@ namespace HoYoMusic.Desktop.App;
 
 public sealed partial class MainWindow : Window
 {
-    private const string ThemeModeSettingKey = "theme_mode";
+    private const string ThemeModeSettingKey = "settings_theme_mode";
     private readonly DispatcherQueueTimer _progressTimer;
     private readonly DispatcherQueueTimer _downloadRefreshTimer;
     private readonly DispatcherQueueTimer _inboxPollTimer;

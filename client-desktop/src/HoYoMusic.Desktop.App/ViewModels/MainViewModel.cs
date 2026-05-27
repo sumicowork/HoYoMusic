@@ -1007,6 +1007,7 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnSelectedSectionChanged(string value)
     {
+        ErrorMessage = string.Empty;
         OnPropertyChanged(nameof(IsDiscoverSection));
         OnPropertyChanged(nameof(IsAlbumDetailSection));
         OnPropertyChanged(nameof(IsGamesSection));

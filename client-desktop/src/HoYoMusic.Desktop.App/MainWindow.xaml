@@ -20,7 +20,7 @@
                         <AdaptiveTrigger MinWindowWidth="0" />
                     </VisualState.StateTriggers>
                     <VisualState.Setters>
-                        <Setter Target="MainGridColumn0.Width" Value="60" />
+                        <Setter Target="MainGridColumn0.Width" Value="56" />
                         <Setter Target="LeftSideBar.IsCompact" Value="True" />
                     </VisualState.Setters>
                 </VisualState>
@@ -28,55 +28,57 @@
         </VisualStateManager.VisualStateGroups>
 
         <Grid.RowDefinitions>
-            <RowDefinition Height="58" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <controls:HoYoTitleBar x:Name="TitleBarControl" Grid.Row="0" Margin="16,10,16,2" />
+        <controls:HoYoTitleBar x:Name="TitleBarControl" Grid.Row="0" Margin="20,12,20,4" />
 
-        <Grid Grid.Row="1" Margin="16,8,16,8" ColumnSpacing="14">
+        <Grid Grid.Row="1" Margin="20,8,20,8" ColumnSpacing="16">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition x:Name="MainGridColumn0" Width="96" />
+                <ColumnDefinition x:Name="MainGridColumn0" Width="88" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-
             <controls:HoYoSideBar x:Name="LeftSideBar" Grid.Column="0" />
             <controls:HoYoMainContent x:Name="MainContentControl" Grid.Column="1" />
 
-            <Border Grid.ColumnSpan="2"
-                    Background="{ThemeResource SystemControlPageBackgroundMediumAltMediumBrush}"
-                    CornerRadius="16"
-                    Padding="24"
+            <Border Grid.ColumnSpan="2" Background="#88000000"
                     Visibility="{Binding ShowMaintenanceOverlay, Converter={StaticResource BoolToVisibilityConverter}}">
-                <Border Style="{StaticResource GlassCardStyle}" MaxWidth="500" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="32">
-                    <StackPanel Spacing="16" HorizontalAlignment="Center">
-                        <FontIcon Glyph="&#xE7BA;" FontSize="48" Foreground="{StaticResource PrimaryGradientBrush}" HorizontalAlignment="Center" />
-                        <TextBlock FontSize="24" FontWeight="SemiBold" HorizontalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}" Text="站点维护中" />
-                        <TextBlock HorizontalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}" Text="{Binding MaintenanceMessage}" TextWrapping="WrapWholeWords" />
-                        <TextBlock HorizontalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}" Text="{Binding MaintenanceExpectedEndTimeText}" TextWrapping="WrapWholeWords" />
-                        <TextBlock HorizontalAlignment="Center" TextAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}" Text="维护期间你仍可浏览已登录账户，但公共浏览入口将暂时受限。" TextWrapping="WrapWholeWords" />
+                <Border Style="{StaticResource GlassCardStyle}" MaxWidth="460"
+                        HorizontalAlignment="Center" VerticalAlignment="Center" Padding="32">
+                    <StackPanel Spacing="14" HorizontalAlignment="Center">
+                        <FontIcon Glyph="&#xE7BA;" FontSize="40" Foreground="{StaticResource PrimaryBrush}" />
+                        <TextBlock FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                   Foreground="{StaticResource TextPrimaryBrush}" Text="站点维护中" />
+                        <TextBlock HorizontalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"
+                                   Text="{Binding MaintenanceMessage}" TextWrapping="WrapWholeWords" />
+                        <TextBlock HorizontalAlignment="Center" Foreground="{StaticResource TextTertiaryBrush}"
+                                   Text="{Binding MaintenanceExpectedEndTimeText}" TextWrapping="WrapWholeWords" />
                     </StackPanel>
                 </Border>
             </Border>
 
-            <Border Grid.ColumnSpan="2"
-                    Background="{ThemeResource SystemControlPageBackgroundMediumAltMediumBrush}"
-                    CornerRadius="16"
-                    Padding="24"
+            <Border Grid.ColumnSpan="2" Background="#88000000"
                     Visibility="{Binding ShowFirstVisitModal, Converter={StaticResource BoolToVisibilityConverter}}">
-                <Border Style="{StaticResource GlassCardStyle}" MaxWidth="600" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="36">
-                    <StackPanel Spacing="20">
-                        <StackPanel Orientation="Horizontal" Spacing="12">
-                            <FontIcon Glyph="&#xE9CE;" FontSize="32" Foreground="{StaticResource PrimaryGradientBrush}" />
-                            <TextBlock FontSize="28" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Text="{Binding FirstVisitTitle}" TextWrapping="WrapWholeWords" VerticalAlignment="Center" />
-                        </StackPanel>
-                        <ScrollViewer MaxHeight="300" VerticalScrollBarVisibility="Auto" Margin="0,10">
-                            <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="15" LineHeight="24" Text="{Binding FirstVisitContent}" TextWrapping="WrapWholeWords" />
+                <Border Style="{StaticResource GlassCardStyle}" MaxWidth="520"
+                        HorizontalAlignment="Center" VerticalAlignment="Center" Padding="36">
+                    <StackPanel Spacing="18">
+                        <FontIcon Glyph="&#xE9CE;" FontSize="32" Foreground="{StaticResource PrimaryBrush}" />
+                        <TextBlock FontSize="22" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   Text="{Binding FirstVisitTitle}" TextWrapping="WrapWholeWords" />
+                        <ScrollViewer MaxHeight="260" VerticalScrollBarVisibility="Auto">
+                            <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="15"
+                                       Text="{Binding FirstVisitContent}" TextWrapping="WrapWholeWords" />
                         </ScrollViewer>
                         <Grid>
-                            <TextBlock VerticalAlignment="Center" HorizontalAlignment="Left" Foreground="{StaticResource TextSecondaryBrush}" Text="{Binding FirstVisitCountdownDisplay}" />
-                            <Button HorizontalAlignment="Right" Content="我已阅读并继续" Command="{Binding AcknowledgeFirstVisitCommand}" Style="{StaticResource PrimaryButtonStyle}" IsEnabled="{Binding FirstVisitAcknowledgeEnabled}" Padding="24,8" />
+                            <TextBlock VerticalAlignment="Center" Foreground="{StaticResource TextTertiaryBrush}"
+                                       Text="{Binding FirstVisitCountdownDisplay}" />
+                            <Button HorizontalAlignment="Right" Content="我已阅读并继续"
+                                    Command="{Binding AcknowledgeFirstVisitCommand}"
+                                    Style="{StaticResource PrimaryButtonStyle}"
+                                    IsEnabled="{Binding FirstVisitAcknowledgeEnabled}" Padding="24,10" />
                         </Grid>
                     </StackPanel>
                 </Border>

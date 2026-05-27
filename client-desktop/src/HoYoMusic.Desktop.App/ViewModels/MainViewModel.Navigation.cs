@@ -22,6 +22,8 @@ public partial class MainViewModel
 
         try
         {
+            LoadingStage = "加载设置";
+            LoadSettings();
             LoadingStage = "恢复会话";
             var token = await _authService.GetSavedTokenAsync();
             IsAuthenticated = !string.IsNullOrWhiteSpace(token);
@@ -717,8 +719,16 @@ public partial class MainViewModel
         SelectedFavoriteTrack = null;
         SelectedPlaylist = null;
         SelectedPlaylistTrack = null;
+        Identifier = string.Empty;
+        Password = string.Empty;
         CurrentPassword = string.Empty;
         NewPassword = string.Empty;
+        RegisterUsername = string.Empty;
+        RegisterEmail = string.Empty;
+        RegisterPassword = string.Empty;
+        RegisterConfirmPassword = string.Empty;
+        VerificationCode = string.Empty;
+        VerificationChallengeId = string.Empty;
         CurrentUserDisplay = "游客";
         IsAdmin = false;
         NowPlaying = "暂无播放";

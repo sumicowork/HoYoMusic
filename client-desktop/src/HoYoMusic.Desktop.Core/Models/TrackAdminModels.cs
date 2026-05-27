@@ -230,3 +230,36 @@ public sealed class BinaryFileResult
     public string ContentType { get; init; } = "application/octet-stream";
 }
 
+public sealed class TrackUploadResult
+{
+    [JsonPropertyName("tracks")]
+    public IReadOnlyList<TrackUploadItem> Tracks { get; init; } = Array.Empty<TrackUploadItem>();
+}
+
+public sealed class TrackUploadItem
+{
+    [JsonPropertyName("id")]
+    public int Id { get; init; }
+
+    [JsonPropertyName("title")]
+    public string Title { get; init; } = string.Empty;
+}
+
+public sealed class TrackCreditPreviewItem
+{
+    [JsonPropertyName("filename")]
+    public string FileName { get; init; } = string.Empty;
+
+    [JsonPropertyName("credits")]
+    public IReadOnlyList<CreditPreviewEntry> Credits { get; init; } = Array.Empty<CreditPreviewEntry>();
+}
+
+public sealed class CreditPreviewEntry
+{
+    [JsonPropertyName("key")]
+    public string Key { get; init; } = string.Empty;
+
+    [JsonPropertyName("value")]
+    public string Value { get; init; } = string.Empty;
+}
+

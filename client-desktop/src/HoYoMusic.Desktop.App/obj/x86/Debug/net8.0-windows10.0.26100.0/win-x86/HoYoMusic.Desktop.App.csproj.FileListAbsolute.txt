@@ -1,1 +1,0 @@
-C:\Users\sumi\WebstormProjects\HoYoMusic\client-desktop\src\HoYoMusic.Desktop.App\obj\x86\Debug\net8.0-windows10.0.26100.0\win-x86\HoYoMusic.Desktop.App.csproj.AssemblyReference.cache

@@ -1,6 +1,4 @@
-using System.Net;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using HoYoMusic.Desktop.Core.Abstractions;
@@ -9,66 +7,40 @@ using HoYoMusic.Desktop.Core.Models;
 
 namespace HoYoMusic.Desktop.Infrastructure.Services;
 
-public sealed class LyricsImportService : ILyricsImportService
+public sealed class LyricsImportService : HoYoApiClient, ILyricsImportService
 {
-    private readonly HttpClient _httpClient;
-    private readonly ITokenStore _tokenStore;
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    public LyricsImportService(HttpClient httpClient, ITokenStore tokenStore) : base(httpClient, tokenStore) { }
 
-    public LyricsImportService(HttpClient httpClient, ITokenStore tokenStore)
+    public async Task<LyricsImportPreviewResult> PreviewImportAsync(IReadOnlyList<string> filePaths, CancellationToken ct = default)
+        => await PostMultipartAsync<LyricsImportPreviewResult>("lyrics/import/preview", filePaths, null, "Failed to preview lyrics import.", ct);
+
+    public async Task<LyricsImportCommitResult> CommitImportAsync(IReadOnlyList<string> filePaths, IReadOnlyDictionary<string, int> resolutions, CancellationToken ct = default)
+        => await PostMultipartAsync<LyricsImportCommitResult>("lyrics/import/commit", filePaths, resolutions, "Failed to commit lyrics import.", ct);
+
+    private async Task<TData> PostMultipartAsync<TData>(string uri, IReadOnlyList<string> filePaths, IReadOnlyDictionary<string, int>? resolutions, string fallbackError, CancellationToken ct) where TData : class
     {
-        _httpClient = httpClient;
-        _tokenStore = tokenStore;
-    }
-
-    public async Task<LyricsImportPreviewResult> PreviewImportAsync(IReadOnlyList<string> filePaths, CancellationToken cancellationToken = default)
-    {
-        using var request = await CreateAuthenticatedRequestAsync(HttpMethod.Post, "lyrics/import/preview", cancellationToken);
-        request.Content = BuildMultipartContent(filePaths, null);
-
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
-        var envelope = await ReadEnvelopeAsync<LyricsImportPreviewResult>(response, cancellationToken);
-        if (!response.IsSuccessStatusCode || envelope?.Success != true || envelope.Data is null)
-        {
-            throw await CreateApiExceptionAsync(response.StatusCode, envelope?.Error?.Message ?? "Failed to preview lyrics import.", envelope?.Error?.Code, cancellationToken);
-        }
-
-        return envelope.Data;
-    }
-
-    public async Task<LyricsImportCommitResult> CommitImportAsync(IReadOnlyList<string> filePaths, IReadOnlyDictionary<string, int> resolutions, CancellationToken cancellationToken = default)
-    {
-        using var request = await CreateAuthenticatedRequestAsync(HttpMethod.Post, "lyrics/import/commit", cancellationToken);
+        using var request = await CreateAuthedRequestAsync(HttpMethod.Post, uri, ct);
         request.Content = BuildMultipartContent(filePaths, resolutions);
-
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
-        var envelope = await ReadEnvelopeAsync<LyricsImportCommitResult>(response, cancellationToken);
+        using var response = await Http.SendAsync(request, ct);
+        var envelope = await ReadEnvelopeAsync<TData>(response, ct);
         if (!response.IsSuccessStatusCode || envelope?.Success != true || envelope.Data is null)
-        {
-            throw await CreateApiExceptionAsync(response.StatusCode, envelope?.Error?.Message ?? "Failed to commit lyrics import.", envelope?.Error?.Code, cancellationToken);
-        }
-
+            throw await CreateApiExceptionAsync(response.StatusCode, envelope?.Error?.Message ?? fallbackError, envelope?.Error?.Code, ct);
         return envelope.Data;
     }
 
     private static MultipartFormDataContent BuildMultipartContent(IReadOnlyList<string> filePaths, IReadOnlyDictionary<string, int>? resolutions)
     {
         if (filePaths.Count == 0)
-        {
             throw new ApiException("No files selected for import.", "EMPTY_FILES");
-        }
 
         var content = new MultipartFormDataContent();
         foreach (var filePath in filePaths)
         {
             if (!File.Exists(filePath))
-            {
                 throw new ApiException($"File not found: {filePath}", "FILE_NOT_FOUND");
-            }
 
             var stream = File.OpenRead(filePath);
-            var streamContent = new StreamContent(stream);
-            streamContent.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
+            var streamContent = new StreamContent(stream) { Headers = { ContentType = new MediaTypeHeaderValue("text/plain") } };
             content.Add(streamContent, "files", Path.GetFileName(filePath));
         }
 
@@ -80,41 +52,4 @@ public sealed class LyricsImportService : ILyricsImportService
 
         return content;
     }
-
-    private async Task<HttpRequestMessage> CreateAuthenticatedRequestAsync(HttpMethod method, string uri, CancellationToken cancellationToken)
-    {
-        var token = await _tokenStore.GetTokenAsync(cancellationToken);
-        if (string.IsNullOrWhiteSpace(token))
-        {
-            throw new ApiException("Not authenticated.", "MISSING_TOKEN");
-        }
-
-        var request = new HttpRequestMessage(method, uri);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        return request;
-    }
-
-    private async Task<ApiException> CreateApiExceptionAsync(HttpStatusCode statusCode, string message, string? code, CancellationToken cancellationToken)
-    {
-        if (statusCode == HttpStatusCode.Unauthorized)
-        {
-            await _tokenStore.ClearTokenAsync(cancellationToken);
-            return new ApiException("Session expired. Please login again.", "UNAUTHORIZED");
-        }
-
-        return new ApiException(message, code);
-    }
-
-    private static async Task<ApiEnvelope<TData>?> ReadEnvelopeAsync<TData>(HttpResponseMessage response, CancellationToken cancellationToken)
-    {
-        try
-        {
-            return await response.Content.ReadFromJsonAsync<ApiEnvelope<TData>>(JsonOptions, cancellationToken);
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-    }
 }
-

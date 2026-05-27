@@ -1303,6 +1303,10 @@ public partial class MainViewModel
         {
             // Ignore canceled debounce runs.
         }
+        catch (Exception)
+        {
+            // Debounce background load failing should not crash the app.
+        }
     }
 
     private void RefreshDownloadTasks()

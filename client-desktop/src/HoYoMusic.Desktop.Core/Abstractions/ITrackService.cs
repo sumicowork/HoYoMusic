@@ -26,5 +26,7 @@ public interface ITrackService
     Task<CatalogMetadataImportResult> PreviewCatalogMetadataImportByUuidAsync(CatalogMetadataImportPayload payload, CancellationToken cancellationToken = default);
     Task<CatalogMetadataImportResult> CommitCatalogMetadataImportByUuidAsync(CatalogMetadataImportPayload payload, CancellationToken cancellationToken = default);
     Task<CatalogMetadataRollbackResult> RollbackCatalogMetadataBatchAsync(string batchUuid, CancellationToken cancellationToken = default);
+    Task<TrackUploadResult> UploadTracksAsync(IReadOnlyList<string> filePaths, int? albumId = null, bool autoCredits = true, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<TrackCreditPreviewItem>> PreviewTrackCreditsAsync(IReadOnlyList<string> filePaths, CancellationToken cancellationToken = default);
 }
 

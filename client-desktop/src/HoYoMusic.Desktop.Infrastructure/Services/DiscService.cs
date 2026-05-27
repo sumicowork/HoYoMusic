@@ -1,127 +1,69 @@
-using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Text.Json;
 using HoYoMusic.Desktop.Core.Abstractions;
 using HoYoMusic.Desktop.Core.Contracts;
 using HoYoMusic.Desktop.Core.Models;
 
 namespace HoYoMusic.Desktop.Infrastructure.Services;
 
-public sealed class DiscService : IDiscService
+public sealed class DiscService : HoYoApiClient, IDiscService
 {
-    private readonly HttpClient _httpClient;
-    private readonly ITokenStore _tokenStore;
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    public DiscService(HttpClient httpClient, ITokenStore tokenStore) : base(httpClient, tokenStore) { }
 
-    public DiscService(HttpClient httpClient, ITokenStore tokenStore)
+    public async Task<IReadOnlyList<DiscItem>> GetDiscsByAlbumAsync(int albumId, CancellationToken ct = default)
+        => (await GetPublicAsync<DiscListEnvelope>($"albums/{albumId}/discs", "Failed to load discs.", ct)).Discs;
+
+    public async Task<DiscItem> CreateDiscAsync(int albumId, DiscUpsertRequest request, CancellationToken ct = default)
+        => (await PostFormAsync<DiscEnvelope>($"albums/{albumId}/discs", request, "Failed to create disc.", ct)).Disc!;
+
+    public async Task<DiscItem> UpdateDiscAsync(int discId, DiscUpsertRequest request, CancellationToken ct = default)
+        => (await PostFormAsync<DiscEnvelope>($"discs/{discId}", request, "Failed to update disc.", ct, HttpMethod.Put)).Disc!;
+
+    public async Task DeleteDiscAsync(int discId, CancellationToken ct = default)
+        => await DeleteAuthedAsync($"discs/{discId}", "Failed to delete disc.", ct);
+
+    public async Task AssignTrackToDiscAsync(int trackId, int? discId, CancellationToken ct = default)
     {
-        _httpClient = httpClient;
-        _tokenStore = tokenStore;
-    }
-
-    public async Task<IReadOnlyList<DiscItem>> GetDiscsByAlbumAsync(int albumId, CancellationToken cancellationToken = default)
-    {
-        using var response = await _httpClient.GetAsync($"albums/{albumId}/discs", cancellationToken);
-        var envelope = await ReadEnvelopeAsync<DiscListEnvelopeData>(response, cancellationToken);
-        if (!response.IsSuccessStatusCode || envelope?.Success != true || envelope.Data is null)
-        {
-            throw new ApiException(envelope?.Error?.Message ?? "Failed to load discs.", envelope?.Error?.Code);
-        }
-
-        return envelope.Data.Discs;
-    }
-
-    public async Task<DiscItem> CreateDiscAsync(int albumId, DiscUpsertRequest request, CancellationToken cancellationToken = default)
-    {
-        using var authRequest = await CreateAuthenticatedRequestAsync(HttpMethod.Post, $"albums/{albumId}/discs", cancellationToken);
-        authRequest.Content = JsonContent.Create(request, options: JsonOptions);
-        return await SendForDiscAsync(authRequest, "Failed to create disc.", cancellationToken);
-    }
-
-    public async Task<DiscItem> UpdateDiscAsync(int discId, DiscUpsertRequest request, CancellationToken cancellationToken = default)
-    {
-        using var authRequest = await CreateAuthenticatedRequestAsync(HttpMethod.Put, $"discs/{discId}", cancellationToken);
-        authRequest.Content = JsonContent.Create(request, options: JsonOptions);
-        return await SendForDiscAsync(authRequest, "Failed to update disc.", cancellationToken);
-    }
-
-    public async Task DeleteDiscAsync(int discId, CancellationToken cancellationToken = default)
-    {
-        using var authRequest = await CreateAuthenticatedRequestAsync(HttpMethod.Delete, $"discs/{discId}", cancellationToken);
-        await SendWithoutDataAsync(authRequest, "Failed to delete disc.", cancellationToken);
-    }
-
-    public async Task AssignTrackToDiscAsync(int trackId, int? discId, CancellationToken cancellationToken = default)
-    {
-        using var authRequest = await CreateAuthenticatedRequestAsync(HttpMethod.Put, $"tracks/{trackId}/disc", cancellationToken);
+        using var authRequest = await CreateAuthedRequestAsync(HttpMethod.Put, $"tracks/{trackId}/disc", ct);
         authRequest.Content = JsonContent.Create(new TrackDiscAssignmentRequest { DiscId = discId }, options: JsonOptions);
-        await SendWithoutDataAsync(authRequest, "Failed to assign track to disc.", cancellationToken);
+        await SendWithoutDataAsync(authRequest, "Failed to assign track to disc.", ct);
     }
 
-    public async Task BulkAssignTracksAsync(int albumId, IReadOnlyList<BulkTrackDiscAssignmentItem> assignments, CancellationToken cancellationToken = default)
+    public async Task BulkAssignTracksAsync(int albumId, IReadOnlyList<BulkTrackDiscAssignmentItem> assignments, CancellationToken ct = default)
+        => await PostVoidAsync($"albums/{albumId}/discs/assign", new BulkTrackDiscAssignmentRequest { Assignments = assignments }, "Failed to bulk assign tracks.", ct);
+
+    private async Task<TData> GetPublicAsync<TData>(string uri, string fallbackError, CancellationToken ct) where TData : class
     {
-        using var authRequest = await CreateAuthenticatedRequestAsync(HttpMethod.Post, $"albums/{albumId}/discs/assign", cancellationToken);
-        authRequest.Content = JsonContent.Create(new BulkTrackDiscAssignmentRequest { Assignments = assignments }, options: JsonOptions);
-        await SendWithoutDataAsync(authRequest, "Failed to bulk assign tracks.", cancellationToken);
+        using var response = await Http.GetAsync(uri, ct);
+        var envelope = await ReadEnvelopeAsync<TData>(response, ct);
+        if (!response.IsSuccessStatusCode || envelope?.Success != true || envelope.Data is null)
+            throw new ApiException(envelope?.Error?.Message ?? fallbackError, envelope?.Error?.Code);
+        return envelope.Data;
     }
 
-    private async Task<DiscItem> SendForDiscAsync(HttpRequestMessage request, string fallbackError, CancellationToken cancellationToken)
+    private async Task<TData> PostFormAsync<TData>(string uri, object payload, string fallbackError, CancellationToken ct, HttpMethod? method = null) where TData : class
     {
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
-        var envelope = await ReadEnvelopeAsync<DiscEnvelopeData>(response, cancellationToken);
-        if (!response.IsSuccessStatusCode || envelope?.Success != true || envelope.Data?.Disc is null)
-        {
-            throw await CreateApiExceptionAsync(response.StatusCode, envelope?.Error?.Message ?? fallbackError, envelope?.Error?.Code, cancellationToken);
-        }
-
-        return envelope.Data.Disc;
+        using var authRequest = await CreateAuthedRequestAsync(method ?? HttpMethod.Post, uri, ct);
+        authRequest.Content = JsonContent.Create(payload, options: JsonOptions);
+        using var response = await Http.SendAsync(authRequest, ct);
+        var envelope = await ReadEnvelopeAsync<TData>(response, ct);
+        if (!response.IsSuccessStatusCode || envelope?.Success != true || envelope.Data is null)
+            throw await CreateApiExceptionAsync(response.StatusCode, envelope?.Error?.Message ?? fallbackError, envelope?.Error?.Code, ct);
+        return envelope.Data;
     }
 
-    private async Task SendWithoutDataAsync(HttpRequestMessage request, string fallbackError, CancellationToken cancellationToken)
+    private async Task PostVoidAsync(string uri, object payload, string fallbackError, CancellationToken ct)
     {
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
-        var envelope = await ReadEnvelopeAsync<object>(response, cancellationToken);
-        if (!response.IsSuccessStatusCode || envelope?.Success != true)
-        {
-            throw await CreateApiExceptionAsync(response.StatusCode, envelope?.Error?.Message ?? fallbackError, envelope?.Error?.Code, cancellationToken);
-        }
+        using var authRequest = await CreateAuthedRequestAsync(HttpMethod.Put, uri, ct);
+        authRequest.Content = JsonContent.Create(payload, options: JsonOptions);
+        await SendWithoutDataAsync(authRequest, fallbackError, ct);
     }
 
-    private async Task<HttpRequestMessage> CreateAuthenticatedRequestAsync(HttpMethod method, string uri, CancellationToken cancellationToken)
+    private async Task DeleteAuthedAsync(string uri, string fallbackError, CancellationToken ct)
     {
-        var token = await _tokenStore.GetTokenAsync(cancellationToken);
-        if (string.IsNullOrWhiteSpace(token))
-        {
-            throw new ApiException("Not authenticated.", "MISSING_TOKEN");
-        }
-
-        var request = new HttpRequestMessage(method, uri);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        return request;
+        using var authRequest = await CreateAuthedRequestAsync(HttpMethod.Delete, uri, ct);
+        await SendWithoutDataAsync(authRequest, fallbackError, ct);
     }
 
-    private async Task<ApiException> CreateApiExceptionAsync(HttpStatusCode statusCode, string message, string? code, CancellationToken cancellationToken)
-    {
-        if (statusCode == HttpStatusCode.Unauthorized)
-        {
-            await _tokenStore.ClearTokenAsync(cancellationToken);
-            return new ApiException("Session expired. Please login again.", "UNAUTHORIZED");
-        }
-
-        return new ApiException(message, code);
-    }
-
-    private static async Task<ApiEnvelope<TData>?> ReadEnvelopeAsync<TData>(HttpResponseMessage response, CancellationToken cancellationToken)
-    {
-        try
-        {
-            return await response.Content.ReadFromJsonAsync<ApiEnvelope<TData>>(JsonOptions, cancellationToken);
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-    }
+    private sealed class DiscListEnvelope { public IReadOnlyList<DiscItem> Discs { get; init; } = Array.Empty<DiscItem>(); }
+    private sealed class DiscEnvelope { public DiscItem? Disc { get; init; } }
 }
-

@@ -13,101 +13,232 @@
 
             <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
 
-            <Color x:Key="TextPrimary">#FF1B1F2A</Color>
-            <Color x:Key="TextSecondary">#FF66708A</Color>
-            <Color x:Key="CardBorder">#80FFFFFF</Color>
-            <Color x:Key="SoftBlue">#FF4F8CFF</Color>
-            <Color x:Key="SoftPurple">#FF7B61FF</Color>
-            <Color x:Key="InputBorder">#FFBCD2FF</Color>
+            <!-- ═══════════════════════════════════════════
+                 COLOR SYSTEM — Fluent-inspired palette
+                 ═══════════════════════════════════════════ -->
+            <!-- Primary: Indigo -->
+            <Color x:Key="PrimaryColor">#FF6366F1</Color>
+            <Color x:Key="PrimaryHoverColor">#FF5558E6</Color>
+            <Color x:Key="PrimarySubtleColor">#FFEEF0FF</Color>
+            <!-- Accent: Warm -->
+            <Color x:Key="AccentColor">#FFF59E42</Color>
+            <!-- Surfaces -->
+            <Color x:Key="SurfaceColor">#FFFBFBFE</Color>
+            <Color x:Key="SurfaceCardColor">#FFFFFFFF</Color>
+            <Color x:Key="SurfaceAltColor">#FFF5F5FA</Color>
+            <!-- Text -->
+            <Color x:Key="TextPrimaryColor">#FF18181B</Color>
+            <Color x:Key="TextSecondaryColor">#FF52525B</Color>
+            <Color x:Key="TextTertiaryColor">#FFA1A1AA</Color>
+            <Color x:Key="TextInverseColor">#FFFFFFFF</Color>
+            <!-- Semantic -->
+            <Color x:Key="ErrorColor">#FFEF4444</Color>
+            <Color x:Key="SuccessColor">#FF22C55E</Color>
+            <!-- Spectrum -->
+            <Color x:Key="SpectrumColor">#996366F1</Color>
 
-            <LinearGradientBrush x:Key="AuroraLightBackgroundBrush" StartPoint="0,0" EndPoint="1,1">
-                <GradientStop Color="#FFF7FAFF" Offset="0" />
-                <GradientStop Color="#FFE8F1FF" Offset="0.45" />
-                <GradientStop Color="#FFF3EEFF" Offset="1" />
-            </LinearGradientBrush>
+            <!-- ═══════════════════════════════════════════
+                 BRUSHES
+                 ═══════════════════════════════════════════ -->
+            <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource SurfaceColor}" />
+            <SolidColorBrush x:Key="SurfaceCardBrush" Color="{StaticResource SurfaceCardColor}" />
+            <SolidColorBrush x:Key="SurfaceAltBrush" Color="{StaticResource SurfaceAltColor}" />
+            <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}" />
+            <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondaryColor}" />
+            <SolidColorBrush x:Key="TextTertiaryBrush" Color="{StaticResource TextTertiaryColor}" />
+            <SolidColorBrush x:Key="TextInverseBrush" Color="{StaticResource TextInverseColor}" />
+            <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource PrimaryColor}" />
+            <SolidColorBrush x:Key="ErrorBrush" Color="{StaticResource ErrorColor}" />
+            <SolidColorBrush x:Key="SuccessBrush" Color="{StaticResource SuccessColor}" />
+            <SolidColorBrush x:Key="SpectrumBarBrush" Color="{StaticResource SpectrumColor}" />
 
-            <SolidColorBrush x:Key="GlassCardBrush" Color="#CCFFFFFF" />
-            <SolidColorBrush x:Key="GlassStrongBrush" Color="#E6FFFFFF" />
-            <SolidColorBrush x:Key="GlassSubtleBrush" Color="#99FFFFFF" />
-            <SolidColorBrush x:Key="CardBorderBrush" Color="{StaticResource CardBorder}" />
-            <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimary}" />
-            <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondary}" />
-            <SolidColorBrush x:Key="InputBorderBrush" Color="{StaticResource InputBorder}" />
+            <SolidColorBrush x:Key="PlayerSurfaceBrush" Color="#F9FFFFFF" />
 
+            <!-- Gradient Accent -->
             <LinearGradientBrush x:Key="PrimaryGradientBrush" StartPoint="0,0" EndPoint="1,1">
-                <GradientStop Color="{StaticResource SoftBlue}" Offset="0" />
-                <GradientStop Color="{StaticResource SoftPurple}" Offset="1" />
+                <GradientStop Color="{StaticResource PrimaryColor}" Offset="0" />
+                <GradientStop Color="#FF818CF8" Offset="1" />
             </LinearGradientBrush>
 
+            <LinearGradientBrush x:Key="AppBackgroundBrush" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#FFF5F3FF" Offset="0" />
+                <GradientStop Color="#FFEEF2FF" Offset="0.5" />
+                <GradientStop Color="#FFF5F0FF" Offset="1" />
+            </LinearGradientBrush>
+
+            <!-- Legacy brush aliases -->
+            <SolidColorBrush x:Key="AuroraLightBackgroundBrush" Color="{StaticResource SurfaceColor}" />
+            <SolidColorBrush x:Key="GlassStrongBrush" Color="#FFFFFFFF" />
+            <SolidColorBrush x:Key="GlassCardBrush" Color="#F2FFFFFF" />
+            <SolidColorBrush x:Key="GlassSubtleBrush" Color="#D9FFFFFF" />
+            <SolidColorBrush x:Key="CardBorderBrush" Color="#0C000000" />
+            <SolidColorBrush x:Key="InputBorderBrush" Color="#12000000" />
+
+            <!-- ═══════════════════════════════════════════
+                 TYPOGRAPHY — 5-level hierarchy
+                 ═══════════════════════════════════════════ -->
+            <x:Double x:Key="FontDisplay">32</x:Double>
+            <x:Double x:Key="FontTitle">22</x:Double>
+            <x:Double x:Key="FontSubtitle">16</x:Double>
+            <x:Double x:Key="FontBody">14</x:Double>
+            <x:Double x:Key="FontCaption">12</x:Double>
+            <x:Double x:Key="FontSmall">11</x:Double>
+
+            <!-- ═══════════════════════════════════════════
+                 SPACING SYSTEM — 4px base unit
+                 ═══════════════════════════════════════════ -->
+            <Thickness x:Key="SpaceNone">0</Thickness>
+            <Thickness x:Key="SpaceXS">4</Thickness>
+            <Thickness x:Key="SpaceSM">8</Thickness>
+            <Thickness x:Key="SpaceMD">12</Thickness>
+            <Thickness x:Key="SpaceLG">16</Thickness>
+            <Thickness x:Key="SpaceXL">20</Thickness>
+            <Thickness x:Key="Space2XL">24</Thickness>
+            <Thickness x:Key="Space3XL">32</Thickness>
+
+            <x:Double x:Key="GapXS">4</x:Double>
+            <x:Double x:Key="GapSM">8</x:Double>
+            <x:Double x:Key="GapMD">12</x:Double>
+            <x:Double x:Key="GapLG">16</x:Double>
+            <x:Double x:Key="GapXL">20</x:Double>
+            <x:Double x:Key="Gap2XL">24</x:Double>
+
+            <!-- ═══════════════════════════════════════════
+                 CORNER RADII
+                 ═══════════════════════════════════════════ -->
+            <CornerRadius x:Key="RadiusSM">6</CornerRadius>
+            <CornerRadius x:Key="RadiusMD">8</CornerRadius>
+            <CornerRadius x:Key="RadiusLG">12</CornerRadius>
+            <CornerRadius x:Key="RadiusXL">16</CornerRadius>
+            <CornerRadius x:Key="RadiusFull">100</CornerRadius>
+
+            <!-- ═══════════════════════════════════════════
+                 CARD STYLES — elevation, not borders
+                 ═══════════════════════════════════════════ -->
             <Style x:Key="GlassCardStyle" TargetType="Border">
-                <Setter Property="Background" Value="{StaticResource GlassCardBrush}" />
-                <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}" />
+                <Setter Property="Background" Value="{StaticResource SurfaceCardBrush}" />
+                <Setter Property="BorderBrush" Value="#08000000" />
                 <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="CornerRadius" Value="14" />
-                <Setter Property="Padding" Value="12" />
+                <Setter Property="CornerRadius" Value="{StaticResource RadiusLG}" />
+                <Setter Property="Padding" Value="0" />
             </Style>
 
             <Style x:Key="SubtleGlassCardStyle" TargetType="Border" BasedOn="{StaticResource GlassCardStyle}">
-                <Setter Property="Background" Value="{StaticResource GlassSubtleBrush}" />
+                <Setter Property="Background" Value="{StaticResource SurfaceAltBrush}" />
+                <Setter Property="BorderBrush" Value="#04000000" />
             </Style>
 
+            <!-- ═══════════════════════════════════════════
+                 BUTTON HIERARCHY — Primary > Secondary > Ghost > Icon
+                 ═══════════════════════════════════════════ -->
             <Style x:Key="PrimaryButtonStyle" TargetType="Button">
-                <Setter Property="Foreground" Value="White" />
+                <Setter Property="Foreground" Value="{StaticResource TextInverseBrush}" />
                 <Setter Property="Background" Value="{StaticResource PrimaryGradientBrush}" />
-                <Setter Property="BorderBrush" Value="#22000000" />
-                <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="Padding" Value="14,8" />
-                <Setter Property="MinHeight" Value="36" />
+                <Setter Property="BorderBrush" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="CornerRadius" Value="{StaticResource RadiusMD}" />
+                <Setter Property="Padding" Value="18,10" />
+                <Setter Property="MinHeight" Value="38" />
+                <Setter Property="FontSize" Value="{StaticResource FontBody}" />
+                <Setter Property="FontWeight" Value="SemiBold" />
             </Style>
 
             <Style x:Key="SecondaryButtonStyle" TargetType="Button" BasedOn="{StaticResource PrimaryButtonStyle}">
                 <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-                <Setter Property="Background" Value="#BFFFFFFF" />
-                <Setter Property="BorderBrush" Value="{StaticResource InputBorderBrush}" />
+                <Setter Property="Background" Value="#08000000" />
+                <Setter Property="FontWeight" Value="Normal" />
+            </Style>
+
+            <Style x:Key="GhostButtonStyle" TargetType="Button">
+                <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderBrush" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="CornerRadius" Value="{StaticResource RadiusSM}" />
+                <Setter Property="Padding" Value="10,6" />
+                <Setter Property="MinHeight" Value="32" />
+                <Setter Property="FontSize" Value="{StaticResource FontCaption}" />
+            </Style>
+
+            <Style x:Key="IconButtonStyle" TargetType="Button" BasedOn="{StaticResource GhostButtonStyle}">
+                <Setter Property="Width" Value="36" />
+                <Setter Property="Height" Value="36" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="CornerRadius" Value="{StaticResource RadiusFull}" />
+                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
             </Style>
 
             <Style x:Key="CircleActionButtonStyle" TargetType="Button" BasedOn="{StaticResource PrimaryButtonStyle}">
-                <Setter Property="Width" Value="40" />
-                <Setter Property="Height" Value="40" />
+                <Setter Property="Width" Value="36" />
+                <Setter Property="Height" Value="36" />
                 <Setter Property="Padding" Value="0" />
+                <Setter Property="CornerRadius" Value="{StaticResource RadiusFull}" />
             </Style>
 
-            <Style x:Key="TransportButtonStyle" TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
-                <Setter Property="Width" Value="42" />
-                <Setter Property="Height" Value="42" />
+            <!-- Transport (player) buttons -->
+            <Style x:Key="TransportButtonStyle" TargetType="Button">
+                <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderBrush" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Width" Value="36" />
+                <Setter Property="Height" Value="36" />
+                <Setter Property="CornerRadius" Value="{StaticResource RadiusFull}" />
                 <Setter Property="Padding" Value="0" />
-                <Setter Property="BorderBrush" Value="#99A8BFFF" />
-                <Setter Property="Background" Value="#D9FFFFFF" />
+                <Setter Property="FontSize" Value="16" />
+                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
             </Style>
 
             <Style x:Key="TransportPrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource TransportButtonStyle}">
-                <Setter Property="Width" Value="48" />
-                <Setter Property="Height" Value="48" />
-                <Setter Property="Foreground" Value="White" />
+                <Setter Property="Foreground" Value="{StaticResource TextInverseBrush}" />
                 <Setter Property="Background" Value="{StaticResource PrimaryGradientBrush}" />
-                <Setter Property="BorderBrush" Value="#22000000" />
+                <Setter Property="Width" Value="44" />
+                <Setter Property="Height" Value="44" />
+                <Setter Property="FontSize" Value="22" />
             </Style>
 
-            <Style x:Key="SidebarButtonStyle" TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+            <!-- Sidebar game button -->
+            <Style x:Key="NavButtonStyle" TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
                 <Setter Property="HorizontalAlignment" Value="Stretch" />
                 <Setter Property="HorizontalContentAlignment" Value="Left" />
-                <Setter Property="Margin" Value="0,0,0,8" />
+                <Setter Property="Margin" Value="0,2,0,2" />
             </Style>
 
+            <!-- ═══════════════════════════════════════════
+                 INPUT STYLES
+                 ═══════════════════════════════════════════ -->
             <Style x:Key="AppTextBoxStyle" TargetType="TextBox">
                 <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-                <Setter Property="Background" Value="#E6FFFFFF" />
-                <Setter Property="BorderBrush" Value="{StaticResource InputBorderBrush}" />
+                <Setter Property="Background" Value="#06000000" />
+                <Setter Property="BorderBrush" Value="#10000000" />
                 <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="{StaticResource RadiusMD}" />
                 <Setter Property="MinHeight" Value="36" />
+                <Setter Property="FontSize" Value="{StaticResource FontBody}" />
+                <Setter Property="Padding" Value="12,8" />
             </Style>
 
             <Style x:Key="AppPasswordBoxStyle" TargetType="PasswordBox">
                 <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-                <Setter Property="Background" Value="#E6FFFFFF" />
-                <Setter Property="BorderBrush" Value="{StaticResource InputBorderBrush}" />
+                <Setter Property="Background" Value="#06000000" />
+                <Setter Property="BorderBrush" Value="#10000000" />
                 <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="{StaticResource RadiusMD}" />
                 <Setter Property="MinHeight" Value="36" />
+                <Setter Property="FontSize" Value="{StaticResource FontBody}" />
+                <Setter Property="Padding" Value="12,8" />
+            </Style>
+
+            <Style x:Key="AppComboBoxStyle" TargetType="ComboBox">
+                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                <Setter Property="Background" Value="#06000000" />
+                <Setter Property="BorderBrush" Value="#10000000" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="{StaticResource RadiusMD}" />
+                <Setter Property="MinHeight" Value="36" />
+                <Setter Property="FontSize" Value="{StaticResource FontBody}" />
             </Style>
 
             <Style x:Key="TrackListStyle" TargetType="ListView">

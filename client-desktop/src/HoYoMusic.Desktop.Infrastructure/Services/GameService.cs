@@ -9,220 +9,113 @@ using HoYoMusic.Desktop.Core.Models;
 
 namespace HoYoMusic.Desktop.Infrastructure.Services;
 
-public sealed class GameService : IGameService
+public sealed class GameService : HoYoApiClient, IGameService
 {
-    private readonly HttpClient _httpClient;
-    private readonly ITokenStore _tokenStore;
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    public GameService(HttpClient httpClient, ITokenStore tokenStore) : base(httpClient, tokenStore) { }
 
-    public GameService(HttpClient httpClient, ITokenStore tokenStore)
+    public async Task<IReadOnlyList<GameItem>> GetGamesAsync(CancellationToken ct = default)
     {
-        _httpClient = httpClient;
-        _tokenStore = tokenStore;
-    }
+        using var response = await Http.GetAsync("games", ct);
+        var envelope = await response.Content.ReadFromJsonAsync<ApiEnvelope<GameListResponseData>>(JsonOptions, ct);
 
-    public async Task<IReadOnlyList<GameItem>> GetGamesAsync(CancellationToken cancellationToken = default)
-    {
-        using var response = await _httpClient.GetAsync("games", cancellationToken);
-        var envelope = await response.Content.ReadFromJsonAsync<ApiEnvelope<GameListResponseData>>(JsonOptions, cancellationToken);
-
-        if (envelope is null)
-        {
-            throw new ApiException("Failed to parse games response.");
-        }
-
+        if (envelope is null) throw new ApiException("Failed to parse games response.");
         if (!response.IsSuccessStatusCode || !envelope.Success || envelope.Data is null)
-        {
             throw new ApiException(envelope.Error?.Message ?? "Failed to load games.", envelope.Error?.Code);
-        }
 
-        var normalized = envelope.Data.Games
-            .Select(game => new GameItem
-            {
-                Id = game.Id,
-                Name = game.Name,
-                NameEn = game.NameEn,
-                Description = game.Description,
-                CoverPath = TryNormalizeCoverPath(game.CoverPath),
-                Status = game.Status,
-                DisplayOrder = game.DisplayOrder,
-                AlbumCount = game.AlbumCount,
-            })
-            .ToArray();
-
-        return normalized;
+        return envelope.Data.Games.Select(game => new GameItem
+        {
+            Id = game.Id, Name = game.Name, NameEn = game.NameEn,
+            Description = game.Description,
+            CoverPath = TryNormalizeCoverPath(game.CoverPath),
+            Status = game.Status, DisplayOrder = game.DisplayOrder, AlbumCount = game.AlbumCount,
+        }).ToArray();
     }
 
-    public async Task<IReadOnlyList<GameAlbumItem>> GetGameAlbumsAsync(int gameId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<GameAlbumItem>> GetGameAlbumsAsync(int gameId, CancellationToken ct = default)
     {
-        if (gameId <= 0)
-        {
-            return Array.Empty<GameAlbumItem>();
-        }
+        if (gameId <= 0) return Array.Empty<GameAlbumItem>();
 
-        using var response = await _httpClient.GetAsync($"games/{gameId}", cancellationToken);
-        var envelope = await response.Content.ReadFromJsonAsync<ApiEnvelope<GameDetailResponseData>>(JsonOptions, cancellationToken);
-        if (envelope is null)
-        {
-            throw new ApiException("Failed to parse game detail response.");
-        }
-
+        using var response = await Http.GetAsync($"games/{gameId}", ct);
+        var envelope = await response.Content.ReadFromJsonAsync<ApiEnvelope<GameDetailResponseData>>(JsonOptions, ct);
+        if (envelope is null) throw new ApiException("Failed to parse game detail response.");
         if (!response.IsSuccessStatusCode || !envelope.Success || envelope.Data is null)
-        {
             throw new ApiException(envelope.Error?.Message ?? "Failed to load game albums.", envelope.Error?.Code);
-        }
 
-        return envelope.Data.Albums
-            .Select(album => new GameAlbumItem
-            {
-                Id = album.Id,
-                Title = album.Title,
-                CoverPath = TryNormalizeCoverPath(album.CoverPath),
-                TrackCount = album.TrackCount,
-            })
-            .ToArray();
+        return envelope.Data.Albums.Select(album => new GameAlbumItem
+        {
+            Id = album.Id, Title = album.Title,
+            CoverPath = TryNormalizeCoverPath(album.CoverPath),
+            TrackCount = album.TrackCount,
+        }).ToArray();
     }
 
-    public async Task<GameItem> CreateGameAsync(GameUpsertRequest request, CancellationToken cancellationToken = default)
+    public async Task<GameItem> CreateGameAsync(GameUpsertRequest request, CancellationToken ct = default)
     {
-        using var authRequest = await CreateAuthenticatedRequestAsync(HttpMethod.Post, "games", cancellationToken);
-        authRequest.Content = JsonContent.Create(request, options: JsonOptions);
-        using var response = await _httpClient.SendAsync(authRequest, cancellationToken);
-        var envelope = await response.Content.ReadFromJsonAsync<ApiEnvelope<GameMutationEnvelope>>(JsonOptions, cancellationToken);
-        if (!response.IsSuccessStatusCode || envelope?.Success != true || envelope.Data?.Game is null)
-        {
-            throw await CreateApiExceptionAsync(response.StatusCode, envelope?.Error?.Message ?? "Failed to create game.", envelope?.Error?.Code, cancellationToken);
-        }
-
-        return envelope.Data.Game;
+        var result = await PostAuthedEnvelopeAsync<GameMutationEnvelope>("games", request, "Failed to create game.", ct);
+        return result.Game!;
     }
 
-    public async Task<GameItem> UpdateGameAsync(int gameId, GameUpsertRequest request, CancellationToken cancellationToken = default)
+    public async Task<GameItem> UpdateGameAsync(int gameId, GameUpsertRequest request, CancellationToken ct = default)
     {
-        using var authRequest = await CreateAuthenticatedRequestAsync(HttpMethod.Put, $"games/{gameId}", cancellationToken);
-        authRequest.Content = JsonContent.Create(request, options: JsonOptions);
-        using var response = await _httpClient.SendAsync(authRequest, cancellationToken);
-        var envelope = await response.Content.ReadFromJsonAsync<ApiEnvelope<GameMutationEnvelope>>(JsonOptions, cancellationToken);
-        if (!response.IsSuccessStatusCode || envelope?.Success != true || envelope.Data?.Game is null)
-        {
-            throw await CreateApiExceptionAsync(response.StatusCode, envelope?.Error?.Message ?? "Failed to update game.", envelope?.Error?.Code, cancellationToken);
-        }
-
-        return envelope.Data.Game;
+        var result = await PostAuthedEnvelopeAsync<GameMutationEnvelope>($"games/{gameId}", request, "Failed to update game.", ct, HttpMethod.Put);
+        return result.Game!;
     }
 
-    public async Task<GameItem> UploadGameCoverAsync(int gameId, string localFilePath, CancellationToken cancellationToken = default)
+    public async Task<GameItem> UploadGameCoverAsync(int gameId, string localFilePath, CancellationToken ct = default)
     {
-        if (gameId <= 0)
-        {
-            throw new ApiException("Invalid game id.", "INVALID_GAME_ID");
-        }
-
+        if (gameId <= 0) throw new ApiException("Invalid game id.", "INVALID_GAME_ID");
         if (string.IsNullOrWhiteSpace(localFilePath) || !File.Exists(localFilePath))
-        {
             throw new ApiException("Cover file does not exist.", "FILE_NOT_FOUND");
-        }
 
-        using var authRequest = await CreateAuthenticatedRequestAsync(HttpMethod.Post, $"games/{gameId}/cover", cancellationToken);
+        using var authRequest = await CreateAuthedRequestAsync(HttpMethod.Post, $"games/{gameId}/cover", ct);
         using var fileStream = File.OpenRead(localFilePath);
         using var multipart = new MultipartFormDataContent();
-        using var streamContent = new StreamContent(fileStream);
-        streamContent.Headers.ContentType = new MediaTypeHeaderValue(ResolveMediaType(localFilePath));
+        using var streamContent = new StreamContent(fileStream) { Headers = { ContentType = new MediaTypeHeaderValue(ResolveMediaType(localFilePath)) } };
         multipart.Add(streamContent, "cover", Path.GetFileName(localFilePath));
         authRequest.Content = multipart;
 
-        using var response = await _httpClient.SendAsync(authRequest, cancellationToken);
-        var envelope = await response.Content.ReadFromJsonAsync<ApiEnvelope<GameMutationEnvelope>>(JsonOptions, cancellationToken);
+        using var response = await Http.SendAsync(authRequest, ct);
+        var envelope = await response.Content.ReadFromJsonAsync<ApiEnvelope<GameMutationEnvelope>>(JsonOptions, ct);
         if (!response.IsSuccessStatusCode || envelope?.Success != true || envelope.Data?.Game is null)
-        {
-            throw await CreateApiExceptionAsync(response.StatusCode, envelope?.Error?.Message ?? "Failed to upload game cover.", envelope?.Error?.Code, cancellationToken);
-        }
+            throw await CreateApiExceptionAsync(response.StatusCode, envelope?.Error?.Message ?? "Failed to upload game cover.", envelope?.Error?.Code, ct);
 
         return envelope.Data.Game;
+    }
+
+    private async Task<TData> PostAuthedEnvelopeAsync<TData>(string uri, object payload, string fallbackError, CancellationToken ct, HttpMethod? method = null) where TData : class
+    {
+        using var authRequest = await CreateAuthedRequestAsync(method ?? HttpMethod.Post, uri, ct);
+        authRequest.Content = JsonContent.Create(payload, options: JsonOptions);
+        using var response = await Http.SendAsync(authRequest, ct);
+        var envelope = await response.Content.ReadFromJsonAsync<ApiEnvelope<TData>>(JsonOptions, ct);
+        if (!response.IsSuccessStatusCode || envelope?.Success != true || envelope.Data is null)
+            throw await CreateApiExceptionAsync(response.StatusCode, envelope?.Error?.Message ?? fallbackError, envelope?.Error?.Code, ct);
+        return envelope.Data;
     }
 
     private string? TryNormalizeCoverPath(string? coverPath)
     {
-        try
-        {
-            return NormalizeCoverPath(coverPath);
-        }
-        catch
-        {
-            // Do not break the whole game list because of one invalid cover path.
-            return null;
-        }
+        try { return NormalizeCoverPath(coverPath); }
+        catch { return null; }
     }
 
     private string? NormalizeCoverPath(string? coverPath)
     {
-        if (string.IsNullOrWhiteSpace(coverPath))
-        {
-            return null;
-        }
+        if (string.IsNullOrWhiteSpace(coverPath)) return null;
 
         var trimmed = coverPath.Trim();
-        var apiBase = _httpClient.BaseAddress ?? ApiConstants.ResolveBaseUri(null);
+        var apiBase = Http.BaseAddress ?? ApiConstants.ResolveBaseUri(null);
         var siteBase = new Uri(apiBase.GetLeftPart(UriPartial.Authority));
 
-        // Keep desktop behavior consistent with frontend getCoverUrl:
-        // absolute remote resources are proxied via /api/public/covers/proxy.
-        if (trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
-            || trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-        {
-            var encoded = Uri.EscapeDataString(trimmed);
-            return new Uri(siteBase, $"/api/public/covers/proxy?path={encoded}").ToString();
-        }
+        if (trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            return new Uri(siteBase, $"/api/public/covers/proxy?path={Uri.EscapeDataString(trimmed)}").ToString();
 
-        // Static game assets under /games/* are served from site root.
         if (trimmed.StartsWith('/') && !trimmed.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase))
-        {
             return new Uri(siteBase, trimmed).ToString();
-        }
 
         var normalized = trimmed.StartsWith('/') ? trimmed : $"/uploads/{trimmed}";
         return new Uri(siteBase, normalized).ToString();
     }
 
-    private async Task<HttpRequestMessage> CreateAuthenticatedRequestAsync(HttpMethod method, string uri, CancellationToken cancellationToken)
-    {
-        var token = await _tokenStore.GetTokenAsync(cancellationToken);
-        if (string.IsNullOrWhiteSpace(token))
-        {
-            throw new ApiException("Not authenticated.", "MISSING_TOKEN");
-        }
-
-        var request = new HttpRequestMessage(method, uri);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        return request;
-    }
-
-    private async Task<ApiException> CreateApiExceptionAsync(HttpStatusCode statusCode, string message, string? code, CancellationToken cancellationToken)
-    {
-        if (statusCode == HttpStatusCode.Unauthorized)
-        {
-            await _tokenStore.ClearTokenAsync(cancellationToken);
-            return new ApiException("Session expired. Please login again.", "UNAUTHORIZED");
-        }
-
-        return new ApiException(message, code);
-    }
-
-    private static string ResolveMediaType(string localFilePath)
-    {
-        return Path.GetExtension(localFilePath).ToLowerInvariant() switch
-        {
-            ".png" => "image/png",
-            ".jpg" or ".jpeg" => "image/jpeg",
-            ".webp" => "image/webp",
-            ".gif" => "image/gif",
-            _ => "application/octet-stream",
-        };
-    }
-
-    private sealed class GameMutationEnvelope
-    {
-        public GameItem? Game { get; init; }
-    }
+    private sealed class GameMutationEnvelope { public GameItem? Game { get; init; } }
 }
-

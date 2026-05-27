@@ -5,7 +5,6 @@ using HoYoMusic.Desktop.Core.Models;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media;
 
 namespace HoYoMusic.Desktop.App.Controls;
 
@@ -24,162 +23,65 @@ public sealed partial class HoYoMainContent : UserControl
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         AttachViewModel(DataContext as MainViewModel);
-        UpdateSectionVisibility();
+        UpdateContentViews();
     }
-
-    private void OnUnloaded(object sender, RoutedEventArgs e)
-    {
-        AttachViewModel(null);
-    }
-
+    private void OnUnloaded(object sender, RoutedEventArgs e) => AttachViewModel(null);
     private void OnDataContextChanged(FrameworkElement sender, DataContextChangedEventArgs args)
     {
         AttachViewModel(args.NewValue as MainViewModel);
-        UpdateSectionVisibility();
+        UpdateContentViews();
     }
-
-    private void AttachViewModel(MainViewModel? viewModel)
+    private void AttachViewModel(MainViewModel? vm)
     {
-        if (_boundViewModel is not null)
-        {
-            _boundViewModel.PropertyChanged -= ViewModelOnPropertyChanged;
-        }
-
-        _boundViewModel = viewModel;
-
-        if (_boundViewModel is not null)
-        {
-            _boundViewModel.PropertyChanged += ViewModelOnPropertyChanged;
-        }
+        if (_boundViewModel is not null) _boundViewModel.PropertyChanged -= OnVmPropertyChanged;
+        _boundViewModel = vm;
+        if (_boundViewModel is not null) _boundViewModel.PropertyChanged += OnVmPropertyChanged;
     }
-
-    private void ViewModelOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    private void OnVmPropertyChanged(object? s, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(MainViewModel.SelectedSection) || e.PropertyName == nameof(MainViewModel.IsAdmin))
-        {
-            UpdateSectionVisibility();
-        }
+            UpdateContentViews();
     }
+    public void RefreshSectionState() => UpdateContentViews();
+    private MainViewModel? VM => _boundViewModel ?? DataContext as MainViewModel;
 
-    public void RefreshSectionState() => UpdateSectionVisibility();
-
-    private MainViewModel? ViewModel => _boundViewModel ?? DataContext as MainViewModel;
-
-    private void UpdateSectionVisibility()
+    private void UpdateContentViews()
     {
-        if (ViewModel is null)
-        {
-            return;
-        }
-
-        DiscoverSectionPanel.Visibility = ViewModel.IsDiscoverSection ? Visibility.Visible : Visibility.Collapsed;
-        AlbumDetailSectionPanel.Visibility = ViewModel.IsAlbumDetailSection ? Visibility.Visible : Visibility.Collapsed;
-        GamesSectionPanel.Visibility = ViewModel.IsGamesSection ? Visibility.Visible : Visibility.Collapsed;
-        AlbumsSectionPanel.Visibility = ViewModel.IsAlbumsSection ? Visibility.Visible : Visibility.Collapsed;
-        ArtistsSectionPanel.Visibility = ViewModel.IsArtistsSection ? Visibility.Visible : Visibility.Collapsed;
-        TagsSectionPanel.Visibility = ViewModel.IsTagsSection ? Visibility.Visible : Visibility.Collapsed;
-        SearchSectionPanel.Visibility = ViewModel.IsSearchSection ? Visibility.Visible : Visibility.Collapsed;
-        LibrarySectionPanel.Visibility = ViewModel.IsLibrarySection ? Visibility.Visible : Visibility.Collapsed;
-        FavoritesSectionPanel.Visibility = ViewModel.IsFavoritesSection ? Visibility.Visible : Visibility.Collapsed;
-        PlaylistsSectionPanel.Visibility = ViewModel.IsPlaylistsSection ? Visibility.Visible : Visibility.Collapsed;
-        ProfileSectionPanel.Visibility = ViewModel.IsProfileSection ? Visibility.Visible : Visibility.Collapsed;
-        SettingsSectionPanel.Visibility = ViewModel.IsSettingsSection ? Visibility.Visible : Visibility.Collapsed;
-        DownloadsSectionPanel.Visibility = ViewModel.IsDownloadsSection ? Visibility.Visible : Visibility.Collapsed;
-        AdminSectionPanel.Visibility = ViewModel.ShowAdminEntry && ViewModel.IsAdminSection ? Visibility.Visible : Visibility.Collapsed;
-
-        UpdateSectionNavVisualState(ViewModel);
+        if (VM is null) return;
+        var section = VM.SelectedSection;
+        var isBrowse = section is "discover" or "games" or "albums" or "artists" or "tags" or "album-detail" or "track-detail";
+        var isLibrary = section is "library" or "favorites" or "playlists" or "profile";
+        var isSearch = section is "search";
+        SetVis(BrowseViewPanel, isBrowse);
+        SetVis(LibraryViewPanel, isLibrary);
+        SetVis(SearchViewPanel, isSearch);
+        // sub-views
+        SetVis(DiscoverContent, section == "discover");
+        SetVis(GamesContent, section == "games");
+        SetVis(AlbumsContent, section == "albums");
+        SetVis(ArtistsContent, section == "artists");
+        SetVis(TagsContent, section == "tags");
+        SetVis(AlbumDetailContent, section == "album-detail");
+        SetVis(TrackDetailContent, section == "track-detail");
+        SetVis(LibraryTabContent, section == "library");
+        SetVis(FavoritesTabContent, section == "favorites");
+        SetVis(PlaylistsTabContent, section == "playlists");
+        SetVis(ProfileTabContent, section == "profile");
+        // Other sections (admin, settings, downloads)
+        SetVis(AdminViewPanel, section == "admin" && VM.IsAdmin);
+        SetVis(SettingsViewPanel, section == "settings");
+        SetVis(DownloadsViewPanel, section == "downloads");
     }
 
-    private void UpdateSectionNavVisualState(MainViewModel viewModel)
-    {
-        ApplySectionButtonStyle(DiscoverNavButton, viewModel.IsDiscoverSection || viewModel.IsAlbumDetailSection);
-        ApplySectionButtonStyle(GamesNavButton, viewModel.IsGamesSection);
-        ApplySectionButtonStyle(AlbumsNavButton, viewModel.IsAlbumsSection);
-        ApplySectionButtonStyle(ArtistsNavButton, viewModel.IsArtistsSection);
-        ApplySectionButtonStyle(TagsNavButton, viewModel.IsTagsSection);
-        ApplySectionButtonStyle(SearchNavButton, viewModel.IsSearchSection);
-        ApplySectionButtonStyle(LibraryNavButton, viewModel.IsLibrarySection);
-        ApplySectionButtonStyle(FavoritesNavButton, viewModel.IsFavoritesSection);
-        ApplySectionButtonStyle(PlaylistsNavButton, viewModel.IsPlaylistsSection);
-        ApplySectionButtonStyle(ProfileNavButton, viewModel.IsProfileSection);
-        ApplySectionButtonStyle(SettingsNavButton, viewModel.IsSettingsSection);
-        ApplySectionButtonStyle(DownloadsNavButton, viewModel.IsDownloadsSection);
-        ApplySectionButtonStyle(AdminNavButton, viewModel.IsAdminSection);
-    }
+    private static void SetVis(UIElement el, bool visible) { if (el is not null) el.Visibility = visible ? Visibility.Visible : Visibility.Collapsed; }
 
-    private static void ApplySectionButtonStyle(Button button, bool isActive)
-    {
-        var styleKey = isActive ? "PrimaryButtonStyle" : "SecondaryButtonStyle";
-        if (Application.Current.Resources.TryGetValue(styleKey, out var style) && style is Style resolvedStyle)
-        {
-            button.Style = resolvedStyle;
-        }
-    }
-
-    private void SuccessInfoBar_OnClose(InfoBar sender, object args)
-    {
-        ViewModel?.DismissSuccessCommand.Execute(null);
-    }
-
-    private async void DiscoverAlbumsList_OnItemClick(object sender, ItemClickEventArgs e)
-    {
-        if (ViewModel is not null && e.ClickedItem is GameAlbumItem album)
-        {
-            await ViewModel.OpenAlbumDetailCommand.ExecuteAsync(album);
-        }
-    }
-
-    private void AlbumTrackList_OnItemClick(object sender, ItemClickEventArgs e)
-    {
-        if (ViewModel is not null && e.ClickedItem is MainViewModel.AlbumTrackRow row)
-        {
-            ViewModel.PlayAlbumTrackRowCommand.Execute(row);
-        }
-    }
-
-    private void AlbumCard_OnPointerEntered(object sender, PointerRoutedEventArgs e)
-    {
-        if (sender is not Grid grid)
-        {
-            return;
-        }
-
-        if (grid.RenderTransform is ScaleTransform scale)
-        {
-            scale.ScaleX = 1.03;
-            scale.ScaleY = 1.03;
-        }
-
-        foreach (var child in grid.Children.OfType<Border>())
-        {
-            if (child.Name == "AlbumPlayOverlay")
-            {
-                child.Opacity = 1;
-                break;
-            }
-        }
-    }
-
-    private void AlbumCard_OnPointerExited(object sender, PointerRoutedEventArgs e)
-    {
-        if (sender is not Grid grid)
-        {
-            return;
-        }
-
-        if (grid.RenderTransform is ScaleTransform scale)
-        {
-            scale.ScaleX = 1;
-            scale.ScaleY = 1;
-        }
-
-        foreach (var child in grid.Children.OfType<Border>())
-        {
-            if (child.Name == "AlbumPlayOverlay")
-            {
-                child.Opacity = 0;
-                break;
-            }
-        }
-    }
+    // Nav
+    private void BrowseNav_Click(object s, RoutedEventArgs e) => VM?.OpenSectionCommand.Execute("discover");
+    private void LibraryNav_Click(object s, RoutedEventArgs e) => VM?.OpenSectionCommand.Execute("library");
+    private void SearchNav_Click(object s, RoutedEventArgs e) => VM?.OpenSectionCommand.Execute("search");
+    private void SubNav_Click(object s, RoutedEventArgs e) { if (s is Button b && b.Tag is string tag) VM?.OpenSectionCommand.Execute(tag); }
+    private void MoreMenu_Click(object s, RoutedEventArgs e) { if (s is MenuFlyoutItem i && i.Tag is string tag) VM?.OpenSectionCommand.Execute(tag); }
+    private void SuccessInfoBar_OnClose(InfoBar sender, object args) => VM?.DismissSuccessCommand.Execute(null);
+    private void DiscoverAlbumsList_OnItemClick(object s, ItemClickEventArgs e) { if (VM is not null && e.ClickedItem is GameAlbumItem a) VM.OpenAlbumDetailCommand.Execute(a); }
+    private void AlbumTrackList_OnItemClick(object s, ItemClickEventArgs e) { if (VM is not null && e.ClickedItem is MainViewModel.AlbumTrackRow r) VM.PlayAlbumTrackRowCommand.Execute(r); }
 }
