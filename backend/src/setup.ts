@@ -8,7 +8,7 @@ async function setupDatabase() {
 
   try {
     // Read and execute schema
-    const schemaPath = path.join(__dirname, '../schema.sql');
+    const schemaPath = path.join(__dirname, '../db/schema.sql');
     const schema = await fs.readFile(schemaPath, 'utf-8');
 
     // Remove comments and split by semicolons

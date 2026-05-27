@@ -48,7 +48,7 @@ dotnet run --project src\HoYoMusic.Desktop.App\HoYoMusic.Desktop.App.csproj
 dotnet test HoYoMusic.Desktop.sln -c Debug --no-build -p:Platform=$env:PROCESSOR_ARCHITECTURE
 ```
 
-The desktop app is MSIX-packaged. For full sideload registration and smoke-test scripts, see `client-desktop/README.md` and `client-desktop/scripts/startup-smoke.ps1`.
+The desktop app is MSIX-packaged. For full sideload registration and smoke-test scripts, see `client-desktop/docs/README.md` and `client-desktop/scripts/startup-smoke.ps1`.
 
 ## API Contract (cross-cutting)
 
@@ -79,11 +79,35 @@ Four-project solution under `client-desktop/`:
 
 MVVM pattern: `CommunityToolkit.Mvvm` for `[ObservableProperty]`, `[RelayCommand]`. Desktop `AGENTS.md` at `client-desktop/src/HoYoMusic.Desktop.App/AGENTS.md` has detailed WinUI 3 conventions (x:Bind, platform detection, MSIX registration, troubleshooting build errors).
 
+## Backend Module Map
+
+- **Entry point:** `backend/src/index.ts` — wires security middleware, `/api` maintenance gate, route modules, health/docs endpoints, and startup-time DB migrations.
+- **Controllers:** `backend/src/controllers/trackController.ts` handles upload/CRUD; public playback via `backend/src/routes/publicRoutes.ts`.
+- **Upload flow:** FLAC magic-byte validation → metadata extraction → optional credits override → storage upload → transactional DB writes.
+- **Public playback:** `GET /api/public/tracks/:id/stream` + play-event reporting `POST /api/public/tracks/:id/play`; cover proxy at `/api/public/covers/proxy`.
+- **Analytics:** request-level via `backend/src/middleware/visitLogger.ts` (batched inserts to `visit_logs`).
+- **Validation:** Zod schemas in `backend/src/validators/schemas.ts` + `validateBody(schema)` middleware in route files.
+- **Storage:** `backend/src/services/storageService.ts` unifies `local` / `oss` / `webdav` backends.
+- **DB:** Pooled `pg` via `backend/src/config/database.ts`; startup migrations in `backend/src/index.ts` (no migration framework).
+- **Admin music-source:** `backend/src/routes/musicSourceRoutes.ts`; tables `music_source_*` and `track_music_sources`.
+
+## Frontend Module Map
+
+- **Entry point:** `frontend/src/App.tsx`; routes lazy-loaded, split between public pages and auth-protected admin pages.
+- **API client:** `frontend/src/services/api.ts` centralizes Axios auth, `x-visitor-id`, 401 login-modal recovery, `Cache-Control: no-cache` for authenticated GETs. Feature services import this client.
+- **Backend URL:** `VITE_API_URL` env var, falls back to `/api` by default.
+
+## Safe Change Checklist
+
+- **Upload/stream paths:** verify both authenticated (`/api/tracks/...`) and public (`/api/public/...`) routes.
+- **Track shape changes:** update admin controller, public routes, and all frontend/desktop consumers that surface the same fields.
+- **New DB features:** prefer startup migration style in `backend/src/index.ts` for backward-compatible deploys.
+- **No tests exist:** validate backend changes with `npm run build` (type-check), not `npm test`.
+
 ## Detailed Docs (read when relevant)
 
-- `AGENTS.md` — exhaustive backend + frontend module map, data flows, and safe-change checklist
 - `README.md` — full project overview with module connection tables
-- `CREDITS_IMPORT_SPEC.md` — JSON format for bulk credits import
-- `MUSIC_SOURCE_IMPORT_SPEC.md` — structured music source import/export API spec
+- `docs/specs/CREDITS_IMPORT_SPEC.md` — JSON format for bulk credits import
+- `docs/specs/MUSIC_SOURCE_IMPORT_SPEC.md` — structured music source import/export API spec
 - `client-desktop/docs/00_DOC_INDEX.md` — desktop docs entrypoint and reading order
-- `client-desktop/KNOWN_ISSUES.md` / `PHASE1_CONTRACT_MATRIX.md` — desktop known issues and API parity tracking
+- `client-desktop/docs/KNOWN_ISSUES.md` / `client-desktop/docs/PHASE1_CONTRACT_MATRIX.md` — desktop known issues and API parity tracking

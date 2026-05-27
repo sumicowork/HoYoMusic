@@ -5,10 +5,10 @@
 - 让后续迭代按同一口径推进：`契约对齐 -> 功能闭环 -> 稳定发布`。
 
 ## 推荐阅读顺序
-1. `client-desktop/README.md`：当前能力边界与运行方式。
-2. `client-desktop/KNOWN_ISSUES.md`：已知限制与风险。
-3. `client-desktop/PHASE1_CONTRACT_MATRIX.md`：Web 对齐任务矩阵。
-4. `client-desktop/WINDOWS_CLIENT_ROADMAP.md`：中长期阶段计划。
+1. `client-desktop/docs/README.md`：当前能力边界与运行方式。
+2. `client-desktop/docs/KNOWN_ISSUES.md`：已知限制与风险。
+3. `client-desktop/docs/PHASE1_CONTRACT_MATRIX.md`：Web 对齐任务矩阵。
+4. `client-desktop/docs/WINDOWS_CLIENT_ROADMAP.md`：中长期阶段计划。
 5. `client-desktop/docs/01_EXECUTION_TRACKER.md`：当前执行看板与当期动作。
 6. `client-desktop/docs/02_FRONTEND_WINDOWS_FEATURE_INVENTORY.md`：前端与桌面已实现功能盘点。
 7. `client-desktop/docs/03_FRONTEND_WINDOWS_PARITY_MATRIX_50.md`：50 项重大功能对齐矩阵。
@@ -24,10 +24,10 @@
 17. `client-desktop/docs/13_DEVELOPMENT_PROGRESS.md`：**开发进度总文档** — 当前完成度、差距分析、推荐开发路线。
 
 ## 文档职责划分
-- `README.md`：对外入口与开发者快速上手。
-- `KNOWN_ISSUES.md`：问题清单，聚焦事实与影响范围。
-- `PHASE1_CONTRACT_MATRIX.md`：接口与行为一致性检查表。
-- `WINDOWS_CLIENT_ROADMAP.md`：阶段目标、验收标准、风险缓解。
+- `docs/README.md`：对外入口与开发者快速上手。
+- `docs/KNOWN_ISSUES.md`：问题清单，聚焦事实与影响范围。
+- `docs/PHASE1_CONTRACT_MATRIX.md`：接口与行为一致性检查表。
+- `docs/WINDOWS_CLIENT_ROADMAP.md`：阶段目标、验收标准、风险缓解。
 - `01_EXECUTION_TRACKER.md`：按周推进的可执行待办。
 - `02_FRONTEND_WINDOWS_FEATURE_INVENTORY.md`：功能盘点与范围基线。
 - `03_FRONTEND_WINDOWS_PARITY_MATRIX_50.md`：跨端功能差距与推进状态。

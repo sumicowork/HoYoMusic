@@ -466,7 +466,7 @@ npm run build
 
 ## 11. 参考文档
 
-- 总体说明：`AGENTS.md`
+- 总体说明：`CLAUDE.md`
 - 需求文档：`PRD.md`
 - 规划路线：`ROADMAP.md`
 - 项目状态：`PROJECT_STATUS.md`

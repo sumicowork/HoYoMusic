@@ -28,7 +28,7 @@
 
 本目录内容优先依据以下文件：
 
-- `AGENTS.md`
+- `CLAUDE.md`
 - `backend/src/index.ts`
 - `backend/src/routes/publicRoutes.ts`
 - `backend/src/routes/trackRoutes.ts`
