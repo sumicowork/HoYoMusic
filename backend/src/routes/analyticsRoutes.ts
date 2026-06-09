@@ -1261,12 +1261,13 @@ router.get('/export', async (req: Request, res: Response) => {
              t.release_date, t.created_at,
              a.id AS album_id, a.uuid::text AS album_uuid, a.title AS album_title, a.title_cn AS album_title_cn, a.title_en AS album_title_en,
              g.name AS game_name,
-             ARRAY_AGG(DISTINCT ar.name) FILTER (WHERE ar.name IS NOT NULL) AS artists
+             COALESCE(
+               (SELECT array_agg(DISTINCT credit_value) FROM track_credits WHERE track_id = t.id AND credit_value IS NOT NULL AND credit_value <> ''),
+               ARRAY[]::text[]
+             ) AS artists
       FROM tracks t
       LEFT JOIN albums a ON t.album_id = a.id
       LEFT JOIN games g ON a.game_id = g.id
-      LEFT JOIN track_artists ta ON t.id = ta.track_id
-      LEFT JOIN artists ar ON ta.artist_id = ar.id
       GROUP BY t.id, a.title, g.name
       ORDER BY t.id
     `);

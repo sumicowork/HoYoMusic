@@ -249,7 +249,9 @@ app.get('/api/health', async (req, res) => {
 app.use(errorHandler);
 
 // Initialize storage and start server
+// ── Migrations (one-shot, to be removed after server deployment) ──
 const runMigrations = async () => {
+  // 1. artist_aliases + artist_role_aliases
   try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS artist_aliases (
@@ -260,14 +262,8 @@ const runMigrations = async () => {
         UNIQUE(canonical_name, alias_name)
       )
     `);
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_artist_aliases_alias
-      ON artist_aliases (LOWER(alias_name))
-    `);
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_artist_aliases_canonical
-      ON artist_aliases (LOWER(canonical_name))
-    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_artist_aliases_alias ON artist_aliases (LOWER(alias_name))`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_artist_aliases_canonical ON artist_aliases (LOWER(canonical_name))`);
     await pool.query(`
       CREATE TABLE IF NOT EXISTS artist_role_aliases (
         id SERIAL PRIMARY KEY,
@@ -277,20 +273,11 @@ const runMigrations = async () => {
         UNIQUE(canonical_role, alias_role)
       )
     `);
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_artist_role_aliases_alias
-      ON artist_role_aliases (LOWER(alias_role))
-    `);
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_artist_role_aliases_canonical
-      ON artist_role_aliases (LOWER(canonical_role))
-    `);
-    console.log('✅ DB migrations up to date (artist_aliases, artist_role_aliases)');
-  } catch (err) {
-    console.error('⚠️  Migration warning (non-fatal):', err);
-  }
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_artist_role_aliases_alias ON artist_role_aliases (LOWER(alias_role))`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_artist_role_aliases_canonical ON artist_role_aliases (LOWER(canonical_role))`);
+  } catch (e) { console.error('migration artist_aliases:', e); }
 
-  // visit_logs for analytics
+  // 2. visit_logs
   try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS visit_logs (
@@ -323,18 +310,10 @@ const runMigrations = async () => {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_visit_logs_visitor_id ON visit_logs (visitor_id)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_visit_logs_actor_user_id ON visit_logs (actor_user_id)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_visit_logs_actor_username ON visit_logs (actor_username)`);
-    await pool.query(`
-      UPDATE visit_logs
-      SET visitor_id = NULL
-      WHERE visitor_id IS NOT NULL
-        AND TRIM(visitor_id) = ''
-    `);
-    console.log('✅ DB migrations up to date (visit_logs)');
-  } catch (err) {
-    console.error('⚠️  visit_logs migration warning:', err);
-  }
+    await pool.query(`UPDATE visit_logs SET visitor_id = NULL WHERE visitor_id IS NOT NULL AND TRIM(visitor_id) = ''`);
+  } catch (e) { console.error('migration visit_logs:', e); }
 
-  // playlists
+  // 3. playlists
   try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS playlists (
@@ -360,12 +339,9 @@ const runMigrations = async () => {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_playlists_user ON playlists(user_id)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_playlist_tracks_playlist ON playlist_tracks(playlist_id)`);
     await pool.query(`UPDATE playlists SET is_public = FALSE WHERE is_public = TRUE`);
-    console.log('✅ DB migrations up to date (playlists)');
-  } catch (err) {
-    console.error('⚠️  playlists migration warning:', err);
-  }
+  } catch (e) { console.error('migration playlists:', e); }
 
-  // favorites
+  // 4. favorites
   try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS favorites (
@@ -376,12 +352,9 @@ const runMigrations = async () => {
       )
     `);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_favorites_user ON favorites(user_id)`);
-    console.log('✅ DB migrations up to date (favorites)');
-  } catch (err) {
-    console.error('⚠️  favorites migration warning:', err);
-  }
+  } catch (e) { console.error('migration favorites:', e); }
 
-  // site messages
+  // 5. site_messages
   try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS site_messages (
@@ -407,22 +380,16 @@ const runMigrations = async () => {
     `);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_site_message_deliveries_user ON site_message_deliveries(recipient_user_id, delivered_at DESC)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_site_message_deliveries_unread ON site_message_deliveries(recipient_user_id, is_read)`);
-    console.log('✅ DB migrations up to date (site_messages)');
-  } catch (err) {
-    console.error('⚠️  site_messages migration warning:', err);
-  }
+  } catch (e) { console.error('migration site_messages:', e); }
 
-  // Add sha256_hash and play_count columns to tracks
+  // 6. tracks: sha256_hash, play_count
   try {
     await pool.query(`ALTER TABLE tracks ADD COLUMN IF NOT EXISTS sha256_hash VARCHAR(64)`);
     await pool.query(`ALTER TABLE tracks ADD COLUMN IF NOT EXISTS play_count INTEGER DEFAULT 0`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_tracks_hash ON tracks(sha256_hash) WHERE sha256_hash IS NOT NULL`);
-    console.log('✅ DB migrations up to date (tracks: sha256_hash, play_count)');
-  } catch (err) {
-    console.error('⚠️  tracks column migration warning:', err);
-  }
+  } catch (e) { console.error('migration tracks_hash_playcount:', e); }
 
-  // effective play events for top-tracks and heat analytics
+  // 7. track_play_events
   try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS track_play_events (
@@ -442,21 +409,15 @@ const runMigrations = async () => {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_track_play_events_played_at ON track_play_events (played_at DESC)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_track_play_events_track_effective ON track_play_events (track_id, effective_play, played_at DESC)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_track_play_events_source_ip ON track_play_events (source_ip)`);
-    console.log('✅ DB migrations up to date (track_play_events)');
-  } catch (err) {
-    console.error('⚠️  track_play_events migration warning:', err);
-  }
+  } catch (e) { console.error('migration track_play_events:', e); }
 
-  // Add notes column to albums and tracks
+  // 8. albums/tracks: notes
   try {
     await pool.query(`ALTER TABLE albums ADD COLUMN IF NOT EXISTS notes TEXT`);
     await pool.query(`ALTER TABLE tracks ADD COLUMN IF NOT EXISTS notes TEXT`);
-    console.log('✅ DB migrations up to date (albums/tracks: notes)');
-  } catch (err) {
-    console.error('⚠️  notes column migration warning:', err);
-  }
+  } catch (e) { console.error('migration albums_tracks_notes:', e); }
 
-  // Stable UUID locator + bilingual title columns for albums/tracks
+  // 9. albums/tracks: uuid, title_cn, title_en
   try {
     await pool.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto`);
     await pool.query(`ALTER TABLE albums ADD COLUMN IF NOT EXISTS uuid UUID`);
@@ -467,22 +428,15 @@ const runMigrations = async () => {
     await pool.query(`UPDATE tracks SET uuid = gen_random_uuid() WHERE uuid IS NULL`);
     await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_albums_uuid ON albums(uuid)`);
     await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_tracks_uuid ON tracks(uuid)`);
-
     await pool.query(`ALTER TABLE albums ADD COLUMN IF NOT EXISTS title_cn VARCHAR(500)`);
     await pool.query(`ALTER TABLE albums ADD COLUMN IF NOT EXISTS title_en VARCHAR(500)`);
     await pool.query(`ALTER TABLE tracks ADD COLUMN IF NOT EXISTS title_cn VARCHAR(500)`);
     await pool.query(`ALTER TABLE tracks ADD COLUMN IF NOT EXISTS title_en VARCHAR(500)`);
-
-    // Backfill CN title from legacy title so existing data stays readable.
     await pool.query(`UPDATE albums SET title_cn = title WHERE title_cn IS NULL AND title IS NOT NULL`);
     await pool.query(`UPDATE tracks SET title_cn = title WHERE title_cn IS NULL AND title IS NOT NULL`);
+  } catch (e) { console.error('migration catalog_metadata:', e); }
 
-    console.log('✅ DB migrations up to date (albums/tracks: uuid, title_cn, title_en)');
-  } catch (err) {
-    console.error('⚠️  catalog metadata migration warning:', err);
-  }
-
-  // Catalog metadata import audit (preview/commit/rollback)
+  // 10. catalog_metadata_import_audit
   try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS catalog_metadata_import_batches (
@@ -523,31 +477,24 @@ const runMigrations = async () => {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_catalog_metadata_changes_batch_uuid ON catalog_metadata_import_changes(batch_uuid)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_catalog_metadata_changes_entity_uuid ON catalog_metadata_import_changes(entity_uuid)`);
     await pool.query(`
-      DO $$
-      BEGIN
+      DO $$ BEGIN
         IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_catalog_metadata_import_batch_status') THEN
           ALTER TABLE catalog_metadata_import_batches
           ADD CONSTRAINT chk_catalog_metadata_import_batch_status CHECK (status IN ('committed', 'rolled_back'));
         END IF;
-      END
-      $$
+      END $$
     `);
     await pool.query(`
-      DO $$
-      BEGIN
+      DO $$ BEGIN
         IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_catalog_metadata_import_change_entity_type') THEN
           ALTER TABLE catalog_metadata_import_changes
           ADD CONSTRAINT chk_catalog_metadata_import_change_entity_type CHECK (entity_type IN ('album', 'track'));
         END IF;
-      END
-      $$
+      END $$
     `);
-    console.log('✅ DB migrations up to date (catalog_metadata_import_audit)');
-  } catch (err) {
-    console.error('⚠️  catalog metadata audit migration warning:', err);
-  }
+  } catch (e) { console.error('migration catalog_metadata_import_audit:', e); }
 
-  // music source module tables
+  // 11. music source module
   try {
     await pool.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto`);
     await pool.query(`
@@ -604,12 +551,9 @@ const runMigrations = async () => {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_track_music_sources_game ON track_music_sources(game_id)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_track_music_sources_category ON track_music_sources(category_id)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_track_music_sources_node ON track_music_sources(node_id)`);
-    console.log('✅ DB migrations up to date (music source module)');
-  } catch (err) {
-    console.error('⚠️  music source migration warning:', err);
-  }
+  } catch (e) { console.error('migration music_source_module:', e); }
 
-  // Three-state lyrics status: none | has | instrumental
+  // 12. tracks: lyrics_status
   try {
     await pool.query(`ALTER TABLE tracks ADD COLUMN IF NOT EXISTS lyrics_status VARCHAR(20)`);
     await pool.query(`
@@ -629,12 +573,9 @@ const runMigrations = async () => {
       CHECK (lyrics_status IN ('none', 'has', 'instrumental'))
     `);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_tracks_lyrics_status ON tracks(lyrics_status)`);
-    console.log('✅ DB migrations up to date (tracks: lyrics_status)');
-  } catch (err) {
-    console.error('⚠️  lyrics status migration warning:', err);
-  }
+  } catch (e) { console.error('migration tracks_lyrics_status:', e); }
 
-  // Album disc subdivision
+  // 13. album_discs
   try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS album_discs (
@@ -649,12 +590,9 @@ const runMigrations = async () => {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_album_discs_album ON album_discs(album_id)`);
     await pool.query(`ALTER TABLE tracks ADD COLUMN IF NOT EXISTS disc_id INTEGER REFERENCES album_discs(id) ON DELETE SET NULL`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_tracks_disc_id ON tracks(disc_id)`);
-    console.log('✅ DB migrations up to date (album_discs, tracks.disc_id)');
-  } catch (err) {
-    console.error('⚠️  album_discs migration warning:', err);
-  }
+  } catch (e) { console.error('migration album_discs:', e); }
 
-  // app settings
+  // 14. app_settings
   try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS app_settings (
@@ -665,34 +603,22 @@ const runMigrations = async () => {
     `);
     await pool.query(`
       INSERT INTO app_settings (setting_key, setting_value)
-      VALUES (
-        'first_visit_modal',
-        '{"enabled":false,"title":"欢迎来到 HoYoMusic","content":"本站仅用于音乐欣赏与资料整理。请遵守相关法律法规。","min_stay_seconds":5,"version":"1"}'::jsonb
-      )
+      VALUES ('first_visit_modal', '{"enabled":false,"title":"欢迎来到 HoYoMusic","content":"本站仅用于音乐欣赏与资料整理。请遵守相关法律法规。","min_stay_seconds":5,"version":"1"}'::jsonb)
       ON CONFLICT (setting_key) DO NOTHING
     `);
     await pool.query(`
       INSERT INTO app_settings (setting_key, setting_value)
-      VALUES (
-        'site_compliance',
-        '{"enabled":false,"icp_number":"","public_security_number":""}'::jsonb
-      )
+      VALUES ('site_compliance', '{"enabled":false,"icp_number":"","public_security_number":""}'::jsonb)
       ON CONFLICT (setting_key) DO NOTHING
     `);
     await pool.query(`
       INSERT INTO app_settings (setting_key, setting_value)
-      VALUES (
-        'maintenance_mode',
-        '{"enabled":false,"expected_end_time":null,"message":"","version":"1"}'::jsonb
-      )
+      VALUES ('maintenance_mode', '{"enabled":false,"expected_end_time":null,"message":"","version":"1"}'::jsonb)
       ON CONFLICT (setting_key) DO NOTHING
     `);
-    console.log('✅ DB migrations up to date (app_settings)');
-  } catch (err) {
-    console.error('⚠️  app_settings migration warning:', err);
-  }
+  } catch (e) { console.error('migration app_settings:', e); }
 
-  // users auth extensions
+  // 15. users auth extensions
   try {
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(200)`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE`);
@@ -704,17 +630,14 @@ const runMigrations = async () => {
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_ip VARCHAR(64)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_account_status ON users (account_status)`);
     await pool.query(`
-      DO $$
-      BEGIN
+      DO $$ BEGIN
         IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_account_status_check') THEN
           ALTER TABLE users
           ADD CONSTRAINT users_account_status_check CHECK (account_status IN ('active', 'disabled'));
         END IF;
-      END
-      $$
+      END $$
     `);
     await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_lower ON users (LOWER(email)) WHERE email IS NOT NULL`);
-
     await pool.query(`
       CREATE TABLE IF NOT EXISTS auth_verification_codes (
         id BIGSERIAL PRIMARY KEY,
@@ -739,12 +662,9 @@ const runMigrations = async () => {
       SET email_verified = TRUE, is_admin = TRUE, account_status = 'active', status_reason = NULL
       WHERE username = 'admin'
     `);
-    console.log('✅ DB migrations up to date (users auth extensions)');
-  } catch (err) {
-    console.error('⚠️  users auth extensions migration warning:', err);
-  }
+  } catch (e) { console.error('migration users_auth_extensions:', e); }
 
-  // feedback messages
+  // 16. feedback_messages
   try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS feedback_messages (
@@ -756,11 +676,14 @@ const runMigrations = async () => {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `);
-    await pool.query('CREATE INDEX IF NOT EXISTS idx_feedback_messages_created_at ON feedback_messages (created_at DESC)');
-    console.log('✅ DB migrations up to date (feedback_messages)');
-  } catch (err) {
-    console.error('⚠️  feedback_messages migration warning:', err);
-  }
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_feedback_messages_created_at ON feedback_messages (created_at DESC)`);
+  } catch (e) { console.error('migration feedback_messages:', e); }
+
+  // 17. drop legacy artists/track_artists tables (data discarded)
+  try {
+    await pool.query(`DROP TABLE IF EXISTS track_artists CASCADE`);
+    await pool.query(`DROP TABLE IF EXISTS artists CASCADE`);
+  } catch (e) { console.error('migration drop_legacy_artists:', e); }
 };
 
 const startServer = async () => {

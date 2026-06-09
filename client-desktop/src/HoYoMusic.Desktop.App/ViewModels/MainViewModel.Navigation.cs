@@ -30,13 +30,16 @@ public partial class MainViewModel
             if (IsAuthenticated)
             {
                 LoadingStage = "加载账户数据";
-                var user = await _authService.GetCurrentUserAsync();
-                CurrentUserDisplay = user?.Username ?? "已登录";
-                IsAdmin = user?.IsAdmin == true;
-                await LoadTracksAsync();
-                await LoadFavoritesAsync();
-                await LoadPlaylistsAsync();
-                await RefreshInboxAsync();
+                await SafeInvokeAsync(async () =>
+                {
+                    var user = await _authService.GetCurrentUserAsync();
+                    CurrentUserDisplay = user?.Username ?? "已登录";
+                    IsAdmin = user?.IsAdmin == true;
+                }, "加载账户信息");
+                await SafeInvokeAsync(LoadTracksAsync, "加载曲目");
+                await SafeInvokeAsync(LoadFavoritesAsync, "加载收藏");
+                await SafeInvokeAsync(LoadPlaylistsAsync, "加载歌单");
+                await SafeInvokeAsync(RefreshInboxAsync, "加载收件箱");
             }
             else
             {
@@ -45,17 +48,13 @@ public partial class MainViewModel
             }
 
             LoadingStage = "加载游戏与发现";
-            await LoadSiteConfigAsync();
-            await LoadGamesAsync();
-            await LoadSelectedGameAlbumsAsync();
-            await LoadDiscoverAsync();
-            await LoadPublicTracksAsync();
+            await SafeInvokeAsync(LoadSiteConfigAsync, "加载站点配置");
+            await SafeInvokeAsync(LoadGamesAsync, "加载游戏列表");
+            await SafeInvokeAsync(LoadSelectedGameAlbumsAsync, "加载专辑");
+            await SafeInvokeAsync(LoadDiscoverAsync, "加载发现内容");
+            await SafeInvokeAsync(() => LoadPublicTracksAsync(), "加载公开曲目");
             RefreshDownloadTasks();
             LoadingStage = "完成";
-        }
-        catch (ApiException ex)
-        {
-            await HandleApiExceptionAsync(ex, "初始化失败，请稍后重试。");
         }
         catch (Exception ex)
         {
@@ -69,6 +68,30 @@ public partial class MainViewModel
             {
                 LoadingStage = "空闲";
             }
+        }
+    }
+
+    /// <summary>
+    /// Wraps an async initialization step with individual error handling so one failure
+    /// does not block the rest of the startup sequence.
+    /// </summary>
+    private async Task SafeInvokeAsync(Func<Task> action, string stepName)
+    {
+        try
+        {
+            await action();
+        }
+        catch (ApiException ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[{stepName}] API error: {ex.Message} (code={ex.Code})");
+            if (ex.Code is "UNAUTHORIZED" or "MISSING_TOKEN")
+            {
+                await HandleApiExceptionAsync(ex, $"{stepName}：会话已过期");
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[{stepName}] Unexpected error: {ex.Message}");
         }
     }
 
@@ -200,7 +223,8 @@ public partial class MainViewModel
             await LoadPlaylistsAsync();
             await RefreshInboxAsync();
             await TryRestorePendingSectionAfterLoginAsync();
-            ErrorMessage = "注册成功，已自动登录。";
+            SuccessMessage = "注册成功，已自动登录。";
+            ShowSuccessMessage = true;
         }
         catch (ApiException ex)
         {

@@ -55,13 +55,15 @@ export const getFavorites = async (req: Request, res: Response) => {
               a.cover_path AS album_cover,
               f.created_at AS favorited_at,
               COUNT(DISTINCT fav_all.user_id)::int AS favorite_count,
-              array_agg(json_build_object('id', ar.id, 'name', ar.name)) AS artists
+              COALESCE(
+                (SELECT json_agg(json_build_object('id', NULL, 'name', sub.credit_value))
+                 FROM (SELECT DISTINCT credit_value FROM track_credits WHERE track_id = t.id AND credit_value IS NOT NULL AND credit_value <> '') sub
+                ), '[]'::json
+              ) AS artists
        FROM favorites f
        JOIN tracks t ON f.track_id = t.id
        LEFT JOIN albums a ON t.album_id = a.id
        LEFT JOIN favorites fav_all ON t.id = fav_all.track_id
-       LEFT JOIN track_artists ta ON t.id = ta.track_id
-       LEFT JOIN artists ar ON ta.artist_id = ar.id
        WHERE f.user_id = $1
        GROUP BY t.id, a.title, a.cover_path, f.created_at
        ORDER BY f.created_at DESC
@@ -69,10 +71,7 @@ export const getFavorites = async (req: Request, res: Response) => {
       [user.id, limit, offset]
     );
 
-    const tracks = result.rows.map(row => ({
-      ...row,
-      artists: row.artists.filter((a: any) => a.id !== null),
-    }));
+    const tracks = result.rows;
 
     res.json({
       success: true,

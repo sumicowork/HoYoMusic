@@ -82,23 +82,22 @@ export const getPlaylistById = async (req: Request, res: Response) => {
               pt.position,
               pt.added_at,
               COUNT(DISTINCT fav.user_id)::int AS favorite_count,
-              array_agg(json_build_object('id', ar.id, 'name', ar.name)) AS artists
+              COALESCE(
+                (SELECT json_agg(json_build_object('id', NULL, 'name', sub.credit_value))
+                 FROM (SELECT DISTINCT credit_value FROM track_credits WHERE track_id = t.id AND credit_value IS NOT NULL AND credit_value <> '') sub
+                ), '[]'::json
+              ) AS artists
        FROM playlist_tracks pt
        JOIN tracks t ON pt.track_id = t.id
        LEFT JOIN albums a ON t.album_id = a.id
        LEFT JOIN favorites fav ON t.id = fav.track_id
-       LEFT JOIN track_artists ta ON t.id = ta.track_id
-       LEFT JOIN artists ar ON ta.artist_id = ar.id
        WHERE pt.playlist_id = $1
        GROUP BY t.id, a.title, a.cover_path, pt.position, pt.added_at
        ORDER BY pt.position ASC, pt.added_at ASC`,
       [id]
     );
 
-    const tracks = tracksResult.rows.map(row => ({
-      ...row,
-      artists: row.artists.filter((a: any) => a.id !== null),
-    }));
+    const tracks = tracksResult.rows;
 
     res.json({
       success: true,

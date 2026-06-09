@@ -1,5 +1,10 @@
+using System.ComponentModel;
+using HoYoMusic.Desktop.App.ViewModels;
+using Microsoft.UI;
+using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 
 namespace HoYoMusic.Desktop.App.Controls;
 
@@ -11,9 +16,14 @@ public sealed partial class HoYoSideBar : UserControl
         typeof(HoYoSideBar),
         new PropertyMetadata(false, OnIsCompactChanged));
 
+    private MainViewModel? _boundViewModel;
+
     public HoYoSideBar()
     {
         InitializeComponent();
+        Loaded += OnLoaded;
+        Unloaded += OnUnloaded;
+        DataContextChanged += OnDataContextChanged;
         UpdateCompactState();
     }
 
@@ -21,6 +31,35 @@ public sealed partial class HoYoSideBar : UserControl
     {
         get => (bool)GetValue(IsCompactProperty);
         set => SetValue(IsCompactProperty, value);
+    }
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        AttachViewModel(DataContext as MainViewModel);
+        HighlightActiveSection();
+    }
+
+    private void OnUnloaded(object sender, RoutedEventArgs e) => AttachViewModel(null);
+
+    private void OnDataContextChanged(FrameworkElement sender, DataContextChangedEventArgs args)
+    {
+        AttachViewModel(args.NewValue as MainViewModel);
+        HighlightActiveSection();
+    }
+
+    private void AttachViewModel(MainViewModel? vm)
+    {
+        if (_boundViewModel is not null) _boundViewModel.PropertyChanged -= OnVmPropertyChanged;
+        _boundViewModel = vm;
+        if (_boundViewModel is not null) _boundViewModel.PropertyChanged += OnVmPropertyChanged;
+    }
+
+    private void OnVmPropertyChanged(object? s, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainViewModel.SelectedSection))
+        {
+            HighlightActiveSection();
+        }
     }
 
     private static void OnIsCompactChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -33,7 +72,53 @@ public sealed partial class HoYoSideBar : UserControl
 
     private void UpdateCompactState()
     {
-        SideBarText.Visibility = IsCompact ? Visibility.Collapsed : Visibility.Visible;
+        var vis = IsCompact ? Visibility.Collapsed : Visibility.Visible;
+        DiscoverLabel.Visibility = vis;
+        LibraryLabel.Visibility = vis;
+        SearchLabel.Visibility = vis;
+        BrowseLabel.Visibility = vis;
+        DiscoverSubLabel.Visibility = vis;
+        GamesSubLabel.Visibility = vis;
+        AlbumsSubLabel.Visibility = vis;
+        ArtistsSubLabel.Visibility = vis;
+        TagsSubLabel.Visibility = vis;
+        GamesHeaderLabel.Visibility = vis;
+        FavoritesLabel.Visibility = vis;
+        PlaylistsLabel.Visibility = vis;
+        DownloadsLabel.Visibility = vis;
+        SettingsLabel.Visibility = vis;
+        AdminLabel.Visibility = vis;
+    }
+
+    private void NavButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is string tag && _boundViewModel is not null)
+        {
+            _boundViewModel.OpenSectionCommand.Execute(tag);
+        }
+    }
+
+    private void HighlightActiveSection()
+    {
+        if (_boundViewModel is null) return;
+        var section = _boundViewModel.SelectedSection;
+
+        HighlightButton(DiscoverButton, section is "discover" or "album-detail" or "track-detail");
+        HighlightButton(LibraryButton, section is "library" or "favorites" or "playlists" or "profile");
+        HighlightButton(SearchButton, section == "search");
+    }
+
+    private static void HighlightButton(Button button, bool isActive)
+    {
+        button.FontWeight = isActive ? FontWeights.SemiBold : FontWeights.Normal;
+        if (isActive)
+        {
+            button.Background = Application.Current.Resources["SidebarSelectedBrush"] as Brush;
+        }
+        else
+        {
+            button.Background = new SolidColorBrush(Colors.Transparent);
+        }
     }
 
     private void GameCoverImage_OnImageFailed(object sender, ExceptionRoutedEventArgs e)

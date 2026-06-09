@@ -39,16 +39,14 @@ export interface Album {
   updated_at: Date;
 }
 
-export interface Artist {
-  id: number;
-  name: string;
-  created_at: Date;
-  updated_at: Date;
+export interface TrackCredit {
+  credit_key: string;
+  credit_value: string;
 }
 
 export interface TrackWithDetails extends Track {
   album_title?: string;
   album_cover?: string | null;
-  artists: Artist[];
+  artists: TrackCredit[];
 }
 

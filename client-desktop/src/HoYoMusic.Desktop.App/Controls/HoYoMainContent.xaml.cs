@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Linq;
 using HoYoMusic.Desktop.App.ViewModels;
 using HoYoMusic.Desktop.Core.Models;
+using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -75,12 +76,8 @@ public sealed partial class HoYoMainContent : UserControl
 
     private static void SetVis(UIElement el, bool visible) { if (el is not null) el.Visibility = visible ? Visibility.Visible : Visibility.Collapsed; }
 
-    // Nav
-    private void BrowseNav_Click(object s, RoutedEventArgs e) => VM?.OpenSectionCommand.Execute("discover");
-    private void LibraryNav_Click(object s, RoutedEventArgs e) => VM?.OpenSectionCommand.Execute("library");
-    private void SearchNav_Click(object s, RoutedEventArgs e) => VM?.OpenSectionCommand.Execute("search");
+    // Nav — sub-nav clicks now come from sidebar; keep SubNav_Click for any remaining in-content buttons
     private void SubNav_Click(object s, RoutedEventArgs e) { if (s is Button b && b.Tag is string tag) VM?.OpenSectionCommand.Execute(tag); }
-    private void MoreMenu_Click(object s, RoutedEventArgs e) { if (s is MenuFlyoutItem i && i.Tag is string tag) VM?.OpenSectionCommand.Execute(tag); }
     private void SuccessInfoBar_OnClose(InfoBar sender, object args) => VM?.DismissSuccessCommand.Execute(null);
     private void DiscoverAlbumsList_OnItemClick(object s, ItemClickEventArgs e) { if (VM is not null && e.ClickedItem is GameAlbumItem a) VM.OpenAlbumDetailCommand.Execute(a); }
     private void AlbumTrackList_OnItemClick(object s, ItemClickEventArgs e) { if (VM is not null && e.ClickedItem is MainViewModel.AlbumTrackRow r) VM.PlayAlbumTrackRowCommand.Execute(r); }

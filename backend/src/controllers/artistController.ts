@@ -324,23 +324,22 @@ export const getArtistById = async (req: Request, res: Response) => {
         a.title  AS album_title,
         a.cover_path AS album_cover,
         array_agg(DISTINCT COALESCE(ara2.canonical_role, tc2.credit_key)) AS roles,
-        array_agg(json_build_object('id', ar.id, 'name', ar.name)) AS artists
+        COALESCE(
+          (SELECT json_agg(json_build_object('id', NULL, 'name', sub.credit_value))
+           FROM (SELECT DISTINCT credit_value FROM track_credits WHERE track_id = t.id AND credit_value IS NOT NULL AND credit_value <> '') sub
+          ), '[]'::json
+        ) AS artists
       FROM track_credits tc
       JOIN tracks t         ON tc.track_id  = t.id
       LEFT JOIN albums a    ON t.album_id   = a.id
       LEFT JOIN track_credits tc2 ON tc2.track_id = t.id AND LOWER(tc2.credit_value) IN (${nameParams})
       LEFT JOIN artist_role_aliases ara2 ON LOWER(tc2.credit_key) = LOWER(ara2.alias_role)
-      LEFT JOIN track_artists ta  ON t.id = ta.track_id
-      LEFT JOIN artists ar        ON ta.artist_id = ar.id
       WHERE LOWER(tc.credit_value) IN (${nameParams})
       GROUP BY t.id, a.title, a.cover_path
       ORDER BY t.created_at DESC
     `;
     const tracksResult = await pool.query(tracksQuery, allNames);
-    const tracks = tracksResult.rows.map(row => ({
-      ...row,
-      artists: row.artists.filter((a: any) => a.id !== null),
-    }));
+    const tracks = tracksResult.rows;
 
     // Albums
     const albumsQuery = `

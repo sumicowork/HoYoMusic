@@ -38,13 +38,14 @@ CREATE INDEX IF NOT EXISTS idx_auth_codes_challenge ON auth_verification_codes(c
 CREATE INDEX IF NOT EXISTS idx_auth_codes_email ON auth_verification_codes(LOWER(email), created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_auth_codes_expires ON auth_verification_codes(expires_at);
 
--- Artists table
-CREATE TABLE IF NOT EXISTS artists (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- Artists table — REMOVED: replaced by track_credits (credit_key='artist')
+-- Kept as comment for migration reference:
+-- CREATE TABLE IF NOT EXISTS artists (
+--     id SERIAL PRIMARY KEY,
+--     name VARCHAR(255) NOT NULL,
+--     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- );
 
 -- Albums table
 CREATE TABLE IF NOT EXISTS albums (
@@ -121,23 +122,20 @@ BEGIN
     END IF;
 END $$;
 
--- Track Artists relationship (many-to-many)
-CREATE TABLE IF NOT EXISTS track_artists (
-    track_id INTEGER REFERENCES tracks(id) ON DELETE CASCADE,
-    artist_id INTEGER REFERENCES artists(id) ON DELETE CASCADE,
-    PRIMARY KEY (track_id, artist_id)
-);
+-- Track Artists relationship — REMOVED: replaced by track_credits
+-- CREATE TABLE IF NOT EXISTS track_artists (
+--     track_id INTEGER REFERENCES tracks(id) ON DELETE CASCADE,
+--     artist_id INTEGER REFERENCES artists(id) ON DELETE CASCADE,
+--     PRIMARY KEY (track_id, artist_id)
+-- );
 
 -- Indexes for better query performance
 CREATE INDEX IF NOT EXISTS idx_tracks_album_id ON tracks(album_id);
 CREATE INDEX IF NOT EXISTS idx_tracks_title ON tracks(title);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_tracks_uuid ON tracks(uuid);
 CREATE INDEX IF NOT EXISTS idx_tracks_lyrics_status ON tracks(lyrics_status);
-CREATE INDEX IF NOT EXISTS idx_artists_name ON artists(name);
 CREATE INDEX IF NOT EXISTS idx_albums_title ON albums(title);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_albums_uuid ON albums(uuid);
-CREATE INDEX IF NOT EXISTS idx_track_artists_track_id ON track_artists(track_id);
-CREATE INDEX IF NOT EXISTS idx_track_artists_artist_id ON track_artists(artist_id);
 CREATE INDEX IF NOT EXISTS idx_tracks_disc_id ON tracks(disc_id);
 CREATE INDEX IF NOT EXISTS idx_album_discs_album_id ON album_discs(album_id);
 CREATE INDEX IF NOT EXISTS idx_track_play_events_played_at ON track_play_events(played_at DESC);

@@ -102,11 +102,13 @@ const queryTrackById = async (trackId: number) => {
        t.title_en AS title,
        t.track_number,
        COALESCE(a.title_en, '') AS album_title,
-       COALESCE(array_to_string(array_agg(DISTINCT ar.name), ' / '), '') AS artists
+       COALESCE(
+         (SELECT array_to_string(array_agg(DISTINCT credit_value), ' / ')
+          FROM track_credits WHERE track_id = t.id AND credit_value IS NOT NULL AND credit_value <> ''),
+         ''
+       ) AS artists
      FROM tracks t
      LEFT JOIN albums a ON a.id = t.album_id
-     LEFT JOIN track_artists ta ON ta.track_id = t.id
-     LEFT JOIN artists ar ON ar.id = ta.artist_id
      WHERE t.id = $1
      GROUP BY t.id, t.title_en, t.track_number, a.title_en
      LIMIT 1`,
@@ -122,11 +124,13 @@ const queryTrackCandidates = async (songName: string, trackNumber: number) => {
        t.title_en AS title,
        t.track_number,
        COALESCE(a.title_en, '') AS album_title,
-       COALESCE(array_to_string(array_agg(DISTINCT ar.name), ' / '), '') AS artists
+       COALESCE(
+         (SELECT array_to_string(array_agg(DISTINCT credit_value), ' / ')
+          FROM track_credits WHERE track_id = t.id AND credit_value IS NOT NULL AND credit_value <> ''),
+         ''
+       ) AS artists
      FROM tracks t
      LEFT JOIN albums a ON a.id = t.album_id
-     LEFT JOIN track_artists ta ON ta.track_id = t.id
-     LEFT JOIN artists ar ON ar.id = ta.artist_id
       WHERE LOWER(TRIM(COALESCE(t.title_en, ''))) = LOWER(TRIM($1))
        AND t.track_number = $2
       GROUP BY t.id, t.title_en, t.track_number, a.title_en
@@ -147,7 +151,11 @@ const searchTrackCandidatesForMusicSourceImport = async (keyword: string, limit:
        t.title_en AS title,
        t.track_number,
        COALESCE(a.title_en, '') AS album_title,
-       COALESCE(array_to_string(array_agg(DISTINCT ar.name), ' / '), '') AS artists,
+       COALESCE(
+         (SELECT array_to_string(array_agg(DISTINCT credit_value), ' / ')
+          FROM track_credits WHERE track_id = t.id AND credit_value IS NOT NULL AND credit_value <> ''),
+         ''
+       ) AS artists,
        CASE
          WHEN LOWER(TRIM(COALESCE(t.title_en, ''))) = LOWER(TRIM($1)) THEN 0
          WHEN $3::boolean AND t.id = $4 THEN 1
@@ -156,11 +164,9 @@ const searchTrackCandidatesForMusicSourceImport = async (keyword: string, limit:
        END AS match_rank
      FROM tracks t
      LEFT JOIN albums a ON a.id = t.album_id
-     LEFT JOIN track_artists ta ON ta.track_id = t.id
-     LEFT JOIN artists ar ON ar.id = ta.artist_id
      WHERE LOWER(COALESCE(t.title_en, '')) LIKE LOWER($2)
         OR LOWER(COALESCE(a.title_en, '')) LIKE LOWER($2)
-        OR LOWER(COALESCE(ar.name, '')) LIKE LOWER($2)
+        OR EXISTS (SELECT 1 FROM track_credits tc_search WHERE tc_search.track_id = t.id AND LOWER(tc_search.credit_value) LIKE LOWER($2))
         OR ($3::boolean AND t.id = $4)
         OR ($3::boolean AND t.track_number = $4)
      GROUP BY t.id, t.title_en, t.track_number, a.title_en

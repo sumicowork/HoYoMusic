@@ -157,11 +157,13 @@ const queryStrictTrackMatch = async (songName: string, trackNumber: number): Pro
        t.title,
        t.track_number,
        COALESCE(al.title, '') AS album_title,
-       COALESCE(array_to_string(array_agg(DISTINCT ar.name), ' / '), '') AS artists
+       COALESCE(
+         (SELECT array_to_string(array_agg(DISTINCT credit_value), ' / ')
+          FROM track_credits WHERE track_id = t.id AND credit_value IS NOT NULL AND credit_value <> ''),
+         ''
+       ) AS artists
      FROM tracks t
      LEFT JOIN albums al ON al.id = t.album_id
-     LEFT JOIN track_artists ta ON ta.track_id = t.id
-     LEFT JOIN artists ar ON ar.id = ta.artist_id
      WHERE LOWER(TRIM(t.title)) = LOWER(TRIM($1))
        AND t.track_number = $2
      GROUP BY t.id, t.title, t.track_number, al.title
@@ -180,7 +182,11 @@ const queryManualTrackCandidates = async (songName: string, trackNumber: number 
        t.title,
        t.track_number,
        COALESCE(al.title, '') AS album_title,
-       COALESCE(array_to_string(array_agg(DISTINCT ar.name), ' / '), '') AS artists,
+       COALESCE(
+         (SELECT array_to_string(array_agg(DISTINCT credit_value), ' / ')
+          FROM track_credits WHERE track_id = t.id AND credit_value IS NOT NULL AND credit_value <> ''),
+         ''
+       ) AS artists,
        CASE
          WHEN LOWER(TRIM(t.title)) = LOWER(TRIM($1)) AND t.track_number = $2 THEN 0
          WHEN LOWER(TRIM(t.title)) = LOWER(TRIM($1)) THEN 1
@@ -189,8 +195,6 @@ const queryManualTrackCandidates = async (songName: string, trackNumber: number 
        END AS match_rank
      FROM tracks t
      LEFT JOIN albums al ON al.id = t.album_id
-     LEFT JOIN track_artists ta ON ta.track_id = t.id
-     LEFT JOIN artists ar ON ar.id = ta.artist_id
      WHERE LOWER(TRIM(t.title)) = LOWER(TRIM($1))
         OR ($3::boolean AND t.track_number = $2)
      GROUP BY t.id, t.title, t.track_number, al.title
@@ -209,11 +213,13 @@ const queryTrackCandidateById = async (trackId: number): Promise<TrackNotesImpor
        t.title,
        t.track_number,
        COALESCE(al.title, '') AS album_title,
-       COALESCE(array_to_string(array_agg(DISTINCT ar.name), ' / '), '') AS artists
+       COALESCE(
+         (SELECT array_to_string(array_agg(DISTINCT credit_value), ' / ')
+          FROM track_credits WHERE track_id = t.id AND credit_value IS NOT NULL AND credit_value <> ''),
+         ''
+       ) AS artists
      FROM tracks t
      LEFT JOIN albums al ON al.id = t.album_id
-     LEFT JOIN track_artists ta ON ta.track_id = t.id
-     LEFT JOIN artists ar ON ar.id = ta.artist_id
      WHERE t.id = $1
      GROUP BY t.id, t.title, t.track_number, al.title
      LIMIT 1`,
@@ -235,7 +241,11 @@ const searchTrackCandidatesForNotesImport = async (keyword: string, limit: numbe
        t.title,
        t.track_number,
        COALESCE(al.title, '') AS album_title,
-       COALESCE(array_to_string(array_agg(DISTINCT ar.name), ' / '), '') AS artists,
+       COALESCE(
+         (SELECT array_to_string(array_agg(DISTINCT credit_value), ' / ')
+          FROM track_credits WHERE track_id = t.id AND credit_value IS NOT NULL AND credit_value <> ''),
+         ''
+       ) AS artists,
        CASE
          WHEN LOWER(TRIM(t.title)) = LOWER(TRIM($1)) THEN 0
          WHEN $3::boolean AND t.id = $4 THEN 1
@@ -244,11 +254,9 @@ const searchTrackCandidatesForNotesImport = async (keyword: string, limit: numbe
        END AS match_rank
      FROM tracks t
      LEFT JOIN albums al ON al.id = t.album_id
-     LEFT JOIN track_artists ta ON ta.track_id = t.id
-     LEFT JOIN artists ar ON ar.id = ta.artist_id
      WHERE LOWER(t.title) LIKE LOWER($2)
         OR LOWER(COALESCE(al.title, '')) LIKE LOWER($2)
-        OR LOWER(COALESCE(ar.name, '')) LIKE LOWER($2)
+        OR EXISTS (SELECT 1 FROM track_credits tc_search WHERE tc_search.track_id = t.id AND LOWER(tc_search.credit_value) LIKE LOWER($2))
         OR ($3::boolean AND t.id = $4)
         OR ($3::boolean AND t.track_number = $4)
      GROUP BY t.id, t.title, t.track_number, al.title
@@ -404,13 +412,11 @@ const findTracksByTitle = async (
         t.album_id,
         a.title AS album_title,
         COALESCE(
-          array_agg(DISTINCT ar.name) FILTER (WHERE ar.name IS NOT NULL),
+          (SELECT array_agg(DISTINCT credit_value) FROM track_credits WHERE track_id = t.id AND credit_value IS NOT NULL AND credit_value <> ''),
           ARRAY[]::text[]
         ) AS artists
       FROM tracks t
       LEFT JOIN albums a ON t.album_id = a.id
-      LEFT JOIN track_artists ta ON ta.track_id = t.id
-      LEFT JOIN artists ar ON ar.id = ta.artist_id
       WHERE LOWER(TRIM(t.title)) = LOWER(TRIM($1))
       GROUP BY t.id, t.title, t.album_id, a.title
       ORDER BY t.id DESC
@@ -597,28 +603,17 @@ export const uploadTracks = async (req: Request, res: Response) => {
 
           const track = trackResult.rows[0];
 
-          // Handle artists
-          for (const artistName of artistNames) {
-            let artistResult = await client.query(
-              'SELECT id FROM artists WHERE name = $1',
-              [artistName]
-            );
-
-            let artistId;
-            if (artistResult.rows.length > 0) {
-              artistId = artistResult.rows[0].id;
-            } else {
-              const newArtist = await client.query(
-                'INSERT INTO artists (name) VALUES ($1) RETURNING id',
-                [artistName]
+          // Write artist names as credits (replaces traditional artists table)
+          for (let ai = 0; ai < artistNames.length; ai++) {
+            const name = artistNames[ai].trim();
+            if (name) {
+              await client.query(
+                `INSERT INTO track_credits (track_id, credit_key, credit_value, display_order)
+                 VALUES ($1, $2, $3, $4)
+                 ON CONFLICT DO NOTHING`,
+                [track.id, 'artist', name, -1000 + ai]
               );
-              artistId = newArtist.rows[0].id;
             }
-
-            await client.query(
-              'INSERT INTO track_artists (track_id, artist_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-              [track.id, artistId]
-            );
           }
 
           // ── Credits: 优先使用前端传入的 credits_override，否则自动解析 ──
@@ -1345,10 +1340,9 @@ export const scanSameAlbumDuplicateTracks = async (_req: Request, res: Response)
       FROM tracks t
       LEFT JOIN albums a ON a.id = t.album_id
       LEFT JOIN LATERAL (
-        SELECT array_agg(DISTINCT ar.name ORDER BY ar.name) AS names
-        FROM track_artists ta
-        JOIN artists ar ON ar.id = ta.artist_id
-        WHERE ta.track_id = t.id
+        SELECT array_agg(DISTINCT tc.credit_value ORDER BY tc.credit_value) AS names
+        FROM track_credits tc
+        WHERE tc.track_id = t.id AND tc.credit_value IS NOT NULL AND tc.credit_value <> ''
       ) artists ON TRUE
       GROUP BY t.album_id, COALESCE(a.title, '未分类专辑'), LOWER(TRIM(t.title))
       HAVING COUNT(*) > 1
@@ -1445,10 +1439,9 @@ export const getTracks = async (req: Request, res: Response) => {
         OR LOWER(COALESCE(a.title_en, '')) LIKE LOWER($${pIdx})
         OR LOWER(COALESCE(t.notes, '')) LIKE LOWER($${pIdx})
         OR EXISTS (
-          SELECT 1 FROM track_artists ta2
-          JOIN artists ar2 ON ta2.artist_id = ar2.id
-          WHERE ta2.track_id = t.id
-          AND LOWER(ar2.name) LIKE LOWER($${pIdx})
+          SELECT 1 FROM track_credits tc_search
+          WHERE tc_search.track_id = t.id
+          AND LOWER(tc_search.credit_value) LIKE LOWER($${pIdx})
         )
       )`);
       queryParams.push(`%${search}%`);
@@ -1561,8 +1554,6 @@ export const getTracks = async (req: Request, res: Response) => {
       SELECT COUNT(DISTINCT t.id)
       FROM tracks t
       LEFT JOIN albums a ON t.album_id = a.id
-      LEFT JOIN track_artists ta ON t.id = ta.track_id
-      LEFT JOIN artists ar ON ta.artist_id = ar.id
       ${whereClause}
     `;
 
@@ -1580,12 +1571,14 @@ export const getTracks = async (req: Request, res: Response) => {
         a.title_en as album_title_en,
         a.cover_path as album_cover,
         a.release_date as album_release_date,
-        array_agg(json_build_object('id', ar.id, 'name', ar.name)) as artists,
+        COALESCE(
+          (SELECT json_agg(json_build_object('id', NULL, 'name', sub.credit_value))
+           FROM (SELECT DISTINCT credit_value FROM track_credits WHERE track_id = t.id AND credit_value IS NOT NULL AND credit_value <> '') sub
+          ), '[]'::json
+        ) as artists,
         COUNT(DISTINCT fav.user_id)::int AS favorite_count
       FROM tracks t
       LEFT JOIN albums a ON t.album_id = a.id
-      LEFT JOIN track_artists ta ON t.id = ta.track_id
-      LEFT JOIN artists ar ON ta.artist_id = ar.id
       LEFT JOIN favorites fav ON t.id = fav.track_id
       ${whereClause}
       GROUP BY t.id, a.id, a.uuid, a.title, a.title_cn, a.title_en, a.cover_path, a.release_date, a.created_at
@@ -1595,10 +1588,7 @@ export const getTracks = async (req: Request, res: Response) => {
 
     const tracksResult = await pool.query(tracksQuery, [...queryParams, limit, offset]);
 
-    const tracks: TrackWithDetails[] = tracksResult.rows.map(row => ({
-      ...row,
-      artists: row.artists.filter((a: any) => a.id !== null),
-    }));
+    const tracks: TrackWithDetails[] = tracksResult.rows;
 
     res.json({
       success: true,
@@ -1667,12 +1657,14 @@ export const getTrackById = async (req: Request, res: Response) => {
         a.title_cn as album_title_cn,
         a.title_en as album_title_en,
         a.cover_path as album_cover,
-        array_agg(json_build_object('id', ar.id, 'name', ar.name)) as artists,
+        COALESCE(
+          (SELECT json_agg(json_build_object('id', NULL, 'name', sub.credit_value))
+           FROM (SELECT DISTINCT credit_value FROM track_credits WHERE track_id = t.id AND credit_value IS NOT NULL AND credit_value <> '') sub
+          ), '[]'::json
+        ) as artists,
         COUNT(DISTINCT fav.user_id)::int AS favorite_count
       FROM tracks t
       LEFT JOIN albums a ON t.album_id = a.id
-      LEFT JOIN track_artists ta ON t.id = ta.track_id
-      LEFT JOIN artists ar ON ta.artist_id = ar.id
       LEFT JOIN favorites fav ON t.id = fav.track_id
       WHERE t.id = $1
       GROUP BY t.id, a.id, a.uuid, a.title, a.title_cn, a.title_en, a.cover_path`,
@@ -1686,10 +1678,7 @@ export const getTrackById = async (req: Request, res: Response) => {
       });
     }
 
-    const track: TrackWithDetails = {
-      ...trackResult.rows[0],
-      artists: trackResult.rows[0].artists.filter((a: any) => a.id !== null),
-    };
+    const track: TrackWithDetails = trackResult.rows[0];
 
     res.json({
       success: true,
@@ -1939,32 +1928,20 @@ export const updateTrack = async (req: Request, res: Response) => {
         );
       }
 
-      // Handle artists - remove old relationships
-      await client.query('DELETE FROM track_artists WHERE track_id = $1', [id]);
+      // Handle artists - update credit entries with key='artist'
+      await client.query(`DELETE FROM track_credits WHERE track_id = $1 AND credit_key = 'artist'`, [id]);
 
-      // Add new artists
+      // Add new artists as credits
       if (artists && Array.isArray(artists)) {
-        for (const artistName of artists) {
-          let artistResult = await client.query(
-            'SELECT id FROM artists WHERE name = $1',
-            [artistName.trim()]
-          );
-
-          let artistId;
-          if (artistResult.rows.length > 0) {
-            artistId = artistResult.rows[0].id;
-          } else {
-            const newArtist = await client.query(
-              'INSERT INTO artists (name) VALUES ($1) RETURNING id',
-              [artistName.trim()]
+        for (let ai = 0; ai < artists.length; ai++) {
+          const name = String(artists[ai] || '').trim();
+          if (name) {
+            await client.query(
+              `INSERT INTO track_credits (track_id, credit_key, credit_value, display_order)
+               VALUES ($1, 'artist', $2, $3)`,
+              [id, name, -1000 + ai]
             );
-            artistId = newArtist.rows[0].id;
           }
-
-          await client.query(
-            'INSERT INTO track_artists (track_id, artist_id) VALUES ($1, $2)',
-            [id, artistId]
-          );
         }
       }
 
@@ -2070,7 +2047,7 @@ export const deleteTrack = async (req: Request, res: Response) => {
 
     const { file_path, cover_path } = trackResult.rows[0];
 
-    // Delete from database (cascade will handle track_artists)
+    // Delete from database (cascade will handle track_credits)
     await pool.query('DELETE FROM tracks WHERE id = $1', [id]);
 
     // Delete files from storage
@@ -2116,7 +2093,7 @@ export const bulkDeleteTracks = async (req: Request, res: Response) => {
       [ids]
     );
 
-    // Delete from database (cascade handles track_artists, track_tags, etc.)
+    // Delete from database (cascade handles track_credits, track_tags, etc.)
     await pool.query('DELETE FROM tracks WHERE id = ANY($1)', [ids]);
 
     // Delete files from storage

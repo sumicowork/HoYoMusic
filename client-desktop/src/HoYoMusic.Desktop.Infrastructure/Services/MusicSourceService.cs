@@ -76,7 +76,7 @@ public sealed class MusicSourceService : HoYoApiClient, IMusicSourceService
         if (!response.IsSuccessStatusCode)
         {
             var envelope = await ReadEnvelopeAsync<object>(response, ct);
-            throw new ApiException(envelope?.Error?.Message ?? "Failed to export music sources.", envelope?.Error?.Code);
+            throw await CreateApiExceptionAsync(response.StatusCode, envelope?.Error?.Message ?? "Failed to export music sources.", envelope?.Error?.Code, ct);
         }
 
         var content = await response.Content.ReadAsByteArrayAsync(ct);
@@ -95,7 +95,7 @@ public sealed class MusicSourceService : HoYoApiClient, IMusicSourceService
         using var response = await Http.SendAsync(request, ct);
         var envelope = await ReadEnvelopeAsync<TData>(response, ct);
         if (!response.IsSuccessStatusCode || envelope?.Success != true || envelope.Data is null)
-            throw new ApiException(envelope?.Error?.Message ?? fallbackError, envelope?.Error?.Code);
+            throw await CreateApiExceptionAsync(response.StatusCode, envelope?.Error?.Message ?? fallbackError, envelope?.Error?.Code, ct);
         return envelope.Data;
     }
 
@@ -105,7 +105,7 @@ public sealed class MusicSourceService : HoYoApiClient, IMusicSourceService
         using var response = await Http.SendAsync(request, ct);
         var envelope = await ReadEnvelopeAsync<TData>(response, ct);
         if (!response.IsSuccessStatusCode || envelope?.Success != true || envelope.Data is null)
-            throw new ApiException(envelope?.Error?.Message ?? fallbackError, envelope?.Error?.Code);
+            throw await CreateApiExceptionAsync(response.StatusCode, envelope?.Error?.Message ?? fallbackError, envelope?.Error?.Code, ct);
         return envelope.Data;
     }
 
@@ -115,7 +115,7 @@ public sealed class MusicSourceService : HoYoApiClient, IMusicSourceService
         using var response = await Http.SendAsync(request, ct);
         var envelope = await ReadEnvelopeAsync<object>(response, ct);
         if (!response.IsSuccessStatusCode || envelope?.Success != true)
-            throw new ApiException(envelope?.Error?.Message ?? fallbackError, envelope?.Error?.Code);
+            throw await CreateApiExceptionAsync(response.StatusCode, envelope?.Error?.Message ?? fallbackError, envelope?.Error?.Code, ct);
     }
 
     private static string ParseDispositionFileName(HttpResponseMessage response, string fallback)

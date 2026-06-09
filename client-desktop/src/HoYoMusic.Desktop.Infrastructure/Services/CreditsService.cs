@@ -26,7 +26,7 @@ public sealed class CreditsService : HoYoApiClient, ICreditsService
         if (!response.IsSuccessStatusCode)
         {
             var envelope = await ReadEnvelopeAsync<object>(response, ct);
-            throw new ApiException(envelope?.Error?.Message ?? "Failed to export credits.", envelope?.Error?.Code);
+            throw await CreateApiExceptionAsync(response.StatusCode, envelope?.Error?.Message ?? "Failed to export credits.", envelope?.Error?.Code, ct);
         }
 
         var bytes = await response.Content.ReadAsByteArrayAsync(ct);

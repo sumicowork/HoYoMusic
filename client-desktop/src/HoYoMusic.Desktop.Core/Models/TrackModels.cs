@@ -5,7 +5,7 @@ namespace HoYoMusic.Desktop.Core.Models;
 public sealed class TrackArtist
 {
     [JsonPropertyName("id")]
-    public int Id { get; init; }
+    public int? Id { get; init; }
 
     [JsonPropertyName("name")]
     public string Name { get; init; } = string.Empty;
@@ -24,6 +24,9 @@ public sealed class TrackItem
 
     [JsonPropertyName("duration")]
     public int? Duration { get; init; }
+
+    [JsonPropertyName("cover_path")]
+    public string? CoverPath { get; init; }
 
     [JsonPropertyName("artists")]
     public IReadOnlyList<TrackArtist> Artists { get; init; } = Array.Empty<TrackArtist>();

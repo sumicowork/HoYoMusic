@@ -31,7 +31,7 @@ public sealed class TrackService : HoYoApiClient, ITrackService
         }
 
         if (!response.IsSuccessStatusCode || envelope?.Success != true || envelope.Data is null)
-            throw new ApiException(envelope?.Error?.Message ?? "Failed to load tracks.", envelope?.Error?.Code);
+            throw await CreateApiExceptionAsync(response.StatusCode, envelope?.Error?.Message ?? "Failed to load tracks.", envelope?.Error?.Code, ct);
 
         return envelope.Data.Tracks;
     }
@@ -113,7 +113,7 @@ public sealed class TrackService : HoYoApiClient, ITrackService
         using var response = await Http.SendAsync(request, ct);
         var envelope = await ReadEnvelopeAsync<TrackFilterOptions>(response, ct);
         if (!response.IsSuccessStatusCode || envelope?.Success != true || envelope.Data is null)
-            throw new ApiException(envelope?.Error?.Message ?? "Failed to load track filter options.", envelope?.Error?.Code);
+            throw await CreateApiExceptionAsync(response.StatusCode, envelope?.Error?.Message ?? "Failed to load track filter options.", envelope?.Error?.Code, ct);
         return envelope.Data;
     }
 
@@ -188,7 +188,7 @@ public sealed class TrackService : HoYoApiClient, ITrackService
         using var response = await Http.SendAsync(request, ct);
         var envelope = await ReadEnvelopeAsync<TData>(response, ct);
         if (!response.IsSuccessStatusCode || envelope?.Success != true || envelope.Data is null)
-            throw new ApiException(envelope?.Error?.Message ?? fallbackError, envelope?.Error?.Code);
+            throw await CreateApiExceptionAsync(response.StatusCode, envelope?.Error?.Message ?? fallbackError, envelope?.Error?.Code, ct);
         return envelope.Data;
     }
 
@@ -198,7 +198,7 @@ public sealed class TrackService : HoYoApiClient, ITrackService
         using var response = await Http.SendAsync(request, ct);
         var envelope = await ReadEnvelopeAsync<TData>(response, ct);
         if (!response.IsSuccessStatusCode || envelope?.Success != true || envelope.Data is null)
-            throw new ApiException(envelope?.Error?.Message ?? fallbackError, envelope?.Error?.Code);
+            throw await CreateApiExceptionAsync(response.StatusCode, envelope?.Error?.Message ?? fallbackError, envelope?.Error?.Code, ct);
         return envelope.Data;
     }
 
@@ -207,7 +207,7 @@ public sealed class TrackService : HoYoApiClient, ITrackService
         if (!response.IsSuccessStatusCode)
         {
             var envelope = await ReadEnvelopeAsync<object>(response, ct);
-            throw new ApiException(envelope?.Error?.Message ?? fallbackError, envelope?.Error?.Code);
+            throw await CreateApiExceptionAsync(response.StatusCode, envelope?.Error?.Message ?? fallbackError, envelope?.Error?.Code, ct);
         }
 
         var bytes = await response.Content.ReadAsByteArrayAsync(ct);
@@ -257,7 +257,7 @@ public sealed class TrackService : HoYoApiClient, ITrackService
         using var response = await Http.SendAsync(request, ct);
         var envelope = await ReadEnvelopeAsync<TrackUploadResult>(response, ct);
         if (!response.IsSuccessStatusCode || envelope?.Success != true || envelope.Data is null)
-            throw new ApiException(envelope?.Error?.Message ?? "Failed to upload tracks.", envelope?.Error?.Code);
+            throw await CreateApiExceptionAsync(response.StatusCode, envelope?.Error?.Message ?? "Failed to upload tracks.", envelope?.Error?.Code, ct);
         return envelope.Data;
     }
 
@@ -280,7 +280,7 @@ public sealed class TrackService : HoYoApiClient, ITrackService
         using var response = await Http.SendAsync(request, ct);
         var envelope = await ReadEnvelopeAsync<CreditPreviewResponse>(response, ct);
         if (!response.IsSuccessStatusCode || envelope?.Success != true || envelope.Data is null)
-            throw new ApiException(envelope?.Error?.Message ?? "Failed to preview credits.", envelope?.Error?.Code);
+            throw await CreateApiExceptionAsync(response.StatusCode, envelope?.Error?.Message ?? "Failed to preview credits.", envelope?.Error?.Code, ct);
         return envelope.Data.Results;
     }
 

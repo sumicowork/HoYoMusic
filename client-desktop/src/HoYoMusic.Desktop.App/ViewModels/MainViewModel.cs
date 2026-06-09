@@ -494,6 +494,53 @@ public partial class MainViewModel : ObservableObject
     private int _selectedSectionIndex;
 
     [ObservableProperty]
+    private string _activeDrawerPanel = DrawerNone;
+
+    public const string DrawerNone = "none";
+    public const string DrawerQueue = "queue";
+    public const string DrawerNowPlaying = "now-playing";
+    public const string DrawerEnhancements = "enhancements";
+    public const string DrawerAccount = "account";
+    public const string DrawerInbox = "inbox";
+
+    public bool IsDrawerOpen => ActiveDrawerPanel != DrawerNone;
+    public bool IsQueueDrawerOpen => ActiveDrawerPanel == DrawerQueue;
+    public bool IsNowPlayingDrawerOpen => ActiveDrawerPanel == DrawerNowPlaying;
+    public bool IsEnhancementsDrawerOpen => ActiveDrawerPanel == DrawerEnhancements;
+    public bool IsAccountDrawerOpen => ActiveDrawerPanel == DrawerAccount;
+    public bool IsInboxDrawerOpen => ActiveDrawerPanel == DrawerInbox;
+    public bool HasPlaybackQueueInverse => _playbackQueue.Count == 0;
+
+    [RelayCommand]
+    private void OpenDrawer(string panel)
+    {
+        if (ActiveDrawerPanel == panel)
+        {
+            ActiveDrawerPanel = DrawerNone;
+        }
+        else
+        {
+            ActiveDrawerPanel = panel;
+        }
+    }
+
+    [RelayCommand]
+    private void CloseDrawer()
+    {
+        ActiveDrawerPanel = DrawerNone;
+    }
+
+    partial void OnActiveDrawerPanelChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsDrawerOpen));
+        OnPropertyChanged(nameof(IsQueueDrawerOpen));
+        OnPropertyChanged(nameof(IsNowPlayingDrawerOpen));
+        OnPropertyChanged(nameof(IsEnhancementsDrawerOpen));
+        OnPropertyChanged(nameof(IsAccountDrawerOpen));
+        OnPropertyChanged(nameof(IsInboxDrawerOpen));
+    }
+
+    [ObservableProperty]
     private bool _isBusy;
 
     [ObservableProperty]
@@ -666,6 +713,7 @@ public partial class MainViewModel : ObservableObject
     public bool IsAdminAnalyticsSection => SelectedAdminSection == AdminSectionAnalytics;
     public bool IsAdminSettingsSection => SelectedAdminSection == AdminSectionSettings;
     public bool ShowMaintenanceOverlay => IsMaintenanceMode && !IsAdmin;
+    public bool ShowSearchNoResults => IsSearchSection && PublicTracks.Count == 0 && !string.IsNullOrWhiteSpace(SearchKeyword);
     public bool HasRecommendedAlbums => SelectedGameAlbums.Count > 0;
     public bool HasRandomTracks => RandomTracksView.Count > 0;
     public bool HasTopTracks => TopTracksView.Count > 0;
@@ -675,6 +723,10 @@ public partial class MainViewModel : ObservableObject
     public bool HasArtistFacets => ArtistFacetItems.Count > 0;
     public bool HasTagFacets => TagFacetItems.Count > 0;
     public bool HasRecentSearchKeywords => RecentSearchKeywords.Count > 0;
+    public bool HasPlaylistsView => PlaylistsView.Count > 0;
+    public bool HasDownloadTasks => DownloadTasks.Count > 0;
+    public bool HasPlaybackQueue => PlaybackQueueView.Count > 0;
+    public bool HasInboxMessages => InboxMessages.Count > 0;
     public string FirstVisitCountdownDisplay => FirstVisitAcknowledgeEnabled
         ? "可确认"
         : $"可确认倒计时：{FirstVisitCountdownSeconds}s";
@@ -728,6 +780,7 @@ public partial class MainViewModel : ObservableObject
     public bool HasNextLibraryPage => LibraryPage < LibraryTotalPages;
     public string LibraryPaginationSummary => $"第 {LibraryPage}/{Math.Max(LibraryTotalPages, 1)} 页 · 共 {LibraryTotal} 首";
     public string UnreadMessageBadge => UnreadMessageCount > 0 ? $"消息({UnreadMessageCount})" : "消息";
+    public bool HasUnreadMessages => UnreadMessageCount > 0;
     public string DownloadSummary => $"下载任务：{DownloadTasks.Count} · 过滤：{DownloadStatusFilter}";
     public string DownloadStatusSummary
     {
@@ -944,6 +997,7 @@ public partial class MainViewModel : ObservableObject
         PublicTracks.CollectionChanged += (_, _) =>
         {
             OnPropertyChanged(nameof(HasPublicTracks));
+            OnPropertyChanged(nameof(ShowSearchNoResults));
             RefreshFacetCollections();
         };
 
@@ -973,6 +1027,15 @@ public partial class MainViewModel : ObservableObject
         AdminTags.CollectionChanged += (_, _) => OnPropertyChanged(nameof(AdminAnalyticsSummary));
         AdminTagGroups.CollectionChanged += (_, _) => OnPropertyChanged(nameof(AdminAnalyticsSummary));
         AdminAnalyticsRecentVisits.CollectionChanged += (_, _) => OnPropertyChanged(nameof(AdminAnalyticsSummary));
+
+        PlaylistsView.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasPlaylistsView));
+        DownloadTasks.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasDownloadTasks));
+        PlaybackQueueView.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasPlaybackQueue));
+            OnPropertyChanged(nameof(HasPlaybackQueueInverse));
+        };
+        InboxMessages.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasInboxMessages));
     }
 
     private async Task HandleApiExceptionAsync(ApiException exception, string fallbackMessage)
@@ -1015,6 +1078,7 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsArtistsSection));
         OnPropertyChanged(nameof(IsTagsSection));
         OnPropertyChanged(nameof(IsSearchSection));
+        OnPropertyChanged(nameof(ShowSearchNoResults));
         OnPropertyChanged(nameof(IsLibrarySection));
         OnPropertyChanged(nameof(IsFavoritesSection));
         OnPropertyChanged(nameof(IsPlaylistsSection));
@@ -1174,6 +1238,7 @@ public partial class MainViewModel : ObservableObject
     partial void OnUnreadMessageCountChanged(int value)
     {
         OnPropertyChanged(nameof(UnreadMessageBadge));
+        OnPropertyChanged(nameof(HasUnreadMessages));
     }
 
     partial void OnDetailLyricsChanged(string value)
@@ -1284,6 +1349,11 @@ public partial class MainViewModel : ObservableObject
     partial void OnDiscoverFilterTextChanged(string value)
     {
         ApplyDiscoverFilters();
+    }
+
+    partial void OnSearchKeywordChanged(string value)
+    {
+        OnPropertyChanged(nameof(ShowSearchNoResults));
     }
 
     partial void OnAdminUserKeywordChanged(string value)

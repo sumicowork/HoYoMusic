@@ -109,12 +109,14 @@ export const getTagById = async (req: Request, res: Response) => {
         tr.*,
         a.title as album_title,
         a.cover_path as album_cover,
-        array_agg(DISTINCT jsonb_build_object('id', ar.id, 'name', ar.name)) as artists
+        COALESCE(
+          (SELECT json_agg(json_build_object('id', NULL, 'name', sub.credit_value))
+           FROM (SELECT DISTINCT credit_value FROM track_credits WHERE track_id = tr.id AND credit_value IS NOT NULL AND credit_value <> '') sub
+          ), '[]'::json
+        ) as artists
       FROM track_tags tt
       INNER JOIN tracks tr ON tt.track_id = tr.id
       LEFT JOIN albums a ON tr.album_id = a.id
-      LEFT JOIN track_artists ta ON tr.id = ta.track_id
-      LEFT JOIN artists ar ON ta.artist_id = ar.id
       WHERE tt.tag_id = $1
       GROUP BY tr.id, a.title, a.cover_path
       ORDER BY tr.created_at DESC

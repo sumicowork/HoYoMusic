@@ -652,10 +652,12 @@ export const getAlbumById = async (req: Request, res: Response) => {
         t.*,
         ad.disc_number,
         ad.disc_title,
-        array_agg(json_build_object('id', ar.id, 'name', ar.name)) as artists
+        COALESCE(
+          (SELECT json_agg(json_build_object('id', NULL, 'name', sub.credit_value))
+           FROM (SELECT DISTINCT credit_value FROM track_credits WHERE track_id = t.id AND credit_value IS NOT NULL AND credit_value <> '') sub
+          ), '[]'::json
+        ) as artists
       FROM tracks t
-      LEFT JOIN track_artists ta ON t.id = ta.track_id
-      LEFT JOIN artists ar ON ta.artist_id = ar.id
       LEFT JOIN album_discs ad ON t.disc_id = ad.id
       WHERE t.album_id = $1
       GROUP BY t.id, ad.disc_number, ad.disc_title
@@ -663,10 +665,7 @@ export const getAlbumById = async (req: Request, res: Response) => {
     `;
     const tracksResult = await pool.query(tracksQuery, [id]);
 
-    const tracks = tracksResult.rows.map(row => ({
-      ...row,
-      artists: row.artists.filter((a: any) => a.id !== null),
-    }));
+    const tracks = tracksResult.rows;
 
     // Get discs for this album
     const discsResult = await pool.query(

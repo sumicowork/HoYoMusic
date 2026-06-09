@@ -348,13 +348,12 @@ router.get('/tracks/random', cacheControl(CACHE_TTL.SHORT, { staleWhileRevalidat
       SELECT t.*, a.title AS album_title, a.cover_path AS album_cover,
              COUNT(DISTINCT fav.user_id)::int AS favorite_count,
              COALESCE(
-               json_agg(json_build_object('id', ar.id, 'name', ar.name))
-               FILTER (WHERE ar.id IS NOT NULL), '[]'
+               (SELECT json_agg(json_build_object('id', NULL, 'name', sub.credit_value))
+                FROM (SELECT DISTINCT credit_value FROM track_credits WHERE track_id = t.id AND credit_value IS NOT NULL AND credit_value <> '') sub
+               ), '[]'::json
              ) AS artists
       FROM tracks t
       LEFT JOIN albums a ON t.album_id = a.id
-      LEFT JOIN track_artists ta ON t.id = ta.track_id
-      LEFT JOIN artists ar ON ta.artist_id = ar.id
       LEFT JOIN favorites fav ON t.id = fav.track_id
       GROUP BY t.id, a.title, a.cover_path
       ORDER BY RANDOM()
@@ -480,7 +479,11 @@ router.get('/top-tracks', cacheControl(CACHE_TTL.SHORT, { staleWhileRevalidate: 
              COALESCE(tp.effective_play_count, 0)::int AS effective_play_count,
              COALESCE(tp.unique_ips, 0)::int AS unique_ips,
              a.title AS album_title, a.cover_path AS album_cover,
-             array_agg(json_build_object('id', ar.id, 'name', ar.name)) FILTER (WHERE ar.id IS NOT NULL) AS artists
+             COALESCE(
+               (SELECT json_agg(json_build_object('id', NULL, 'name', sub.credit_value))
+                FROM (SELECT DISTINCT credit_value FROM track_credits WHERE track_id = t.id AND credit_value IS NOT NULL AND credit_value <> '') sub
+               ), '[]'::json
+             ) AS artists
       FROM tracks t
       LEFT JOIN (
         SELECT
@@ -492,8 +495,6 @@ router.get('/top-tracks', cacheControl(CACHE_TTL.SHORT, { staleWhileRevalidate: 
       ) tp ON tp.track_id = t.id
       LEFT JOIN albums a ON t.album_id = a.id
       LEFT JOIN favorites fav ON t.id = fav.track_id
-      LEFT JOIN track_artists ta ON t.id = ta.track_id
-      LEFT JOIN artists ar ON ta.artist_id = ar.id
       WHERE COALESCE(tp.effective_play_count, 0) > 0
       GROUP BY t.id, a.title, a.cover_path, tp.effective_play_count, tp.unique_ips
       ORDER BY COALESCE(tp.effective_play_count, 0) DESC, t.id DESC

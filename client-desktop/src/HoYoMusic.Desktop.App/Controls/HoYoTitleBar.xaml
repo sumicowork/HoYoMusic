@@ -8,132 +8,60 @@
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
-        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-            <Border Width="8" Height="8" CornerRadius="4" Background="{StaticResource PrimaryGradientBrush}" />
-            <TextBlock FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Text="HoYoMusic" VerticalAlignment="Center" />
-            <TextBlock Foreground="{StaticResource TextTertiaryBrush}" FontSize="12" Text="游戏音乐档案馆" VerticalAlignment="Center" />
+
+        <!-- Left: Brand -->
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="{StaticResource GapSM}" VerticalAlignment="Center">
+            <Border Width="10" Height="10" CornerRadius="{StaticResource RadiusSM}" Background="{StaticResource PrimaryGradientBrush}" />
+            <TextBlock FontSize="{StaticResource FontSubtitleSM}" FontWeight="SemiBold"
+                       Foreground="{StaticResource TextPrimaryBrush}" Text="HoYoMusic" VerticalAlignment="Center" />
         </StackPanel>
-        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-            <Button FontFamily="Segoe MDL2 Assets" Content="&#xE765;" FontSize="16" Style="{StaticResource IconButtonStyle}" ToolTipService.ToolTip="快捷键">
+
+        <!-- Center: Drag Region (transparent area for window dragging) -->
+        <Border Grid.Column="1" x:Name="DragRegionFill" Background="Transparent" />
+
+        <!-- Right: Action buttons -->
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="{StaticResource GapXS}" VerticalAlignment="Center">
+            <!-- Keyboard shortcuts -->
+            <Button FontFamily="Segoe MDL2 Assets" Content="&#xE765;" FontSize="{StaticResource IconNavBarSize}"
+                    Style="{StaticResource IconButtonStyle}" ToolTipService.ToolTip="快捷键" AutomationProperties.Name="快捷键帮助">
                 <Button.Flyout>
                     <Flyout Placement="BottomEdgeAlignedRight">
-                        <Border Style="{StaticResource GlassCardStyle}" MinWidth="240" Padding="14">
-                            <StackPanel Spacing="6">
+                        <Border Style="{StaticResource GlassCardStyle}" MinWidth="240" Padding="{StaticResource PaddingLG}">
+                            <StackPanel Spacing="{StaticResource Gap6}">
                                 <TextBlock Text="快捷键" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" />
-                                <TextBlock Text="Space — 播放/暂停" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" />
-                                <TextBlock Text="← → — 上一首/下一首" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" />
-                                <TextBlock Text="↑ ↓ — 音量增减" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" />
-                                <TextBlock Text="M — 静音" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" />
-                                <TextBlock Text="L — 切换播放模式" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" />
-                                <TextBlock Text="Esc — 返回" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" />
+                                <TextBlock Text="Space — 播放/暂停" Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontCaption}" />
+                                <TextBlock Text="← → — 上一首/下一首" Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontCaption}" />
+                                <TextBlock Text="Ctrl+← → — 快退/快进 5 秒" Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontCaption}" />
+                                <TextBlock Text="↑ ↓ — 音量增减" Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontCaption}" />
+                                <TextBlock Text="M — 静音" Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontCaption}" />
+                                <TextBlock Text="L — 切换播放模式" Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontCaption}" />
+                                <TextBlock Text="Esc — 返回" Foreground="{StaticResource TextSecondaryBrush}" FontSize="{StaticResource FontCaption}" />
                             </StackPanel>
                         </Border>
                     </Flyout>
                 </Button.Flyout>
             </Button>
-            <Button FontFamily="Segoe MDL2 Assets" Content="&#xE715;" FontSize="16" Style="{StaticResource IconButtonStyle}" ToolTipService.ToolTip="收件箱">
-                <Button.Flyout>
-                    <Flyout Placement="BottomEdgeAlignedRight">
-                        <Border Style="{StaticResource GlassCardStyle}" MinWidth="400" MaxHeight="500" Padding="14">
-                            <Grid RowSpacing="8">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="*" />
-                                </Grid.RowDefinitions>
-                                <StackPanel Spacing="6">
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <Button Content="刷新" Command="{Binding RefreshInboxCommand}" Style="{StaticResource SecondaryButtonStyle}" />
-                                        <Button Content="全部已读" Command="{Binding MarkAllMessagesReadCommand}" Style="{StaticResource SecondaryButtonStyle}" />
-                                        <TextBox Width="110" PlaceholderText="搜索消息" Text="{Binding MessageSearchText, Mode=TwoWay}" Style="{StaticResource AppTextBoxStyle}" />
-                                    </StackPanel>
-                                    <ToggleSwitch Header="仅未读" IsOn="{Binding ShowUnreadOnly, Mode=TwoWay}" Toggled="InboxFilter_OnToggled" />
-                                </StackPanel>
-                                <InfoBar Grid.Row="1" IsClosable="False" Severity="Informational" Message="{Binding InboxStatusMessage}" IsOpen="{Binding ShowInboxStatus}" />
-                                <Grid Grid.Row="2" RowSpacing="6">
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="*" />
-                                        <RowDefinition Height="Auto" />
-                                    </Grid.RowDefinitions>
-                                    <ListView Grid.Row="0" ItemsSource="{Binding InboxMessages}" Style="{StaticResource TrackListStyle}">
-                                        <ListView.ItemTemplate>
-                                            <DataTemplate>
-                                                <Border Style="{StaticResource SubtleGlassCardStyle}" Margin="0,0,0,6" Padding="8">
-                                                    <Grid RowSpacing="4">
-                                                        <Grid>
-                                                            <TextBlock Text="{Binding Title}" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" FontSize="13" />
-                                                            <Button HorizontalAlignment="Right" Content="已读" FontSize="11" Padding="4,2" Command="{Binding DataContext.MarkMessageReadCommand, ElementName=TitleBarRoot}" CommandParameter="{Binding}" Style="{StaticResource GhostButtonStyle}" />
-                                                        </Grid>
-                                                        <TextBlock Grid.Row="1" Text="{Binding Content}" TextWrapping="WrapWholeWords" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" />
-                                                        <TextBlock Grid.Row="2" Text="{Binding Meta}" Foreground="{StaticResource TextTertiaryBrush}" FontSize="11" />
-                                                    </Grid>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ListView.ItemTemplate>
-                                    </ListView>
-                                    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6">
-                                        <Button Content="上一页" Command="{Binding PreviousInboxPageCommand}" Style="{StaticResource GhostButtonStyle}" FontSize="11" IsEnabled="{Binding HasPreviousInboxPage}" />
-                                        <TextBlock Text="{Binding InboxPaginationSummary}" VerticalAlignment="Center" Foreground="{StaticResource TextTertiaryBrush}" FontSize="11" />
-                                        <Button Content="下一页" Command="{Binding NextInboxPageCommand}" Style="{StaticResource GhostButtonStyle}" FontSize="11" IsEnabled="{Binding HasNextInboxPage}" />
-                                    </StackPanel>
-                                </Grid>
-                            </Grid>
-                        </Border>
-                    </Flyout>
-                </Button.Flyout>
-            </Button>
-            <Button FontFamily="Segoe MDL2 Assets" Content="&#xE77B;" FontSize="16" Style="{StaticResource IconButtonStyle}" ToolTipService.ToolTip="{Binding CurrentUserDisplay}">
-                <Button.Flyout>
-                    <Flyout Placement="BottomEdgeAlignedRight">
-                        <Border Style="{StaticResource GlassCardStyle}" MinWidth="340" MaxHeight="540" Padding="14">
-                            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                <StackPanel Spacing="14">
-                                    <Grid>
-                                        <TextBlock FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Text="账户中心" VerticalAlignment="Center" />
-                                        <TextBlock HorizontalAlignment="Right" Foreground="{StaticResource PrimaryBrush}" Text="{Binding CurrentUserDisplay}" VerticalAlignment="Center" />
-                                    </Grid>
-                                    <Pivot>
-                                        <PivotItem Header="登录" Margin="0,8,0,0">
-                                            <StackPanel Spacing="10">
-                                                <TextBox Header="账号" PlaceholderText="邮箱或用户名" Text="{Binding Identifier, Mode=TwoWay}" Style="{StaticResource AppTextBoxStyle}" />
-                                                <PasswordBox x:Name="PasswordInput" Header="密码" PlaceholderText="输入密码" PasswordChanged="PasswordInput_OnPasswordChanged" Style="{StaticResource AppPasswordBoxStyle}" />
-                                                <Grid Margin="0,6,0,0">
-                                                    <Button HorizontalAlignment="Left" Content="退出" Command="{Binding LogoutCommand}" Style="{StaticResource GhostButtonStyle}" />
-                                                    <Button HorizontalAlignment="Right" Content="立刻登录" Click="LoginButton_OnClick" Style="{StaticResource PrimaryButtonStyle}" MinWidth="100" />
-                                                </Grid>
-                                            </StackPanel>
-                                        </PivotItem>
-                                        <PivotItem Header="注册" Margin="0,8,0,0">
-                                            <StackPanel Spacing="10">
-                                                <TextBox Header="用户名" PlaceholderText="设置昵称" Text="{Binding RegisterUsername, Mode=TwoWay}" Style="{StaticResource AppTextBoxStyle}" />
-                                                <TextBox Header="邮箱" PlaceholderText="用于找回密码" Text="{Binding RegisterEmail, Mode=TwoWay}" Style="{StaticResource AppTextBoxStyle}" />
-                                                <Grid ColumnSpacing="8">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <TextBox Grid.Column="0" Header="验证码" PlaceholderText="6位代码" Text="{Binding VerificationCode, Mode=TwoWay}" Style="{StaticResource AppTextBoxStyle}" />
-                                                    <Button Grid.Column="1" Content="获取验证码" Command="{Binding SendVerificationCodeCommand}" Style="{StaticResource SecondaryButtonStyle}" VerticalAlignment="Bottom" />
-                                                </Grid>
-                                                <PasswordBox x:Name="RegisterPasswordInput" Header="密码" PlaceholderText="设置密码" PasswordChanged="RegisterPasswordInput_OnPasswordChanged" Style="{StaticResource AppPasswordBoxStyle}" />
-                                                <PasswordBox x:Name="RegisterConfirmPasswordInput" Header="确认密码" PlaceholderText="再次输入密码" PasswordChanged="RegisterConfirmPasswordInput_OnPasswordChanged" Style="{StaticResource AppPasswordBoxStyle}" />
-                                                <Button HorizontalAlignment="Right" Content="注册并登录" Command="{Binding RegisterCommand}" Style="{StaticResource PrimaryButtonStyle}" MinWidth="100" Margin="0,6,0,0" />
-                                            </StackPanel>
-                                        </PivotItem>
-                                        <PivotItem Header="安全" Margin="0,8,0,0">
-                                            <StackPanel Spacing="10">
-                                                <PasswordBox x:Name="CurrentPasswordInput" Header="当前密码" PlaceholderText="验证身份" PasswordChanged="CurrentPasswordInput_OnPasswordChanged" Style="{StaticResource AppPasswordBoxStyle}" />
-                                                <PasswordBox x:Name="NewPasswordInput" Header="新密码" PlaceholderText="设置新密码" PasswordChanged="NewPasswordInput_OnPasswordChanged" Style="{StaticResource AppPasswordBoxStyle}" />
-                                                <Button HorizontalAlignment="Right" Content="保存修改" Command="{Binding ChangePasswordCommand}" Style="{StaticResource PrimaryButtonStyle}" MinWidth="100" Margin="0,6,0,0" />
-                                            </StackPanel>
-                                        </PivotItem>
-                                    </Pivot>
-                                </StackPanel>
-                            </ScrollViewer>
-                        </Border>
-                    </Flyout>
-                </Button.Flyout>
-            </Button>
+
+            <!-- Inbox (opens drawer) -->
+            <Grid>
+                <Button FontFamily="Segoe MDL2 Assets" Content="&#xE715;" FontSize="{StaticResource IconNavBarSize}"
+                        Style="{StaticResource IconButtonStyle}" ToolTipService.ToolTip="收件箱" AutomationProperties.Name="收件箱"
+                        Command="{Binding OpenDrawerCommand}" CommandParameter="inbox" />
+                <!-- Unread badge -->
+                <Border Background="{StaticResource ErrorBrush}" CornerRadius="{StaticResource RadiusFull}"
+                        MinWidth="16" MinHeight="16" Padding="4,0"
+                        HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,-4,0"
+                        Visibility="{Binding HasUnreadMessages, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <TextBlock Text="{Binding UnreadMessageCount}" FontSize="10" FontWeight="Bold"
+                               Foreground="{StaticResource TextInverseBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+            </Grid>
+
+            <!-- Account (opens drawer) -->
+            <Button FontFamily="Segoe MDL2 Assets" Content="&#xE77B;" FontSize="{StaticResource IconNavBarSize}"
+                    Style="{StaticResource IconButtonStyle}" ToolTipService.ToolTip="{Binding CurrentUserDisplay}"
+                    AutomationProperties.Name="账户中心"
+                    Command="{Binding OpenDrawerCommand}" CommandParameter="account" />
         </StackPanel>
     </Grid>
 </UserControl>
