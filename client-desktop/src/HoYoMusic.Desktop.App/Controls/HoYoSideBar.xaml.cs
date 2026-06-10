@@ -103,9 +103,24 @@ public sealed partial class HoYoSideBar : UserControl
         if (_boundViewModel is null) return;
         var section = _boundViewModel.SelectedSection;
 
+        // Main nav - parent categories highlight for any child section
         HighlightButton(DiscoverButton, section is "discover" or "album-detail" or "track-detail");
         HighlightButton(LibraryButton, section is "library" or "favorites" or "playlists" or "profile");
         HighlightButton(SearchButton, section == "search");
+
+        // Browse sub-nav - specific section highlighting
+        HighlightButton(RecommendedSubButton, section == "discover");
+        HighlightButton(GamesSubButton, section == "games");
+        HighlightButton(AlbumsSubButton, section == "albums");
+        HighlightButton(ArtistsSubButton, section == "artists");
+        HighlightButton(TagsSubButton, section == "tags");
+
+        // Footer nav
+        HighlightButton(FavoritesButton, section == "favorites");
+        HighlightButton(PlaylistsButton, section == "playlists");
+        HighlightButton(DownloadsButton, section == "downloads");
+        HighlightButton(SettingsButton, section == "settings");
+        HighlightButton(AdminButton, section == "admin");
     }
 
     private static void HighlightButton(Button button, bool isActive)

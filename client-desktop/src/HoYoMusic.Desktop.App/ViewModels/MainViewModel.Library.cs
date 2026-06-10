@@ -1236,6 +1236,9 @@ public partial class MainViewModel
             "duration" => FavoriteSortDesc
                 ? query.OrderByDescending(item => item.Duration ?? 0)
                 : query.OrderBy(item => item.Duration ?? 0),
+            "artist" => FavoriteSortDesc
+                ? query.OrderByDescending(item => item.ArtistsDisplay)
+                : query.OrderBy(item => item.ArtistsDisplay),
             _ => FavoriteSortDesc
                 ? query.OrderByDescending(item => item.Title)
                 : query.OrderBy(item => item.Title),

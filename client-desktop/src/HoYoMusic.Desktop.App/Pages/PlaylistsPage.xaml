@@ -1,0 +1,110 @@
+<Page
+    x:Class="HoYoMusic.Desktop.App.Pages.PlaylistsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="{StaticResource Gap2XL}" Padding="4,0,12,32">
+
+            <Grid ColumnSpacing="{StaticResource GapLG}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="260" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Playlist sidebar -->
+                <Grid>
+                    <Border Style="{StaticResource CardShadowStyle}" />
+                    <Border Style="{StaticResource GlassCardStyle}">
+                        <StackPanel Padding="{StaticResource PaddingXL}" Spacing="{StaticResource GapMD}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Border Width="3" Height="18" CornerRadius="1.5" Background="{StaticResource PrimaryBrush}"
+                                        VerticalAlignment="Center" Margin="0,0,10,0" />
+                                <TextBlock Grid.Column="1" Text="我的歌单" FontSize="{StaticResource FontSubtitleSM}" FontWeight="Bold"
+                                           Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                            </Grid>
+                            <TextBox Header="新建歌单" Text="{Binding NewPlaylistName, Mode=TwoWay}"
+                                     Style="{StaticResource AppTextBoxStyle}" />
+                            <Button Content="创建" Command="{Binding CreatePlaylistCommand}"
+                                    Style="{StaticResource PrimaryButtonStyle}" HorizontalAlignment="Stretch" />
+                            <ListView ItemsSource="{Binding PlaylistsView}" SelectedItem="{Binding SelectedPlaylist, Mode=TwoWay}"
+                                      Style="{StaticResource TrackListStyle}">
+                                <ListView.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapSM}"
+                                                    VerticalAlignment="Center" Padding="4,6,4,6">
+                                            <FontIcon Glyph="&#xE753;" FontSize="{StaticResource FontBody}"
+                                                      Foreground="{StaticResource PrimaryBrush}"
+                                                      VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding Name}" FontSize="{StaticResource FontBody}"
+                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- Playlist tracks -->
+                <Grid Grid.Column="1">
+                    <Border Style="{StaticResource CardShadowStyle}" />
+                    <Border Style="{StaticResource GlassCardStyle}">
+                        <StackPanel Spacing="{StaticResource GapMD}">
+                            <StackPanel Padding="{StaticResource PaddingXL}" Orientation="Horizontal" Spacing="{StaticResource GapSM}">
+                                <Border Width="3" Height="18" CornerRadius="1.5" Background="{StaticResource PrimaryBrush}"
+                                        VerticalAlignment="Center" Margin="0,0,10,0" />
+                                <TextBlock Text="歌单曲目" FontSize="{StaticResource FontSubtitleSM}" FontWeight="Bold"
+                                           Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                                <Button Content="&#xE74D; 移除选中" Style="{StaticResource GhostButtonStyle}"
+                                        Command="{Binding RemovePlaylistTrackCommand}" Margin="12,0,0,0" />
+                            </StackPanel>
+                            <ListView ItemsSource="{Binding PlaylistTracksView}"
+                                      SelectedItem="{Binding SelectedPlaylistTrack, Mode=TwoWay}"
+                                      Style="{StaticResource TrackListStyle}" Padding="{StaticResource PaddingSM}"
+                                      IsItemClickEnabled="True" ItemClick="TrackItem_Click">
+                                <ListView.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="4,3,4,3" ColumnSpacing="{StaticResource Gap14}" MinHeight="42">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="3" />
+                                                <ColumnDefinition Width="8" />
+                                                <ColumnDefinition Width="34" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border Grid.Column="0" Width="3" CornerRadius="1.5"
+                                                    Background="{StaticResource AccentGradientBrush}"
+                                                    VerticalAlignment="Stretch" Margin="0,8,0,8" />
+                                            <Border Grid.Column="2" Width="{StaticResource CoverArtList}" Height="{StaticResource CoverArtList}"
+                                                CornerRadius="{StaticResource RadiusSM}" Background="{StaticResource CoverPlaceholderBrush}">
+                                                <Grid>
+                                                    <FontIcon Glyph="&#xE8D4;" FontSize="{StaticResource IconCoverPlaceholderSmall}"
+                                                              Foreground="{StaticResource PrimaryBrush}"
+                                                              HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    <Border CornerRadius="{StaticResource RadiusSM}">
+                                                        <Image Source="{Binding CoverPath}" Stretch="UniformToFill" />
+                                                    </Border>
+                                                </Grid>
+                                            </Border>
+                                            <TextBlock Grid.Column="3" Text="{Binding Title}" FontSize="{StaticResource FontBody}"
+                                                       Foreground="{StaticResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"
+                                                       VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="4" Text="{Binding DurationDisplay}" FontSize="{StaticResource FontSmall}"
+                                                       Foreground="{StaticResource TextTertiaryBrush}" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Grid>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>

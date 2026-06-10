@@ -1,0 +1,118 @@
+<Page
+    x:Class="HoYoMusic.Desktop.App.Pages.SearchPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid x:Name="SearchPageRoot">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="{StaticResource GapXL}" Padding="4,0,12,32">
+
+                <!-- Search bar -->
+                <Grid>
+                    <Border Style="{StaticResource CardShadowStyle}" />
+                    <Border Style="{StaticResource GlassCardStyle}" Padding="{StaticResource PaddingXL}">
+                        <StackPanel Spacing="{StaticResource GapMD}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Border Width="3" Height="18" CornerRadius="1.5" Background="{StaticResource PrimaryBrush}"
+                                        VerticalAlignment="Center" Margin="0,0,10,0" />
+                                <TextBlock Grid.Column="1" Text="搜索" FontSize="{StaticResource FontSubtitleLG}" FontWeight="Bold"
+                                           Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                            </Grid>
+                            <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapMD}">
+                                <TextBox Width="300" PlaceholderText="搜索曲目、专辑、艺人..." Text="{Binding SearchKeyword, Mode=TwoWay}"
+                                         Style="{StaticResource AppTextBoxStyle}" />
+                                <Button Content="搜索" Command="{Binding OpenSearchCenterCommand}"
+                                        Style="{StaticResource PrimaryButtonStyle}" />
+                                <Button Content="清空最近" Command="{Binding ClearRecentSearchKeywordsCommand}"
+                                        Style="{StaticResource GhostButtonStyle}" FontSize="{StaticResource FontCaption}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- Recent keywords -->
+                <Border Style="{StaticResource SubtleGlassCardStyle}" Padding="{StaticResource PaddingXL}"
+                        Visibility="{Binding HasRecentSearchKeywords, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <StackPanel Spacing="{StaticResource GapSM}">
+                        <TextBlock Text="最近搜索" FontSize="{StaticResource FontCaption}" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextTertiaryBrush}" />
+                        <ItemsControl ItemsSource="{Binding RecentSearchKeywords}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><WrapGrid Orientation="Horizontal" /></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Content="{Binding}" Style="{StaticResource GhostButtonStyle}"
+                                            Command="{Binding DataContext.ApplyRecentSearchKeywordCommand, ElementName=SearchPageRoot}"
+                                            CommandParameter="{Binding}" Margin="0,0,4,4" Padding="12,6" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- Results -->
+                <Grid Visibility="{Binding HasPublicTracks, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Border Style="{StaticResource CardShadowStyle}" />
+                    <Border Style="{StaticResource GlassCardStyle}">
+                        <ListView ItemsSource="{Binding PublicTracks}" SelectedItem="{Binding SelectedPublicTrack, Mode=TwoWay}"
+                                  Style="{StaticResource TrackListStyle}" Padding="{StaticResource PaddingSM}"
+                                  IsItemClickEnabled="True" ItemClick="TrackItem_Click">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="4,3,4,3" ColumnSpacing="{StaticResource Gap14}" MinHeight="42">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="3" />
+                                            <ColumnDefinition Width="8" />
+                                            <ColumnDefinition Width="34" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0" Width="3" CornerRadius="1.5"
+                                                Background="{StaticResource AccentGradientBrush}"
+                                                VerticalAlignment="Stretch" Margin="0,8,0,8" />
+                                        <Border Grid.Column="2" Width="{StaticResource CoverArtList}" Height="{StaticResource CoverArtList}"
+                                                CornerRadius="{StaticResource RadiusSM}" Background="{StaticResource CoverPlaceholderBrush}">
+                                            <Grid>
+                                                <FontIcon Glyph="&#xE8D4;" FontSize="{StaticResource IconCoverPlaceholderSmall}"
+                                                          Foreground="{StaticResource PrimaryBrush}"
+                                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                <Border CornerRadius="{StaticResource RadiusSM}">
+                                                    <Image Source="{Binding CoverPath}" Stretch="UniformToFill" />
+                                                </Border>
+                                            </Grid>
+                                        </Border>
+                                        <StackPanel Grid.Column="3" VerticalAlignment="Center" Spacing="2">
+                                            <TextBlock Text="{Binding Title}" FontSize="{StaticResource FontBody}"
+                                                       Foreground="{StaticResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding ArtistsDisplay}" FontSize="{StaticResource FontSmall}"
+                                                       Foreground="{StaticResource TextTertiaryBrush}" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="4" Text="{Binding DurationDisplay}" FontSize="{StaticResource FontSmall}"
+                                                   Foreground="{StaticResource TextTertiaryBrush}" VerticalAlignment="Center" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </Border>
+                </Grid>
+
+                <!-- No results message -->
+                <Border Style="{StaticResource SubtleGlassCardStyle}" Padding="{StaticResource Padding4XL}"
+                        Visibility="{Binding ShowSearchNoResults, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <StackPanel HorizontalAlignment="Center" Spacing="{StaticResource GapMD}">
+                        <FontIcon Glyph="&#xE721;" FontSize="{StaticResource IconHeroSize}" Foreground="{StaticResource TextTertiaryBrush}"
+                                  HorizontalAlignment="Center" />
+                        <TextBlock Text="未找到匹配的曲目，请尝试其他关键词。"
+                                   Foreground="{StaticResource TextTertiaryBrush}" FontSize="{StaticResource FontBody}"
+                                   HorizontalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Page>

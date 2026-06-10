@@ -243,6 +243,7 @@ public partial class MainViewModel
         {
             SectionDiscover => SectionDiscover,
             SectionAlbumDetail => SectionAlbumDetail,
+            SectionTrackDetail => SectionTrackDetail,
             SectionGames => SectionGames,
             SectionAlbums => SectionAlbums,
             SectionArtists => SectionArtists,
@@ -292,6 +293,7 @@ public partial class MainViewModel
         {
             SectionDiscover => 0,
             SectionAlbumDetail => 0,
+            SectionTrackDetail => 0,
             SectionGames => 1,
             SectionAlbums => 2,
             SectionArtists => 3,

@@ -1,0 +1,101 @@
+<Page
+    x:Class="HoYoMusic.Desktop.App.Pages.LibraryPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="{StaticResource Gap2XL}" Padding="4,0,12,32">
+
+            <!-- Filter bar -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Border Width="3" Height="18" CornerRadius="1.5" Background="{StaticResource PrimaryBrush}"
+                        VerticalAlignment="Center" Margin="0,0,10,0" />
+                <TextBlock Grid.Column="1" Text="筛选条件" FontSize="{StaticResource FontSubtitleLG}" FontWeight="Bold"
+                           Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
+            </Grid>
+            <Grid>
+                <Border Style="{StaticResource CardShadowStyle}" />
+                <Border Style="{StaticResource GlassCardStyle}" Padding="{StaticResource PaddingXL}">
+                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapMD}">
+                        <TextBox Width="200" PlaceholderText="搜索" Text="{Binding SearchKeyword, Mode=TwoWay}"
+                                 Style="{StaticResource AppTextBoxStyle}" />
+                        <ComboBox Width="100" SelectedItem="{Binding DurationBucket, Mode=TwoWay}" Style="{StaticResource AppComboBoxStyle}">
+                            <x:String></x:String><x:String>short</x:String><x:String>medium</x:String><x:String>long</x:String>
+                        </ComboBox>
+                        <ComboBox Width="100" SelectedItem="{Binding LyricsStatus, Mode=TwoWay}" Style="{StaticResource AppComboBoxStyle}">
+                            <x:String></x:String><x:String>has_lyrics</x:String><x:String>instrumental</x:String><x:String>none</x:String>
+                        </ComboBox>
+                        <Button Content="搜索" Command="{Binding SearchPublicTracksCommand}"
+                                Style="{StaticResource PrimaryButtonStyle}" />
+                        <Button Content="重置" Command="{Binding ResetLibraryFiltersCommand}"
+                                Style="{StaticResource GhostButtonStyle}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Track list -->
+            <Grid>
+                <Border Style="{StaticResource CardShadowStyle}" />
+                <Border Style="{StaticResource GlassCardStyle}">
+                    <StackPanel Spacing="{StaticResource GapSM}">
+                        <ListView ItemsSource="{Binding PublicTracks}" SelectedItem="{Binding SelectedPublicTrack, Mode=TwoWay}"
+                                  Style="{StaticResource TrackListStyle}" Padding="{StaticResource PaddingSM}"
+                                  IsItemClickEnabled="True" ItemClick="TrackItem_Click">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="4,3,4,3" ColumnSpacing="{StaticResource Gap14}" MinHeight="42">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="3" />
+                                            <ColumnDefinition Width="8" />
+                                            <ColumnDefinition Width="34" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0" Width="3" CornerRadius="1.5"
+                                                Background="{StaticResource AccentGradientBrush}"
+                                                VerticalAlignment="Stretch" Margin="0,8,0,8" />
+                                        <Border Grid.Column="2" Width="{StaticResource CoverArtList}" Height="{StaticResource CoverArtList}"
+                                                CornerRadius="{StaticResource RadiusSM}" Background="{StaticResource CoverPlaceholderBrush}">
+                                            <Grid>
+                                                <FontIcon Glyph="&#xE8D4;" FontSize="{StaticResource IconCoverPlaceholderSmall}"
+                                                          Foreground="{StaticResource PrimaryBrush}"
+                                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                <Border CornerRadius="{StaticResource RadiusSM}">
+                                                    <Image Source="{Binding CoverPath}" Stretch="UniformToFill" />
+                                                </Border>
+                                            </Grid>
+                                        </Border>
+                                        <StackPanel Grid.Column="3" VerticalAlignment="Center" Spacing="2">
+                                            <TextBlock Text="{Binding Title}" FontSize="{StaticResource FontBody}"
+                                                       Foreground="{StaticResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding ArtistsDisplay}" FontSize="{StaticResource FontSmall}"
+                                                       Foreground="{StaticResource TextTertiaryBrush}" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="4" Text="{Binding DurationDisplay}" FontSize="{StaticResource FontSmall}"
+                                                   Foreground="{StaticResource TextTertiaryBrush}" VerticalAlignment="Center" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                        <!-- Pagination -->
+                        <Border Padding="{StaticResource PaddingMD}" Background="{StaticResource SurfaceAltBrush}"
+                                CornerRadius="0,0,12,12">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="{StaticResource GapMD}">
+                                <Button Content="&#xE76B; 上一页" Style="{StaticResource GhostButtonStyle}"
+                                        Command="{Binding PreviousLibraryPageCommand}" IsEnabled="{Binding HasPreviousLibraryPage}" />
+                                <TextBlock Text="{Binding LibraryPaginationSummary}" VerticalAlignment="Center"
+                                           Foreground="{StaticResource TextTertiaryBrush}" FontSize="{StaticResource FontSmall}" />
+                                <Button Content="下一页 &#xE76C;" Style="{StaticResource GhostButtonStyle}"
+                                        Command="{Binding NextLibraryPageCommand}" IsEnabled="{Binding HasNextLibraryPage}" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>

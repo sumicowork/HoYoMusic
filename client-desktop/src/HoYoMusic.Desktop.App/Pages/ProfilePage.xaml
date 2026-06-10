@@ -1,0 +1,31 @@
+<Page
+    x:Class="HoYoMusic.Desktop.App.Pages.ProfilePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="{StaticResource Gap2XL}" Padding="4,0,12,32">
+
+            <!-- Profile card -->
+            <Grid>
+                <Border Style="{StaticResource CardShadowStyle}" />
+                <Border Style="{StaticResource GlassCardStyle}" Padding="{StaticResource Padding3XL}">
+                    <StackPanel Spacing="{StaticResource GapMD}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="3" Height="18" CornerRadius="1.5" Background="{StaticResource PrimaryBrush}"
+                                    VerticalAlignment="Center" Margin="0,0,10,0" />
+                            <TextBlock Grid.Column="1" Text="用户资料" FontSize="{StaticResource FontSubtitleSM}" FontWeight="Bold"
+                                       Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                        </Grid>
+                        <TextBlock Text="{Binding ProfileSummary}" FontSize="{StaticResource FontBody}" Foreground="{StaticResource TextPrimaryBrush}" />
+                        <TextBlock Text="{Binding QueueBehaviorSummary}" FontSize="{StaticResource FontCaption}" Foreground="{StaticResource TextSecondaryBrush}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>

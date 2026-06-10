@@ -42,31 +42,31 @@
                     BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="0,1,0,0" Padding="0,8,0,0">
             <TextBlock x:Name="BrowseLabel" Text="浏览" FontSize="{StaticResource FontSmall}" FontWeight="SemiBold"
                        Foreground="{StaticResource TextTertiaryBrush}" Margin="8,0,0,4" />
-            <Button Tag="discover" Click="NavButton_OnClick" Style="{StaticResource NavButtonStyle}" FontSize="{StaticResource FontCaption}">
+            <Button x:Name="RecommendedSubButton" Tag="discover" Click="NavButton_OnClick" Style="{StaticResource NavButtonStyle}" FontSize="{StaticResource FontCaption}">
                 <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapSM}">
                     <FontIcon Glyph="&#xE753;" FontSize="14" />
                     <TextBlock x:Name="DiscoverSubLabel" Text="推荐" VerticalAlignment="Center" />
                 </StackPanel>
             </Button>
-            <Button Tag="games" Click="NavButton_OnClick" Style="{StaticResource NavButtonStyle}" FontSize="{StaticResource FontCaption}">
+            <Button x:Name="GamesSubButton" Tag="games" Click="NavButton_OnClick" Style="{StaticResource NavButtonStyle}" FontSize="{StaticResource FontCaption}">
                 <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapSM}">
                     <FontIcon Glyph="&#xE7FC;" FontSize="14" />
                     <TextBlock x:Name="GamesSubLabel" Text="游戏" VerticalAlignment="Center" />
                 </StackPanel>
             </Button>
-            <Button Tag="albums" Click="NavButton_OnClick" Style="{StaticResource NavButtonStyle}" FontSize="{StaticResource FontCaption}">
+            <Button x:Name="AlbumsSubButton" Tag="albums" Click="NavButton_OnClick" Style="{StaticResource NavButtonStyle}" FontSize="{StaticResource FontCaption}">
                 <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapSM}">
                     <FontIcon Glyph="&#xE93C;" FontSize="14" />
                     <TextBlock x:Name="AlbumsSubLabel" Text="专辑" VerticalAlignment="Center" />
                 </StackPanel>
             </Button>
-            <Button Tag="artists" Click="NavButton_OnClick" Style="{StaticResource NavButtonStyle}" FontSize="{StaticResource FontCaption}">
+            <Button x:Name="ArtistsSubButton" Tag="artists" Click="NavButton_OnClick" Style="{StaticResource NavButtonStyle}" FontSize="{StaticResource FontCaption}">
                 <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapSM}">
                     <FontIcon Glyph="&#xE77B;" FontSize="14" />
                     <TextBlock x:Name="ArtistsSubLabel" Text="艺人" VerticalAlignment="Center" />
                 </StackPanel>
             </Button>
-            <Button Tag="tags" Click="NavButton_OnClick" Style="{StaticResource NavButtonStyle}" FontSize="{StaticResource FontCaption}">
+            <Button x:Name="TagsSubButton" Tag="tags" Click="NavButton_OnClick" Style="{StaticResource NavButtonStyle}" FontSize="{StaticResource FontCaption}">
                 <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapSM}">
                     <FontIcon Glyph="&#xE8EC;" FontSize="14" />
                     <TextBlock x:Name="TagsSubLabel" Text="标签" VerticalAlignment="Center" />
@@ -146,31 +146,31 @@
         <!-- ═══ Section 4: Footer Navigation ═══ -->
         <StackPanel Grid.Row="3" Spacing="{StaticResource Gap2}"
                     BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="0,1,0,0" Padding="0,8,0,0">
-            <Button Tag="favorites" Click="NavButton_OnClick" Style="{StaticResource NavButtonStyle}" FontSize="{StaticResource FontCaption}">
+            <Button x:Name="FavoritesButton" Tag="favorites" Click="NavButton_OnClick" Style="{StaticResource NavButtonStyle}" FontSize="{StaticResource FontCaption}">
                 <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapSM}">
                     <FontIcon Glyph="&#xE735;" FontSize="14" Foreground="{StaticResource ErrorBrush}" />
                     <TextBlock x:Name="FavoritesLabel" Text="收藏" VerticalAlignment="Center" />
                 </StackPanel>
             </Button>
-            <Button Tag="playlists" Click="NavButton_OnClick" Style="{StaticResource NavButtonStyle}" FontSize="{StaticResource FontCaption}">
+            <Button x:Name="PlaylistsButton" Tag="playlists" Click="NavButton_OnClick" Style="{StaticResource NavButtonStyle}" FontSize="{StaticResource FontCaption}">
                 <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapSM}">
                     <FontIcon Glyph="&#xE8FD;" FontSize="14" />
                     <TextBlock x:Name="PlaylistsLabel" Text="歌单" VerticalAlignment="Center" />
                 </StackPanel>
             </Button>
-            <Button Tag="downloads" Click="NavButton_OnClick" Style="{StaticResource NavButtonStyle}" FontSize="{StaticResource FontCaption}">
+            <Button x:Name="DownloadsButton" Tag="downloads" Click="NavButton_OnClick" Style="{StaticResource NavButtonStyle}" FontSize="{StaticResource FontCaption}">
                 <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapSM}">
                     <FontIcon Glyph="&#xE896;" FontSize="14" />
                     <TextBlock x:Name="DownloadsLabel" Text="下载" VerticalAlignment="Center" />
                 </StackPanel>
             </Button>
-            <Button Tag="settings" Click="NavButton_OnClick" Style="{StaticResource NavButtonStyle}" FontSize="{StaticResource FontCaption}">
+            <Button x:Name="SettingsButton" Tag="settings" Click="NavButton_OnClick" Style="{StaticResource NavButtonStyle}" FontSize="{StaticResource FontCaption}">
                 <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapSM}">
                     <FontIcon Glyph="&#xE713;" FontSize="14" />
                     <TextBlock x:Name="SettingsLabel" Text="设置" VerticalAlignment="Center" />
                 </StackPanel>
             </Button>
-            <Button Tag="admin" Click="NavButton_OnClick" Style="{StaticResource NavButtonStyle}" FontSize="{StaticResource FontCaption}"
+            <Button x:Name="AdminButton" Tag="admin" Click="NavButton_OnClick" Style="{StaticResource NavButtonStyle}" FontSize="{StaticResource FontCaption}"
                     Visibility="{Binding ShowAdminEntry, Converter={StaticResource BoolToVisibilityConverter}}">
                 <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapSM}">
                     <FontIcon Glyph="&#xE7BA;" FontSize="14" />

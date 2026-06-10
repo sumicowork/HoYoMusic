@@ -1,0 +1,53 @@
+<Page
+    x:Class="HoYoMusic.Desktop.App.Pages.ArtistsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="{StaticResource Gap2XL}" Padding="4,0,12,32">
+
+            <!-- Section Header -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Border Width="3" Height="18" CornerRadius="1.5" Background="{StaticResource PrimaryBrush}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                <TextBlock Grid.Column="1" Text="&#x827A;&#x4EBA;&#x5217;&#x8868;" FontSize="{StaticResource FontSubtitleLG}" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
+            </Grid>
+
+            <!-- Artist Facets List -->
+            <Grid>
+                <Border Style="{StaticResource CardShadowStyle}" />
+                <Border Style="{StaticResource GlassCardStyle}">
+                    <ListView ItemsSource="{Binding ArtistFacetItems}"
+                              Style="{StaticResource TrackListStyle}" Padding="{StaticResource PaddingSM}"
+                              SelectionMode="None" IsItemClickEnabled="True" ItemClick="ArtistItem_Click">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="4,4,4,4" MinHeight="44">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="40" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Width="40" Height="40" CornerRadius="{StaticResource RadiusFull}" Background="{StaticResource PrimarySubtleBrush}">
+                                        <FontIcon Glyph="&#xE77B;" FontSize="16" Foreground="{StaticResource PrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0,0,0" Spacing="2">
+                                        <TextBlock Text="{Binding Label}" FontSize="{StaticResource FontBody}" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                    <Border Grid.Column="2" Padding="{StaticResource PaddingSM}" CornerRadius="{StaticResource RadiusSM}" Background="{StaticResource SurfaceAltBrush}" VerticalAlignment="Center">
+                                        <TextBlock FontSize="{StaticResource FontSmall}" Foreground="{StaticResource TextSecondaryBrush}">
+                                        <Run Text="{Binding Count}" /><Run Text=" &#x9996;" />
+                                    </TextBlock>
+                                    </Border>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Border>
+            </Grid>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>

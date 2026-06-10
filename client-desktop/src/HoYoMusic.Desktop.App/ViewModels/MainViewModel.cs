@@ -14,6 +14,7 @@ public partial class MainViewModel : ObservableObject
 {
     private const string SectionDiscover = "discover";
     private const string SectionAlbumDetail = "album-detail";
+    private const string SectionTrackDetail = "track-detail";
     private const string SectionGames = "games";
     private const string SectionAlbums = "albums";
     private const string SectionArtists = "artists";

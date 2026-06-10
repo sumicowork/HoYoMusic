@@ -1,0 +1,92 @@
+<Page
+    x:Class="HoYoMusic.Desktop.App.Pages.FavoritesPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="{StaticResource Gap2XL}" Padding="4,0,12,32">
+
+            <!-- Section header -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Border Width="3" Height="18" CornerRadius="1.5" Background="{StaticResource AccentBrush}"
+                        VerticalAlignment="Center" Margin="0,0,10,0" />
+                <TextBlock Grid.Column="1" Text="我收藏的曲目" FontSize="{StaticResource FontSubtitleLG}" FontWeight="Bold"
+                           Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
+            </Grid>
+
+            <!-- Filter bar -->
+            <Grid>
+                <Border Style="{StaticResource CardShadowStyle}" />
+                <Border Style="{StaticResource GlassCardStyle}">
+                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapMD}" Padding="{StaticResource PaddingSM}"
+                                VerticalAlignment="Center">
+                        <TextBox PlaceholderText="搜索收藏..."
+                                 Text="{Binding FavoriteSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource AppTextBoxStyle}" MinWidth="200" />
+                        <ComboBox SelectedValue="{Binding FavoriteSortBy, Mode=TwoWay}"
+                                  SelectedValuePath="Tag"
+                                  VerticalAlignment="Center" MinWidth="140">
+                            <ComboBoxItem Content="按添加时间" Tag="time" />
+                            <ComboBoxItem Content="按标题" Tag="title" />
+                            <ComboBoxItem Content="按艺人" Tag="artist" />
+                        </ComboBox>
+                        <CheckBox Content="降序排列" IsChecked="{Binding FavoriteSortDesc, Mode=TwoWay}"
+                                  VerticalAlignment="Center" />
+                        <Button Content="批量取消筛选收藏" Command="{Binding BatchUnfavoriteFilteredCommand}"
+                                Style="{StaticResource GhostButtonStyle}" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Track list -->
+            <Grid>
+                <Border Style="{StaticResource CardShadowStyle}" />
+                <Border Style="{StaticResource GlassCardStyle}">
+                    <ListView ItemsSource="{Binding FavoriteTracksView}" Style="{StaticResource TrackListStyle}"
+                              Padding="{StaticResource PaddingSM}"
+                              IsItemClickEnabled="True" ItemClick="TrackItem_Click">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="4,3,4,3" ColumnSpacing="{StaticResource Gap14}" MinHeight="42">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="3" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="34" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Width="3" CornerRadius="1.5"
+                                            Background="{StaticResource AccentBrush}"
+                                            VerticalAlignment="Stretch" Margin="0,8,0,8" />
+                                    <Border Grid.Column="2" Width="{StaticResource CoverArtList}" Height="{StaticResource CoverArtList}"
+                                            CornerRadius="{StaticResource RadiusSM}" Background="{StaticResource CoverPlaceholderBrush}">
+                                        <Grid>
+                                            <FontIcon Glyph="&#xE8D4;" FontSize="{StaticResource IconCoverPlaceholderSmall}"
+                                                      Foreground="{StaticResource PrimaryBrush}"
+                                                      HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            <Border CornerRadius="{StaticResource RadiusSM}">
+                                                <Image Source="{Binding CoverPath}" Stretch="UniformToFill" />
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+                                    <StackPanel Grid.Column="3" VerticalAlignment="Center" Spacing="2">
+                                        <TextBlock Text="{Binding Title}" FontSize="{StaticResource FontBody}"
+                                                   Foreground="{StaticResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding ArtistsDisplay}" FontSize="{StaticResource FontSmall}"
+                                                   Foreground="{StaticResource TextTertiaryBrush}" TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="4" Text="{Binding DurationDisplay}" FontSize="{StaticResource FontSmall}"
+                                               Foreground="{StaticResource TextTertiaryBrush}" VerticalAlignment="Center" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Border>
+            </Grid>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>
