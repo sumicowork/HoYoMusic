@@ -10,6 +10,7 @@ const { Search } = Input;
 const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
 
 interface Artist {
+  id: number;
   name: string;
   track_count: number;
   album_count: number;
@@ -49,7 +50,7 @@ const Artists: React.FC = () => {
     <List.Item>
       <div
         className="artist-card"
-        onClick={() => navigate(`/artists/${encodeURIComponent(artist.name)}`)}
+        onClick={() => navigate(`/artists/${artist.id}`)}
       >
         <Avatar
           size={100}

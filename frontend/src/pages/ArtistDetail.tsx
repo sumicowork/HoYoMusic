@@ -16,12 +16,13 @@ const { Text } = Typography;
 const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
 
 interface Artist {
-  id: null;
+  id: number;
   name: string;
   track_count: number;
   album_count: number;
   roles: string[];
   aliases?: string[];
+  avatar_path?: string | null;
 }
 
 interface Album {

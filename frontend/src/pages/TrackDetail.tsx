@@ -27,6 +27,8 @@ interface Credit {
   credit_key: string;
   credit_value: string;
   display_order: number;
+  artist_id?: number | null;
+  people?: { name: string; artist_id: number | null }[];
 }
 
 const TrackDetail: React.FC = () => {
