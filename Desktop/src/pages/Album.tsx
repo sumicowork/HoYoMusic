@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { PlayCircleOutlined } from '@ant-design/icons';
 import { Button, Spin } from 'antd';
-import { api, fetchAlbum, fetchAlbums } from '@/lib/api';
+import { fetchAlbum, fetchAlbums } from '@/lib/api';
 import { usePlayerStore } from '@/store/playerStore';
-import type { Album } from '@/generated/api-types';
+import type { Album, Track } from '@/generated/api-types';
 import { CoverArt, EmptyState } from '@/components/ui';
-import { mapRawTrack, TrackList, type RawTrack } from './shared';
+import { TrackList } from './shared';
 
 export default function Album() {
   const { id } = useParams();
@@ -14,7 +14,7 @@ export default function Album() {
   const playIndex = usePlayerStore((s) => s.playIndex);
 
   const [album, setAlbum] = useState<Album | null>(null);
-  const [tracks, setTracks] = useState<RawTrack[] | null>(null);
+  const [tracks, setTracks] = useState<Track[] | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Browse-all mode when no id is provided.
@@ -32,13 +32,10 @@ export default function Album() {
     }
     let alive = true;
     setLoading(true);
-    Promise.all([
-      fetchAlbum(id),
-      api.get<RawTrack[]>(`/albums/${id}/tracks`),
-    ]).then(([a, ts]) => {
+    fetchAlbum(id).then((bundle) => {
       if (!alive) return;
-      setAlbum(a ?? null);
-      setTracks(ts ?? null);
+      setAlbum(bundle?.album ?? null);
+      setTracks(bundle?.tracks ?? null);
       setLoading(false);
     });
     return () => {
@@ -98,7 +95,7 @@ export default function Album() {
     return <EmptyState title="专辑加载失败" description="请稍后重试。" />;
   }
 
-  const trackList = (tracks ?? []).map(mapRawTrack);
+  const trackList = tracks ?? [];
 
   const playAll = () => {
     if (trackList.length === 0) return;

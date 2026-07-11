@@ -2,33 +2,11 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { PlayCircleOutlined } from '@ant-design/icons';
 import { Button, Spin } from 'antd';
-import { api, fetchArtist } from '@/lib/api';
+import { fetchArtist } from '@/lib/api';
 import { usePlayerStore } from '@/store/playerStore';
-import { fetchCoverUrl } from '@/lib/api';
-import type { Album, Artist } from '@/generated/api-types';
+import type { Album, Artist, Track } from '@/generated/api-types';
 import { CoverArt, EmptyState } from '@/components/ui';
-import { mapRawTrack, TrackList, type RawTrack } from './shared';
-
-interface RawAlbum {
-  id: number | string;
-  title?: string;
-  artist_name?: string;
-  cover_path?: string | null;
-  coverUrl?: string;
-  release_date?: string | null;
-  track_count?: number;
-}
-
-function mapRawAlbum(r: RawAlbum): Album {
-  return {
-    id: String(r.id),
-    title: r.title ?? '',
-    artistName: r.artist_name,
-    coverUrl: fetchCoverUrl(r.cover_path ?? r.coverUrl),
-    releaseDate: r.release_date ?? undefined,
-    trackCount: r.track_count,
-  };
-}
+import { TrackList } from './shared';
 
 export default function Artist() {
   const { id } = useParams();
@@ -36,23 +14,19 @@ export default function Artist() {
   const playIndex = usePlayerStore((s) => s.playIndex);
 
   const [artist, setArtist] = useState<Artist | null>(null);
-  const [albums, setAlbums] = useState<RawAlbum[] | null>(null);
-  const [tracks, setTracks] = useState<RawTrack[] | null>(null);
+  const [albums, setAlbums] = useState<Album[] | null>(null);
+  const [tracks, setTracks] = useState<Track[] | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!id) return;
     let alive = true;
     setLoading(true);
-    Promise.all([
-      fetchArtist(id),
-      api.get<RawAlbum[]>(`/artists/${id}/albums`),
-      api.get<RawTrack[]>(`/artists/${id}/tracks`),
-    ]).then(([a, al, ts]) => {
+    fetchArtist(id).then((bundle) => {
       if (!alive) return;
-      setArtist(a ?? null);
-      setAlbums(al ?? null);
-      setTracks(ts ?? null);
+      setArtist(bundle?.artist ?? null);
+      setAlbums(bundle?.albums ?? null);
+      setTracks(bundle?.tracks ?? null);
       setLoading(false);
     });
     return () => {
@@ -72,8 +46,8 @@ export default function Artist() {
     return <EmptyState title="艺术家加载失败" description="请稍后重试。" />;
   }
 
-  const albumList = (albums ?? []).map(mapRawAlbum);
-  const trackList = (tracks ?? []).map(mapRawTrack);
+  const albumList = albums ?? [];
+  const trackList = tracks ?? [];
 
   const playAll = () => {
     if (trackList.length === 0) return;

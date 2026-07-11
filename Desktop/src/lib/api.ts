@@ -7,12 +7,18 @@ import type {
 } from '@/generated/api-types';
 
 /**
- * Base API URL. Defaults to the relative '/api' so the Vite dev-server proxy
- * (see vite.config.ts) forwards to the backend on http://localhost:3000.
+ * Base API URL.
+ *
+ * In dev (`tauri dev`) and in the packaged binary the frontend runs inside a
+ * Tauri WebView. There is no same-origin backend to proxy to, so we default to
+ * an absolute URL pointing at the locally-running HoYoMusic backend.
+ *
+ * Override with the VITE_API_BASE env var (e.g. when the backend is on another
+ * host/port) — see Desktop/.env.example.
  */
-const BASE: string = import.meta.env.VITE_API_BASE ?? '/api';
+const BASE: string = import.meta.env.VITE_API_BASE ?? 'http://localhost:3000/api';
 
-/** Resolve a backend cover path into a proxied, absolute-ish URL. */
+/** Resolve a backend cover path into an absolute, backend-served URL. */
 export function fetchCoverUrl(path?: string | null): string | undefined {
   if (!path) return undefined;
   if (/^https?:\/\//.test(path)) return path;
@@ -21,7 +27,7 @@ export function fetchCoverUrl(path?: string | null): string | undefined {
 
 // ---------------------------------------------------------------------------
 // Raw backend shapes (authoritative contract lives in backend/ — see CLAUDE.md).
-// The HoYoMusic API wraps every response in { success, data?, error? }.
+// Every public response is wrapped in { success, data?, error? }.
 // ---------------------------------------------------------------------------
 interface ApiEnvelope<T> {
   success: boolean;
@@ -29,77 +35,86 @@ interface ApiEnvelope<T> {
   error?: string;
 }
 
-interface RawTrack {
-  id: number | string;
-  title: string;
-  artist_name?: string;
-  artistName?: string;
-  album_id?: number;
-  album_title?: string;
-  albumTitle?: string;
-  duration?: number;
-  cover_path?: string | null;
-  coverUrl?: string;
-  audio_url?: string;
-  file_path?: string;
+interface ArtistRef {
+  id?: number | string | null;
+  name?: string;
 }
 
-interface RawAlbum {
-  id: number | string;
-  title: string;
-  game_id?: number | null;
-  game_name?: string;
-  artist_name?: string;
-  cover_path?: string | null;
-  coverUrl?: string;
-  release_date?: string | null;
-  track_count?: number;
+/**
+ * Extract a display string for artists from the many shapes the backend uses:
+ *  - `artists: [{ id, name }, ...]` (list/detail track rows)
+ *  - `artist_name` / `artistName` (legacy flat string)
+ */
+function artistDisplay(r: Record<string, unknown>): string {
+  const artists = r['artists'];
+  if (Array.isArray(artists) && artists.length > 0) {
+    return artists
+      .map((a) => (a && typeof a === 'object' ? (a as ArtistRef).name : a))
+      .filter(Boolean)
+      .join(', ');
+  }
+  const flat = (r['artist_name'] as string) ?? (r['artistName'] as string);
+  return flat ?? '';
 }
 
-interface RawPlaylist {
-  id: number | string;
-  name: string;
-  description?: string | null;
-  track_count?: number;
-  total_duration?: number;
-  tracks?: RawTrack[];
+function coverOf(r: Record<string, unknown>): string | undefined {
+  return (r['cover_path'] as string | undefined) ??
+    (r['album_cover'] as string | undefined) ??
+    (r['coverUrl'] as string | undefined) ??
+    (r['avatar'] as string | undefined);
 }
 
 // ---------------------------------------------------------------------------
-// Mappers: backend -> friendly frontend types
+// Mappers: backend row -> friendly frontend type
 // ---------------------------------------------------------------------------
-function toTrack(r: RawTrack): Track {
+function toTrack(r: Record<string, unknown>): Track {
+  const id = r['id'];
+  const audio =
+    (r['audio_url'] as string | undefined) ??
+    `${BASE}/public/tracks/${id}/stream`;
   return {
-    id: String(r.id),
-    title: r.title ?? '',
-    artistName: r.artist_name ?? r.artistName ?? '未知艺术家',
-    albumTitle: r.album_title ?? r.albumTitle,
-    coverUrl: fetchCoverUrl(r.cover_path ?? r.coverUrl),
-    durationSec: r.duration ?? 0,
-    audioUrl: r.audio_url ?? `${BASE}/public/tracks/${r.id}/stream`,
+    id: String(id),
+    title: (r['title'] as string) ?? '',
+    artistName: artistDisplay(r) || '未知艺术家',
+    albumTitle: (r['album_title'] as string) ?? (r['albumTitle'] as string),
+    coverUrl: fetchCoverUrl(coverOf(r)),
+    durationSec: (r['duration'] as number) ?? 0,
+    audioUrl: audio,
   };
 }
 
-function toAlbum(r: RawAlbum): Album {
+function toAlbum(r: Record<string, unknown>): Album {
   return {
-    id: String(r.id),
-    title: r.title ?? '',
-    artistName: r.artist_name,
-    coverUrl: fetchCoverUrl(r.cover_path ?? r.coverUrl),
-    releaseDate: r.release_date ?? undefined,
-    trackCount: r.track_count,
+    id: String(r['id']),
+    title: (r['title'] as string) ?? '',
+    artistName:
+      (r['artist_name'] as string) ??
+      (r['game_name'] as string) ??
+      (r['artistName'] as string),
+    coverUrl: fetchCoverUrl(coverOf(r)),
+    releaseDate: (r['release_date'] as string) ?? undefined,
+    trackCount: (r['track_count'] as number) ?? undefined,
   };
 }
 
-function toPlaylist(r: RawPlaylist): Playlist {
+/** Artist list rows (`/api/artists`) are keyed by name and have no id. */
+function toArtistList(r: Record<string, unknown>): Artist {
+  const name = (r['name'] as string) ?? '未知艺术家';
   return {
-    id: String(r.id),
-    name: r.name ?? '',
-    description: r.description ?? undefined,
-    coverUrl: undefined,
-    trackCount: r.track_count,
-    totalDuration: r.total_duration,
-    tracks: r.tracks?.map(toTrack),
+    id: name,
+    name,
+    coverUrl: fetchCoverUrl(coverOf(r)),
+  };
+}
+
+/** Artist detail object (`/api/artists/:id` -> data.artist). */
+function toArtistDetail(r: Record<string, unknown>): Artist {
+  const name = (r['name'] as string) ?? '未知艺术家';
+  return {
+    id: name,
+    name,
+    bio: (r['bio'] as string) ?? undefined,
+    coverUrl: fetchCoverUrl(coverOf(r)),
   };
 }
 
@@ -163,6 +178,11 @@ export const api = {
 
 // ---------------------------------------------------------------------------
 // Typed API functions (all async, resilient — return [] / undefined on error)
+//
+// Endpoints used here are either under /api/public/* (explicitly unauthenticated)
+// or under /api/albums and /api/artists, whose GET routes carry no auth
+// middleware. Playlists require a JWT, which the desktop app does not hold, so
+// those calls degrade gracefully to empty results.
 // ---------------------------------------------------------------------------
 
 export interface HomeData {
@@ -172,15 +192,15 @@ export interface HomeData {
 }
 
 export async function fetchHome(): Promise<HomeData> {
-  const data = await api.get<{
-    featuredTracks?: RawTrack[];
-    recentAlbums?: RawAlbum[];
-    playlists?: RawPlaylist[];
-  }>('/home');
+  const [tracks, albums, top] = await Promise.all([
+    api.get<{ tracks: Record<string, unknown>[] }>('/public/tracks/random?count=12'),
+    api.get<{ albums: Record<string, unknown>[] }>('/public/albums/random?count=12'),
+    api.get<{ tracks: Record<string, unknown>[] }>('/public/top-tracks?limit=20'),
+  ]);
   return {
-    featuredTracks: data?.featuredTracks?.map(toTrack) ?? [],
-    recentAlbums: data?.recentAlbums?.map(toAlbum) ?? [],
-    playlists: data?.playlists?.map(toPlaylist) ?? [],
+    featuredTracks: (top?.tracks ?? tracks?.tracks ?? []).map(toTrack),
+    recentAlbums: (albums?.albums ?? []).map(toAlbum),
+    playlists: [],
   };
 }
 
@@ -188,6 +208,7 @@ export interface FetchTracksOptions {
   page?: number;
   tag?: string;
   search?: string;
+  limit?: number;
 }
 
 export async function fetchTracks(
@@ -195,52 +216,88 @@ export async function fetchTracks(
 ): Promise<Track[]> {
   const params = new URLSearchParams();
   if (opts.page != null) params.set('page', String(opts.page));
+  if (opts.limit != null) params.set('limit', String(opts.limit));
   if (opts.tag) params.set('tag', opts.tag);
   if (opts.search) params.set('search', opts.search);
   const qs = params.toString();
-  const data = await api.get<RawTrack[]>(`/tracks${qs ? `?${qs}` : ''}`);
-  return data?.map(toTrack) ?? [];
+  const data = await api.get<{ tracks: Record<string, unknown>[] }>(
+    `/public/tracks${qs ? `?${qs}` : ''}`,
+  );
+  return data?.tracks?.map(toTrack) ?? [];
 }
 
 export async function fetchTrack(id: string): Promise<Track | undefined> {
-  const data = await api.get<RawTrack>(`/tracks/${id}`);
-  return data ? toTrack(data) : undefined;
+  const data = await api.get<{ track: Record<string, unknown> }>(
+    `/public/tracks/${id}`,
+  );
+  return data?.track ? toTrack(data.track) : undefined;
 }
 
-export async function fetchAlbum(id: string): Promise<Album | undefined> {
-  const data = await api.get<RawAlbum>(`/albums/${id}`);
-  return data ? toAlbum(data) : undefined;
+/** Returns the album plus its full track list (bundle from GET /api/albums/:id). */
+export async function fetchAlbum(
+  id: string,
+): Promise<{ album: Album; tracks: Track[] } | undefined> {
+  const data = await api.get<{
+    album: Record<string, unknown>;
+    tracks: Record<string, unknown>[];
+    discs?: unknown[];
+  }>(`/albums/${id}`);
+  if (!data?.album) return undefined;
+  return {
+    album: toAlbum(data.album),
+    tracks: (data.tracks ?? []).map(toTrack),
+  };
 }
 
 export async function fetchAlbums(): Promise<Album[]> {
-  const data = await api.get<RawAlbum[]>('/albums');
-  return data?.map(toAlbum) ?? [];
+  const data = await api.get<{ albums: Record<string, unknown>[] }>('/albums');
+  return data?.albums?.map(toAlbum) ?? [];
 }
 
 export async function fetchArtists(): Promise<Artist[]> {
-  const data = await api.get<Artist[]>('/artists');
-  return data ?? [];
+  const data = await api.get<{ artists: Record<string, unknown>[] }>('/artists');
+  return data?.artists?.map(toArtistList) ?? [];
 }
 
-export async function fetchArtist(id: string): Promise<Artist | undefined> {
-  const data = await api.get<Artist>(`/artists/${id}`);
-  return data;
+/** Returns the artist plus its tracks and albums (bundle from GET /api/artists/:id). */
+export async function fetchArtist(
+  id: string,
+): Promise<{ artist: Artist; tracks: Track[]; albums: Album[] } | undefined> {
+  const data = await api.get<{
+    artist: Record<string, unknown>;
+    tracks: Record<string, unknown>[];
+    albums: Record<string, unknown>[];
+    games?: Record<string, unknown>[];
+  }>(`/artists/${id}`);
+  if (!data?.artist) return undefined;
+  return {
+    artist: toArtistDetail(data.artist),
+    tracks: (data.tracks ?? []).map(toTrack),
+    albums: (data.albums ?? []).map(toAlbum),
+  };
 }
 
+/**
+ * Playlists require authentication (JWT) which the desktop app does not hold.
+ * These degrade to empty results so the UI shows a clear "no playlists" state
+ * rather than crashing. Login for the desktop client is a future addition.
+ */
 export async function fetchPlaylists(): Promise<Playlist[]> {
-  const data = await api.get<RawPlaylist[]>('/playlists');
-  return data?.map(toPlaylist) ?? [];
+  return [];
 }
 
-export async function fetchPlaylist(id: string): Promise<Playlist | undefined> {
-  const data = await api.get<RawPlaylist>(`/playlists/${id}`);
-  return data ? toPlaylist(data) : undefined;
+export async function fetchPlaylist(
+  _id: string,
+): Promise<Playlist | undefined> {
+  return undefined;
 }
 
 export async function searchTracks(q: string): Promise<Track[]> {
-  const params = new URLSearchParams({ q });
-  const data = await api.get<RawTrack[]>(`/search?${params.toString()}`);
-  return data?.map(toTrack) ?? [];
+  const params = new URLSearchParams({ search: q, limit: '50' });
+  const data = await api.get<{ tracks: Record<string, unknown>[] }>(
+    `/public/tracks?${params.toString()}`,
+  );
+  return data?.tracks?.map(toTrack) ?? [];
 }
 
 export type { Album, Artist, Playlist, Tag, Track };

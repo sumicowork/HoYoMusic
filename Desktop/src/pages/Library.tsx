@@ -149,7 +149,7 @@ export default function Library() {
           {(artists.data ?? []).map((a) => (
             <CoverCard
               key={a.id}
-              to={`/artist/${a.id}`}
+              to={`/artist/${encodeURIComponent(a.id)}`}
               coverUrl={a.coverUrl}
               title={a.name}
             />
