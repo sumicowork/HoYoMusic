@@ -326,13 +326,14 @@ const TrackDetail: React.FC = () => {
 
             <div className="mt-4 flex flex-wrap justify-center gap-2 lg:justify-start">
               {tags.map((tag) => (
-                <Tag
-                  key={tag.id}
-                  color={tag.color}
-                  className="!m-0 rounded-full !border-white/25 !bg-white/[0.24] !px-3 !py-1 !text-[color:var(--text-primary)]"
-                >
-                  {getTagPathLabel(tag, tagPathLookup)}
-                </Tag>
+                <Link key={tag.id} to={`/tags/${tag.id}`}>
+                  <Tag
+                    color={tag.color}
+                    className="!m-0 cursor-pointer rounded-full !border-white/25 !bg-white/[0.24] !px-3 !py-1 !text-[color:var(--text-primary)] transition-colors hover:!bg-white/[0.4]"
+                  >
+                    {getTagPathLabel(tag, tagPathLookup)}
+                  </Tag>
+                </Link>
               ))}
             </div>
 

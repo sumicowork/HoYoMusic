@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Empty, Tag, Typography } from 'antd';
 import { ApartmentOutlined, RightOutlined } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import type { TrackMusicSourceItem } from '../types';
 import './MusicSourcesDisplay.css';
 
@@ -9,24 +10,27 @@ interface MusicSourcesDisplayProps {
 }
 
 const MusicSourcesDisplay: React.FC<MusicSourcesDisplayProps> = ({ sources }) => {
+  const navigate = useNavigate();
   const groupedSources = useMemo(() => {
-    const groups = new Map<string, TrackMusicSourceItem[]>();
+    const groups = new Map<string, { gameId: number | null; gameName: string; categoryName: string; items: TrackMusicSourceItem[] }>();
     for (const source of sources) {
-      const key = `${source.game_name || '未知游戏'}__${source.category_name}`;
+      const gameName = source.game_name || '未知游戏';
+      const key = `${gameName}__${source.category_name}`;
       if (!groups.has(key)) {
-        groups.set(key, []);
+        groups.set(key, {
+          gameId: source.game_id ?? null,
+          gameName,
+          categoryName: source.category_name,
+          items: [],
+        });
       }
-      groups.get(key)!.push(source);
+      groups.get(key)!.items.push(source);
     }
 
-    return Array.from(groups.entries()).map(([key, items]) => {
-      const [gameName, categoryName] = key.split('__');
-      return {
-        gameName,
-        categoryName,
-        items: [...items].sort((a, b) => a.display_order - b.display_order || a.id - b.id),
-      };
-    });
+    return Array.from(groups.values()).map((group) => ({
+      ...group,
+      items: [...group.items].sort((a, b) => a.display_order - b.display_order || a.id - b.id),
+    }));
   }, [sources]);
 
   if (!sources || sources.length === 0) {
@@ -46,7 +50,12 @@ const MusicSourcesDisplay: React.FC<MusicSourcesDisplayProps> = ({ sources }) =>
         {groupedSources.map((group) => (
           <article key={`${group.gameName}-${group.categoryName}`} className="rounded-2xl border border-white/20 bg-white/[0.14] p-4">
             <div className="mb-3 flex flex-wrap items-center gap-2">
-              <Tag icon={<ApartmentOutlined />} color="processing" className="!m-0 rounded-full !border-white/25 !bg-cyan-300/20 !px-3 !py-1 !text-[color:var(--text-primary)]">
+              <Tag
+                icon={<ApartmentOutlined />}
+                color="processing"
+                onClick={group.gameId ? () => navigate(`/games/${group.gameId}`) : undefined}
+                className={`!m-0 rounded-full !border-white/25 !bg-cyan-300/20 !px-3 !py-1 !text-[color:var(--text-primary)]${group.gameId ? ' cursor-pointer transition-colors hover:!bg-cyan-300/40' : ''}`}
+              >
                 {group.gameName}
               </Tag>
               <Tag className="!m-0 rounded-full !border-white/25 !bg-indigo-300/20 !px-3 !py-1 !text-[color:var(--text-primary)]">
