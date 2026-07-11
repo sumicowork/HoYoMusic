@@ -955,6 +955,237 @@ export const getTrackMusicSources = async (req: Request, res: Response) => {
   }
 };
 
+// ── 公开只读：场景树浏览（无鉴权） ──────────────────────────────
+// 平台核心独特价值之一：「这首歌在游戏哪个剧情/场景/任务播」。
+// 前端游戏页用这两个端点做树状浏览 + 按节点取曲目。均为纯只读查询，无 DB 迁移。
+
+interface PublicTreeNode {
+  id: number;
+  name: string;
+  parent_id: number | null;
+  category_id: number;
+  display_order: number;
+  direct_track_count: number;
+  total_track_count: number;
+  children: PublicTreeNode[];
+}
+
+/**
+ * GET /public/games/:gameId/music-tree
+ * 返回某游戏的「场景音乐」分类 + 层级节点树，每个节点带直挂曲目数与含子孙的聚合曲目数。
+ */
+export const getPublicGameMusicTree = async (req: Request, res: Response) => {
+  try {
+    const gameId = Number(req.params.gameId);
+    if (!Number.isInteger(gameId) || gameId <= 0) {
+      return res.status(400).json({ success: false, error: { code: 'INVALID_GAME_ID', message: 'Invalid game id' } });
+    }
+
+    const gameResult = await pool.query('SELECT id, name FROM games WHERE id = $1 LIMIT 1', [gameId]);
+    if (gameResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: { code: 'GAME_NOT_FOUND', message: 'Game not found' } });
+    }
+
+    const [categoriesResult, nodesResult, countsResult] = await Promise.all([
+      pool.query(
+        `SELECT id, name, description, display_order
+         FROM music_source_categories
+         WHERE game_id = $1
+         ORDER BY display_order ASC, name ASC`,
+        [gameId]
+      ),
+      pool.query(
+        `SELECT id, category_id, parent_id, name, display_order
+         FROM music_source_nodes
+         WHERE game_id = $1
+         ORDER BY display_order ASC, name ASC`,
+        [gameId]
+      ),
+      pool.query(
+        `SELECT node_id, COUNT(DISTINCT track_id)::int AS cnt
+         FROM track_music_sources
+         WHERE game_id = $1
+         GROUP BY node_id`,
+        [gameId]
+      ),
+    ]);
+
+    const directCounts = new Map<number, number>();
+    for (const row of countsResult.rows) {
+      directCounts.set(Number(row.node_id), Number(row.cnt));
+    }
+
+    // 建立 id -> node 映射，并按 category + parent 组织子节点
+    const nodeMap = new Map<number, PublicTreeNode>();
+    for (const row of nodesResult.rows) {
+      nodeMap.set(Number(row.id), {
+        id: Number(row.id),
+        name: String(row.name),
+        parent_id: row.parent_id == null ? null : Number(row.parent_id),
+        category_id: Number(row.category_id),
+        display_order: Number(row.display_order),
+        direct_track_count: directCounts.get(Number(row.id)) || 0,
+        total_track_count: 0,
+        children: [],
+      });
+    }
+
+    // 组装父子关系（category 根节点单独收集）
+    const rootsByCategory = new Map<number, PublicTreeNode[]>();
+    for (const node of nodeMap.values()) {
+      if (node.parent_id != null && nodeMap.has(node.parent_id)) {
+        nodeMap.get(node.parent_id)!.children.push(node);
+      } else {
+        const arr = rootsByCategory.get(node.category_id) || [];
+        arr.push(node);
+        rootsByCategory.set(node.category_id, arr);
+      }
+    }
+
+    // 后序遍历计算子孙聚合数（迭代实现，避免深树递归栈溢出）
+    const computeTotals = (root: PublicTreeNode): number => {
+      const stack: Array<{ node: PublicTreeNode; visited: boolean }> = [{ node: root, visited: false }];
+      while (stack.length > 0) {
+        const frame = stack[stack.length - 1];
+        if (!frame.visited) {
+          frame.visited = true;
+          for (const child of frame.node.children) {
+            stack.push({ node: child, visited: false });
+          }
+        } else {
+          stack.pop();
+          frame.node.total_track_count =
+            frame.node.direct_track_count + frame.node.children.reduce((sum, c) => sum + c.total_track_count, 0);
+        }
+      }
+      return root.total_track_count;
+    };
+
+    const categories = categoriesResult.rows.map((cat: any) => {
+      const roots = rootsByCategory.get(Number(cat.id)) || [];
+      let total = 0;
+      for (const root of roots) {
+        total += computeTotals(root);
+      }
+      return {
+        id: Number(cat.id),
+        name: String(cat.name),
+        description: cat.description == null ? null : String(cat.description),
+        display_order: Number(cat.display_order),
+        total_track_count: total,
+        children: roots,
+      };
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        game: { id: Number(gameResult.rows[0].id), name: String(gameResult.rows[0].name) },
+        categories,
+      },
+    });
+  } catch (error) {
+    console.error('Get public game music tree error:', error);
+    return res.status(500).json({ success: false, error: { code: 'FETCH_ERROR', message: 'Failed to fetch game music tree' } });
+  }
+};
+
+/**
+ * GET /public/music-sources/nodes/:nodeId/tracks
+ * 返回挂在该节点或其任意子孙节点下的曲目（递归 CTE 聚合）。
+ * 曲目形状对齐 getTracks：t.* + album 字段 + artists json + favorite_count。
+ */
+export const getPublicNodeTracks = async (req: Request, res: Response) => {
+  try {
+    const nodeId = Number(req.params.nodeId);
+    if (!Number.isInteger(nodeId) || nodeId <= 0) {
+      return res.status(400).json({ success: false, error: { code: 'INVALID_NODE_ID', message: 'Invalid node id' } });
+    }
+
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
+    const offset = (page - 1) * limit;
+
+    const nodeResult = await pool.query(
+      'SELECT id, name, category_id, game_id, parent_id FROM music_source_nodes WHERE id = $1 LIMIT 1',
+      [nodeId]
+    );
+    if (nodeResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: { code: 'NODE_NOT_FOUND', message: 'Node not found' } });
+    }
+    const nodeRow = nodeResult.rows[0];
+
+    const subtreeCte = `
+      WITH RECURSIVE subtree AS (
+        SELECT id FROM music_source_nodes WHERE id = $1
+        UNION ALL
+        SELECT n.id FROM music_source_nodes n JOIN subtree s ON n.parent_id = s.id
+      )`;
+
+    const countResult = await pool.query(
+      `${subtreeCte}
+       SELECT COUNT(DISTINCT t.id)::int AS count
+       FROM tracks t
+       JOIN track_music_sources tms ON tms.track_id = t.id AND tms.node_id IN (SELECT id FROM subtree)`,
+      [nodeId]
+    );
+    const total = Number(countResult.rows[0]?.count || 0);
+
+    const tracksResult = await pool.query(
+      `${subtreeCte}
+       SELECT
+         t.*,
+         a.uuid as album_uuid,
+         a.title as album_title,
+         a.title_cn as album_title_cn,
+         a.title_en as album_title_en,
+         a.cover_path as album_cover,
+         a.release_date as album_release_date,
+         COALESCE(
+           (SELECT json_agg(json_build_object('id', NULL, 'name', sub.credit_value))
+            FROM (SELECT DISTINCT credit_value FROM track_credits WHERE track_id = t.id AND credit_value IS NOT NULL AND credit_value <> '') sub
+           ), '[]'::json
+         ) as artists,
+         COUNT(DISTINCT fav.user_id)::int AS favorite_count
+       FROM tracks t
+       JOIN track_music_sources tms ON tms.track_id = t.id AND tms.node_id IN (SELECT id FROM subtree)
+       LEFT JOIN albums a ON t.album_id = a.id
+       LEFT JOIN favorites fav ON t.id = fav.track_id
+       GROUP BY t.id, a.id, a.uuid, a.title, a.title_cn, a.title_en, a.cover_path, a.release_date, a.created_at
+       ORDER BY COALESCE(a.release_date, a.created_at) DESC NULLS LAST, t.track_number ASC NULLS LAST, t.title ASC
+       LIMIT $2 OFFSET $3`,
+      [nodeId, limit, offset]
+    );
+
+    const nodeLookup = await listAllNodes();
+    const path = buildPathSegments(nodeId, nodeLookup);
+
+    return res.json({
+      success: true,
+      data: {
+        node: {
+          id: Number(nodeRow.id),
+          name: String(nodeRow.name),
+          category_id: Number(nodeRow.category_id),
+          game_id: nodeRow.game_id == null ? null : Number(nodeRow.game_id),
+          parent_id: nodeRow.parent_id == null ? null : Number(nodeRow.parent_id),
+          path,
+        },
+        tracks: tracksResult.rows,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Get public node tracks error:', error);
+    return res.status(500).json({ success: false, error: { code: 'FETCH_ERROR', message: 'Failed to fetch node tracks' } });
+  }
+};
+
 export const upsertTrackMusicSources = async (req: Request, res: Response) => {
   const client = await pool.connect();
   try {

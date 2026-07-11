@@ -1,5 +1,44 @@
 import api from './api';
-import type { ApiResponse } from '../types';
+import type { ApiResponse, Track } from '../types';
+
+// ── 公开只读：场景树浏览 ──────────────────────────────
+export interface PublicMusicTreeNode {
+  id: number;
+  name: string;
+  parent_id: number | null;
+  category_id: number;
+  display_order: number;
+  direct_track_count: number;
+  total_track_count: number;
+  children: PublicMusicTreeNode[];
+}
+
+export interface PublicMusicTreeCategory {
+  id: number;
+  name: string;
+  description: string | null;
+  display_order: number;
+  total_track_count: number;
+  children: PublicMusicTreeNode[];
+}
+
+export interface PublicGameMusicTree {
+  game: { id: number; name: string };
+  categories: PublicMusicTreeCategory[];
+}
+
+export interface PublicNodeTracksResult {
+  node: {
+    id: number;
+    name: string;
+    category_id: number;
+    game_id: number | null;
+    parent_id: number | null;
+    path: string[];
+  };
+  tracks: Track[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}
 
 export type MusicSourceImportStatus = 'matched' | 'needs_manual' | 'not_found' | 'invalid' | 'imported' | 'skipped' | 'error';
 
@@ -130,6 +169,23 @@ const extractBlobErrorMessage = async (blob: Blob): Promise<string | null> => {
 };
 
 export const musicSourceService = {
+  // 公开只读：某游戏的场景音乐树
+  async getGameMusicTree(gameId: number): Promise<PublicGameMusicTree> {
+    const response = await api.get<ApiResponse<PublicGameMusicTree>>(`/public/games/${gameId}/music-tree`);
+    if (response.data.success && response.data.data) return response.data.data;
+    throw new Error(response.data.error?.message || '加载场景音乐树失败');
+  },
+
+  // 公开只读：某场景节点（含子孙）下的曲目
+  async getNodeTracks(nodeId: number, page = 1, limit = 50): Promise<PublicNodeTracksResult> {
+    const response = await api.get<ApiResponse<PublicNodeTracksResult>>(
+      `/public/music-sources/nodes/${nodeId}/tracks`,
+      { params: { page, limit } }
+    );
+    if (response.data.success && response.data.data) return response.data.data;
+    throw new Error(response.data.error?.message || '加载场景曲目失败');
+  },
+
   async getCategories(gameId: number): Promise<MusicSourceCategory[]> {
     const response = await api.get<ApiResponse<{ categories: MusicSourceCategory[] }>>('/music-sources/categories', {
       params: { game_id: gameId },

@@ -64,22 +64,36 @@ const MusicSourcesDisplay: React.FC<MusicSourcesDisplayProps> = ({ sources }) =>
             </div>
 
             <div className="space-y-2">
-              {group.items.map((item) => (
-                <div key={item.id} className="music-source-path-row rounded-xl border border-white/[0.08] bg-white/[0.05] p-2">
-                  {item.path.length > 0 ? (
-                    item.path.map((segment, index) => (
-                      <React.Fragment key={`${item.id}-${segment}-${index}`}>
-                        <Typography.Text className="music-source-segment">
-                          {segment}
-                        </Typography.Text>
-                        {index < item.path.length - 1 && <RightOutlined className="music-source-separator" />}
-                      </React.Fragment>
-                    ))
-                  ) : (
-                    <Typography.Text className="text-white/60">{item.node_name}</Typography.Text>
-                  )}
-                </div>
-              ))}
+              {group.items.map((item) => {
+                const canJump = Boolean(group.gameId && item.node_id);
+                const jump = canJump
+                  ? () => navigate(`/games/${group.gameId}?tab=sources&node=${item.node_id}`)
+                  : undefined;
+                return (
+                  <div
+                    key={item.id}
+                    onClick={jump}
+                    role={canJump ? 'button' : undefined}
+                    tabIndex={canJump ? 0 : undefined}
+                    onKeyDown={canJump ? (e) => { if (e.key === 'Enter') jump?.(); } : undefined}
+                    title={canJump ? '在游戏页查看此场景' : undefined}
+                    className={`music-source-path-row rounded-xl border border-white/[0.08] bg-white/[0.05] p-2${canJump ? ' cursor-pointer transition-colors hover:!bg-white/[0.12]' : ''}`}
+                  >
+                    {item.path.length > 0 ? (
+                      item.path.map((segment, index) => (
+                        <React.Fragment key={`${item.id}-${segment}-${index}`}>
+                          <Typography.Text className="music-source-segment">
+                            {segment}
+                          </Typography.Text>
+                          {index < item.path.length - 1 && <RightOutlined className="music-source-separator" />}
+                        </React.Fragment>
+                      ))
+                    ) : (
+                      <Typography.Text className="text-white/60">{item.node_name}</Typography.Text>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </article>
         ))}

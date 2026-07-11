@@ -6,7 +6,7 @@ import sharp from 'sharp';
 import fs from 'fs';
 import path from 'path';
 import { getTracks, getTrackById, streamTrack, downloadTrack } from '../controllers/trackController';
-import { getTrackMusicSources } from '../controllers/musicSourceController';
+import { getTrackMusicSources, getPublicGameMusicTree, getPublicNodeTracks } from '../controllers/musicSourceController';
 import pool from '../config/database';
 import storageService from '../services/storageService';
 import remoteResourceCache from '../services/remoteResourceCache';
@@ -540,6 +540,79 @@ router.get('/tracks/:id', cacheControl(CACHE_TTL.SHORT, { staleWhileRevalidate: 
  *                 data: { type: array, items: { type: object } }
  */
 router.get('/tracks/:trackId/music-sources', cacheControl(CACHE_TTL.SHORT, { staleWhileRevalidate: 120 }), getTrackMusicSources);
+
+/**
+ * @openapi
+ * /public/games/{gameId}/music-tree:
+ *   get:
+ *     tags: [Public]
+ *     summary: 获取某游戏的场景音乐树（分类 + 层级节点 + 每节点曲目数）
+ *     parameters:
+ *       - in: path
+ *         name: gameId
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       '200':
+ *         description: 场景音乐树
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     game: { type: object }
+ *                     categories: { type: array, items: { type: object } }
+ *       '404':
+ *         description: 游戏不存在
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
+router.get('/games/:gameId/music-tree', cacheControl(CACHE_TTL.MEDIUM, { staleWhileRevalidate: 300 }), getPublicGameMusicTree);
+
+/**
+ * @openapi
+ * /public/music-sources/nodes/{nodeId}/tracks:
+ *   get:
+ *     tags: [Public]
+ *     summary: 获取某场景节点（含子孙）下的曲目
+ *     parameters:
+ *       - in: path
+ *         name: nodeId
+ *         required: true
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 50 }
+ *     responses:
+ *       '200':
+ *         description: 曲目列表（含节点信息与分页）
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     node: { type: object }
+ *                     tracks: { type: array, items: { $ref: '#/components/schemas/Track' } }
+ *                     pagination: { type: object }
+ *       '404':
+ *         description: 节点不存在
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
+router.get('/music-sources/nodes/:nodeId/tracks', cacheControl(CACHE_TTL.MEDIUM, { staleWhileRevalidate: 300 }), getPublicNodeTracks);
 
 /**
  * @openapi

@@ -3,6 +3,65 @@
   background: transparent !important;
 }
 
+/* ── Hero 头部 ─────────────────────────────── */
+.game-hero {
+  margin-bottom: 20px;
+  color: #fff;
+}
+
+.game-hero-back {
+  color: rgba(255, 255, 255, 0.85) !important;
+  padding-left: 0;
+  margin-bottom: 12px;
+}
+
+.game-hero-back:hover {
+  color: #fff !important;
+}
+
+.game-hero-title {
+  color: #fff !important;
+  font-weight: 700;
+}
+
+.game-hero-subtitle {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 15px;
+  letter-spacing: 0.5px;
+}
+
+.game-hero-desc {
+  color: rgba(255, 255, 255, 0.85);
+  max-width: 760px;
+  margin: 12px 0 0;
+  line-height: 1.7;
+  font-size: 14px;
+}
+
+/* Tabs 在深色游戏背景上的可读性 */
+.game-detail-tabs .ant-tabs-tab {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.game-detail-tabs .ant-tabs-tab:hover {
+  color: #fff;
+}
+
+.game-detail-tabs .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: #fff;
+}
+
+.game-detail-tabs .ant-tabs-ink-bar {
+  background: #b39ddb;
+}
+
+/* 场景树 / 曲目卡片：白色表面浮在游戏背景上 */
+.scene-tree-card,
+.scene-tracks-card {
+  background: var(--surface-1, #fff);
+  border-radius: 14px;
+}
+
 /* 原神背景 */
 .game-detail-layout.genshin-bg {
   position: relative;
