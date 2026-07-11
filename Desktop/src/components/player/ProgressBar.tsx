@@ -95,7 +95,7 @@ export function ProgressBar({
         />
         {/* thumb */}
         <div
-          className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white opacity-0 shadow transition-opacity duration-150 group-hover:opacity-100"
+          className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--accent)] opacity-0 shadow transition-opacity duration-150 group-hover:opacity-100"
           style={{ left: `${pct}%` }}
         />
       </div>

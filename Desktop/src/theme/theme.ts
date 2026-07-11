@@ -1,6 +1,6 @@
 /**
  * Theme color tokens for the HoYoMusic desktop app.
- * Dark, polished music-app aesthetic (Spotify / QQ Music inspired).
+ * Light, polished music-app aesthetic (Apple Music / QQ Music light inspired).
  *
  * Values mirror the CSS custom properties defined in styles/global.css so that
  * `useTheme()` and raw CSS stay in sync.
@@ -37,15 +37,15 @@ export interface ThemeTokens {
 
 export const theme: ThemeTokens = {
   color: {
-    backgroundBase: '#0f0f12',
-    backgroundBaseAlt: '#14141a',
-    surface: '#1c1c22',
-    surfaceHover: '#24242c',
+    backgroundBase: '#f4f4f7',
+    backgroundBaseAlt: '#ffffff',
+    surface: '#ffffff',
+    surfaceHover: '#ececf2',
     accent: '#7F77DD',
     accentSecondary: '#37C6D9',
-    textPrimary: '#f5f5f7',
-    textSecondary: '#a0a0a8',
-    border: 'rgba(255,255,255,0.08)',
+    textPrimary: '#1a1a22',
+    textSecondary: '#6b6b78',
+    border: 'rgba(0,0,0,0.08)',
   },
   radius: {
     sm: '6px',
@@ -55,7 +55,7 @@ export const theme: ThemeTokens = {
   },
 };
 
-export type ThemeMode = 'dark';
+export type ThemeMode = 'light';
 
 /** Resolve a token path to its value (e.g. `useThemeValue('color.accent')`). */
 export function resolveToken(path: string): string {

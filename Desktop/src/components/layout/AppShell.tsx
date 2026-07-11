@@ -19,20 +19,20 @@ import { useTray } from '@/hooks/useTray';
  */
 const shellCss = `
 :root {
-  --background-base: #0f0f12;
-  --background-base-alt: #14141a;
-  --surface: #1c1c22;
-  --surface-hover: #24242c;
+  --background-base: #f4f4f7;
+  --background-base-alt: #ffffff;
+  --surface: #ffffff;
+  --surface-hover: #ececf2;
   --accent: #7f77dd;
   --accent-secondary: #37c6d9;
-  --text-primary: #f5f5f7;
-  --text-secondary: #a0a0a8;
-  --border: rgba(255, 255, 255, 0.08);
+  --text-primary: #1a1a22;
+  --text-secondary: #6b6b78;
+  --border: rgba(0, 0, 0, 0.08);
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
   --radius-xl: 20px;
-  color-scheme: dark;
+  color-scheme: light;
 }
 .hym-shell {
   display: grid;
@@ -63,7 +63,7 @@ const shellCss = `
   border: 2px solid transparent;
   background-clip: content-box;
 }
-.hym-scroll:hover::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.18); }
+.hym-scroll:hover::-webkit-scrollbar-thumb { background-color: rgba(0, 0, 0, 0.18); }
 
 .hym-skeleton { position: relative; overflow: hidden; }
 .hym-skeleton::after {
@@ -71,7 +71,7 @@ const shellCss = `
   position: absolute;
   inset: 0;
   transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.06) 50%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.05) 50%, transparent 100%);
   animation: hym-shimmer 1.4s ease-in-out infinite;
 }
 @keyframes hym-shimmer { 100% { transform: translateX(100%); } }
@@ -102,11 +102,11 @@ export default function AppShell() {
   return (
     <ConfigProvider
       theme={{
-        algorithm: antdTheme.darkAlgorithm,
+        algorithm: antdTheme.defaultAlgorithm,
         token: {
           colorPrimary: '#7F77DD',
-          colorBgBase: '#0f0f12',
-          colorTextBase: '#f5f5f7',
+          colorBgBase: '#f4f4f7',
+          colorTextBase: '#1a1a22',
           borderRadius: 10,
         },
       }}
