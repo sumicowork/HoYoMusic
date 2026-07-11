@@ -9,6 +9,7 @@
  *
  * Run with: npm run migrate
  */
+import 'dotenv/config';
 import { Client } from 'pg';
 import fs from 'fs/promises';
 import path from 'path';

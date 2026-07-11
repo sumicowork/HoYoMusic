@@ -9,6 +9,7 @@
     "start": "node dist/index.js",
     "setup": "ts-node src/setup.ts",
     "migrate": "ts-node scripts/migrate.ts",
+    "backfill:artists": "ts-node scripts/backfillArtists.ts",
     "bpm:test": "python scripts/detect_bpm.py --help",
     "bpm:bench": "python scripts/bpm_benchmark.py --manifest scripts/bpm_benchmark_manifest.json",
     "test": "vitest run"
