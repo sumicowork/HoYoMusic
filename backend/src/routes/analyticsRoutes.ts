@@ -453,6 +453,29 @@ const warmupAppCache = async () => {
 };
 
 // ── Overview cards ────────────────────────────────────────────────
+/**
+ * @openapi
+ * /analytics/overview:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: 访问概览
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       '200':
+ *         description: 概览数据
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '500':
+ *         description: 服务器错误
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/overview', async (_req: Request, res: Response) => {
   try {
     const esaData = await tryEsa('overview', async () => analyticsEsaService.getOverview());
@@ -481,6 +504,33 @@ router.get('/overview', async (_req: Request, res: Response) => {
 });
 
 // ── Daily trend ───────────────────────────────────────────────────
+/**
+ * @openapi
+ * /analytics/trend:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: 每日访问趋势
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: days
+ *         schema: { type: integer }
+ *     responses:
+ *       '200':
+ *         description: 趋势数据
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '500':
+ *         description: 服务器错误
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/trend', async (req: Request, res: Response) => {
   try {
     const d = clampDays(req.query.days, ESA_MAX_DAYS);
@@ -506,6 +556,29 @@ router.get('/trend', async (req: Request, res: Response) => {
 });
 
 // ── Hourly distribution (today) ───────────────────────────────────
+/**
+ * @openapi
+ * /analytics/hourly:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: 当日每小时分布
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       '200':
+ *         description: 小时分布数据
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '500':
+ *         description: 服务器错误
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/hourly', async (_req: Request, res: Response) => {
   try {
     const esaData = await tryEsa('hourly', async () => analyticsEsaService.getHourly());
@@ -539,6 +612,33 @@ router.get('/hourly', async (_req: Request, res: Response) => {
 });
 
 // ── Countries ─────────────────────────────────────────────────────
+/**
+ * @openapi
+ * /analytics/countries:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: 国家/地区分布
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: days
+ *         schema: { type: integer }
+ *     responses:
+ *       '200':
+ *         description: 地区分布数据
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '500':
+ *         description: 服务器错误
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/countries', async (req: Request, res: Response) => {
   try {
     const d = clampDays(req.query.days, ESA_MAX_DAYS);
@@ -574,6 +674,36 @@ router.get('/countries', async (req: Request, res: Response) => {
 });
 
 // ── Countries mapping diagnostics (no manual SQL needed) ───────
+/**
+ * @openapi
+ * /analytics/countries/debug:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: 国家映射诊断
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: days
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer }
+ *     responses:
+ *       '200':
+ *         description: 诊断数据
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '500':
+ *         description: 服务器错误
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/countries/debug', async (req: Request, res: Response) => {
   try {
     const d = clampDays(req.query.days, 180);
@@ -630,6 +760,39 @@ router.get('/countries/debug', async (req: Request, res: Response) => {
 });
 
 // ── Visitor list ─────────────────────────────────────────────────
+/**
+ * @openapi
+ * /analytics/visitors:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: 访客列表
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: days
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer }
+ *     responses:
+ *       '200':
+ *         description: 访客列表
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '500':
+ *         description: 服务器错误
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/visitors', async (req: Request, res: Response) => {
   try {
     const d = clampDays(req.query.days, 180);
@@ -684,6 +847,45 @@ router.get('/visitors', async (req: Request, res: Response) => {
 });
 
 // ── Visitor behavior ─────────────────────────────────────────────
+/**
+ * @openapi
+ * /analytics/visitors/{visitorKey}/behavior:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: 访客行为详情
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: visitorKey
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: days
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer }
+ *     responses:
+ *       '200':
+ *         description: 行为数据
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '400':
+ *         description: 访客 Key 无效
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *       '500':
+ *         description: 服务器错误
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/visitors/:visitorKey/behavior', async (req: Request, res: Response) => {
   try {
     const d = clampDays(req.query.days, 180);
@@ -769,6 +971,29 @@ router.get('/visitors/:visitorKey/behavior', async (req: Request, res: Response)
   }
 });
 
+/**
+ * @openapi
+ * /analytics/behavior/coverage:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: 路由覆盖率与行为映射
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       '200':
+ *         description: 覆盖率数据
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '500':
+ *         description: 服务器错误
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/behavior/coverage', async (_req: Request, res: Response) => {
   try {
     const [inventory, genericResult, actionResult] = await Promise.all([
@@ -853,6 +1078,42 @@ router.get('/behavior/coverage', async (_req: Request, res: Response) => {
   }
 });
 
+/**
+ * @openapi
+ * /analytics/behavior/export:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: 导出行为日志
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: days
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: method
+ *         schema: { type: string }
+ *     responses:
+ *       '200':
+ *         description: 日志列表
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '500':
+ *         description: 服务器错误
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/behavior/export', async (req: Request, res: Response) => {
   try {
     const d = clampDays(req.query.days, 180);
@@ -898,6 +1159,33 @@ router.get('/behavior/export', async (req: Request, res: Response) => {
 });
 
 // ── Cities (for map) ──────────────────────────────────────────────
+/**
+ * @openapi
+ * /analytics/cities:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: 城市分布（用于地图）
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: days
+ *         schema: { type: integer }
+ *     responses:
+ *       '200':
+ *         description: 城市数据
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '500':
+ *         description: 服务器错误
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/cities', async (req: Request, res: Response) => {
   try {
     const d = clampDays(req.query.days);
@@ -918,6 +1206,33 @@ router.get('/cities', async (req: Request, res: Response) => {
 });
 
 // ── Top pages ─────────────────────────────────────────────────────
+/**
+ * @openapi
+ * /analytics/pages:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: 热门页面
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: days
+ *         schema: { type: integer }
+ *     responses:
+ *       '200':
+ *         description: 页面数据
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '500':
+ *         description: 服务器错误
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/pages', async (req: Request, res: Response) => {
   try {
     const d = clampDays(req.query.days, ESA_MAX_DAYS);
@@ -944,6 +1259,33 @@ router.get('/pages', async (req: Request, res: Response) => {
 });
 
 // ── Devices / Browsers / OS ───────────────────────────────────────
+/**
+ * @openapi
+ * /analytics/devices:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: 设备/浏览器/操作系统分布
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: days
+ *         schema: { type: integer }
+ *     responses:
+ *       '200':
+ *         description: 设备分布数据
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '500':
+ *         description: 服务器错误
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/devices', async (req: Request, res: Response) => {
   try {
     const d = clampDays(req.query.days, ESA_MAX_DAYS);
@@ -974,6 +1316,33 @@ router.get('/devices', async (req: Request, res: Response) => {
 });
 
 // ── Status codes ──────────────────────────────────────────────────
+/**
+ * @openapi
+ * /analytics/status-codes:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: 状态码分布
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: days
+ *         schema: { type: integer }
+ *     responses:
+ *       '200':
+ *         description: 状态码数据
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '500':
+ *         description: 服务器错误
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/status-codes', async (req: Request, res: Response) => {
   try {
     const d = clampDays(req.query.days, ESA_MAX_DAYS);
@@ -992,6 +1361,33 @@ router.get('/status-codes', async (req: Request, res: Response) => {
 });
 
 // ── Performance (avg/p95/max by hour) ────────────────────────────
+/**
+ * @openapi
+ * /analytics/performance:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: 性能（均值/p95/最大值）
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: days
+ *         schema: { type: integer }
+ *     responses:
+ *       '200':
+ *         description: 性能数据
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '500':
+ *         description: 服务器错误
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/performance', async (req: Request, res: Response) => {
   try {
     const d = clampDays(req.query.days, ESA_MAX_DAYS);
@@ -1016,6 +1412,33 @@ router.get('/performance', async (req: Request, res: Response) => {
 });
 
 // ── Recent logs ───────────────────────────────────────────────────
+/**
+ * @openapi
+ * /analytics/recent:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: 最近访问日志
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer }
+ *     responses:
+ *       '200':
+ *         description: 日志列表
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '500':
+ *         description: 服务器错误
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/recent', async (req: Request, res: Response) => {
   try {
     const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
@@ -1030,6 +1453,29 @@ router.get('/recent', async (req: Request, res: Response) => {
 });
 
 // ── Cache analytics ──────────────────────────────────────────────
+/**
+ * @openapi
+ * /analytics/cache:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: 缓存分析
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       '200':
+ *         description: 缓存统计
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '500':
+ *         description: 服务器错误
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/cache', async (_req: Request, res: Response) => {
   try {
     const [remote] = await Promise.all([
@@ -1047,6 +1493,29 @@ router.get('/cache', async (_req: Request, res: Response) => {
 });
 
 // ── One-click refresh + prewarm ─────────────────────────────────
+/**
+ * @openapi
+ * /analytics/cache/warmup:
+ *   post:
+ *     tags: [Analytics]
+ *     summary: 刷新并预热缓存
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       '200':
+ *         description: 预热结果
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '500':
+ *         description: 服务器错误
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.post('/cache/warmup', async (_req: Request, res: Response) => {
   try {
     cache.clear();
@@ -1072,6 +1541,33 @@ router.post('/cache/warmup', async (_req: Request, res: Response) => {
 });
 
 // ── Referers ──────────────────────────────────────────────────────
+/**
+ * @openapi
+ * /analytics/referers:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: 来源域名分布
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: days
+ *         schema: { type: integer }
+ *     responses:
+ *       '200':
+ *         description: 来源数据
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '500':
+ *         description: 服务器错误
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/referers', async (req: Request, res: Response) => {
   try {
     const d = clampDays(req.query.days, ESA_MAX_DAYS);
@@ -1094,6 +1590,36 @@ router.get('/referers', async (req: Request, res: Response) => {
 });
 
 // ── Hot tracks by effective plays ────────────────────────────────
+/**
+ * @openapi
+ * /analytics/tracks/hot:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: 热门曲目（有效播放）
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: days
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer }
+ *     responses:
+ *       '200':
+ *         description: 热门曲目列表
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '500':
+ *         description: 服务器错误
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/tracks/hot', async (req: Request, res: Response) => {
   try {
     const d = clampDays(req.query.days, 180);
@@ -1123,6 +1649,42 @@ router.get('/tracks/hot', async (req: Request, res: Response) => {
 });
 
 // ── Source IPs for a hot track ───────────────────────────────────
+/**
+ * @openapi
+ * /analytics/tracks/{id}/ip-sources:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: 热门曲目的来源 IP
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: days
+ *         schema: { type: integer }
+ *     responses:
+ *       '200':
+ *         description: 来源 IP 列表
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '400':
+ *         description: 曲目 ID 无效
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *       '404':
+ *         description: 曲目不存在
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/tracks/:id/ip-sources', async (req: Request, res: Response) => {
   try {
     const d = clampDays(req.query.days, 180);
@@ -1172,6 +1734,29 @@ router.get('/tracks/:id/ip-sources', async (req: Request, res: Response) => {
 });
 
 // ── Storage analytics ─────────────────────────────────────────────
+/**
+ * @openapi
+ * /analytics/storage:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: 存储分析
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       '200':
+ *         description: 存储分布数据（总览/按游戏/按专辑/质量/文件大小）
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '500':
+ *         description: 服务器错误
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/storage', async (_req: Request, res: Response) => {
   try {
     const [totalStorage, byGame, byAlbum, qualityDist, formatDist] = await Promise.all([
@@ -1251,6 +1836,33 @@ router.get('/storage', async (_req: Request, res: Response) => {
 });
 
 // ── Data Export ────────────────────────────────────────────────
+/**
+ * @openapi
+ * /analytics/export:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: 导出曲目数据（JSON 或 CSV）
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: format
+ *         schema: { type: string, enum: [json, csv] }
+ *     responses:
+ *       '200':
+ *         description: 导出数据（JSON）或 CSV 附件
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '500':
+ *         description: 服务器错误
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/export', async (req: Request, res: Response) => {
   try {
     const format = (req.query.format as string) || 'json';
@@ -1292,6 +1904,29 @@ router.get('/export', async (req: Request, res: Response) => {
 });
 
 // ── Duplicate Detection ─────────────────────────────────────────
+/**
+ * @openapi
+ * /analytics/duplicates:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: 检测疑似重复曲目（同名且时长接近）
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       '200':
+ *         description: 疑似重复曲目对列表
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '500':
+ *         description: 服务器错误
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/duplicates', async (_req: Request, res: Response) => {
   try {
     // Find tracks with same title + duration (likely duplicates)

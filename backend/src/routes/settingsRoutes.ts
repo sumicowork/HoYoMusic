@@ -188,6 +188,38 @@ const getReadableEmailError = (error: unknown): string => {
   return err?.message || '未知错误';
 };
 
+/**
+ * @openapi
+ * /public/feedback:
+ *   post:
+ *     tags: [Settings]
+ *     summary: 提交用户反馈
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               content: { type: string }
+ *               contact: { type: string }
+ *             required: [content]
+ *     responses:
+ *       '200':
+ *         description: 提交成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '500':
+ *         description: 服务器错误
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.post('/public/feedback', validateBody(feedbackSubmitSchema), async (req: Request, res: Response) => {
   try {
     const body = req.body as { content: string; contact?: string };
@@ -215,6 +247,43 @@ router.post('/public/feedback', validateBody(feedbackSubmitSchema), async (req: 
   }
 });
 
+/**
+ * @openapi
+ * /settings/test-email:
+ *   post:
+ *     tags: [Settings]
+ *     summary: 发送测试邮件
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email: { type: string }
+ *             required: [email]
+ *     responses:
+ *       '200':
+ *         description: 发送成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '400':
+ *         description: 邮件未配置
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *       '401':
+ *         description: 未认证
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.post('/settings/test-email', authenticateAdmin, validateBody(testEmailSchema), async (req: Request, res: Response) => {
   try {
     const configError = getMailConfigurationError();
@@ -242,6 +311,40 @@ router.post('/settings/test-email', authenticateAdmin, validateBody(testEmailSch
   }
 });
 
+/**
+ * @openapi
+ * /settings/feedback:
+ *   get:
+ *     tags: [Settings]
+ *     summary: 获取反馈列表
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: pageSize
+ *         schema: { type: integer }
+ *     responses:
+ *       '200':
+ *         description: 反馈列表
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     items: { type: array, items: { type: object } }
+ *                     pagination: { type: object }
+ *       '401':
+ *         description: 未认证
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/settings/feedback', authenticateAdmin, async (req: Request, res: Response) => {
   try {
     const page = Math.max(1, parseInt(String(req.query.page || '1'), 10) || 1);
@@ -291,6 +394,28 @@ router.get('/settings/feedback', authenticateAdmin, async (req: Request, res: Re
   }
 });
 
+/**
+ * @openapi
+ * /public/site-config/first-visit-modal:
+ *   get:
+ *     tags: [Settings]
+ *     summary: 获取首次访问弹窗配置（公开）
+ *     responses:
+ *       '200':
+ *         description: 配置内容
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '500':
+ *         description: 服务器错误
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/public/site-config/first-visit-modal', cacheControl(CACHE_TTL.SHORT, { staleWhileRevalidate: 120 }), async (_req: Request, res: Response) => {
   try {
     const config = await getFirstVisitModalConfig();
@@ -304,6 +429,29 @@ router.get('/public/site-config/first-visit-modal', cacheControl(CACHE_TTL.SHORT
   }
 });
 
+/**
+ * @openapi
+ * /settings/first-visit-modal:
+ *   get:
+ *     tags: [Settings]
+ *     summary: 获取首次访问弹窗配置
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       '200':
+ *         description: 配置内容
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '401':
+ *         description: 未认证
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/settings/first-visit-modal', authenticateAdmin, async (_req: Request, res: Response) => {
   try {
     const config = await getFirstVisitModalConfig();
@@ -317,6 +465,40 @@ router.get('/settings/first-visit-modal', authenticateAdmin, async (_req: Reques
   }
 });
 
+/**
+ * @openapi
+ * /settings/first-visit-modal:
+ *   put:
+ *     tags: [Settings]
+ *     summary: 更新首次访问弹窗配置
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               enabled: { type: boolean }
+ *               title: { type: string }
+ *               content: { type: string }
+ *               min_stay_seconds: { type: integer }
+ *     responses:
+ *       '200':
+ *         description: 更新成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '401':
+ *         description: 未认证
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.put('/settings/first-visit-modal', authenticateAdmin, validateBody(firstVisitModalSchema), async (req: Request, res: Response) => {
   try {
     const body = req.body as {
@@ -356,6 +538,28 @@ router.put('/settings/first-visit-modal', authenticateAdmin, validateBody(firstV
   }
 });
 
+/**
+ * @openapi
+ * /public/site-config/compliance:
+ *   get:
+ *     tags: [Settings]
+ *     summary: 获取合规配置（公开）
+ *     responses:
+ *       '200':
+ *         description: 配置内容
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '500':
+ *         description: 服务器错误
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/public/site-config/compliance', cacheControl(CACHE_TTL.SHORT, { staleWhileRevalidate: 120 }), async (_req: Request, res: Response) => {
   try {
     const config = await getSiteComplianceConfig();
@@ -369,6 +573,29 @@ router.get('/public/site-config/compliance', cacheControl(CACHE_TTL.SHORT, { sta
   }
 });
 
+/**
+ * @openapi
+ * /settings/compliance:
+ *   get:
+ *     tags: [Settings]
+ *     summary: 获取合规配置
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       '200':
+ *         description: 配置内容
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '401':
+ *         description: 未认证
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/settings/compliance', authenticateAdmin, async (_req: Request, res: Response) => {
   try {
     const config = await getSiteComplianceConfig();
@@ -382,6 +609,39 @@ router.get('/settings/compliance', authenticateAdmin, async (_req: Request, res:
   }
 });
 
+/**
+ * @openapi
+ * /settings/compliance:
+ *   put:
+ *     tags: [Settings]
+ *     summary: 更新合规配置
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               enabled: { type: boolean }
+ *               icp_number: { type: string }
+ *               public_security_number: { type: string }
+ *     responses:
+ *       '200':
+ *         description: 更新成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '401':
+ *         description: 未认证
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.put('/settings/compliance', authenticateAdmin, validateBody(siteComplianceSchema), async (req: Request, res: Response) => {
   try {
     const body = req.body as SiteComplianceConfig;
@@ -413,6 +673,28 @@ router.put('/settings/compliance', authenticateAdmin, validateBody(siteComplianc
   }
 });
 
+/**
+ * @openapi
+ * /public/site-config/maintenance:
+ *   get:
+ *     tags: [Settings]
+ *     summary: 获取维护模式配置（公开）
+ *     responses:
+ *       '200':
+ *         description: 配置内容
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '500':
+ *         description: 服务器错误
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/public/site-config/maintenance', noStore, async (_req: Request, res: Response) => {
   try {
     const config = await getMaintenanceModeConfig();
@@ -426,6 +708,29 @@ router.get('/public/site-config/maintenance', noStore, async (_req: Request, res
   }
 });
 
+/**
+ * @openapi
+ * /settings/maintenance:
+ *   get:
+ *     tags: [Settings]
+ *     summary: 获取维护模式配置
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       '200':
+ *         description: 配置内容
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '401':
+ *         description: 未认证
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/settings/maintenance', authenticateAdmin, async (_req: Request, res: Response) => {
   try {
     const config = await getMaintenanceModeConfig();
@@ -439,6 +744,39 @@ router.get('/settings/maintenance', authenticateAdmin, async (_req: Request, res
   }
 });
 
+/**
+ * @openapi
+ * /settings/maintenance:
+ *   put:
+ *     tags: [Settings]
+ *     summary: 更新维护模式配置
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               enabled: { type: boolean }
+ *               expected_end_time: { type: string, nullable: true }
+ *               message: { type: string }
+ *     responses:
+ *       '200':
+ *         description: 更新成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '401':
+ *         description: 未认证
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.put('/settings/maintenance', authenticateAdmin, validateBody(maintenanceModeSchema), async (req: Request, res: Response) => {
   try {
     const body = req.body as { enabled: boolean; expected_end_time?: string | null; message?: string };

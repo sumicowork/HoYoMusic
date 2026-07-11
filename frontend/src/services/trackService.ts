@@ -1,5 +1,6 @@
 import api, { createApiClient } from './api';
 import { ApiResponse, Track, TrackMusicSourceItem } from '../types';
+import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
 
@@ -475,7 +476,8 @@ export const trackService = {
   },
 
   getCoverUrl(coverPath: string | null, thumb?: boolean): string {
-    if (!coverPath) return '/placeholder-cover.jpg';
+    // 空封面：优先使用静态占位图，加载失败时回退到内联 SVG，避免 404
+    if (!coverPath) return MUSIC_ICON_PLACEHOLDER;
     const backendOrigin = API_BASE_URL.replace('/api', '');
     const sizeParam = thumb ? '&size=thumb' : '';
     // OSS / 外部存储：cover_path 是完整 http(s) URL，通过服务器代理中转，避免前端直连 OSS

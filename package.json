@@ -1,0 +1,11 @@
+{
+  "dependencies": {
+    "copilot-api": "^0.7.0"
+  },
+  "scripts": {
+    "desktop": "npm --prefix desktop",
+    "desktop:dev": "npm --prefix desktop run dev",
+    "desktop:build": "npm --prefix desktop run build",
+    "desktop:tauri": "npm --prefix desktop run tauri"
+  }
+}

@@ -1,4 +1,11 @@
+import path from 'path';
 import swaggerJsdoc from 'swagger-jsdoc';
+
+// Globs resolved from this file's directory so they work regardless of cwd.
+const apiFiles = [
+  path.join(__dirname, '../routes/*.ts').replace(/\\/g, '/'),
+  path.join(__dirname, '../controllers/*.ts').replace(/\\/g, '/'),
+];
 
 const options: swaggerJsdoc.Options = {
   definition: {
@@ -105,9 +112,15 @@ const options: swaggerJsdoc.Options = {
       { name: 'Favorites', description: '收藏功能' },
       { name: 'Analytics', description: '访问分析' },
       { name: 'Public', description: '公共接口（无需认证）' },
+      { name: 'Settings', description: '站点设置' },
+      { name: 'Users', description: '用户管理' },
+      { name: 'Messages', description: '站内消息' },
+      { name: 'MusicSources', description: '音乐来源模块' },
+      { name: 'Discs', description: '专辑分碟' },
+      { name: 'Debug', description: '调试接口（默认关闭）' },
     ],
   },
-  apis: [], // We'll manually define paths below since we don't use JSDoc comments
+  apis: apiFiles,
 };
 
 // Add basic path definitions

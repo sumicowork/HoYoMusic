@@ -2,6 +2,14 @@ import axios from 'axios';
 import type { AxiosInstance } from 'axios';
 import { useAuthModalStore } from '../store/authModalStore';
 
+// ── Generated, OpenAPI-derived API surface (truth = backend OpenAPI) ──
+// The generated client (`openapi-fetch`, typed via `paths` from api-types) is
+// re-exported here so this module becomes the single canonical entry point for
+// the API. The axios `api` instance below stays the runtime client for the
+// existing callers until they are migrated onto the generated, type-safe client.
+export { apiClient, type ApiClient } from '../generated/api-client';
+export type * from '../generated/api-types';
+
 
 const VISITOR_ID_KEY = 'visitor_id';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

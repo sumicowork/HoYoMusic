@@ -11,6 +11,7 @@ HoYoverse 游戏音乐管理与在线播放平台（前后端分离，支持本�
 ### 1.1 技术栈
 
 - 前端：`React 19` + `TypeScript` + `Vite` + `Ant Design` + `Zustand` + `Axios`
+- 桌面端：`Tauri v2` + `React` + `TypeScript`（独立于 Web 前端的原生桌面 UI，位于 `desktop/`）
 - 后端：`Express` + `TypeScript` + `PostgreSQL` + `Passport(JWT)` + `Multer` + `Sharp`
 - 存储层：`local` / `oss` / `webdav`（由 `backend/src/services/storageService.ts` 统一抽象）
 
@@ -54,6 +55,9 @@ HoYoMusic/
       theme/                  # 主题 token 与全局样式
       utils/                  # UI/格式化/音频上下文等工具
       types/                  # TS 类型定义
+  desktop/                    # 桌面客户端：Tauri v2 + React + TypeScript（独立 UI）
+    src/                      # React 前端（与 frontend/ 相互独立）
+    src-tauri/                # Rust 侧：Tauri 配置、原生能力、窗口/托盘/快捷键
 ```
 
 ---
@@ -300,6 +304,33 @@ HoYoMusic/
 
 ---
 
+## 4.8 桌面客户端（`desktop/` — Tauri v2 + React）
+
+桌面客户端是一个**独立于 Web 前端**的 Tauri v2 应用，位于 `desktop/`：
+
+- **技术栈：** Tauri v2（Rust 壳）+ React + TypeScript。其 UI 是独立的代码库，不复用 `frontend/` 的页面/组件，以避免 Web 与桌面两端互相污染。
+- **原生能力：** 通过 Tauri 调用系统能力，包括媒体传输控制（SMTC / 锁屏与任务栏播放控制）、系统托盘、全局快捷键、离线下载缓存等 [UNVERIFIED: 具体能力以 desktop/ 源码为准]。
+- **与后端的关系：** 同属 REST 契约的消费方，开发时代理到后端 `:3000`。
+
+### 开发 / 构建（仓库根目录脚本）
+
+```powershell
+# 启动桌面端开发（Vite dev server 并代理后端 :3000）
+npm run desktop:dev
+
+# 构建桌面端 Web 资源
+npm run desktop:build
+
+# 调用 Tauri CLI（打包 / 运行原生壳）
+npm run desktop:tauri
+```
+
+> 注：开发前需先启动后端（`backend/`，监听 `:3000`），桌面端开发服务器会把 `/api` 代理到该地址。
+
+> 历史说明（footnote）：此前的 Windows 桌面客户端（`client-desktop/`，基于 .NET 8 + WinUI 3 / MVVM）**已由另一 agent 移除**，目录 `client-desktop/` 已不在仓库中，请勿在新工作中引用它。
+
+---
+
 ## 5. 关键业务链路（逐步连接说明）
 
 ## 5.1 曲目上传链路（管理端）
@@ -412,7 +443,7 @@ npm install
 npm run dev
 ```
 
-也可以使用仓库根目录脚本：`start-dev.ps1` / `stop-dev.ps1`。
+> 注：旧文档提到的仓库根目录脚本 `start-dev.ps1` / `stop-dev.ps1` **当前不存在**（根目录仅有 `scripts/` 空目录），请直接在各子目录用 `npm run dev` 启动。桌面端见 §4.8。
 
 ### 8.2 构建验证
 
@@ -467,9 +498,9 @@ npm run build
 ## 11. 参考文档
 
 - 总体说明：`CLAUDE.md`
-- 需求文档：`PRD.md`
-- 规划路线：`ROADMAP.md`
-- 项目状态：`PROJECT_STATUS.md`
+- 项目状态分析：`PROJECT_STATE_ANALYSIS.md`
+- 架构与运维（基于源码核对）：`docs/ARCHITECTURE_FROM_SOURCE.md`
+- 桌面客户端说明：`desktop/README.md`
 
 ---
 

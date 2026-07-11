@@ -8,9 +8,10 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "setup": "ts-node src/setup.ts",
+    "migrate": "ts-node scripts/migrate.ts",
     "bpm:test": "python scripts/detect_bpm.py --help",
     "bpm:bench": "python scripts/bpm_benchmark.py --manifest scripts/bpm_benchmark_manifest.json",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run"
   },
   "keywords": [
     "music",
@@ -74,6 +75,7 @@
     "@types/uuid": "^10.0.0",
     "nodemon": "^3.1.11",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
   }
 }

@@ -3,6 +3,13 @@ import pool from './config/database';
 import fs from 'fs/promises';
 import path from 'path';
 
+// NOTE: setup.ts is the bootstrap path for a FRESH database (idempotent, safe to
+// re-run). For INCREMENTAL schema changes prefer the migration system:
+//   - Migrations live in db/migrations/*.sql and are applied by `npm run migrate`
+//     (see scripts/migrate.ts), which tracks applied state in the _migrations table.
+//   - db/schema.sql is the authoritative full schema; its content is mirrored as the
+//     baseline migration db/migrations/0001_init.sql. New changes should add new,
+//     numbered migration files rather than editing schema.sql directly.
 async function setupDatabase() {
   console.log('🔧 Setting up HoYoMusic database...');
 
@@ -38,8 +45,12 @@ async function setupDatabase() {
       }
     }
 
-    // Create admin user with hashed password
-    const adminPassword = 'admin123';
+    // Create admin user with hashed password.
+    // The password is read from the ADMIN_PASSWORD environment variable so that
+    // secrets are never committed to source. For local/dev convenience it falls
+    // back to a weak default ('changeme'); override it via ADMIN_PASSWORD in any
+    // shared or production environment. See backend/.env.example.
+    const adminPassword = process.env.ADMIN_PASSWORD ?? 'changeme';
     const hashedPassword = await bcrypt.hash(adminPassword, 10);
 
     await pool.query(
@@ -55,8 +66,11 @@ async function setupDatabase() {
     console.log('✅ Database setup complete!');
     console.log('📝 Admin credentials:');
     console.log('   Username: admin');
-    console.log('   Password: admin123');
-    console.log('⚠️  Please change the password in production!');
+    if (adminPassword === 'changeme') {
+      console.warn('⚠️  使用了弱默认密码 (changeme)。请通过 ADMIN_PASSWORD 环境变量设置强密码，生产环境务必修改！');
+    } else {
+      console.log('   Password: 已通过 ADMIN_PASSWORD 环境变量设置');
+    }
 
     await pool.end();
     process.exit(0);

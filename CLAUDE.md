@@ -10,10 +10,12 @@ Three apps in one repo, sharing a single PostgreSQL-backed API:
 |-------|-----------|-------|
 | Backend API | `backend/` | Express 5 + TypeScript + PostgreSQL + Passport(JWT) |
 | Web frontend | `frontend/` | React 19 + Vite + Ant Design + Zustand + Axios |
-| Windows desktop | `client-desktop/` | .NET 8 + WinUI 3 + CommunityToolkit.Mvvm + MSIX |
-| Mobile (early) | `client-mobile/` | Android scaffold |
+| Desktop | `desktop/` | Tauri v2 (Rust shell) + React + TypeScript — a distinct UI from the web client |
+| Mobile (early) | `client-mobile/` | Android scaffold (Kotlin + Compose) |
 
 **Rule:** `backend/` API contracts are authoritative — never break them. Desktop and web are independent consumers that must not cross-contaminate each other's code.
+
+**Trust source over docs.** This file (`CLAUDE.md`), `README.md`, and `docs/` prose can drift from reality. When they disagree with the actual source (package.json, `backend/src/*`, `desktop/`, `frontend/src/*`), the **source code is the source of truth**. The old `client-desktop/` (WinUI 3 / .NET) has been removed by another agent — do not treat it as the desktop client; the desktop client is now `desktop/` (Tauri v2).
 
 ## Build & Run Commands
 
@@ -36,29 +38,29 @@ npm run dev          # Vite dev server
 npm run build        # tsc + vite build
 ```
 
-Convenience scripts at repo root: `start-dev.ps1` (both apps), `stop-dev.ps1`.
+Convenience scripts at repo root: `start-dev.ps1` / `stop-dev.ps1` are **not present** in this repo (root only has an empty `scripts/` dir) — start each app with `npm run dev` in its own folder.
 
-### Windows Desktop Client
+### Desktop Client (Tauri v2 + React)
 
 ```powershell
-Set-Location client-desktop
-dotnet restore HoYoMusic.Desktop.sln
-dotnet build HoYoMusic.Desktop.sln -c Debug -p:Platform=$env:PROCESSOR_ARCHITECTURE
-dotnet run --project src\HoYoMusic.Desktop.App\HoYoMusic.Desktop.App.csproj
-dotnet test HoYoMusic.Desktop.sln -c Debug --no-build -p:Platform=$env:PROCESSOR_ARCHITECTURE
+Set-Location desktop
+npm install
+npm run dev          # Vite dev server, proxies backend :3000 (root: npm run desktop:dev)
+npm run build        # build web assets (root: npm run desktop:build)
+npm run tauri        # Tauri CLI: dev/ build/ package the native shell (root: npm run desktop:tauri)
 ```
 
-The desktop app is MSIX-packaged. For full sideload registration and smoke-test scripts, see `client-desktop/docs/README.md` and `client-desktop/scripts/startup-smoke.ps1`.
+The desktop UI under `desktop/` is **independent** from `frontend/` (separate React+TS codebase). It uses Tauri's native integrations (system media transport / SMTC, tray, global shortcuts, offline download) [UNVERIFIED: exact capabilities pending `desktop/` source].
 
 ## API Contract (cross-cutting)
 
-Every endpoint returns `{ success: boolean, data?: T, error?: string }`. Desktop `ApiEnvelope<T>` in `client-desktop/src/HoYoMusic.Desktop.Core/Contracts/ApiEnvelope.cs` and frontend `api.ts` both parse this shape. New endpoints must preserve it.
+Every endpoint returns `{ success: boolean, data?: T, error?: string }`. Frontend `api.ts` parses this shape; the desktop client (`desktop/`) must parse the same envelope. New endpoints must preserve it.
 
 Auth is split into two lanes:
 - **Admin APIs:** `Authorization: Bearer <JWT>` (passport-jwt, `authenticateJWT` middleware)
 - **Stream/download APIs:** `authenticateStream` middleware (separate token semantics)
 
-Frontend `api.ts` auto-injects `x-visitor-id`, Bearer token, and `Cache-Control: no-cache` for authenticated GETs. Desktop `AuthService` uses `WindowsCredentialTokenStore` (Windows PasswordVault) — never store tokens in plaintext.
+Frontend `api.ts` auto-injects `x-visitor-id`, Bearer token, and `Cache-Control: no-cache` for authenticated GETs. Desktop should store its token securely via the OS keystore (Tauri/credential APIs) — never store tokens in plaintext.
 
 ## Backend Architecture Notes
 
@@ -68,16 +70,18 @@ Frontend `api.ts` auto-injects `x-visitor-id`, Bearer token, and `Cache-Control:
 - **Maintenance mode:** `backend/src/middleware/maintenanceMode.ts` guards all `/api` routes; admin users can be exempted.
 - **No backend tests:** `npm test` is a placeholder that exits 1. Validate backend changes with `npm run build` (type-check) instead.
 
-## Desktop Client (WinUI 3) Architecture
+## Desktop Client (Tauri v2) Architecture
 
-Four-project solution under `client-desktop/`:
+Tauri v2 application under `desktop/` (Rust shell + React/TS UI). It is a **distinct UI** from `frontend/` — a separate React+TS codebase with no shared components.
 
-- **HoYoMusic.Desktop.App** — WinUI 3 UI layer. `MainWindow` with sidebar navigation, content area (`HoYoMainContent`), and player bar (`HoYoPlayerBar`). ViewModels in `ViewModels/MainViewModel.*.cs` (split across partial class files by feature domain: Navigation, Discover, Library, Player, Admin, Settings, etc.).
-- **HoYoMusic.Desktop.Core** — Interfaces (`Core/Abstractions/I*Service.cs`), DTOs (`Core/Models/`), and contracts (`ApiEnvelope`, `ApiException`). No external dependencies except .NET.
-- **HoYoMusic.Desktop.Infrastructure** — HTTP service implementations + credential storage. `ServiceCollectionExtensions.AddHoYoMusicInfrastructure()` wires all services via `IHttpClientFactory`. `ApiConstants.ResolveBaseUri()` reads `HOYOMUSIC_API_BASE_URL` env var, falls back to `https://music.hoyodb.com/api/`.
-- **HoYoMusic.Desktop.Tests** — xUnit tests covering service behaviors, queue rules, API envelope parsing, and play-report logic.
-
-MVVM pattern: `CommunityToolkit.Mvvm` for `[ObservableProperty]`, `[RelayCommand]`. Desktop `AGENTS.md` at `client-desktop/src/HoYoMusic.Desktop.App/AGENTS.md` has detailed WinUI 3 conventions (x:Bind, platform detection, MSIX registration, troubleshooting build errors).
+- **Layout:** `desktop/src/` is the React app (`App.tsx`, `router.tsx`, `pages/`, `components/`, `store/`, `lib/`, `generated/` for OpenAPI types); `desktop/src-tauri/` is the Rust shell (`Cargo.toml`, `src/lib.rs`, `src/commands.rs`, `src/main.rs`, `tauri.conf.json`, `capabilities/`).
+- **Root scripts:** `npm run desktop:dev` (Vite dev, proxies backend `:3000`), `npm run desktop:build`, `npm run desktop:tauri`.
+- **Native integrations** (`desktop/src-tauri/src/commands.rs`, source-verified):
+  - Global shortcuts — confirmed via `tauri-plugin-global-shortcut` (`register_shortcut`).
+  - System tray show/hide (`show_tray` / `hide_to_tray`) — [UNVERIFIED: actual creation of a tray at runtime not confirmed in this pass].
+  - Media transport (SMTC) — **stubbed**: an event channel (`media-metadata`, `media-action`, `global-shortcut`) is wired, but real OS hookup (Windows SMTC / macOS MPRemoteCommandCenter / Linux MPRIS) is not yet implemented [UNVERIFIED].
+  - Offline download — a best-effort download command exists [UNVERIFIED: functional scope not verified].
+- Consumes the same REST envelope as web/mobile; store tokens via OS keystore, never plaintext.
 
 ## Backend Module Map
 
@@ -109,5 +113,4 @@ MVVM pattern: `CommunityToolkit.Mvvm` for `[ObservableProperty]`, `[RelayCommand
 - `README.md` — full project overview with module connection tables
 - `docs/specs/CREDITS_IMPORT_SPEC.md` — JSON format for bulk credits import
 - `docs/specs/MUSIC_SOURCE_IMPORT_SPEC.md` — structured music source import/export API spec
-- `client-desktop/docs/00_DOC_INDEX.md` — desktop docs entrypoint and reading order
-- `client-desktop/docs/KNOWN_ISSUES.md` / `client-desktop/docs/PHASE1_CONTRACT_MATRIX.md` — desktop known issues and API parity tracking
+- `desktop/README.md` — Tauri desktop client setup & scripts (the old `client-desktop/docs/*` are gone with the removed WinUI 3 client)

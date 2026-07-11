@@ -1,0 +1,8 @@
+# Tauri build artifacts
+/target
+
+# Tauri generated code (schemas, capabilities cache)
+/gen
+
+# Native build logs
+*.log

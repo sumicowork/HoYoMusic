@@ -102,6 +102,6 @@ Write-Host "📖 For detailed instructions, see SETUP_GUIDE.md" -ForegroundColor
 Write-Host ""
 Write-Host "Default credentials:" -ForegroundColor Yellow
 Write-Host "   Username: admin" -ForegroundColor Gray
-Write-Host "   Password: admin123" -ForegroundColor Gray
+Write-Host "   Password: 'changeme'（默认），或通过 ADMIN_PASSWORD 环境变量设置" -ForegroundColor Gray
 Write-Host ""
 

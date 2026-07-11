@@ -1,0 +1,29 @@
+[package]
+name = "hoyomusic-desktop"
+version = "0.1.0"
+description = "HoYoMusic desktop shell (Tauri v2)"
+authors = ["HoYoMusic"]
+edition = "2021"
+
+# The build target: a desktop GUI binary.
+[lib]
+name = "hoyomusic_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png", "image-ico"] }
+tauri-plugin-window-state = "2"
+tauri-plugin-global-shortcut = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+log = "0.4"
+reqwest = { version = "0.12", default-features = false, features = ["stream", "rustls-tls"] }
+futures-util = "0.3"
+
+[features]
+# This feature is used for production builds or when a dev server is not specified.
+custom-protocol = ["tauri/custom-protocol"]

@@ -154,6 +154,34 @@ const parseAndValidateRemoteCoverUrl = (input: string): URL | null => {
 // ── 封面图片代理（OSS 模式下中转，避免前端直连 OSS）─────────────────
 // GET /api/public/covers/proxy?path=<cover_path_or_url>&size=thumb
 // size=thumb → 缩略图（640x640），否则原图
+/**
+ * @openapi
+ * /public/covers/proxy:
+ *   get:
+ *     tags: [Public]
+ *     summary: 封面图片代理（支持缩略图）
+ *     parameters:
+ *       - in: query
+ *         name: path
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: size
+ *         schema: { type: string, enum: ['thumb', 'origin'] }
+ *     responses:
+ *       '200':
+ *         description: 封面图片
+ *       '400':
+ *         description: 参数错误或远程地址无效
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *       '404':
+ *         description: 封面不存在
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/covers/proxy', async (req: Request, res: Response) => {
   try {
     const coverPath = req.query.path as string;
@@ -318,6 +346,32 @@ router.get('/covers/proxy', async (req: Request, res: Response) => {
 // ──────────────────────────────────────────────────────────────────
 
 // ── Random Albums — 随机专辑推荐 ──────────────────────────────────
+/**
+ * @openapi
+ * /public/albums/random:
+ *   get:
+ *     tags: [Public]
+ *     summary: 随机专辑推荐
+ *     parameters:
+ *       - in: query
+ *         name: count
+ *         schema: { type: integer }
+ *     responses:
+ *       '200':
+ *         description: 随机专辑列表
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '500':
+ *         description: 服务器错误
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/albums/random', cacheControl(CACHE_TTL.SHORT, { staleWhileRevalidate: 120 }), async (req: Request, res: Response) => {
   try {
     const count = Math.min(parseInt(req.query.count as string) || 6, 20);
@@ -341,6 +395,32 @@ router.get('/albums/random', cacheControl(CACHE_TTL.SHORT, { staleWhileRevalidat
 });
 
 // ── Random Tracks — 随机曲目推荐 ─────────────────────────────────
+/**
+ * @openapi
+ * /public/tracks/random:
+ *   get:
+ *     tags: [Public]
+ *     summary: 随机曲目推荐
+ *     parameters:
+ *       - in: query
+ *         name: count
+ *         schema: { type: integer }
+ *     responses:
+ *       '200':
+ *         description: 随机曲目列表
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '500':
+ *         description: 服务器错误
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/tracks/random', cacheControl(CACHE_TTL.SHORT, { staleWhileRevalidate: 120 }), async (req: Request, res: Response) => {
   try {
     const count = Math.min(parseInt(req.query.count as string) || 10, 30);
@@ -367,14 +447,188 @@ router.get('/tracks/random', cacheControl(CACHE_TTL.SHORT, { staleWhileRevalidat
 });
 
 // Public routes - 无需认证
+/**
+ * @openapi
+ * /public/tracks:
+ *   get:
+ *     tags: [Public]
+ *     summary: 公开曲目搜索
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema: { type: string }
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: game_id
+ *         schema: { type: integer }
+ *     responses:
+ *       '200':
+ *         description: 搜索结果
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     tracks: { type: array, items: { $ref: '#/components/schemas/Track' } }
+ *                     pagination: { type: object }
+ *       '500':
+ *         description: 服务器错误
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/tracks', cacheControl(CACHE_TTL.MEDIUM, { staleWhileRevalidate: 300 }), getTracks);
+
+/**
+ * @openapi
+ * /public/tracks/{id}:
+ *   get:
+ *     tags: [Public]
+ *     summary: 获取公开曲目详情
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       '200':
+ *         description: 曲目详情
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { $ref: '#/components/schemas/Track' }
+ *       '404':
+ *         description: 曲目不存在
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/tracks/:id', cacheControl(CACHE_TTL.SHORT, { staleWhileRevalidate: 120 }), getTrackById);
+
+/**
+ * @openapi
+ * /public/tracks/{trackId}/music-sources:
+ *   get:
+ *     tags: [Public]
+ *     summary: 获取曲目的音乐来源
+ *     parameters:
+ *       - in: path
+ *         name: trackId
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       '200':
+ *         description: 音乐来源列表
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: array, items: { type: object } }
+ */
 router.get('/tracks/:trackId/music-sources', cacheControl(CACHE_TTL.SHORT, { staleWhileRevalidate: 120 }), getTrackMusicSources);
+
+/**
+ * @openapi
+ * /public/tracks/{id}/stream:
+ *   get:
+ *     tags: [Public]
+ *     summary: 公开流式播放曲目
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       '200':
+ *         description: 音频流（二进制）
+ *       '404':
+ *         description: 曲目不存在
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/tracks/:id/stream', cacheControl(604800, { immutable: true }), streamTrack);
+
+/**
+ * @openapi
+ * /public/tracks/{id}/download:
+ *   get:
+ *     tags: [Public]
+ *     summary: 公开下载曲目
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       '200':
+ *         description: 音频文件（二进制）
+ *       '503':
+ *         description: 下载功能已关闭
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/tracks/:id/download', cacheControl(604800, { immutable: true }), DOWNLOAD_ENABLED ? downloadTrack : downloadDisabled);
 
 // Record play event and mark effective plays using threshold:
 // played >= max(10, min(30, duration * 0.5))
+/**
+ * @openapi
+ * /public/tracks/{id}/play:
+ *   post:
+ *     tags: [Public]
+ *     summary: 记录播放事件
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               played_seconds: { type: number }
+ *               track_duration_seconds: { type: number }
+ *               session_key: { type: string }
+ *     responses:
+ *       '200':
+ *         description: 记录结果
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '400':
+ *         description: 曲目 ID 无效
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *       '404':
+ *         description: 曲目不存在
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.post('/tracks/:id/play', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -465,6 +719,32 @@ router.post('/tracks/:id/play', async (req: Request, res: Response) => {
 });
 
 // Top played tracks
+/**
+ * @openapi
+ * /public/top-tracks:
+ *   get:
+ *     tags: [Public]
+ *     summary: 热门播放曲目排行
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer }
+ *     responses:
+ *       '200':
+ *         description: 热门曲目列表
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '500':
+ *         description: 服务器错误
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/top-tracks', cacheControl(CACHE_TTL.SHORT, { staleWhileRevalidate: 120 }), async (req: Request, res: Response) => {
   try {
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);

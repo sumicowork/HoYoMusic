@@ -36,6 +36,29 @@ async function resolveInsideRoot(targetPath = '.'): Promise<string> {
 
 router.use(authenticateDebug);
 
+/**
+ * @openapi
+ * /debug/health:
+ *   get:
+ *     tags: [Debug]
+ *     summary: 调试接口健康检查（默认关闭）
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       '200':
+ *         description: 调试 API 正常，返回数据库时间
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '500':
+ *         description: 健康检查失败
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/health', async (_req: Request, res: Response) => {
   try {
     const db = await pool.query('SELECT NOW() AS now');
@@ -55,6 +78,47 @@ router.get('/health', async (_req: Request, res: Response) => {
   }
 });
 
+/**
+ * @openapi
+ * /debug/db/query:
+ *   post:
+ *     tags: [Debug]
+ *     summary: 执行原始 SQL 查询（高危，默认关闭）
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               sql: { type: string }
+ *               params:
+ *                 type: array
+ *                 items: { type: string }
+ *               allowWrite: { type: boolean }
+ *             required: [sql]
+ *     responses:
+ *       '200':
+ *         description: SQL 执行结果
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '400':
+ *         description: SQL 执行错误
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *       '403':
+ *         description: 写操作被阻止（需 DEBUG_ALLOW_WRITE_SQL 与 allowWrite）
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.post('/db/query', validateBody(debugQuerySchema), async (req: Request, res: Response) => {
   const { sql, params = [], allowWrite = false } = req.body as z.infer<typeof debugQuerySchema>;
   const normalized = sql.trim().toLowerCase();
@@ -88,6 +152,33 @@ router.post('/db/query', validateBody(debugQuerySchema), async (req: Request, re
   }
 });
 
+/**
+ * @openapi
+ * /debug/fs/list:
+ *   get:
+ *     tags: [Debug]
+ *     summary: 列出调试根目录下的文件与子目录
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: targetPath
+ *         schema: { type: string }
+ *     responses:
+ *       '200':
+ *         description: 目录条目列表
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '400':
+ *         description: 路径越界或无效
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/fs/list', async (req: Request, res: Response) => {
   const parsed = listQuerySchema.safeParse(req.query);
   if (!parsed.success) {
@@ -116,6 +207,40 @@ router.get('/fs/list', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * @openapi
+ * /debug/fs/read:
+ *   get:
+ *     tags: [Debug]
+ *     summary: 以 base64 读取调试文件内容
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: targetPath
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: offset
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: length
+ *         schema: { type: integer }
+ *     responses:
+ *       '200':
+ *         description: 文件内容（base64 编码）
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { type: object }
+ *       '400':
+ *         description: 文件读取失败或路径不是文件
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/fs/read', async (req: Request, res: Response) => {
   const parsed = readQuerySchema.safeParse(req.query);
   if (!parsed.success) {

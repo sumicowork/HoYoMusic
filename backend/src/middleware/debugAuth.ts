@@ -12,12 +12,6 @@ const DEBUG_NONCE_TTL_MS = Math.max(60000, parseInt(process.env.DEBUG_NONCE_TTL_
 
 const usedNonceMap = new Map<string, number>();
 
-function getRealIp(req: Request): string {
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string') return fwd.split(',')[0].trim();
-  return (req.socket?.remoteAddress || '0.0.0.0').replace(/^::ffff:/, '');
-}
-
 function cleanupExpiredNonces(now: number): void {
   for (const [nonce, expiresAt] of usedNonceMap.entries()) {
     if (expiresAt <= now) usedNonceMap.delete(nonce);
