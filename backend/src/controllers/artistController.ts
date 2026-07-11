@@ -13,133 +13,65 @@ interface UpdateArtistBody {
   roleMappings?: ArtistRoleMapping[];
 }
 
-// Get all "artists" from track_credits (unique credit_value, with track count)
+// Get all artists (first-class entities in the `artists` table).
 export const getArtists = async (req: Request, res: Response) => {
   try {
-    await ensureRoleAliasTable();
     const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 100;
+    const limit = Math.min(parseInt(req.query.limit as string) || 100, 200);
     const offset = (page - 1) * limit;
     const search = (req.query.search as string || '').trim();
     const includeAliases = String(req.query.include_aliases || '').toLowerCase() === 'true';
 
-    // Admin view: include canonical names and alias rows (alias rows are annotated for UI display)
-    if (includeAliases) {
-      const params: any[] = [];
-      let whereSql = '';
-      if (search) {
-        params.push(`%${search}%`);
-        whereSql = `
-          WHERE LOWER(base.name) LIKE LOWER($1)
-             OR LOWER(COALESCE(base.canonical_name, '')) LIKE LOWER($1)
-        `;
-      }
+    // Per-artist aggregated stats, joined from track_credits.
+    const statsCte = `
+      stats AS (
+        SELECT tc.artist_id,
+               COUNT(DISTINCT tc.track_id)                 AS track_count,
+               COUNT(DISTINCT t.album_id)                  AS album_count,
+               array_agg(DISTINCT COALESCE(ara.canonical_role, tc.credit_key)) AS roles
+        FROM track_credits tc
+        LEFT JOIN tracks t ON tc.track_id = t.id
+        LEFT JOIN artist_role_aliases ara ON LOWER(tc.credit_key) = LOWER(ara.alias_role)
+        WHERE tc.artist_id IS NOT NULL
+        GROUP BY tc.artist_id
+      )`;
 
-      const countSql = `
-        WITH canonical_credits AS (
-          SELECT
-            COALESCE(aa.canonical_name, tc.credit_value) AS canonical_name,
-            tc.track_id,
-            COALESCE(ara.canonical_role, tc.credit_key) AS credit_key
-          FROM track_credits tc
-          LEFT JOIN artist_aliases aa ON LOWER(tc.credit_value) = LOWER(aa.alias_name)
-          LEFT JOIN artist_role_aliases ara ON LOWER(tc.credit_key) = LOWER(ara.alias_role)
-          WHERE tc.credit_value IS NOT NULL AND tc.credit_value <> ''
-        ),
-        canonical_stats AS (
-          SELECT
-            cc.canonical_name AS name,
-            COUNT(DISTINCT cc.track_id) AS track_count,
-            COUNT(DISTINCT t.album_id) AS album_count,
-            array_agg(DISTINCT cc.credit_key) AS roles
-          FROM canonical_credits cc
-          LEFT JOIN tracks t ON cc.track_id = t.id
-          GROUP BY cc.canonical_name
-        ),
-        base AS (
-          SELECT
-            cs.name,
-            cs.track_count,
-            cs.album_count,
-            cs.roles,
-            FALSE AS is_alias,
-            NULL::text AS canonical_name
-          FROM canonical_stats cs
+    // searchPattern: '%%' (empty search) matches everything.
+    const sp = `%${search}%`;
+    const searchCond = `(LOWER(a.name) LIKE LOWER($1)
+                        OR a.name IN (SELECT canonical_name FROM artist_aliases WHERE LOWER(alias_name) LIKE LOWER($1)))`;
+
+    // Admin view: include alias rows (annotated) alongside canonical artists.
+    if (includeAliases) {
+      const countSql = `WITH ${statsCte}
+        SELECT COUNT(*)::int AS total FROM (
+          SELECT a.name FROM artists a JOIN stats s ON s.artist_id = a.id
+          WHERE ${searchCond}
           UNION ALL
-          SELECT
-            aa.alias_name AS name,
-            cs.track_count,
-            cs.album_count,
-            cs.roles,
-            TRUE AS is_alias,
-            aa.canonical_name
-          FROM artist_aliases aa
-          JOIN canonical_stats cs ON LOWER(cs.name) = LOWER(aa.canonical_name)
-        )
-        SELECT COUNT(*)::int AS total
-        FROM base
-        ${whereSql}
-      `;
-      const countResult = await pool.query(countSql, params);
+          SELECT aa.alias_name FROM artist_aliases aa
+          JOIN artists a ON LOWER(a.name) = LOWER(aa.canonical_name)
+          JOIN stats s ON s.artist_id = a.id
+          WHERE LOWER(aa.alias_name) LIKE LOWER($1)
+        ) sub`;
+      const countResult = await pool.query(countSql, [sp]);
       const total = parseInt(countResult.rows[0].total, 10);
 
-      const listSql = `
-        WITH canonical_credits AS (
-          SELECT
-            COALESCE(aa.canonical_name, tc.credit_value) AS canonical_name,
-            tc.track_id,
-            COALESCE(ara.canonical_role, tc.credit_key) AS credit_key
-          FROM track_credits tc
-          LEFT JOIN artist_aliases aa ON LOWER(tc.credit_value) = LOWER(aa.alias_name)
-          LEFT JOIN artist_role_aliases ara ON LOWER(tc.credit_key) = LOWER(ara.alias_role)
-          WHERE tc.credit_value IS NOT NULL AND tc.credit_value <> ''
-        ),
-        canonical_stats AS (
-          SELECT
-            cc.canonical_name AS name,
-            COUNT(DISTINCT cc.track_id) AS track_count,
-            COUNT(DISTINCT t.album_id) AS album_count,
-            array_agg(DISTINCT cc.credit_key) AS roles
-          FROM canonical_credits cc
-          LEFT JOIN tracks t ON cc.track_id = t.id
-          GROUP BY cc.canonical_name
-        ),
-        base AS (
-          SELECT
-            cs.name,
-            cs.track_count,
-            cs.album_count,
-            cs.roles,
-            FALSE AS is_alias,
-            NULL::text AS canonical_name
-          FROM canonical_stats cs
+      const listSql = `WITH ${statsCte}
+        SELECT base.name, base.track_count, base.album_count, base.roles, base.is_alias, base.canonical_name
+        FROM (
+          SELECT a.name, s.track_count, s.album_count, s.roles, FALSE AS is_alias, NULL::text AS canonical_name
+          FROM artists a JOIN stats s ON s.artist_id = a.id
+          WHERE ${searchCond}
           UNION ALL
-          SELECT
-            aa.alias_name AS name,
-            cs.track_count,
-            cs.album_count,
-            cs.roles,
-            TRUE AS is_alias,
-            aa.canonical_name
+          SELECT aa.alias_name AS name, s.track_count, s.album_count, s.roles, TRUE AS is_alias, aa.canonical_name
           FROM artist_aliases aa
-          JOIN canonical_stats cs ON LOWER(cs.name) = LOWER(aa.canonical_name)
-        )
-        SELECT
-          base.name,
-          base.track_count,
-          base.album_count,
-          base.roles,
-          base.is_alias,
-          base.canonical_name
-        FROM base
-        ${whereSql}
-        ORDER BY
-          base.track_count DESC,
-          base.is_alias ASC,
-          base.name ASC
-        LIMIT $${params.length + 1} OFFSET $${params.length + 2}
-      `;
-      const listResult = await pool.query(listSql, [...params, limit, offset]);
+          JOIN artists a ON LOWER(a.name) = LOWER(aa.canonical_name)
+          JOIN stats s ON s.artist_id = a.id
+          WHERE LOWER(aa.alias_name) LIKE LOWER($1)
+        ) base
+        ORDER BY base.track_count DESC, base.is_alias ASC, base.name ASC
+        LIMIT $2 OFFSET $3`;
+      const listResult = await pool.query(listSql, [sp, limit, offset]);
 
       return res.json({
         success: true,
@@ -150,121 +82,39 @@ export const getArtists = async (req: Request, res: Response) => {
       });
     }
 
-    // Cache for non-search paginated results
+    // Public / default view: canonical artists only (fast, from artists table).
     const cacheKey = search ? null : `artists:p${page}:l${limit}`;
     if (cacheKey) {
       const cached = cache.get<any>(cacheKey);
       if (cached) return res.json(cached);
     }
 
-    // Use canonical_name (merged aliases -> main name) for listing and search.
-    // This ensures alias entries are not returned as separate artists.
-    if (search) {
-      const searchPattern = `%${search}%`;
+    const whereSql = search ? `WHERE ${searchCond}` : 'WHERE TRUE';
+    // Placeholders for LIMIT/OFFSET differ by branch:
+    //   search  -> $1 = LIKE pattern, $2 = limit, $3 = offset
+    //   no-search -> $1 = limit, $2 = offset
+    const lp = search ? '$2' : '$1';
+    const op = search ? '$3' : '$2';
+    const countResult = await pool.query(
+      `WITH ${statsCte} SELECT COUNT(*)::int AS total FROM artists a JOIN stats s ON s.artist_id = a.id ${whereSql}`,
+      search ? [sp] : []
+    );
+    const total = parseInt(countResult.rows[0].total, 10);
 
-      const countResult = await pool.query(
-        `WITH canonical_credits AS (
-           SELECT COALESCE(aa.canonical_name, tc.credit_value) AS canonical_name
-           FROM track_credits tc
-           LEFT JOIN artist_aliases aa ON LOWER(tc.credit_value) = LOWER(aa.alias_name)
-           LEFT JOIN artist_role_aliases ara ON LOWER(tc.credit_key) = LOWER(ara.alias_role)
-           WHERE tc.credit_value IS NOT NULL AND tc.credit_value <> ''
-         ),
-         alias_matches AS (
-           SELECT DISTINCT canonical_name
-           FROM artist_aliases
-           WHERE LOWER(alias_name) LIKE LOWER($1)
-         )
-         SELECT COUNT(DISTINCT canonical_name)
-         FROM canonical_credits
-         WHERE LOWER(canonical_name) LIKE LOWER($1)
-            OR canonical_name IN (SELECT canonical_name FROM alias_matches)`,
-        [searchPattern]
-      );
-      const total = parseInt(countResult.rows[0].count);
-
-      const artistsResult = await pool.query(
-        `WITH canonical_credits AS (
-           SELECT
-             COALESCE(aa.canonical_name, tc.credit_value) AS canonical_name,
-             tc.track_id,
-             COALESCE(ara.canonical_role, tc.credit_key) AS credit_key
-           FROM track_credits tc
-           LEFT JOIN artist_aliases aa ON LOWER(tc.credit_value) = LOWER(aa.alias_name)
-           LEFT JOIN artist_role_aliases ara ON LOWER(tc.credit_key) = LOWER(ara.alias_role)
-           WHERE tc.credit_value IS NOT NULL AND tc.credit_value <> ''
-         ),
-         alias_matches AS (
-           SELECT DISTINCT canonical_name
-           FROM artist_aliases
-           WHERE LOWER(alias_name) LIKE LOWER($3)
-         )
-         SELECT
-           cc.canonical_name                        AS name,
-           COUNT(DISTINCT cc.track_id)              AS track_count,
-           COUNT(DISTINCT t.album_id)               AS album_count,
-           array_agg(DISTINCT cc.credit_key)        AS roles
-         FROM canonical_credits cc
-         LEFT JOIN tracks t ON cc.track_id = t.id
-         WHERE LOWER(cc.canonical_name) LIKE LOWER($3)
-            OR cc.canonical_name IN (SELECT canonical_name FROM alias_matches)
-         GROUP BY cc.canonical_name
-         ORDER BY COUNT(DISTINCT cc.track_id) DESC, cc.canonical_name ASC
-         LIMIT $1 OFFSET $2`,
-        [limit, offset, searchPattern]
-      );
-
-      return res.json({
-        success: true,
-        data: {
-          artists: artistsResult.rows,
-          pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-        },
-      });
-    }
-
-    // No search
-    const countResult = await pool.query(`
-      WITH canonical_credits AS (
-        SELECT COALESCE(aa.canonical_name, tc.credit_value) AS canonical_name
-        FROM track_credits tc
-        LEFT JOIN artist_aliases aa ON LOWER(tc.credit_value) = LOWER(aa.alias_name)
-        LEFT JOIN artist_role_aliases ara ON LOWER(tc.credit_key) = LOWER(ara.alias_role)
-        WHERE tc.credit_value IS NOT NULL AND tc.credit_value <> ''
-      )
-      SELECT COUNT(DISTINCT canonical_name)
-      FROM canonical_credits
-    `);
-    const total = parseInt(countResult.rows[0].count);
-
-    const artistsResult = await pool.query(
-      `WITH canonical_credits AS (
-         SELECT
-           COALESCE(aa.canonical_name, tc.credit_value) AS canonical_name,
-           tc.track_id,
-             COALESCE(ara.canonical_role, tc.credit_key) AS credit_key
-         FROM track_credits tc
-         LEFT JOIN artist_aliases aa ON LOWER(tc.credit_value) = LOWER(aa.alias_name)
-           LEFT JOIN artist_role_aliases ara ON LOWER(tc.credit_key) = LOWER(ara.alias_role)
-         WHERE tc.credit_value IS NOT NULL AND tc.credit_value <> ''
-       )
-       SELECT
-         cc.canonical_name                         AS name,
-         COUNT(DISTINCT cc.track_id)              AS track_count,
-         COUNT(DISTINCT t.album_id)               AS album_count,
-         array_agg(DISTINCT cc.credit_key)        AS roles
-       FROM canonical_credits cc
-       LEFT JOIN tracks t ON cc.track_id = t.id
-       GROUP BY cc.canonical_name
-       ORDER BY COUNT(DISTINCT cc.track_id) DESC, cc.canonical_name ASC
-       LIMIT $1 OFFSET $2`,
-      [limit, offset]
+    const listResult = await pool.query(
+      `WITH ${statsCte}
+       SELECT a.id, a.name, a.slug, a.avatar_path, s.track_count, s.album_count, s.roles
+       FROM artists a JOIN stats s ON s.artist_id = a.id
+       ${whereSql}
+       ORDER BY s.track_count DESC, a.name ASC
+       LIMIT ${lp} OFFSET ${op}`,
+      search ? [sp, limit, offset] : [limit, offset]
     );
 
     const response = {
       success: true,
       data: {
-        artists: artistsResult.rows,
+        artists: listResult.rows,
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       },
     };
@@ -282,122 +132,125 @@ export const getArtists = async (req: Request, res: Response) => {
   }
 };
 
-// Get "artist" detail: all tracks/albums where this person appears in credits
+// Get artist detail by numeric id OR name (canonical / alias).
 export const getArtistById = async (req: Request, res: Response) => {
   try {
-    await ensureRoleAliasTable();
-    const name = decodeURIComponent(String(req.params.id || ''));
+    const rawId = String(req.params.id || '').trim();
 
-    // Cache by artist name (lowercased)
-    const cacheKey = `artist:${name.toLowerCase()}`;
+    // Resolve the artist entity: numeric id, else name (canonical or alias).
+    let artistRow: any = null;
+    const numericId = parseInt(rawId, 10);
+    if (!isNaN(numericId)) {
+      const r = await pool.query('SELECT * FROM artists WHERE id = $1', [numericId]);
+      artistRow = r.rows[0];
+    }
+    if (!artistRow) {
+      const r = await pool.query(
+        `SELECT a.* FROM artists a
+         WHERE LOWER(a.name) = LOWER($1)
+         UNION
+         SELECT a.* FROM artists a
+         JOIN artist_aliases aa ON LOWER(aa.canonical_name) = LOWER(a.name)
+         WHERE LOWER(aa.alias_name) = LOWER($1)
+         LIMIT 1`,
+        [rawId]
+      );
+      artistRow = r.rows[0];
+    }
+    if (!artistRow) {
+      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Artist not found' } });
+    }
+    const artistId = artistRow.id;
+    const artistName = artistRow.name;
+
+    const cacheKey = `artist:${artistId}`;
     const cached = cache.get<any>(cacheKey);
     if (cached) return res.json(cached);
 
-    // Check if this name is an alias → resolve to canonical name
-    let resolvedName = name;
-    let aliasNames: string[] = [];
-    try {
-      const aliasCheck = await pool.query(
-        'SELECT canonical_name FROM artist_aliases WHERE LOWER(alias_name) = LOWER($1) LIMIT 1',
-        [name]
-      );
-      if (aliasCheck.rows.length > 0) resolvedName = aliasCheck.rows[0].canonical_name;
+    const [tracksResult, albumsResult, gamesResult, statsResult, aliasResult, avatarResult] = await Promise.all([
+      pool.query(
+        `SELECT t.*,
+                a.title       AS album_title,
+                a.cover_path  AS album_cover,
+                array_agg(DISTINCT COALESCE(ara.canonical_role, tc.credit_key)) AS roles,
+                COALESCE(
+                  (SELECT json_agg(json_build_object('id', ar.id, 'name', ar.name))
+                   FROM track_credits tcx
+                   JOIN artists ar ON ar.id = tcx.artist_id
+                   WHERE tcx.track_id = t.id AND tcx.artist_id IS DISTINCT FROM $1),
+                  '[]'::json
+                ) AS artists
+         FROM track_credits tc
+         JOIN tracks t ON tc.track_id = t.id
+         LEFT JOIN albums a ON t.album_id = a.id
+         LEFT JOIN artist_role_aliases ara ON LOWER(tc.credit_key) = LOWER(ara.alias_role)
+         WHERE tc.artist_id = $1
+         GROUP BY t.id, a.title, a.cover_path
+         ORDER BY t.created_at DESC`,
+        [artistId]
+      ),
+      pool.query(
+        `SELECT DISTINCT a.*, COUNT(DISTINCT t2.id) AS track_count
+         FROM track_credits tc
+         JOIN tracks t ON tc.track_id = t.id
+         JOIN albums a ON t.album_id = a.id
+         LEFT JOIN tracks t2 ON a.id = t2.album_id
+         WHERE tc.artist_id = $1
+         GROUP BY a.id
+         ORDER BY a.release_date DESC, a.title ASC`,
+        [artistId]
+      ),
+      pool.query(
+        `SELECT DISTINCT g.id, g.name, g.name_en, g.cover_path
+         FROM track_credits tc
+         JOIN tracks t ON tc.track_id = t.id
+         JOIN albums a ON t.album_id = a.id
+         JOIN games g ON a.game_id = g.id
+         WHERE tc.artist_id = $1
+         ORDER BY g.name`,
+        [artistId]
+      ),
+      pool.query(
+        `SELECT COUNT(DISTINCT tc.track_id) AS track_count,
+                COUNT(DISTINCT t.album_id)  AS album_count,
+                array_agg(DISTINCT COALESCE(ara.canonical_role, tc.credit_key)) AS roles
+         FROM track_credits tc
+         LEFT JOIN tracks t ON tc.track_id = t.id
+         LEFT JOIN artist_role_aliases ara ON LOWER(tc.credit_key) = LOWER(ara.alias_role)
+         WHERE tc.artist_id = $1`,
+        [artistId]
+      ),
+      pool.query(
+        `SELECT alias_name FROM artist_aliases WHERE LOWER(canonical_name) = LOWER($1)`,
+        [artistName]
+      ),
+      pool.query(
+        `SELECT avatar_path FROM artist_avatars WHERE LOWER(artist_name) = LOWER($1) LIMIT 1`,
+        [artistName]
+      ),
+    ]);
 
-      const aliasResult = await pool.query(
-        'SELECT alias_name FROM artist_aliases WHERE LOWER(canonical_name) = LOWER($1)',
-        [resolvedName]
-      );
-      aliasNames = aliasResult.rows.map((r: any) => r.alias_name);
-    } catch {
-      // artist_aliases table may not exist yet — degrade gracefully
-    }
-
-    const allNames = [resolvedName, ...aliasNames];
-
-    // Build parameterized query for all names
-    const nameParams = allNames.map((_, i) => `LOWER($${i + 1})`).join(', ');
-
-    // Tracks featuring this person in credits (match all names)
-    const tracksQuery = `
-      SELECT
-        t.*,
-        a.title  AS album_title,
-        a.cover_path AS album_cover,
-        array_agg(DISTINCT COALESCE(ara2.canonical_role, tc2.credit_key)) AS roles,
-        COALESCE(
-          (SELECT json_agg(json_build_object('id', NULL, 'name', sub.credit_value))
-           FROM (SELECT DISTINCT credit_value FROM track_credits WHERE track_id = t.id AND credit_value IS NOT NULL AND credit_value <> '') sub
-          ), '[]'::json
-        ) AS artists
-      FROM track_credits tc
-      JOIN tracks t         ON tc.track_id  = t.id
-      LEFT JOIN albums a    ON t.album_id   = a.id
-      LEFT JOIN track_credits tc2 ON tc2.track_id = t.id AND LOWER(tc2.credit_value) IN (${nameParams})
-      LEFT JOIN artist_role_aliases ara2 ON LOWER(tc2.credit_key) = LOWER(ara2.alias_role)
-      WHERE LOWER(tc.credit_value) IN (${nameParams})
-      GROUP BY t.id, a.title, a.cover_path
-      ORDER BY t.created_at DESC
-    `;
-    const tracksResult = await pool.query(tracksQuery, allNames);
-    const tracks = tracksResult.rows;
-
-    // Albums
-    const albumsQuery = `
-      SELECT DISTINCT
-        a.*,
-        COUNT(DISTINCT t2.id) AS track_count
-      FROM track_credits tc
-      JOIN tracks t   ON tc.track_id = t.id
-      JOIN albums a   ON t.album_id  = a.id
-      LEFT JOIN tracks t2 ON a.id = t2.album_id
-      WHERE LOWER(tc.credit_value) IN (${nameParams})
-      GROUP BY a.id
-      ORDER BY a.release_date DESC, a.title ASC
-    `;
-    const albumsResult = await pool.query(albumsQuery, allNames);
-
-    // Games (via albums)
-    const gamesQuery = `
-      SELECT DISTINCT g.id, g.name, g.name_en, g.cover_path
-      FROM track_credits tc
-      JOIN tracks t ON tc.track_id = t.id
-      JOIN albums a ON t.album_id = a.id
-      JOIN games g ON a.game_id = g.id
-      WHERE LOWER(tc.credit_value) IN (${nameParams})
-      ORDER BY g.name
-    `;
-    const gamesResult = await pool.query(gamesQuery, allNames);
-
-    // Summary stats + roles
-    const statsQuery = `
-      SELECT
-        COUNT(DISTINCT tc.track_id)       AS track_count,
-        COUNT(DISTINCT t.album_id)        AS album_count,
-        array_agg(DISTINCT COALESCE(ara.canonical_role, tc.credit_key)) AS roles
-      FROM track_credits tc
-      LEFT JOIN tracks t ON tc.track_id = t.id
-      LEFT JOIN artist_role_aliases ara ON LOWER(tc.credit_key) = LOWER(ara.alias_role)
-      WHERE LOWER(tc.credit_value) IN (${nameParams})
-    `;
-    const statsResult = await pool.query(statsQuery, allNames);
     const stats = statsResult.rows[0];
-
-    if (parseInt(stats.track_count) === 0) {
+    if (!stats || parseInt(stats.track_count) === 0) {
       return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Artist not found' } });
     }
+
+    const aliasNames = aliasResult.rows.map((r: any) => r.alias_name);
+    const avatarPath = avatarResult.rows[0]?.avatar_path ?? null;
 
     const response = {
       success: true,
       data: {
         artist: {
-          id: null,
-          name: resolvedName,
+          id: artistId,
+          name: artistName,
           track_count: stats.track_count,
           album_count: stats.album_count,
-          roles: stats.roles.filter(Boolean),
+          roles: (stats.roles || []).filter(Boolean),
           aliases: aliasNames,
+          avatar_path: avatarPath,
         },
-        tracks,
+        tracks: tracksResult.rows,
         albums: albumsResult.rows,
         games: gamesResult.rows,
       },

@@ -679,11 +679,15 @@ const runMigrations = async () => {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_feedback_messages_created_at ON feedback_messages (created_at DESC)`);
   } catch (e) { console.error('migration feedback_messages:', e); }
 
-  // 17. drop legacy artists/track_artists tables (data discarded)
+  // 17. drop the *legacy* track_artists join table only.
+  //     IMPORTANT: `artists` is now a REAL canonical table (created by migration
+  //     0002 + populated by scripts/backfillArtists.ts). It must NEVER be dropped
+  //     here — an earlier version of this step dropped `artists CASCADE` on every
+  //     boot, which silently wiped the creator entity table. Do not reintroduce
+  //     that drop without also removing the migration + backfill pipeline first.
   try {
     await pool.query(`DROP TABLE IF EXISTS track_artists CASCADE`);
-    await pool.query(`DROP TABLE IF EXISTS artists CASCADE`);
-  } catch (e) { console.error('migration drop_legacy_artists:', e); }
+  } catch (e) { console.error('migration drop_legacy_track_artists:', e); }
 };
 
 const startServer = async () => {

@@ -34,6 +34,36 @@ interface ExportQueryRow {
   display_order: number;
 }
 
+// Cache: lowercased person name -> artist id (canonical + alias names).
+// Lets the credits endpoint return a stable artist_id per person for jumps.
+let _nameToArtistId: Map<string, number> | null = null;
+let _nameToArtistIdAt = 0;
+async function getNameToArtistId(): Promise<Map<string, number>> {
+  const now = Date.now();
+  if (_nameToArtistId && now - _nameToArtistIdAt < 60_000) return _nameToArtistId;
+  const artists = await pool.query<{ id: number; name: string }>('SELECT id, name FROM artists');
+  const aliases = await pool.query<{ canonical_name: string; alias_name: string }>(
+    'SELECT canonical_name, alias_name FROM artist_aliases'
+  );
+  const byName = new Map<string, number>();
+  for (const a of artists.rows) byName.set(a.name.trim().toLowerCase(), a.id);
+  const map = new Map<string, number>(byName);
+  for (const al of aliases.rows) {
+    const cid = byName.get(al.canonical_name.trim().toLowerCase());
+    if (cid != null) map.set(al.alias_name.trim().toLowerCase(), cid);
+  }
+  _nameToArtistId = map;
+  _nameToArtistIdAt = now;
+  return map;
+}
+
+const parsePeople = (value: string): string[] =>
+  String(value || '')
+    .split(/\s*(?:\/|、|,|，|;|；|&|＆|\||｜|\+|＋)\s*/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+
 type ImportResultStatus = 'imported' | 'skipped' | 'not_found' | 'ambiguous' | 'error';
 
 interface ImportResultItem {
@@ -66,17 +96,26 @@ export const getCredits = async (req: Request, res: Response) => {
     const { id } = req.params;
 
     const result = await pool.query(
-      `SELECT id, credit_key, credit_value, display_order 
-       FROM track_credits 
-       WHERE track_id = $1 
+      `SELECT id, credit_key, credit_value, display_order, artist_id
+       FROM track_credits
+       WHERE track_id = $1
        ORDER BY display_order ASC, id ASC`,
       [id]
     );
 
+    const nameMap = await getNameToArtistId();
+    const credits = result.rows.map((c: any) => ({
+      ...c,
+      people: parsePeople(c.credit_value).map((name: string) => ({
+        name,
+        artist_id: nameMap.get(name.toLowerCase()) ?? null,
+      })),
+    }));
+
     res.json({
       success: true,
       data: {
-        credits: result.rows
+        credits
       }
     });
   } catch (error) {
