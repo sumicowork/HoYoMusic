@@ -115,10 +115,14 @@ const GameDetail: React.FC = () => {
   const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([]);
   const [selectedKeys, setSelectedKeys] = useState<React.Key[]>([]);
 
-  // 选中节点曲目
+  // 选中节点曲目（服务端分页）
+  const PAGE_SIZE = 50;
+  const [currentNodeId, setCurrentNodeId] = useState<number | null>(null);
   const [nodeTracks, setNodeTracks] = useState<Track[]>([]);
   const [nodePath, setNodePath] = useState<string[]>([]);
   const [nodeName, setNodeName] = useState<string>('');
+  const [nodeTotal, setNodeTotal] = useState(0);
+  const [nodePage, setNodePage] = useState(1);
   const [tracksLoading, setTracksLoading] = useState(false);
 
   const { treeData, parentMap, categoryOfNode } = useMemo(() => buildTreeData(tree), [tree]);
@@ -189,16 +193,20 @@ const GameDetail: React.FC = () => {
     loadNodeTracks(nodeId);
   };
 
-  const loadNodeTracks = async (nodeId: number) => {
+  const loadNodeTracks = async (nodeId: number, page = 1) => {
+    setCurrentNodeId(nodeId);
+    setNodePage(page);
     setTracksLoading(true);
     try {
-      const result = await musicSourceService.getNodeTracks(nodeId, 1, 100);
+      const result = await musicSourceService.getNodeTracks(nodeId, page, PAGE_SIZE);
       setNodeTracks(result.tracks);
       setNodePath(result.node.path);
       setNodeName(result.node.name);
+      setNodeTotal(result.pagination.total);
     } catch (e: any) {
       message.error(e?.message || '加载场景曲目失败');
       setNodeTracks([]);
+      setNodeTotal(0);
     } finally {
       setTracksLoading(false);
     }
@@ -228,10 +236,27 @@ const GameDetail: React.FC = () => {
     }
   };
 
-  const handlePlayAll = () => {
-    if (nodeTracks.length > 0) {
+  const handlePlayAll = async () => {
+    if (currentNodeId == null || nodeTotal === 0) return;
+    // 若曲目跨多页，拉全后再整队播放
+    if (nodeTotal <= nodeTracks.length) {
       setPlaylist(nodeTracks);
       play(nodeTracks[0]);
+      return;
+    }
+    try {
+      const totalPages = Math.ceil(nodeTotal / PAGE_SIZE);
+      const all: Track[] = [];
+      for (let p = 1; p <= totalPages; p++) {
+        const r = await musicSourceService.getNodeTracks(currentNodeId, p, PAGE_SIZE);
+        all.push(...r.tracks);
+      }
+      if (all.length > 0) {
+        setPlaylist(all);
+        play(all[0]);
+      }
+    } catch (e: any) {
+      message.error(e?.message || '播放全部失败');
     }
   };
 
@@ -434,13 +459,13 @@ const GameDetail: React.FC = () => {
                   <SoundOutlined />
                   <span style={{ fontWeight: 600 }}>{nodeName}</span>
                   <Text type="secondary" style={{ fontWeight: 400, fontSize: 13 }}>
-                    {nodeTracks.length} 首（含子场景）
+                    共 {nodeTotal} 首（含子场景）
                   </Text>
                 </Space>
               </div>
             }
             extra={
-              nodeTracks.length > 0 && (
+              nodeTotal > 0 && (
                 <Button type="primary" size="small" icon={<PlayCircleOutlined />} onClick={handlePlayAll}>
                   播放全部
                 </Button>
@@ -453,7 +478,18 @@ const GameDetail: React.FC = () => {
               loading={tracksLoading}
               columns={trackColumns}
               dataSource={nodeTracks}
-              pagination={nodeTracks.length > 20 ? { pageSize: 20, size: 'small' } : false}
+              pagination={
+                nodeTotal > PAGE_SIZE
+                  ? {
+                      current: nodePage,
+                      pageSize: PAGE_SIZE,
+                      total: nodeTotal,
+                      size: 'small',
+                      showSizeChanger: false,
+                      onChange: (p) => currentNodeId != null && loadNodeTracks(currentNodeId, p),
+                    }
+                  : false
+              }
               locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="此场景暂无直接关联的曲目" /> }}
             />
           </Card>
