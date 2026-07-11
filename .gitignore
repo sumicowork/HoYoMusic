@@ -16,6 +16,10 @@ build/
 # Uploads (music files)
 backend/uploads/
 
+# Database dumps / backups (local only, data snapshots not source)
+db/backups/
+*.dump
+
 # Logs
 *.log
 npm-debug.log*
