@@ -666,7 +666,7 @@ const Admin: React.FC = () => {
                         <div>
                           <Typography.Text strong>{getTitleCn(track)}</Typography.Text>
                           {getTitleEn(track) && <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{getTitleEn(track)}</div>}
-                          <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{track.artists?.map((artist) => artist.name).join(' / ') || '未知艺术家'}</div>
+                          <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{track.artists?.map((artist) => artist.name).join(' / ') || '未知创作者'}</div>
                           <Space size={6} wrap style={{ marginTop: 6 }}>
                             <Tag>{getAlbumTitleCn(track) || '未分配专辑'}</Tag>
                             <Tag>{formatDuration(track.duration ?? null)}</Tag>
@@ -854,9 +854,9 @@ const Admin: React.FC = () => {
             { title: '曲名', dataIndex: 'display_title', key: 'display_title', width: 240 },
             { title: '重复数量', dataIndex: 'duplicate_count', key: 'duplicate_count', width: 100 },
             {
-              title: '曲目ID/艺术家',
+              title: '曲目ID/创作者',
               key: 'tracks',
-              render: (_, row) => row.tracks.map((t) => `#${t.id} ${t.artists.join('/') || '未知艺术家'}`).join(' | '),
+              render: (_, row) => row.tracks.map((t) => `#${t.id} ${t.artists.join('/') || '未知创作者'}`).join(' | '),
             },
           ]}
         />

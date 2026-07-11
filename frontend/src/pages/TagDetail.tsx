@@ -107,7 +107,7 @@ const TagDetail: React.FC = () => {
       render: (title: string, record: any) => <Link to={`/track/${record.id}`}><strong>{title}</strong></Link>,
     },
     {
-      title: '艺术家',
+      title: '创作者',
       dataIndex: 'artist_name',
       key: 'artist_name',
       width: 200,
@@ -172,7 +172,7 @@ const TagDetail: React.FC = () => {
           <div className="tag-mobile-track-item">
             <div className="tag-mobile-track-main">
               <Link className="tag-mobile-track-title" to={`/track/${record.id}`}><strong>{record.title}</strong></Link>
-              <Text type="secondary">{record.artist_name || '未知艺术家'} · {record.album_title || '未分配专辑'}</Text>
+              <Text type="secondary">{record.artist_name || '未知创作者'} · {record.album_title || '未分配专辑'}</Text>
               <AntTag>{formatDuration(record.duration || 0)}</AntTag>
             </div>
             <Space size={6} wrap>

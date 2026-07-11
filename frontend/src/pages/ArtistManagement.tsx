@@ -118,7 +118,7 @@ const ArtistManagement: React.FC = () => {
         }));
       }
     } catch (error: any) {
-      message.error(error.message || '获取艺术家列表失败');
+      message.error(error.message || '获取创作者列表失败');
     } finally {
       setLoading(false);
     }
@@ -192,7 +192,7 @@ const ArtistManagement: React.FC = () => {
 
     const aliasNames = selectedArtistNames.filter((name) => name !== canonicalName.trim());
     if (aliasNames.length === 0) {
-      message.warning('请至少选择一个不同于主名称的艺术家作为别名');
+      message.warning('请至少选择一个不同于主名称的创作者作为别名');
       return;
     }
 
@@ -297,7 +297,7 @@ const ArtistManagement: React.FC = () => {
         roleMappings,
       });
       if (response.data.success) {
-        message.success(response.data.data?.message || '艺术家信息已更新');
+        message.success(response.data.data?.message || '创作者信息已更新');
         setEditModalVisible(false);
         setEditingArtist(null);
         setEditName('');
@@ -353,7 +353,7 @@ const ArtistManagement: React.FC = () => {
       },
     },
     {
-      title: '艺术家',
+      title: '创作者',
       dataIndex: 'name',
       key: 'name',
       ellipsis: true,
@@ -449,7 +449,7 @@ const ArtistManagement: React.FC = () => {
   const headerActions = (
     <AdminActionBar>
       <Input.Search
-        placeholder="搜索艺术家..."
+        placeholder="搜索创作者..."
         allowClear
         style={{ width: isMobile ? '100%' : 240 }}
         value={searchText}
@@ -491,11 +491,11 @@ const ArtistManagement: React.FC = () => {
   return (
     <AdminLayout>
       <AdminPageHeader
-        title="艺术家管理"
-        description="统一维护艺术家主名称、别名、角色映射与头像。"
+        title="创作者管理"
+        description="统一维护创作者主名称、别名、角色映射与头像。"
         actions={headerActions}
       />
-      <Card title="艺术家列表">
+      <Card title="创作者列表">
         {isMobile ? (
           <List
             loading={loading}
@@ -566,7 +566,7 @@ const ArtistManagement: React.FC = () => {
               ...pagination,
               showSizeChanger: true,
               pageSizeOptions: ['20', '50', '100'],
-              showTotal: (total) => `共 ${total} 位艺术家`,
+              showTotal: (total) => `共 ${total} 位创作者`,
             }}
             onChange={(nextPagination) => {
               const nextSize = nextPagination.pageSize || pagination.pageSize;
@@ -586,14 +586,14 @@ const ArtistManagement: React.FC = () => {
       >
         <Space direction="vertical" style={{ width: '100%' }}>
           <Button type="primary" icon={<EditOutlined />} onClick={() => mobileActionArtist && openEditModal(mobileActionArtist)}>
-            修改艺术家
+            修改创作者
           </Button>
           <Button onClick={() => setMobileActionArtist(null)}>关闭</Button>
         </Space>
       </Drawer>
 
       <Modal
-        title="合并艺术家（别名）"
+        title="合并创作者（别名）"
         open={mergeModalVisible}
         onOk={handleMerge}
         onCancel={() => { setMergeModalVisible(false); setCanonicalName(''); }}
@@ -602,7 +602,7 @@ const ArtistManagement: React.FC = () => {
         width={500}
       >
         <div style={{ marginBottom: 16 }}>
-          <p>已选择 <strong>{selectedArtistNames.length}</strong> 个艺术家，请选择主名称。</p>
+          <p>已选择 <strong>{selectedArtistNames.length}</strong> 个创作者，请选择主名称。</p>
         </div>
         <Select style={{ width: '100%' }} value={canonicalName} onChange={setCanonicalName}>
           {selectedArtistNames.map((name) => (
@@ -612,7 +612,7 @@ const ArtistManagement: React.FC = () => {
       </Modal>
 
       <Modal
-        title="艺术家别名列表"
+        title="创作者别名列表"
         open={aliasesModalVisible}
         onCancel={() => setAliasesModalVisible(false)}
         footer={null}
@@ -644,7 +644,7 @@ const ArtistManagement: React.FC = () => {
       </Modal>
 
       <Modal
-        title={editingArtist ? `修改艺术家：${editingArtist.name}` : '修改艺术家'}
+        title={editingArtist ? `修改创作者：${editingArtist.name}` : '修改创作者'}
         open={editModalVisible}
         onOk={handleSaveArtistEdit}
         onCancel={() => {

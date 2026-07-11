@@ -4,7 +4,6 @@ import { Badge, Button, Drawer, List, Space, Typography, message } from 'antd';
 import {
   HomeOutlined,
   SearchOutlined,
-  UnorderedListOutlined,
   AppstoreOutlined,
   UserOutlined,
   TagsOutlined,
@@ -83,7 +82,6 @@ const PageHeader: React.FC<PageHeaderProps> = ({ extra, onFeedbackClick }) => {
   const navItems: NavItem[] = [
     { key: 'home', icon: <HomeOutlined />, label: '主页', path: '/' },
     { key: 'search', icon: <SearchOutlined />, label: '搜索', path: '/search' },
-    { key: 'library', icon: <UnorderedListOutlined />, label: '曲库', path: '/library' },
     { key: 'albums', icon: <AppstoreOutlined />, label: '专辑', path: '/albums' },
     { key: 'artists', icon: <UserOutlined />, label: '创作者', path: '/artists' },
     { key: 'tags', icon: <TagsOutlined />, label: '标签', path: '/tags' },

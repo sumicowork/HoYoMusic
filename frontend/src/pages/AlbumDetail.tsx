@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button, Collapse, Image, Skeleton, Tag, Tooltip, message } from 'antd';
-import { ArrowLeftOutlined, DownloadOutlined, MoreOutlined, PlayCircleOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, DownloadOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import { Track } from '../types';
 import { trackService, DOWNLOAD_ENABLED } from '../services/trackService';
 import { albumService } from '../services/albumService';
@@ -176,12 +176,6 @@ const AlbumDetail: React.FC = () => {
                   className="h-11 w-11 !text-[color:var(--text-secondary)] hover:!text-[color:var(--text-primary)]"
                 />
               </Tooltip>
-              <Button
-                type="text"
-                shape="circle"
-                icon={<MoreOutlined />}
-                className="h-11 w-11 !text-[color:var(--text-secondary)] hover:!text-[color:var(--text-primary)]"
-              />
             </div>
           </div>
         );

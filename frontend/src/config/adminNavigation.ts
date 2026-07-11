@@ -23,7 +23,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { path: '/admin/albums', label: '专辑管理', sectionKey: 'content' },
   { path: '/admin/music-sources/library', label: 'Music Source 库', sectionKey: 'content' },
 
-  { path: '/admin/artists', label: '艺术家管理', sectionKey: 'taxonomy' },
+  { path: '/admin/artists', label: '创作者管理', sectionKey: 'taxonomy' },
   { path: '/admin/tags', label: '标签管理', sectionKey: 'taxonomy' },
   { path: '/admin/games', label: '游戏管理', sectionKey: 'taxonomy' },
 

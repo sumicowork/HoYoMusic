@@ -439,7 +439,7 @@ const TrackNotesImportModal: React.FC<TrackNotesImportModalProps> = ({ visible, 
           description={(
             <>
               <Text strong>匹配规则：优先 歌曲名 + 歌曲编号 唯一匹配</Text>
-              <div>未唯一命中时，可在下拉框输入关键词搜索全库曲目（标题/专辑/艺术家/ID/编号）后手动选择；备注写入内容为 location 字段，按每行一条拼接。</div>
+              <div>未唯一命中时，可在下拉框输入关键词搜索全库曲目（标题/专辑/创作者/ID/编号）后手动选择；备注写入内容为 location 字段，按每行一条拼接。</div>
             </>
           )}
         />

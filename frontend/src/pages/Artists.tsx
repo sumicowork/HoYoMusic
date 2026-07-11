@@ -35,7 +35,7 @@ const Artists: React.FC = () => {
         setArtists(response.data.data.artists);
       }
     } catch (error: any) {
-      message.error('加载艺术家列表失败');
+      message.error('加载创作者列表失败');
     } finally {
       setLoading(false);
     }

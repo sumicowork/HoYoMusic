@@ -151,7 +151,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
           const detailRows = duplicates.slice(0, 8).map((dup) => {
             const firstExisting = dup.existing_tracks?.[0];
             const albumText = firstExisting?.album_title || '未分类专辑';
-            const artistText = firstExisting?.artists?.join(' / ') || '未知艺术家';
+            const artistText = firstExisting?.artists?.join(' / ') || '未知创作者';
             return (
               <div key={`${dup.index}-${dup.file}`} style={{ marginBottom: 6 }}>
                 <Text strong>{dup.file}</Text>

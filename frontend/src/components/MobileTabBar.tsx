@@ -3,12 +3,14 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import {
   HomeOutlined,
   SearchOutlined,
-  UnorderedListOutlined,
   AppstoreOutlined,
   UserOutlined,
+  IdcardOutlined,
   MessageOutlined,
 } from '@ant-design/icons';
 import { usePlayerStore } from '../store/playerStore';
+import { useAuthStore } from '../store/authStore';
+import { useAuthModalStore } from '../store/authModalStore';
 import './MobileTabBar.css';
 
 interface TabItem {
@@ -27,14 +29,24 @@ const MobileTabBar: React.FC<MobileTabBarProps> = ({ onFeedbackClick }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { currentTrack } = usePlayerStore();
+  const { isAuthenticated } = useAuthStore();
+  const { openLogin } = useAuthModalStore();
+
+  const goToMe = () => {
+    if (isAuthenticated) {
+      navigate('/me');
+      return;
+    }
+    openLogin(`${location.pathname}${location.search}${location.hash}`);
+  };
 
   const tabs: TabItem[] = [
     { key: 'home', icon: <HomeOutlined />, label: '主页', path: '/' },
     { key: 'search', icon: <SearchOutlined />, label: '搜索', path: '/search' },
-    { key: 'library', icon: <UnorderedListOutlined />, label: '曲库', path: '/library' },
     { key: 'albums', icon: <AppstoreOutlined />, label: '专辑', path: '/albums' },
-    { key: 'feedback', icon: <MessageOutlined />, label: '反馈', onClick: onFeedbackClick },
     { key: 'artists', icon: <UserOutlined />, label: '创作者', path: '/artists' },
+    { key: 'me', icon: <IdcardOutlined />, label: '我的', onClick: goToMe },
+    { key: 'feedback', icon: <MessageOutlined />, label: '反馈', onClick: onFeedbackClick },
   ];
 
   return (
