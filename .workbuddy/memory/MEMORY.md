@@ -22,13 +22,18 @@
 - ⚠️ 当前前端页面是按"播放器"套路搭的，**没把"场景定位"和"创作者"当一等公民**（游戏页甩专辑网格不用场景树、歌曲页不把"在哪播"做成可点跳转、创作者靠字符串推导不可点）。这是页面分级/跳转"怪"的根因。
 - 用户要求：**先定目的，再以目的为尺子评估每个页面该不该存在、该干什么**——不要以"页面好不好看"或"像不像传统音乐平台"为标准。
 - **目的细节已确认（2026-07-11 用户答四问）**：① 场景定位=**一等导航维度**（按游戏场景/任务树浏览音乐）；② 创作者=**目的本身**，需独立可逛页（按角色筛选列表+详情）；③ 核心用户=**HOYO-MiX 粉丝**，来不只是听歌、更要了解每首曲子的丰富信息（在哪播/谁做的/类型风格语言）；④ 四柱：游戏=**主入口**(场景树天然按游戏分，是独特浏览的根；用户自认不太确定，我判断正确)、创作者=**一等公民**(新增独立入口)、标签=**描述性分面**(类型/风格/是否人声/语言, 可点筛选, 非死chip)、曲库=用户质疑是否必要→**建议降级/合并进搜索**(无查询态=全部曲目+分面)。**核心逻辑：曲子(Track)是所有入口的终点；歌曲详情页是信息最丰富页(听+在哪播[场景面包屑可点]+完整credits+标签+所属专辑)。**
-- **两个依赖(已向用户说明)**：① 创作者要可点跳转需先有 `artists` 实体(归一 track_credits 自由字符串)——此前 P0 DB 改造；纯前端可先做"按名字聚合只读页"顶着。② 标签用户想要的"类型/风格/语言"目前库里没有(`tags` 表仅 BPM 97+人声类型 3)→维度很薄，需后续补打标签数据或先用现有。
+- **两个依赖**：① 创作者实体 **已解决（2026-07-11 阶段三-②）**：`artists` 表经迁移 0002 建成（1105 位创作者，`track_credits.artist_id` 外键），`getArtists`/`getArtistById`/`getCredits` 都已改用实体，前端按数字 id 跳转闭环。② 标签用户想要的"类型/风格/语言"目前库里没有(`tags` 表仅 BPM 97+人声类型 3)→维度很薄，**阶段三-③ 仍未做**，需后续补打标签数据或先用现有。
 - 2026-07-11 用户明确：前端/桌面端 IA 混乱的修复，**先只做前端精细 UI/UX 优化，桌面端暂搁置**（桌面端已完成能跑的基线，路线 A Tauri 已定）。
 
 ## 当前验证状态（2026-07-11）
 四端全部绿：backend tsc✓ vitest 34✓ · frontend tsc✓ vitest 19✓ · desktop tsc✓ vitest 37✓ · Rust cargo check✓ · **`tauri build` 产出 `hoyomusic-desktop.exe`**（release 包成功）· **`tauri dev` 已实机弹出原生窗口并连真实曲库**（2026-07-11 用户要求"提交并运行看 UI"，已提交 `330484c` 并启动成功）。
 - 桌面真集成：全局快捷键 + 托盘 + 真实流式下载（reqwest）已实现；SMTC 系统媒体键仍为 stub（需 windows crate，GUI 外无法验证，暂缓）。
 - 后端 swagger 注解补全（路径 148），契约测试在 `backend/tests/`。
+
+## ⚠️ 后端启动自动迁移 runMigrations 雷区（已踩，必记）
+- `backend/src/index.ts` 的 `runMigrations()` 在**每次后端启动**重放一堆 `CREATE TABLE IF NOT EXISTS` / `ALTER TABLE ADD COLUMN` / `UPDATE`（含 tracks/albums uuid、title_cn 回填等），是反复"动结构"的元凶之一。改表结构请走正式迁移文件（`backend/db/migrations/`），**不要指望靠改这段代码持久化**。
+- 🔴 **最危险的坑（2026-07-11 阶段三-② 已踩并修复）**：原 `runMigrations` 第 17 步有 `DROP TABLE IF EXISTS artists CASCADE`，每次启动都把刚建好的 `artists` 创作者表清空（症状：启动后 `artists` 表=0 行，但 `track_credits.artist_id` 列仍在、存着 1105 个旧 id）。**该 DROP 已被去掉，步骤17 现在只 `DROP TABLE IF EXISTS track_artists`（真·遗留连接表）**。
+- **铁律**：未来任何会话**绝不可**在 `runMigrations()` 里重新加入 `DROP TABLE ... artists`，也不可加入会清掉 `artists`/`track_credits` 数据的语句。`artists` 现在是 canonical 一级表，其数据由 `scripts/backfillArtists.ts` 从 `track_credits` 回填生成（dev 库已回填 1105 创作者/26125 关联）。
 
 ## ⚠️ 运行桌面端的硬坑（已踩过，必记）
 - **`tauri` CLI 内部调用 `cargo`，但 Bash 工具默认 PATH 无 `~/.cargo/bin`**（`cargo check` 之前用绝对路径 `/c/Users/sumi/.cargo/bin/cargo` 跑的，没暴露此问题）。直接 `npm run tauri dev` 会报 `failed to run 'cargo metadata' ... program not found`。
