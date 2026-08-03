@@ -37,7 +37,7 @@ const GAME_DIR_MAP: Record<string, string> = {
   ToT: '未定事件簿',
 };
 
-function parseArgs(): { n: number; root: string; mock: boolean; maxTracks: number } {
+function parseArgs(): { n: number; root: string; mock: boolean; maxTracks: number; jobs: number } {
   const argv = process.argv.slice(2);
   const get = (k: string): string | undefined => {
     const i = argv.indexOf(k);
@@ -48,6 +48,7 @@ function parseArgs(): { n: number; root: string; mock: boolean; maxTracks: numbe
     root: get('--root') || 'D:/CreditDebug',
     mock: argv.includes('--mock'),
     maxTracks: Number(get('--max-tracks') || 100000),
+    jobs: Number(get('--jobs') || 4),
   };
 }
 
@@ -128,7 +129,8 @@ async function main() {
   const allTracks = await fetchTracks(client);
   console.log(`🎵 DB tracks: ${allTracks.length}`);
 
-  // 3. 逐首评估
+  // 3. 逐首评估（并发池，--jobs 控制并发数；累加器在单事件循环内原子安全）
+  const jobs = parseArgs().jobs;
   const results: any[] = [];
   let clsN = 0, clsCorrect = 0;
   const clsConfusion: Record<string, Record<string, number>> = {};
@@ -141,9 +143,9 @@ async function main() {
   const allNamePrecision: number[] = [];
   const allRoleMatch: number[] = [];
   const cleaningSamples: { file: string; original: string; cleaned: string }[] = [];
-
-  for (let i = 0; i < sampled.length; i++) {
-    const { file, game } = sampled[i];
+  let cursor = 0;
+  const evalOne = async (s: { file: string; game: string }, i: number) => {
+    const { file, game } = s;
     const base = path.basename(file);
     console.log(`[${i + 1}/${sampled.length}] ${game}/${base}`);
 
@@ -209,7 +211,17 @@ async function main() {
       console.error(`  ❌ 失败: ${err.message}`);
       results.push({ file: base, game, error: String(err?.message ?? err) });
     }
-  }
+  };
+
+  // 固定 worker 池，每 worker 循环取下一个任务
+  await Promise.all(
+    Array.from({ length: Math.min(jobs, sampled.length) }, async () => {
+      while (cursor < sampled.length) {
+        const idx = cursor++;
+        await evalOne(sampled[idx], idx);
+      }
+    }),
+  );
 
   // 4. 汇总
   const avg = (arr: number[]) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0);
