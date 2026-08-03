@@ -48,7 +48,7 @@ function parseArgs(): { n: number; root: string; mock: boolean; maxTracks: numbe
     root: get('--root') || 'D:/CreditDebug',
     mock: argv.includes('--mock'),
     maxTracks: Number(get('--max-tracks') || 100000),
-    jobs: Number(get('--jobs') || 20),
+    jobs: Number(get('--jobs') || 50),
   };
 }
 
