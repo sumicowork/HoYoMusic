@@ -83,7 +83,9 @@ const CLASSIFY_SYSTEM_PROMPT = `你是米哈游（HoYoVerse）游戏音乐 LRC �
 
 - kind=instrumental 时 clean_lyrics 为 null
 - clean_lyrics 仅含真实歌词行，保留 [mm:ss.xx] 时间戳，去掉所有 credit 行和元数据行
-- credits 数组：LRC 中出现的所有「角色：人名」行，role 用 LRC 原文（不翻译不臆造），names 拆成个人（顿号/逗号/斜杠分隔，但保留括号内署名如 "(HOYO-MiX)"）
+- credits 数组：LRC 中出现的所有「角色：人名」行（含 "角色 by 人名" 变体，如 "Music by HOYO-MiX"），role 用 LRC 原文（不翻译不臆造），names 拆成个人（顿号/逗号/斜杠分隔，但保留括号内署名如 "(HOYO-MiX)"）
+- 人名若含 @ 符号（如 "焦磊 Ricky.J@Soundhub Studios"），删除 @ 及其之后的内容，仅保留 @ 前的人名
+- 名字是纯团队/企划/项目名也保留，不要因"不像人名"而跳过
 - 无法判断时 kind=unknown，confidence 给低分`;
 
 // ── 系统提示词（仅抽取创作者，评估用）────────────────────────────
@@ -91,8 +93,11 @@ const EXTRACT_SYSTEM_PROMPT = `你是米哈游（HoYoVerse）游戏音乐 LRC �
 
 规则：
 - 提取所有「角色：人名」格式的行（作曲/作词/编曲/演唱/乐器/录音/混音/母带/出品等）
+- 兼容变体格式：「角色 by 人名」（如 "Music by HOYO-MiX"），此时 role 取 by 前的词（如 "Music"），name 取 by 后的内容
 - role 必须使用 LRC 原文（如 "作曲 Composer"），不翻译、不改写、不臆造
 - names 拆分为个人：用顿号、逗号、斜杠（/、/）或「feat.」「&」「and」分隔；人名内的括号署名（如 "车子玉 Ziyu Che (HOYO-MiX)"）必须保留在名字内
+- 人名若含 @ 符号（如 "焦磊 Ricky.J@Soundhub Studios"），删除 @ 及其之后的内容，仅保留 @ 前的人名
+- 名字是纯团队/企划/项目名（如 "勇气碾碎末日交响"）也保留，不要因"不像人名"而跳过
 - 不要提取 [ti:]/[ar:]/[al:] 等元数据头，不要提取歌词行
 - 只输出 JSON，不要 markdown 代码块，不要任何解释文字
 
