@@ -253,6 +253,21 @@ async function main() {
       noneFiles: extNone,
     },
     cleaning: { vocalSamples: cleaningSamples.length },
+    confidence: (() => {
+      const confs = results.filter((r) => r.ai?.confidence != null).map((r) => r.ai.confidence);
+      const low = results.filter((r) => r.ai && r.ai.confidence < 0.8).map((r) => ({
+        file: r.file,
+        kind: r.ai.kind,
+        confidence: r.ai.confidence,
+      }));
+      return {
+        n: confs.length,
+        avg: confs.length ? confs.reduce((a, b) => a + b, 0) / confs.length : null,
+        lowCount: low.length,
+        lowThreshold: 0.8,
+        lowFiles: low,
+      };
+    })(),
   };
 
   const outDir = path.join(__dirname, 'out');
@@ -276,6 +291,8 @@ async function main() {
   console.log(`  角色(credit_key)匹配率 ${(e.roleMatchRateAvg * 100).toFixed(1)}%`);
   console.log(`  整首级别: 完全 ${e.perfect} | 部分 ${e.partial} | 未命中 ${e.none} | 无真值 ${e.noTruth}`);
   console.log(`\n【3. 歌词清洗】${summary.cleaning.vocalSamples} 个样本已附在报告中，请人工复核`);
+  console.log(`\n【4. 置信度】avg ${summary.confidence.avg ? (summary.confidence.avg * 100).toFixed(1) : '-'}% | 低置信度(<80%) ${summary.confidence.lowCount} 首:`);
+  for (const f of summary.confidence.lowFiles.slice(0, 10)) console.log(`    - ${f.file} (${f.kind}, ${(f.confidence * 100).toFixed(0)}%)`);
   console.log(`\n📄 报告: ${outFile}`);
   if (client) await client.end();
 }

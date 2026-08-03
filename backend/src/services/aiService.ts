@@ -81,7 +81,8 @@ const CLASSIFY_SYSTEM_PROMPT = `你是米哈游（HoYoVerse）游戏音乐 LRC �
 
 - kind=instrumental 时 clean_lyrics 为 null
 - clean_lyrics 仅含真实歌词行，保留 [mm:ss.xx] 时间戳，去掉所有 credit 行和元数据行
-- credits 数组：LRC 中出现的所有 credit 行（含录音棚等设施行、乐团名）；role 为「角色」部分原文（如 "作曲 Composer"，不翻译、不臆造、不改写）；names 为「人名」部分按明显分隔符拆分的个人列表，括号署名（如 "(HOYO-MiX)"）保留在名字内
+- credits 数组：LRC 中出现的所有 credit 行（含录音棚等设施行、乐团名）；role 为「角色」部分原文（如 "作曲 Composer"，不翻译、不臆造、不改写）；names 为「人名」部分按明确分隔符（顿号/逗号/斜杠）拆分的个人列表，括号署名（如 "(HOYO-MiX)"）保留在名字内
+- 空格不是人名分隔符："中文 拼音转写"（如 "车子玉 Ziyu Che"）视为同一人；仅当空格后是独立艺名/ID（非拼音，如 "张清 HaSu-P" 的 HaSu-P）才拆为不同人
 - 不提取版权/厂牌标识行：「Music by xxx」「出品 Produced by：xxx」等 by 格式行和出品行，不是创作者信息
 - 人名保持 LRC 原文原样，不做任何删改（包括 @ 等符号）
 - 无法判断时 kind=unknown，confidence 给低分`;
@@ -93,7 +94,8 @@ const EXTRACT_SYSTEM_PROMPT = `你是米哈游（HoYoVerse）游戏音乐 LRC �
 - 提取所有「角色：人名」格式的 credit 行：作曲/作词/编曲/演唱/乐器/录音师/录音棚/混音/母带/制作人等（含设施行如录音棚、乐团名）
 - 不提取版权/厂牌标识行：「Music by xxx」「出品 Produced by：xxx」等 by 格式行和出品行，不是创作者信息
 - role 为「角色」部分原文（如 "作曲 Composer"），不翻译、不臆造、不改写
-- names 为「人名」部分按明显分隔符拆分的个人列表，括号署名保留在名字内
+- names 为「人名」部分按明确分隔符（顿号/逗号/斜杠）拆分的个人列表，括号署名保留在名字内
+- 空格不是人名分隔符："中文 拼音转写"（如 "车子玉 Ziyu Che"）视为同一人；仅当空格后是独立艺名/ID（非拼音，如 "张清 HaSu-P" 的 HaSu-P）才拆为不同人
 - 人名保持 LRC 原文原样，不做任何删改（包括 @ 等符号）
 - 不要提取 [ti:]/[ar:]/[al:] 等元数据头，不要提取歌词行
 - 只输出 JSON，不要 markdown 代码块，不要任何解释文字
