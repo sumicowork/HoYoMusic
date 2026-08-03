@@ -50,6 +50,23 @@ const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 120000);
 
 export const isMockMode = (): boolean => !AI_API_KEY;
 
+/** 代理 dispatcher（Node fetch 不读 HTTP_PROXY 环境变量，需显式设置；生产直连时留空） */
+function getDispatcher(): unknown {
+  const proxy = process.env.AI_HTTP_PROXY || process.env.HTTPS_PROXY || '';
+  if (!proxy) return undefined;
+  try {
+    // 动态 require 避免 TS/undici 类型耦合
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { ProxyAgent } = require('undici') as { ProxyAgent: new (url: string) => unknown };
+    return new ProxyAgent(proxy);
+  } catch {
+    console.warn(`[aiService] 代理 ${proxy} 初始化失败，将直连`);
+    return undefined;
+  }
+}
+
+const dispatcher = getDispatcher();
+
 // ── 系统提示词（分类 + 清洗）──────────────────────────────────────
 const CLASSIFY_SYSTEM_PROMPT = `你是米哈游（HoYoVerse）游戏音乐 LRC 歌词分析专家。你的任务：判断一首 LRC 是 VOCAL（有真实人声歌词）还是 INSTRUMENTAL（纯器乐/纯创作者信息），并清洗歌词。
 
@@ -89,7 +106,7 @@ async function chat(messages: ChatMessage[]): Promise<string> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
   try {
-    const res = await fetch(`${AI_BASE_URL}/chat/completions`, {
+    const init: RequestInit = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -102,7 +119,11 @@ async function chat(messages: ChatMessage[]): Promise<string> {
         max_tokens: 8000,
       }),
       signal: controller.signal,
-    });
+    };
+    if (dispatcher) {
+      (init as Record<string, unknown>).dispatcher = dispatcher;
+    }
+    const res = await fetch(`${AI_BASE_URL}/chat/completions`, init);
     if (!res.ok) {
       const body = await res.text().catch(() => '');
       throw new Error(`AI API ${res.status}: ${body.slice(0, 300)}`);

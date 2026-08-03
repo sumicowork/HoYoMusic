@@ -152,8 +152,14 @@ async function main() {
       const encoding = detectEncoding(file);
       const track = matchTrackByFilename(base, allTracks);
 
-      // AI 分析
-      const analysis = useMock ? await analyzeLyricsMock(lrcText) : await analyzeLyrics(lrcText);
+      // AI 分析（失败重试 1 次，空内容/网络抖动常见）
+      let analysis;
+      try {
+        analysis = useMock ? await analyzeLyricsMock(lrcText) : await analyzeLyrics(lrcText);
+      } catch (err: any) {
+        console.warn(`  ⚠️ 首次失败(${err?.message ?? err})，重试 1 次`);
+        analysis = useMock ? await analyzeLyricsMock(lrcText) : await analyzeLyrics(lrcText);
+      }
       const aiCredits = analysis.credits;
 
       // 分类对比（真值 = DB lyrics_status）
