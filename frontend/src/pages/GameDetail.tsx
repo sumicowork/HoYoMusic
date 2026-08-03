@@ -19,6 +19,8 @@ import { trackService, DOWNLOAD_ENABLED } from '../services/trackService';
 import { usePlayerStore } from '../store/playerStore';
 import type { Track } from '../types';
 import { getCoverUrl, handleImageError } from '../utils/imageUtils';
+import { formatDuration as formatTrackDuration } from '../utils/format';
+import { handleApiError } from '../utils/errorHandler';
 import './GameDetail.css';
 
 const { Content } = Layout;
@@ -124,6 +126,7 @@ const GameDetail: React.FC = () => {
   const [nodeTotal, setNodeTotal] = useState(0);
   const [nodePage, setNodePage] = useState(1);
   const [tracksLoading, setTracksLoading] = useState(false);
+  const [playAllLoading, setPlayAllLoading] = useState(false);
 
   const { treeData, parentMap, categoryOfNode } = useMemo(() => buildTreeData(tree), [tree]);
 
@@ -155,8 +158,8 @@ const GameDetail: React.FC = () => {
       const data = await gameService.getGameById(parseInt(id!));
       setGame(data.game);
       setAlbums(data.albums);
-    } catch {
-      message.error('加载游戏详情失败');
+    } catch (error) {
+      handleApiError(error, '加载游戏详情失败');
     } finally {
       setLoading(false);
     }
@@ -169,7 +172,7 @@ const GameDetail: React.FC = () => {
       const data = await musicSourceService.getGameMusicTree(parseInt(id));
       setTree(data);
     } catch (e: any) {
-      message.error(e?.message || '加载场景音乐树失败');
+      handleApiError(e, '加载场景音乐树失败');
     } finally {
       setTreeLoading(false);
     }
@@ -204,7 +207,7 @@ const GameDetail: React.FC = () => {
       setNodeName(result.node.name);
       setNodeTotal(result.pagination.total);
     } catch (e: any) {
-      message.error(e?.message || '加载场景曲目失败');
+      handleApiError(e, '加载场景曲目失败');
       setNodeTracks([]);
       setNodeTotal(0);
     } finally {
@@ -242,8 +245,11 @@ const GameDetail: React.FC = () => {
     if (nodeTotal <= nodeTracks.length) {
       setPlaylist(nodeTracks);
       play(nodeTracks[0]);
+      message.success(`已添加 ${nodeTracks.length} 首到播放队列`);
       return;
     }
+    setPlayAllLoading(true);
+    const hide = message.loading('正在加载全部曲目...', 0);
     try {
       const totalPages = Math.ceil(nodeTotal / PAGE_SIZE);
       const all: Track[] = [];
@@ -254,25 +260,22 @@ const GameDetail: React.FC = () => {
       if (all.length > 0) {
         setPlaylist(all);
         play(all[0]);
+        message.success(`已添加 ${all.length} 首到播放队列`);
       }
     } catch (e: any) {
-      message.error(e?.message || '播放全部失败');
+      handleApiError(e, '播放全部失败');
+    } finally {
+      hide();
+      setPlayAllLoading(false);
     }
   };
 
-  const formatDuration = (seconds: number) => {
+  const formatAlbumDuration = (seconds: number) => {
     if (!seconds) return '--';
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     if (hours > 0) return `${hours}h ${minutes}m`;
     return `${minutes}m`;
-  };
-
-  const formatTrackDuration = (seconds: number | null) => {
-    if (!seconds) return '--';
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   const getGameClass = () => {
@@ -286,6 +289,16 @@ const GameDetail: React.FC = () => {
     if (name === '崩坏因缘精灵') return 'nexus-bg';
     if (name === '星布谷地') return 'petit-bg';
     return '';
+  };
+
+  const getGameAccent = (): string => {
+    if (!game) return 'var(--aurora-1)';
+    const name = game.name;
+    if (name === '原神') return '#D4A574';
+    if (name === '崩坏：星穹铁道') return '#C8D6E5';
+    if (name === '绝区零') return '#FF6B9D';
+    if (name === '崩坏3') return '#FF6B9D';
+    return 'var(--aurora-1)';
   };
 
   if (loading) {
@@ -317,9 +330,9 @@ const GameDetail: React.FC = () => {
       dataIndex: 'title',
       key: 'title',
       render: (title: string, record: Track) => (
-        <a onClick={() => navigate(`/track/${record.id}`)} style={{ color: 'var(--accent-primary, #7c5cff)', cursor: 'pointer' }}>
+        <Link to={`/track/${record.id}`} style={{ color: 'var(--accent-primary, #7c5cff)', cursor: 'pointer' }}>
           {title}
-        </a>
+        </Link>
       ),
     },
     {
@@ -395,7 +408,7 @@ const GameDetail: React.FC = () => {
               description={
                 <div className="album-info">
                   <div>{album.track_count || 0} 首</div>
-                  {album.total_duration && <div>{formatDuration(album.total_duration)}</div>}
+                  {album.total_duration && <div>{formatAlbumDuration(album.total_duration)}</div>}
                   {album.release_date && (
                     <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
                       {new Date(album.release_date).getFullYear()}
@@ -430,7 +443,7 @@ const GameDetail: React.FC = () => {
               selectedKeys={selectedKeys}
               onExpand={(keys) => setExpandedKeys(keys)}
               onSelect={handleTreeSelect}
-              height={isMobile ? 320 : 560}
+              height={isMobile ? 480 : 560}
               blockNode
             />
           )}
@@ -466,7 +479,7 @@ const GameDetail: React.FC = () => {
             }
             extra={
               nodeTotal > 0 && (
-                <Button type="primary" size="small" icon={<PlayCircleOutlined />} onClick={handlePlayAll}>
+                <Button type="primary" size="small" icon={<PlayCircleOutlined />} onClick={handlePlayAll} loading={playAllLoading}>
                   播放全部
                 </Button>
               )
@@ -502,7 +515,16 @@ const GameDetail: React.FC = () => {
     <Layout className={`game-detail-layout ${getGameClass()}`}>
       <Content className="game-detail-content" style={{ background: 'transparent' }}>
         {/* Hero */}
-        <div className="game-hero">
+        <div className="game-hero" style={{ '--game-accent': getGameAccent() } as React.CSSProperties}>
+          <Breadcrumb
+            className="game-hero-breadcrumb"
+            style={{ marginBottom: 8 }}
+            items={[
+              { title: <Link to="/" style={{ color: 'var(--text-secondary)' }}>首页</Link> },
+              { title: <span style={{ color: 'var(--text-tertiary)' }}>游戏</span> },
+              { title: <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{game.name}</span> },
+            ]}
+          />
           <Button
             type="text"
             icon={<ArrowLeftOutlined />}

@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
-import { parseBuffer } from 'music-metadata';
 import path from 'path';
 import fs from 'fs';
+import { execFileSync } from 'child_process';
 import https from 'https';
 import http from 'http';
 import { randomUUID } from 'crypto';
@@ -15,6 +15,49 @@ const FLAC_MAGIC = Buffer.from('fLaC', 'ascii');
 const isValidFlacBuffer = (buffer: Buffer): boolean => {
   // FLAC stream marker must be at byte 0.
   return buffer.length >= FLAC_MAGIC.length && buffer.subarray(0, FLAC_MAGIC.length).equals(FLAC_MAGIC);
+};
+
+/** 用 metaflac 读取 TITLE / ALBUM / TRACKNUMBER（不依赖 music-metadata） */
+const readFlacVorbisTags = (filePath: string): Record<string, string> => {
+  try {
+    const out = execFileSync('metaflac', ['--export-tags-to=-', filePath], {
+      encoding: 'utf-8', timeout: 5000, maxBuffer: 64 * 1024,
+    });
+    const tags: Record<string, string> = {};
+    for (const line of out.split('\n')) {
+      const eq = line.indexOf('=');
+      if (eq > 0) {
+        const key = line.slice(0, eq).toUpperCase();
+        if (key === 'TITLE' || key === 'ALBUM' || key === 'TRACKNUMBER') {
+          tags[key] = line.slice(eq + 1).trim();
+        }
+      }
+    }
+    return tags;
+  } catch {
+    return {};
+  }
+};
+
+/** 用 metaflac 读取流信息（duration / sample rate / bit depth） */
+const readFlacStreamInfo = (filePath: string): { duration: number | null; sampleRate: number | null; bitDepth: number | null } => {
+  try {
+    const out = execFileSync('metaflac', [
+      '--show-total-samples', '--show-sample-rate', '--show-channels', '--show-bps',
+      filePath,
+    ], { encoding: 'utf-8', timeout: 5000, maxBuffer: 8 * 1024 });
+    const lines = out.trim().split('\n');
+    const totalSamples = parseInt(lines[0], 10);
+    const sampleRate = parseInt(lines[1], 10);
+    const bitDepth = parseInt(lines[3], 10);
+    return {
+      duration: (totalSamples && sampleRate) ? Math.round(totalSamples / sampleRate) : null,
+      sampleRate: sampleRate || null,
+      bitDepth: bitDepth || null,
+    };
+  } catch {
+    return { duration: null, sampleRate: null, bitDepth: null };
+  }
 };
 
 // Fields already stored in dedicated columns – skip from credits
@@ -450,6 +493,9 @@ export const uploadTracks = async (req: Request, res: Response) => {
       req.body[`title_override_${idx}`] || req.body.title_override || null;
     const getAlbumOverride = (idx: number): string | null =>
       req.body[`album_override_${idx}`] || req.body.album_override || null;
+    const getTrackNumberOverride = (idx: number): string | null =>
+      req.body[`track_number_override_${idx}`] || req.body.track_number_override || null;
+    const gameId = parseInt(req.body.game_id, 10) || null;
 
     for (let fileIdx = 0; fileIdx < files.length; fileIdx++) {
       const file = files[fileIdx];
@@ -466,56 +512,26 @@ export const uploadTracks = async (req: Request, res: Response) => {
           continue; // skip this file
         }
 
-        // Extract metadata from FLAC file
-        // music-metadata v11: second arg must be IFileInfo object or mime string
-        const metadata = await parseBuffer(fileBuffer, { mimeType: file.mimetype || 'audio/flac' });
+        // ═══ 读取 FLAC Vorbis 标签（仅 TITLE/ALBUM/TRACKNUMBER，不依赖 music-metadata）═══
+        // 优先级：前端 override > FLAC 标签 > 文件名
+        const flacTags = readFlacVorbisTags(file.path);
 
-        // 优先使用前端传入的覆盖值，回退到 FLAC 内嵌标签，再回退到默认值
         const titleOverride = getTitleOverride(fileIdx);
         const albumOverride = getAlbumOverride(fileIdx);
 
-        const title = titleOverride || metadata.common.title || path.basename(file.originalname, '.flac');
-        const artistNames = metadata.common.artists || (metadata.common.artist ? [metadata.common.artist] : ['Unknown Artist']);
-        const albumTitle = albumOverride !== null
-          ? (albumOverride || null)
-          : (metadata.common.album || null);
-        const trackNumber = metadata.common.track.no || null;
-
+        const title = titleOverride || flacTags.TITLE || path.basename(file.originalname, '.flac');
+        const albumTitle = albumOverride || flacTags.ALBUM || null;
         const normalizedAlbumTitle = albumTitle ? albumTitle.trim() : null;
 
-        // Parse release date: prefer full date string from native tags, fallback to year-only
-        let releaseDate: Date | null = null;
-        // Try metadata.common.date first (full date string like "2022-03-15")
-        const commonDate = (metadata.common as any).date;
-        if (commonDate && typeof commonDate === 'string') {
-          const parsed = new Date(commonDate);
-          if (!isNaN(parsed.getTime())) releaseDate = parsed;
-        }
-        // Try native tags for full date (DATE, TDRC, ORIGINALDATE)
-        if (!releaseDate && metadata.native) {
-          for (const [, tags] of Object.entries(metadata.native)) {
-            for (const tag of tags) {
-              const tagId = tag.id.toLowerCase();
-              if (tagId === 'date' || tagId === 'tdrc' || tagId === 'originaldate') {
-                const val = typeof tag.value === 'string' ? tag.value : '';
-                // Accept date strings like "2022-03-15" or "2022-03-15T00:00:00"
-                if (val && val.length >= 10) {
-                  const parsed = new Date(val);
-                  if (!isNaN(parsed.getTime())) { releaseDate = parsed; break; }
-                }
-              }
-            }
-            if (releaseDate) break;
-          }
-        }
-        // Fallback to year-only
-        if (!releaseDate && metadata.common.year) {
-          releaseDate = new Date(metadata.common.year, 0, 1);
-        }
-
-        const duration = metadata.format.duration ? Math.floor(metadata.format.duration) : null;
-        const sampleRate = metadata.format.sampleRate || null;
-        const bitsPerSample = metadata.format.bitsPerSample || null;
+        const trackNumOverride = getTrackNumberOverride(fileIdx);
+        const trackNumber = trackNumOverride
+          ? (parseInt(trackNumOverride, 10) || null)
+          : (flacTags.TRACKNUMBER ? parseInt(flacTags.TRACKNUMBER, 10) || null : null);
+        const artistNames: string[] = [];
+        const releaseDate: Date | null = null;
+        const duration: number | null = null;
+        const sampleRate: number | null = null;
+        const bitsPerSample: number | null = null;
         const fileSize = file.size;
 
         // Upload FLAC file to storage (local or WebDAV based on config)
@@ -526,27 +542,9 @@ export const uploadTracks = async (req: Request, res: Response) => {
           file.mimetype
         );
 
-        // Extract and upload cover art
+        // Extract and upload cover art — 已移除，不再从 FLAC 标签提取封面
         let coverUrl = null;
-        if (metadata.common.picture && metadata.common.picture.length > 0) {
-          const picture = metadata.common.picture[0];
-          // picture.format is like 'image/jpeg' or 'image/png'
-          const mimeToExt: Record<string, string> = {
-            'image/jpeg': 'jpg', 'image/jpg': 'jpg',
-            'image/png': 'png', 'image/webp': 'webp',
-            'image/gif': 'gif', 'image/bmp': 'bmp',
-          };
-          const coverExt = mimeToExt[picture.format.toLowerCase()] || picture.format.split('/')[1] || 'jpg';
-          const baseName = path.basename(file.originalname, path.extname(file.originalname));
-          const coverFileName = `${baseName}_cover.${coverExt}`;
-
-          coverUrl = await storageService.uploadFile(
-            Buffer.from(picture.data),
-            coverFileName,
-            'covers',
-            picture.format
-          );
-        }
+        // cover 可通过单独的 POST /api/tracks/:id/cover 上传
 
         const client = await pool.connect();
 
@@ -557,8 +555,8 @@ export const uploadTracks = async (req: Request, res: Response) => {
           let albumId = null;
           if (albumTitle) {
             const albumResult = await client.query(
-              'SELECT id FROM albums WHERE title = $1',
-              [albumTitle]
+              'SELECT id FROM albums WHERE title = $1 AND game_id = $2',
+              [albumTitle, gameId]
             );
 
             if (albumResult.rows.length > 0) {
@@ -573,8 +571,8 @@ export const uploadTracks = async (req: Request, res: Response) => {
               }
             } else {
               const newAlbum = await client.query(
-                'INSERT INTO albums (title, title_cn, cover_path, release_date) VALUES ($1, $2, $3, $4) RETURNING id',
-                [albumTitle, albumTitle, coverUrl, releaseDate]
+                'INSERT INTO albums (title, title_cn, cover_path, release_date, game_id) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+                [albumTitle, albumTitle, coverUrl, releaseDate, gameId]
               );
               albumId = newAlbum.rows[0].id;
             }
@@ -646,27 +644,8 @@ export const uploadTracks = async (req: Request, res: Response) => {
               console.warn(`credits_override_${fileIdx} JSON parse failed, falling back to auto`);
             }
           } else {
-
-          // Walk ALL native tag sources
-          if (metadata.native) {
-            for (const [, tags] of Object.entries(metadata.native)) {
-              for (const tag of tags) {
-                const keyLower = tag.id.toLowerCase();
-                if (CREDIT_SKIP_KEYS.has(keyLower)) continue;
-                const strings = toStringList(tag.value);
-                for (const s of strings) await insertCredit(tag.id, s);
-              }
-            }
-          }
-          // Walk metadata.common
-          const commonObj = metadata.common as unknown as Record<string, unknown>;
-          for (const [field, value] of Object.entries(commonObj)) {
-            const fieldLower = field.toLowerCase();
-            if (CREDIT_SKIP_KEYS.has(fieldLower)) continue;
-            const strings = toStringList(value);
-            for (const s of strings) await insertCredit(field, s);
-          }
-          } // end else (auto parse)
+            // 已移除 FLAC 标签自动解析 — credits 仅来自前端 override
+          } // end else (auto parse removed)
           } // end if (autoCredits)
 
           await client.query('COMMIT');
@@ -711,6 +690,171 @@ export const uploadTracks = async (req: Request, res: Response) => {
       success: false,
       error: { code: 'UPLOAD_ERROR', message: 'Failed to upload tracks' }
     });
+  }
+};
+
+/**
+ * Scan FLAC tags without saving anything — returns metadata for review.
+ * POST /api/tracks/scan
+ */
+export const scanFlacTags = async (req: Request, res: Response) => {
+  try {
+    const files = req.files as Express.Multer.File[];
+    if (!files || files.length === 0) {
+      return res.status(400).json({ success: false, error: { code: 'NO_FILES', message: 'No files' } });
+    }
+
+    const results: Array<{
+      filename: string;
+      title: string;
+      album: string;
+      track_number: string;
+    }> = [];
+
+    for (const file of files) {
+      try {
+        const tags = readFlacVorbisTags(file.path);
+        results.push({
+          filename: file.originalname,
+          title: tags.TITLE || path.basename(file.originalname, '.flac'),
+          album: tags.ALBUM || '',
+          track_number: tags.TRACKNUMBER || '',
+        });
+      } catch {
+        results.push({
+          filename: file.originalname,
+          title: path.basename(file.originalname, '.flac'),
+          album: '',
+          track_number: '',
+        });
+      }
+      // Clean up temp file immediately
+      try { await fs.promises.unlink(file.path); } catch {}
+    }
+
+    return res.json({ success: true, data: { files: results } });
+  } catch (error) {
+    console.error('Scan FLAC tags error:', error);
+    return res.status(500).json({ success: false, error: { code: 'SCAN_ERROR', message: 'Failed to scan FLAC tags' } });
+  }
+};
+
+/**
+ * 生成 OSS 预签名上传 URL（前端直传，不走服务器中转）
+ * POST /api/tracks/upload-token
+ * Body: { filename: string, game_id: number }
+ * Returns: { uploadUrl, objectKey }
+ */
+export const getUploadToken = async (req: Request, res: Response) => {
+  try {
+    const { filename, game_id } = req.body;
+    if (!filename || !game_id) {
+      return res.status(400).json({ success: false, error: { code: 'MISSING_PARAMS', message: 'Need filename and game_id' } });
+    }
+
+    // Only OSS mode supports pre-signed upload
+    if (!storageService.isOSS()) {
+      return res.status(400).json({ success: false, error: { code: 'NOT_OSS', message: 'Pre-signed upload requires OSS storage' } });
+    }
+
+    const ossService = (await import('../services/ossService')).default;
+    const objectKey = ossService.generateObjectKey(filename, 'tracks');
+    const uploadUrl = ossService.generatePutSignedUrl(objectKey, 3600);
+
+    return res.json({ success: true, data: { uploadUrl, objectKey } });
+  } catch (error) {
+    console.error('Generate upload token error:', error);
+    return res.status(500).json({ success: false, error: { code: 'TOKEN_ERROR', message: 'Failed to generate upload token' } });
+  }
+};
+
+/**
+ * 提交 OSS 直传文件：服务器从 OSS 内网下载 → 读标签 → 入库
+ * POST /api/tracks/commit
+ * Body: { objectKey, game_id, title_override?, album_override?, track_number_override? }
+ */
+export const commitUpload = async (req: Request, res: Response) => {
+  let tempPath: string | null = null;
+  try {
+    const { objectKey, game_id: rawGameId, title_override, album_override, track_number_override } = req.body;
+    const gameId = parseInt(rawGameId, 10) || null;
+
+    if (!objectKey) {
+      return res.status(400).json({ success: false, error: { code: 'MISSING_PARAMS', message: 'Need objectKey' } });
+    }
+
+    if (!storageService.isOSS()) {
+      return res.status(400).json({ success: false, error: { code: 'NOT_OSS', message: 'Commit requires OSS storage' } });
+    }
+
+    const ossService = (await import('../services/ossService')).default;
+    const filename = path.basename(objectKey);
+
+    // 1. 从 OSS 下载到临时文件
+    tempPath = path.join(require('os').tmpdir(), `commit_${Date.now()}_${filename}`);
+    await ossService.downloadToFile(objectKey, tempPath);
+
+    // 2. 读 FLAC 标签和流信息
+    const flacTags = readFlacVorbisTags(tempPath);
+    const streamInfo = readFlacStreamInfo(tempPath);
+    const title = title_override || flacTags.TITLE || path.basename(filename, '.flac');
+    const albumTitle = album_override || flacTags.ALBUM || null;
+    const trackNumber = track_number_override
+      ? (parseInt(track_number_override, 10) || null)
+      : (flacTags.TRACKNUMBER ? parseInt(flacTags.TRACKNUMBER, 10) || null : null);
+
+    const stat = await fs.promises.stat(tempPath);
+    const fileSize = stat.size;
+
+    // 3. 生成 CDN URL（复用已有工具函数）
+    const { buildOSSPublicUrl } = await import('../config/oss');
+    const fileUrl = buildOSSPublicUrl(objectKey);
+
+    // 4. DB 事务
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      let albumId: number | null = null;
+      const normalizedAlbum = albumTitle ? albumTitle.trim() : null;
+      if (normalizedAlbum) {
+        const albumResult = await client.query(
+          'SELECT id FROM albums WHERE title = $1 AND game_id = $2',
+          [normalizedAlbum, gameId]
+        );
+        if (albumResult.rows.length > 0) {
+          albumId = albumResult.rows[0].id;
+        } else {
+          const newAlbum = await client.query(
+            'INSERT INTO albums (title, title_cn, game_id, release_date) VALUES ($1, $2, $3, $4) RETURNING id',
+            [normalizedAlbum, normalizedAlbum, gameId, null]
+          );
+          albumId = newAlbum.rows[0].id;
+        }
+      }
+
+      const trackResult = await client.query(
+        `INSERT INTO tracks (title, title_cn, album_id, file_path, track_number, file_size, duration, sample_rate, bit_depth)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+        [title, title, albumId, fileUrl, trackNumber, fileSize, streamInfo.duration, streamInfo.sampleRate, streamInfo.bitDepth]
+      );
+      const trackId = trackResult.rows[0].id;
+
+      await client.query('COMMIT');
+      return res.json({ success: true, data: { track: { id: trackId, title, file_path: fileUrl } } });
+    } catch (dbError) {
+      await client.query('ROLLBACK');
+      throw dbError;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Commit upload error:', error);
+    return res.status(500).json({ success: false, error: { code: 'COMMIT_ERROR', message: 'Failed to commit upload' } });
+  } finally {
+    if (tempPath) {
+      try { await fs.promises.unlink(tempPath); } catch {}
+    }
   }
 };
 
@@ -2204,69 +2348,8 @@ export const uploadTrackCover = async (req: Request, res: Response) => {
 
 /**
  * Preview credits that would be extracted from uploaded FLAC files,
- * without writing anything to the database.
- * POST /api/tracks/preview-credits
+ * [DEPRECATED] POST /api/tracks/preview-credits — removed with music-metadata
  */
-export const previewCredits = async (req: Request, res: Response) => {
-  try {
-    const files = req.files as Express.Multer.File[];
-    if (!files || files.length === 0) {
-      return res.status(400).json({ success: false, error: { code: 'NO_FILES', message: 'No files uploaded' } });
-    }
-
-    // Reuse the shared toStringList helper from utils/metadata
-
-    const results = [];
-    for (const file of files) {
-      let buffer: Buffer | null = null;
-      try {
-      buffer = await fs.promises.readFile(file.path);
-
-      // Validate file type magic bytes
-      if (!isValidFlacBuffer(buffer)) {
-        results.push({ filename: file.originalname, credits: [], error: 'Not a valid FLAC file' });
-        continue;
-      }
-
-      const metadata = await parseBuffer(buffer, { mimeType: file.mimetype || 'audio/flac' });
-      const credits: Array<{ key: string; value: string }> = [];
-      const seen = new Set<string>();
-
-      const addCredit = (key: string, val: unknown) => {
-        const keyLower = key.toLowerCase();
-        if (CREDIT_SKIP_KEYS.has(keyLower)) return;
-        for (const s of toStringList(val)) {
-          const pair = `${keyLower}|${s}`;
-          if (seen.has(pair)) continue;
-          seen.add(pair);
-          credits.push({ key, value: s });
-        }
-      };
-
-      // Walk native tags
-      if (metadata.native) {
-        for (const [, tags] of Object.entries(metadata.native)) {
-          for (const tag of tags) addCredit(tag.id, tag.value);
-        }
-      }
-      // Walk common fields
-      const commonObj = metadata.common as unknown as Record<string, unknown>;
-      for (const [field, value] of Object.entries(commonObj)) addCredit(field, value);
-
-      results.push({
-        filename: file.originalname,
-        credits,
-      });
-      } finally {
-        // Clean up temp file
-        try { if (file.path) await fs.promises.unlink(file.path); } catch {}
-        buffer = null;
-      }
-    }
-
-    return res.json({ success: true, data: { results } });
-  } catch (error) {
-    console.error('Preview credits error:', error);
-    return res.status(500).json({ success: false, error: { code: 'PREVIEW_ERROR', message: 'Failed to preview credits' } });
-  }
+export const previewCredits = async (_req: Request, res: Response) => {
+  return res.json({ success: false, error: { code: 'DEPRECATED', message: 'Credits preview removed. Use manual entry.' } });
 };

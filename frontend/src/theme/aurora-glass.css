@@ -35,7 +35,17 @@
   --glass-shadow-dark:    0 8px 32px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0,0,0,0.3);
   --glass-blur:           blur(18px) saturate(180%);
   --glass-blur-heavy:     blur(28px) saturate(200%);
-  --glass-blur-light:     blur(10px) saturate(150%);
+  --glass-blur-top:       blur(12px) saturate(150%);
+
+  /* 纯色背景 — 替代盲目 glass */
+  --bg-elevated-light: #ffffff;
+  --bg-elevated-dark:  #141230;
+  --bg-surface-light:  #f8f9ff;
+  --bg-surface-dark:   #0f0d2e;
+
+  /* 中性边框 */
+  --border-color-light: rgba(0, 0, 0, 0.08);
+  --border-color-dark:  rgba(255, 255, 255, 0.1);
 
   /* Aurora 动画色 */
   --aurora-animate-1: rgba(102, 126, 234, 0.35);
@@ -53,14 +63,20 @@
 
 /* ── 暗色模式 Token 覆盖 ── */
 [data-theme='dark'] {
-  --glass-bg:     var(--glass-bg-dark);
-  --glass-border: var(--glass-border-dark);
-  --glass-shadow: var(--glass-shadow-dark);
+  --glass-bg:        var(--glass-bg-dark);
+  --glass-border:    var(--glass-border-dark);
+  --glass-shadow:    var(--glass-shadow-dark);
+  --bg-elevated:     var(--bg-elevated-dark);
+  --bg-surface:      var(--bg-surface-dark);
+  --border-color:    var(--border-color-dark);
 }
 [data-theme='light'] {
-  --glass-bg:     var(--glass-bg-light);
-  --glass-border: var(--glass-border-light);
-  --glass-shadow: var(--glass-shadow-light);
+  --glass-bg:        var(--glass-bg-light);
+  --glass-border:    var(--glass-border-light);
+  --glass-shadow:    var(--glass-shadow-light);
+  --bg-elevated:     var(--bg-elevated-light);
+  --bg-surface:      var(--bg-surface-light);
+  --border-color:    var(--border-color-light);
 }
 
 /* ============================================================
@@ -498,8 +514,8 @@ body::after {
 
 [data-theme='light'] .admin-sidebar {
   background: rgba(255, 255, 255, 0.75) !important;
-  border-right: 1px solid rgba(102, 126, 234, 0.15) !important;
-  box-shadow: 4px 0 32px rgba(102, 126, 234, 0.1) !important;
+  border-right: 1px solid var(--border-color) !important;
+  box-shadow: 4px 0 32px rgba(0, 0, 0, 0.06) !important;
 }
 
 /* ============================================================
@@ -507,8 +523,8 @@ body::after {
    ============================================================ */
 
 .ant-modal-content {
-  backdrop-filter: var(--glass-blur) !important;
-  -webkit-backdrop-filter: var(--glass-blur) !important;
+  backdrop-filter: var(--glass-blur-top) !important;
+  -webkit-backdrop-filter: var(--glass-blur-top) !important;
   border-radius: 20px !important;
 }
 
@@ -525,8 +541,8 @@ body::after {
 }
 
 .ant-drawer-content {
-  backdrop-filter: var(--glass-blur) !important;
-  -webkit-backdrop-filter: var(--glass-blur) !important;
+  backdrop-filter: var(--glass-blur-top) !important;
+  -webkit-backdrop-filter: var(--glass-blur-top) !important;
 }
 
 [data-theme='light'] .ant-drawer-content {
@@ -544,26 +560,24 @@ body::after {
    ============================================================ */
 
 .ant-table-container {
-  backdrop-filter: var(--glass-blur-light) !important;
-  -webkit-backdrop-filter: var(--glass-blur-light) !important;
-  border-radius: 12px !important;
-  overflow: hidden !important;
+  border-radius: 12px;
+  overflow: hidden;
 }
 
 [data-theme='light'] .ant-table {
-  background: rgba(255, 255, 255, 0.7) !important;
+  background: var(--bg-elevated) !important;
 }
 
 [data-theme='dark'] .ant-table {
-  background: rgba(15, 12, 41, 0.6) !important;
+  background: var(--bg-elevated) !important;
 }
 
 [data-theme='light'] .ant-table-thead > tr > th {
-  background: rgba(240, 244, 255, 0.85) !important;
+  background: #f0f4ff !important;
 }
 
 [data-theme='dark'] .ant-table-thead > tr > th {
-  background: rgba(30, 24, 60, 0.8) !important;
+  background: #1e183c !important;
 }
 
 /* ============================================================
@@ -571,21 +585,19 @@ body::after {
    ============================================================ */
 
 .ant-card {
-  backdrop-filter: var(--glass-blur-light) !important;
-  -webkit-backdrop-filter: var(--glass-blur-light) !important;
   border-radius: 16px !important;
   transition: all 0.3s ease !important;
 }
 
 [data-theme='light'] .ant-card {
-  background: rgba(255, 255, 255, 0.7) !important;
-  border: 1px solid rgba(255, 255, 255, 0.85) !important;
-  box-shadow: 0 2px 16px rgba(102, 126, 234, 0.1) !important;
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06) !important;
 }
 
 [data-theme='dark'] .ant-card {
-  background: rgba(20, 18, 50, 0.65) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border-color) !important;
   box-shadow: 0 2px 16px rgba(0, 0, 0, 0.3) !important;
 }
 
@@ -597,39 +609,37 @@ body::after {
 .ant-input-affix-wrapper,
 .ant-input-search .ant-input-affix-wrapper,
 .ant-select-selector {
-  backdrop-filter: var(--glass-blur-light) !important;
-  -webkit-backdrop-filter: var(--glass-blur-light) !important;
   transition: all 0.25s ease !important;
 }
 
 [data-theme='light'] .ant-input,
 [data-theme='light'] .ant-input-affix-wrapper,
 [data-theme='light'] .ant-select-selector {
-  background: rgba(255, 255, 255, 0.7) !important;
-  border-color: rgba(102, 126, 234, 0.25) !important;
+  background: var(--bg-elevated) !important;
+  border-color: var(--border-color) !important;
 }
 
 [data-theme='light'] .ant-input:focus,
 [data-theme='light'] .ant-input-affix-wrapper:focus,
 [data-theme='light'] .ant-input-affix-wrapper-focused {
-  background: rgba(255, 255, 255, 0.9) !important;
-  border-color: #667eea !important;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.18) !important;
+  background: var(--bg-elevated) !important;
+  border-color: var(--aurora-4) !important;
+  box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.18) !important;
 }
 
 [data-theme='dark'] .ant-input,
 [data-theme='dark'] .ant-input-affix-wrapper,
 [data-theme='dark'] .ant-select-selector {
-  background: rgba(15, 12, 41, 0.6) !important;
-  border-color: rgba(102, 126, 234, 0.3) !important;
+  background: var(--bg-elevated) !important;
+  border-color: var(--border-color) !important;
   color: rgba(255, 255, 255, 0.85) !important;
 }
 
 [data-theme='dark'] .ant-input:focus,
 [data-theme='dark'] .ant-input-affix-wrapper-focused {
-  background: rgba(20, 16, 55, 0.8) !important;
-  border-color: #667eea !important;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.25) !important;
+  background: #141028 !important;
+  border-color: var(--aurora-4) !important;
+  box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.25) !important;
 }
 
 /* ============================================================
@@ -639,49 +649,81 @@ body::after {
 .ant-btn-primary {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
   border: none !important;
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4) !important;
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.25) !important;
   transition: all 0.25s ease !important;
 }
 
 .ant-btn-primary:hover {
-  background: linear-gradient(135deg, #7b93ff 0%, #8c5fb5 100%) !important;
-  box-shadow: 0 6px 24px rgba(102, 126, 234, 0.55) !important;
+  background: linear-gradient(135deg, #7b93ff, #8c5fb5, #7b93ff) !important;
+  background-size: 200% 200% !important;
+  animation: btnShimmer 0.6s ease !important;
+  box-shadow: 0 6px 24px rgba(102, 126, 234, 0.35) !important;
   transform: translateY(-1px) !important;
+}
+
+@keyframes btnShimmer {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 .ant-btn-primary:active {
   transform: translateY(0) !important;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4) !important;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.25) !important;
+}
+
+/* 播放按钮：暖色琥珀渐变，从紫色玻璃背景中跳出来 */
+.album-hero-shell .ant-btn-primary,
+.track-hero-panel .ant-btn-primary,
+.home-play-all .ant-btn-primary {
+  background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%) !important;
+  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.4) !important;
+  color: #fff !important;
+}
+
+.album-hero-shell .ant-btn-primary:hover,
+.track-hero-panel .ant-btn-primary:hover,
+.home-play-all .ant-btn-primary:hover {
+  background: linear-gradient(135deg, #fbbf24, #f97316, #fbbf24) !important;
+  background-size: 200% 200% !important;
+  animation: btnShimmer 0.6s ease !important;
+  box-shadow: 0 6px 28px rgba(245, 158, 11, 0.55) !important;
+  transform: translateY(-1px) !important;
+}
+
+.album-hero-shell .ant-btn-primary:active,
+.track-hero-panel .ant-btn-primary:active,
+.home-play-all .ant-btn-primary:active {
+  transform: translateY(0) !important;
+  box-shadow: 0 2px 12px rgba(245, 158, 11, 0.4) !important;
 }
 
 .ant-btn-default,
 .ant-btn:not(.ant-btn-primary):not(.ant-btn-text):not(.ant-btn-link) {
-  backdrop-filter: var(--glass-blur-light) !important;
-  -webkit-backdrop-filter: var(--glass-blur-light) !important;
   transition: all 0.25s ease !important;
 }
 
 [data-theme='light'] .ant-btn-default {
-  background: rgba(255, 255, 255, 0.7) !important;
-  border-color: rgba(102, 126, 234, 0.3) !important;
+  background: var(--bg-elevated) !important;
+  border-color: var(--border-color) !important;
 }
 
 [data-theme='dark'] .ant-btn-default {
-  background: rgba(20, 18, 50, 0.6) !important;
-  border-color: rgba(102, 126, 234, 0.35) !important;
+  background: var(--bg-elevated) !important;
+  border-color: var(--border-color) !important;
   color: rgba(255, 255, 255, 0.85) !important;
 }
 
 [data-theme='light'] .ant-btn-default:hover {
-  background: rgba(255, 255, 255, 0.9) !important;
-  border-color: #667eea !important;
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.2) !important;
+  background: #f0f4ff !important;
+  border-color: var(--aurora-4) !important;
+  box-shadow: 0 4px 16px rgba(79, 172, 254, 0.15) !important;
 }
 
 [data-theme='dark'] .ant-btn-default:hover {
-  background: rgba(30, 25, 70, 0.75) !important;
-  border-color: #667eea !important;
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3) !important;
+  background: #1e183c !important;
+  border-color: var(--border-color) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
 }
 
 /* ============================================================
@@ -689,8 +731,6 @@ body::after {
    ============================================================ */
 
 .ant-tag {
-  backdrop-filter: var(--glass-blur-light) !important;
-  -webkit-backdrop-filter: var(--glass-blur-light) !important;
   border-radius: 20px !important;
   transition: all 0.2s ease !important;
 }
@@ -702,8 +742,8 @@ body::after {
 .ant-dropdown .ant-dropdown-menu,
 .ant-select-dropdown,
 .ant-picker-dropdown .ant-picker-panel-container {
-  backdrop-filter: var(--glass-blur) !important;
-  -webkit-backdrop-filter: var(--glass-blur) !important;
+  backdrop-filter: var(--glass-blur-top) !important;
+  -webkit-backdrop-filter: var(--glass-blur-top) !important;
   border-radius: 12px !important;
 }
 
@@ -711,7 +751,7 @@ body::after {
 [data-theme='light'] .ant-select-dropdown {
   background: rgba(255, 255, 255, 0.88) !important;
   border: 1px solid rgba(255, 255, 255, 0.9) !important;
-  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.2) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12) !important;
 }
 
 [data-theme='dark'] .ant-dropdown .ant-dropdown-menu,
@@ -726,8 +766,7 @@ body::after {
    ============================================================ */
 
 .ant-tabs-nav {
-  backdrop-filter: var(--glass-blur-light) !important;
-  -webkit-backdrop-filter: var(--glass-blur-light) !important;
+  /* 无 glass — 导航栏保持简洁 */
 }
 
 .ant-tabs-ink-bar {
@@ -746,7 +785,7 @@ body::after {
 
 [data-theme='light'] .queue-item {
   background: rgba(255, 255, 255, 0.5) !important;
-  border-bottom: 1px solid rgba(102, 126, 234, 0.1) !important;
+  border-bottom: 1px solid var(--border-color) !important;
 }
 
 [data-theme='dark'] .queue-item {
@@ -763,13 +802,13 @@ body::after {
 }
 
 [data-theme='light'] .queue-item.current {
-  background: rgba(102, 126, 234, 0.15) !important;
-  border-left: 3px solid #667eea !important;
+  background: rgba(79, 172, 254, 0.1) !important;
+  border-left: 3px solid var(--aurora-4) !important;
 }
 
 [data-theme='dark'] .queue-item.current {
-  background: rgba(102, 126, 234, 0.2) !important;
-  border-left: 3px solid #667eea !important;
+  background: rgba(79, 172, 254, 0.15) !important;
+  border-left: 3px solid var(--aurora-4) !important;
 }
 
 /* ============================================================
@@ -777,18 +816,16 @@ body::after {
    ============================================================ */
 
 .upload-dragger {
-  background: rgba(102, 126, 234, 0.06) !important;
-  border: 2px dashed rgba(102, 126, 234, 0.45) !important;
-  backdrop-filter: var(--glass-blur-light) !important;
-  -webkit-backdrop-filter: var(--glass-blur-light) !important;
+  background: #f0f4ff !important;
+  border: 2px dashed var(--border-color) !important;
   border-radius: 16px !important;
   transition: all 0.25s ease !important;
 }
 
 .upload-dragger:hover {
-  background: rgba(102, 126, 234, 0.12) !important;
-  border-color: rgba(118, 75, 162, 0.6) !important;
-  box-shadow: 0 4px 24px rgba(102, 126, 234, 0.2) !important;
+  background: #e8eeff !important;
+  border-color: var(--aurora-4) !important;
+  box-shadow: 0 4px 24px rgba(79, 172, 254, 0.15) !important;
 }
 
 /* ============================================================
@@ -804,7 +841,7 @@ body::after {
 [data-theme='light'] .lyrics-card {
   background: rgba(255, 255, 255, 0.65) !important;
   border: 1px solid rgba(255, 255, 255, 0.8) !important;
-  box-shadow: 0 4px 24px rgba(102, 126, 234, 0.12) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06) !important;
 }
 
 [data-theme='dark'] .lyrics-card {
@@ -826,7 +863,7 @@ body::after {
 [data-theme='light'] .credits-card {
   background: rgba(255, 255, 255, 0.65) !important;
   border: 1px solid rgba(255, 255, 255, 0.8) !important;
-  box-shadow: 0 4px 24px rgba(102, 126, 234, 0.1) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06) !important;
 }
 
 [data-theme='dark'] .credits-card {
@@ -854,7 +891,7 @@ body::after {
 [data-theme='light'] .track-info-card {
   background: rgba(255, 255, 255, 0.7) !important;
   border: 1px solid rgba(255, 255, 255, 0.85) !important;
-  box-shadow: 0 4px 24px rgba(102, 126, 234, 0.12) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06) !important;
 }
 
 [data-theme='dark'] .tag-detail-tracks,
@@ -882,8 +919,8 @@ body::after {
 
 [data-theme='light'] .track-detail-header {
   background: rgba(255, 255, 255, 0.72) !important;
-  border-bottom: 1px solid rgba(102, 126, 234, 0.15) !important;
-  box-shadow: 0 4px 24px rgba(102, 126, 234, 0.1) !important;
+  border-bottom: 1px solid var(--border-color) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06) !important;
 }
 
 /* ============================================================
@@ -891,18 +928,17 @@ body::after {
    ============================================================ */
 
 .search-active-tags {
-  backdrop-filter: var(--glass-blur-light) !important;
-  -webkit-backdrop-filter: var(--glass-blur-light) !important;
+  /* 无 glass — 搜索标签区域使用纯色 */
 }
 
 [data-theme='light'] .search-active-tags {
-  background: rgba(102, 126, 234, 0.08) !important;
-  border: 1px solid rgba(102, 126, 234, 0.25) !important;
+  background: #f0f4ff !important;
+  border: 1px solid var(--border-color) !important;
 }
 
 [data-theme='dark'] .search-active-tags {
-  background: rgba(102, 126, 234, 0.12) !important;
-  border: 1px solid rgba(102, 126, 234, 0.3) !important;
+  background: #1a1840 !important;
+  border: 1px solid var(--border-color) !important;
 }
 
 /* ============================================================
@@ -910,17 +946,15 @@ body::after {
    ============================================================ */
 
 .side-nav-item {
-  backdrop-filter: var(--glass-blur-light) !important;
-  -webkit-backdrop-filter: var(--glass-blur-light) !important;
-  box-shadow: 2px 2px 12px rgba(102, 126, 234, 0.3), inset 0 1px 0 rgba(255,255,255,0.2) !important;
+  box-shadow: 2px 2px 12px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255,255,255,0.2) !important;
 }
 
 .side-nav-item:hover {
-  box-shadow: 4px 4px 24px rgba(102, 126, 234, 0.45), inset 0 1px 0 rgba(255,255,255,0.25) !important;
+  box-shadow: 4px 4px 24px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255,255,255,0.25) !important;
 }
 
 .side-nav-item.active {
-  box-shadow: 4px 4px 28px rgba(102, 126, 234, 0.55), inset 0 1px 0 rgba(255,255,255,0.3) !important;
+  box-shadow: 4px 4px 28px rgba(79, 172, 254, 0.3), inset 0 1px 0 rgba(255,255,255,0.3) !important;
 }
 
 /* ============================================================
@@ -928,13 +962,12 @@ body::after {
    ============================================================ */
 
 .tag-card {
-  backdrop-filter: var(--glass-blur-light) !important;
-  -webkit-backdrop-filter: var(--glass-blur-light) !important;
+  /* 无 glass — 标签卡片使用纯色背景 */
 }
 
 [data-theme='light'] .tag-stats,
 [data-theme='light'] .tag-actions {
-  border-color: rgba(102, 126, 234, 0.15) !important;
+  border-color: var(--border-color) !important;
 }
 
 [data-theme='dark'] .tag-stats,
@@ -948,8 +981,8 @@ body::after {
 
 .ant-notification-notice,
 .ant-message-notice-content {
-  backdrop-filter: var(--glass-blur) !important;
-  -webkit-backdrop-filter: var(--glass-blur) !important;
+  backdrop-filter: var(--glass-blur-top) !important;
+  -webkit-backdrop-filter: var(--glass-blur-top) !important;
   border-radius: 12px !important;
 }
 
@@ -957,7 +990,7 @@ body::after {
 [data-theme='light'] .ant-message-notice-content {
   background: rgba(255, 255, 255, 0.88) !important;
   border: 1px solid rgba(255, 255, 255, 0.9) !important;
-  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.15) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12) !important;
 }
 
 [data-theme='dark'] .ant-notification-notice,
@@ -972,8 +1005,8 @@ body::after {
    ============================================================ */
 
 .ant-tooltip .ant-tooltip-inner {
-  backdrop-filter: var(--glass-blur) !important;
-  -webkit-backdrop-filter: var(--glass-blur) !important;
+  backdrop-filter: var(--glass-blur-top) !important;
+  -webkit-backdrop-filter: var(--glass-blur-top) !important;
   border-radius: 8px !important;
 }
 
@@ -991,15 +1024,15 @@ body::after {
    ============================================================ */
 
 .ant-popover-inner {
-  backdrop-filter: var(--glass-blur) !important;
-  -webkit-backdrop-filter: var(--glass-blur) !important;
+  backdrop-filter: var(--glass-blur-top) !important;
+  -webkit-backdrop-filter: var(--glass-blur-top) !important;
   border-radius: 12px !important;
 }
 
 [data-theme='light'] .ant-popover-inner {
   background: rgba(255, 255, 255, 0.88) !important;
   border: 1px solid rgba(255, 255, 255, 0.9) !important;
-  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.15) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12) !important;
 }
 
 [data-theme='dark'] .ant-popover-inner {
@@ -1098,14 +1131,17 @@ body::after {
    ============================================================ */
 
 .search-submit-btn {
-  background: linear-gradient(135deg, #667eea, #764ba2) !important;
+  background: linear-gradient(135deg, #0ea5e9, #06b6d4) !important;
   border: none !important;
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4) !important;
+  box-shadow: 0 4px 16px rgba(14, 165, 233, 0.25) !important;
   transition: all 0.25s ease !important;
 }
 
 .search-submit-btn:hover {
-  box-shadow: 0 6px 24px rgba(102, 126, 234, 0.55) !important;
+  background: linear-gradient(135deg, #38bdf8, #22d3ee, #38bdf8) !important;
+  background-size: 200% 200% !important;
+  animation: btnShimmer 0.6s ease !important;
+  box-shadow: 0 6px 24px rgba(14, 165, 233, 0.35) !important;
   transform: translateY(-1px) !important;
 }
 
@@ -1122,7 +1158,7 @@ body::after {
    ============================================================ */
 
 .ant-switch-checked {
-  background: linear-gradient(135deg, #667eea, #764ba2) !important;
+  background: linear-gradient(135deg, var(--aurora-5), #2ecc71) !important;
 }
 
 /* ============================================================
@@ -1137,7 +1173,7 @@ body::after {
 
 .game-detail-layout .album-card:hover {
   background: rgba(255, 255, 255, 0.2) !important;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(102, 126, 234, 0.3) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(79, 172, 254, 0.25) !important;
 }
 
 /* ============================================================
@@ -1156,6 +1192,7 @@ body::after {
   :root {
     --glass-blur: blur(12px) saturate(160%);
     --glass-blur-heavy: blur(20px) saturate(180%);
+    --glass-blur-top: blur(8px) saturate(140%);
   }
 
   body::after {
@@ -1175,6 +1212,54 @@ body::after {
   .login-container::before {
     animation: none !important;
   }
+
+  /* ── Home.css marqueeScroll ── */
+  .carousel-track,
+  .carousel-track-vertical {
+    animation: none !important;
+  }
+
+  /* ── Player.css spinSlow ── */
+  .player-cover.playing {
+    animation: none !important;
+  }
+
+  /* ── Player.css playerSlideUp / playerSlideDown ── */
+  .player-detail-panel,
+  .player-detail-panel.closing {
+    animation: none !important;
+    clip-path: none !important;
+  }
+
+  /* ── 全局渐变与微动效 ── */
+  .player-container::before {
+    animation: none !important;
+  }
+
+  .ant-layout-content,
+  .albums-content,
+  .artists-content,
+  .tags-content,
+  .library-content,
+  .search-content,
+  .album-detail-content,
+  .track-detail-content {
+    animation: none !important;
+  }
+
+  .card-stagger-enter {
+    animation: none !important;
+  }
+
+  .album-card:hover,
+  .game-card:hover {
+    transform: none !important;
+  }
+
+  .album-card:hover .album-cover-wrapper img,
+  .game-card:hover .game-cover-image {
+    transform: none !important;
+  }
 }
 
 /* ============================================================
@@ -1192,6 +1277,29 @@ body::after {
   }
 }
 
+/* Modal/Drawer/Popover 弹出动画 */
+@keyframes modalPopIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 弹出层使用专属动画 */
+.ant-modal-content,
+.ant-drawer-content,
+.ant-popover-inner,
+.ant-notification-notice,
+.ant-message-notice-content,
+.ant-dropdown .ant-dropdown-menu,
+.ant-select-dropdown {
+  animation: modalPopIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 /* 所有主要内容页面进入时的淡入动画 */
 .ant-layout-content,
 .albums-content,
@@ -1201,20 +1309,19 @@ body::after {
 .search-content,
 .album-detail-content,
 .track-detail-content {
-  animation: fadeSlideIn 0.3s ease forwards;
+  animation: fadeSlideIn 0.4s ease forwards;
 }
 
-/* 专辑卡片 3D hover 效果 */
+/* 专辑卡片 hover — 微旋转替代标准上浮 */
 .album-card,
 .game-card {
-  transition: transform 0.25s ease, box-shadow 0.25s ease !important;
+  transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.45s cubic-bezier(0.16, 1, 0.3, 1) !important;
   transform-style: preserve-3d;
 }
 
 .album-card:hover,
 .game-card:hover {
-  transform: translateY(-4px) scale(1.015) !important;
-  box-shadow: 0 16px 40px rgba(102, 126, 234, 0.35), 0 4px 16px rgba(0,0,0,0.2) !important;
+  transform: translateY(-6px) rotateX(1deg) scale(1.02) !important;
 }
 
 /* 封面图片 hover 缩放 */
@@ -1331,5 +1438,199 @@ body::before {
 .ant-skeleton-image {
   border-radius: 8px !important;
   overflow: hidden;
+}
+
+/* ============================================================
+   🌞 Light Mode Override — 暖白 + 纯色 + 金琥珀
+   Nuke all purple glass. Warm cream, solid cards, clean shadows.
+   ============================================================ */
+[data-theme="light"] {
+
+  /* ── 页面背景：暖奶油色 ── */
+  --aurora-bg-light: linear-gradient(180deg, #faf8f5 0%, #f5f1eb 100%);
+  --bg-primary: #faf8f5;
+  --bg-secondary: #f3f0ea;
+
+  /* ── 卡片：纯白 + 清爽阴影，零玻璃 ── */
+  --card-bg: #ffffff;
+  --card-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  --card-shadow-hover: 0 8px 24px rgba(0,0,0,0.10);
+
+  /* ── 表面：纯白，不用半透明 ── */
+  --bg-elevated: #ffffff;
+  --bg-surface: #faf8f5;
+  --glass-bg: #ffffff;
+  --glass-border: rgba(0,0,0,0.08);
+  --glass-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  --border-color: rgba(0,0,0,0.08);
+}
+
+/* ── 关闭所有 backdrop-filter（亮色模式不需要模糊） ── */
+[data-theme="light"] .album-card,
+[data-theme="light"] .artist-card,
+[data-theme="light"] .tag-card,
+[data-theme="light"] .track-card,
+[data-theme="light"] .ant-card,
+[data-theme="light"] .ant-table-container,
+[data-theme="light"] .ant-table,
+[data-theme="light"] .ant-input,
+[data-theme="light"] .ant-input-affix-wrapper,
+[data-theme="light"] .ant-select-selector,
+[data-theme="light"] .ant-tag,
+[data-theme="light"] .ant-tabs-nav,
+[data-theme="light"] .ant-btn-default,
+[data-theme="light"] .albums-header,
+[data-theme="light"] .artists-header,
+[data-theme="light"] .tags-header,
+[data-theme="light"] .library-header,
+[data-theme="light"] .album-hero,
+[data-theme="light"] .artist-hero,
+[data-theme="light"] .tag-hero,
+[data-theme="light"] .track-hero,
+[data-theme="light"] .album-hero-shell,
+[data-theme="light"] .track-hero-panel,
+[data-theme="light"] .game-hero,
+[data-theme="light"] .search-active-tags,
+[data-theme="light"] .upload-dragger,
+[data-theme="light"] .player-container,
+[data-theme="light"] .album-track-shell,
+[data-theme="light"] .music-sources-card,
+[data-theme="light"] .credits-card,
+[data-theme="light"] .lyrics-card,
+[data-theme="light"] .track-info-card,
+[data-theme="light"] .tag-detail-tracks,
+[data-theme="light"] .queue-panel,
+[data-theme="light"] .side-nav-item {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* ── 卡片/容器：纯白背景 + 清爽阴影 ── */
+[data-theme="light"] .album-card,
+[data-theme="light"] .artist-card,
+[data-theme="light"] .tag-card,
+[data-theme="light"] .track-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(0,0,0,0.06) !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+}
+[data-theme="light"] .album-card:hover,
+[data-theme="light"] .artist-card:hover,
+[data-theme="light"] .tag-card:hover,
+[data-theme="light"] .track-card:hover {
+  background: #ffffff !important;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06) !important;
+  transform: translateY(-4px) !important;
+}
+
+/* ── Hero 面板：纯白 ── */
+[data-theme="light"] .album-hero,
+[data-theme="light"] .artist-hero,
+[data-theme="light"] .album-hero-shell,
+[data-theme="light"] .track-hero-panel {
+  background: #ffffff !important;
+  border: 1px solid rgba(0,0,0,0.06) !important;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.06) !important;
+}
+
+/* ── 表格/输入框：纯白 ── */
+[data-theme="light"] .ant-table-container,
+[data-theme="light"] .ant-table {
+  background: #ffffff !important;
+}
+[data-theme="light"] .ant-input,
+[data-theme="light"] .ant-input-affix-wrapper,
+[data-theme="light"] .ant-select-selector {
+  background: #ffffff !important;
+  border-color: rgba(0,0,0,0.12) !important;
+}
+[data-theme="light"] .ant-input:focus,
+[data-theme="light"] .ant-input-affix-wrapper:focus,
+[data-theme="light"] .ant-select-selector:focus {
+  border-color: #888 !important;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.08) !important;
+}
+
+/* ── 标签：暖中性 ── */
+[data-theme="light"] .ant-tag {
+  background: #f3f0ea !important;
+  border-color: rgba(0,0,0,0.06) !important;
+}
+
+/* ── 主要按钮：深灰中性 ── */
+[data-theme="light"] .ant-btn-primary {
+  background: #2d2d2d !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+[data-theme="light"] .ant-btn-primary:hover {
+  background: #1a1a1a !important;
+}
+
+/* ── 搜索提交：中性 ── */
+[data-theme="light"] .search-submit-btn {
+  background: #2d2d2d !important;
+  box-shadow: none !important;
+}
+[data-theme="light"] .search-submit-btn:hover {
+  background: #1a1a1a !important;
+}
+
+/* ── Header：纯白底 ── */
+[data-theme="light"] .albums-header,
+[data-theme="light"] .artists-header,
+[data-theme="light"] .tags-header,
+[data-theme="light"] .library-header {
+  background: rgba(255,255,255,0.95) !important;
+  border-bottom: 1px solid rgba(0,0,0,0.06) !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04) !important;
+}
+
+/* ── Slider / Progress / Tabs 指示器：深灰 ── */
+[data-theme="light"] .ant-slider-track,
+[data-theme="light"] .ant-progress-bg,
+[data-theme="light"] .ant-tabs-ink-bar {
+  background: #2d2d2d !important;
+}
+[data-theme="light"] .ant-slider-handle {
+  border-color: #2d2d2d !important;
+  background: #ffffff !important;
+}
+
+/* ── 开关：绿色 ── */
+[data-theme="light"] .ant-switch-checked {
+  background: #22c55e !important;
+}
+
+/* ── 选中文字 ── */
+[data-theme="light"] ::selection {
+  background-color: rgba(0,0,0,0.10);
+}
+
+/* ── 播放按钮：绿色（有语义的少数例外） ── */
+[data-theme="light"] .album-hero-shell .ant-btn-primary,
+[data-theme="light"] .track-hero-panel .ant-btn-primary {
+  background: #16a34a !important;
+  box-shadow: none !important;
+}
+[data-theme="light"] .album-hero-shell .ant-btn-primary:hover,
+[data-theme="light"] .track-hero-panel .ant-btn-primary:hover {
+  background: #15803d !important;
+}
+
+/* ── Track/Album 内嵌卡片 ── */
+[data-theme="light"] .album-track-shell,
+[data-theme="light"] .music-sources-card,
+[data-theme="light"] .credits-card,
+[data-theme="light"] .lyrics-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(0,0,0,0.06) !important;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.04) !important;
+}
+
+/* ── 专辑/曲目页背景：纯色 ── */
+[data-theme="light"] .album-detail-layout,
+[data-theme="light"] .track-detail-layout {
+  background: #faf8f5 !important;
 }
 

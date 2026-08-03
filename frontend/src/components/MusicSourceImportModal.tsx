@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Button,
@@ -173,6 +173,12 @@ const MusicSourceImportModal: React.FC<MusicSourceImportModalProps> = ({ visible
   const [commitLoading, setCommitLoading] = useState(false);
   const searchTimerRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const searchSeqRef = useRef<Record<string, number>>({});
+
+  useEffect(() => {
+    return () => {
+      Object.values(searchTimerRef.current).forEach(clearTimeout);
+    };
+  }, []);
 
   const resetState = () => {
     setFile(null);

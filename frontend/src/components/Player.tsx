@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Howl } from 'howler';
 import { Slider, Button, Space, Tooltip, Badge } from 'antd';
 import { useNavigate } from 'react-router-dom';
@@ -20,6 +20,7 @@ import {
 } from '@ant-design/icons';
 import { usePlayerStore } from '../store/playerStore';
 import { trackService } from '../services/trackService';
+import { useDominantColor } from '../utils/useDominantColor';
 import { lyricsService } from '../services/lyricsService';
 import favoriteService from '../services/favoriteService';
 import { useDebugUserFeatures } from '../utils/debugFeature';
@@ -65,7 +66,23 @@ const Player: React.FC = () => {
   const [collapsing, setCollapsing] = useState(false);
   const [isFavorited, setIsFavorited] = useState(false);
   const [favoriteCount, setFavoriteCount] = useState(0);
+  const [coverLoaded, setCoverLoaded] = useState(false);
   const canUseDebugUserFeatures = useDebugUserFeatures();
+
+  // Cover URLs memoized for hook dependencies
+  const coverSrc = useMemo((): string | null => {
+    if (!currentTrack) return null;
+    const path = currentTrack.cover_path || currentTrack.album_cover;
+    return path ? trackService.getCoverUrl(path) : null;
+  }, [currentTrack?.cover_path, currentTrack?.album_cover]);
+
+  const coverThumbSrc = useMemo((): string | null => {
+    if (!currentTrack) return null;
+    const path = currentTrack.cover_path || currentTrack.album_cover;
+    return path ? trackService.getCoverUrl(path, true) : null;
+  }, [currentTrack?.cover_path, currentTrack?.album_cover]);
+
+  const dominantColor = useDominantColor(coverSrc || '');
 
   const handleCollapse = () => {
     setCollapsing(true);
@@ -146,6 +163,11 @@ const Player: React.FC = () => {
     return () => {
       canceled = true;
     };
+  }, [currentTrack?.id]);
+
+  // Reset cover load state on track change
+  useEffect(() => {
+    setCoverLoaded(false);
   }, [currentTrack?.id]);
 
   useEffect(() => {
@@ -276,6 +298,7 @@ const Player: React.FC = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps — handlers not memoized, adding them causes unnecessary re-registration
   }, [currentTrack, isPlaying, volume, expanded]);
 
   useEffect(() => {
@@ -446,18 +469,6 @@ const Player: React.FC = () => {
 
   if (!currentTrack) return null;
 
-  // 缩略图用于底部栏小封面（56px），原图用于全屏展开大封面（260px）
-  const coverSrc = currentTrack.cover_path
-    ? trackService.getCoverUrl(currentTrack.cover_path)
-    : currentTrack.album_cover
-      ? trackService.getCoverUrl(currentTrack.album_cover)
-      : null;
-  const coverThumbSrc = currentTrack.cover_path
-    ? trackService.getCoverUrl(currentTrack.cover_path, true)
-    : currentTrack.album_cover
-      ? trackService.getCoverUrl(currentTrack.album_cover, true)
-      : null;
-
   // ─── Controls bar (shared between collapsed & expanded) ───
   const controlsBar = (
     <div className="player-controls">
@@ -500,7 +511,7 @@ const Player: React.FC = () => {
   // ─── Expanded fullscreen view ─────────────────────────────
   if (expanded) {
     return (
-      <div className={`player-expanded${collapsing ? ' player-collapsing' : ''}`}>
+      <div className={`player-expanded${collapsing ? ' player-collapsing' : ''}`} style={{ '--player-dominant': dominantColor || 'var(--aurora-1)' } as React.CSSProperties}>
         {/* dark gradient bg — click to collapse */}
         <div
           className="player-expanded-bg"
@@ -518,14 +529,30 @@ const Player: React.FC = () => {
         <div className="player-expanded-body">
           {/* Left: cover + track info */}
           <div className="player-expanded-left">
-            {coverSrc ? (
-              <img src={coverSrc} alt={currentTrack.title} className="player-expanded-cover" />
-            ) : (
-              <div className="player-expanded-cover player-expanded-cover--placeholder">
-                <SoundOutlined style={{ fontSize: 64, opacity: 0.4 }} />
-              </div>
-            )}
+            <div className={`player-expanded-cover-wrap${isPlaying ? ' player-cover-spinning' : ''}`}>
+              {coverSrc ? (
+                <img
+                  key={currentTrack.id}
+                  src={coverSrc}
+                  alt={currentTrack.title}
+                  className={`player-expanded-cover${coverLoaded ? ' loaded' : ''}`}
+                  onLoad={() => setCoverLoaded(true)}
+                />
+              ) : (
+                <div className="player-expanded-cover player-expanded-cover--placeholder loaded">
+                  <SoundOutlined style={{ fontSize: 64, opacity: 0.4 }} />
+                </div>
+              )}
+            </div>
+            <div className={`player-visualizer${isPlaying ? '' : ' player-visualizer-paused'}`}>
+              <div className="player-visualizer-bar" />
+              <div className="player-visualizer-bar" />
+              <div className="player-visualizer-bar" />
+              <div className="player-visualizer-bar" />
+              <div className="player-visualizer-bar" />
+            </div>
             <div
+              key={`title-${currentTrack.id}`}
               className="player-expanded-title"
               style={{ cursor: 'pointer' }}
               onClick={() => navigate(`/track/${currentTrack.id}`)}
@@ -534,6 +561,7 @@ const Player: React.FC = () => {
             </div>
             {currentTrack.album_title && (
               <div
+                key={`album-${currentTrack.id}`}
                 className="player-expanded-album"
                 style={{ cursor: currentTrack.album_id ? 'pointer' : 'default' }}
                 onClick={() => currentTrack.album_id && navigate(`/albums/${currentTrack.album_id}`)}
@@ -760,6 +788,8 @@ const Player: React.FC = () => {
           </Tooltip>
         </div>
       </div>
+
+      <div className="player-mini-progress-bar" style={{ width: `${duration > 0 ? (progress / duration) * 100 : 0}%` }} />
 
       <PlayQueue visible={queueVisible} onClose={() => setQueueVisible(false)} />
     </div>

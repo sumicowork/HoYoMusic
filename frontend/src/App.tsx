@@ -9,13 +9,16 @@ import Player from './components/Player';
 import PageHeader from './components/PageHeader';
 import MobileTabBar from './components/MobileTabBar';
 import AuthModal from './components/AuthModal';
+import ErrorBoundary from './components/ErrorBoundary';
 import FeedbackModal from './components/FeedbackModal';
 import FirstVisitModal from './components/FirstVisitModal';
 import SiteComplianceFooter from './components/SiteComplianceFooter';
 import { usePlayerStore } from './store/playerStore';
 import { useThemeStore } from './store/themeStore';
 import { useAuthStore } from './store/authStore';
+import { useAuthModalStore } from './store/authModalStore';
 import { siteConfigService, DEFAULT_MAINTENANCE_MODE_CONFIG, type MaintenanceModeConfig } from './services/siteConfigService';
+import { authEvents } from './services/api';
 import { ADMIN_NAV_ITEMS } from './config/adminNavigation';
 import { darkTheme, lightTheme } from './theme/themeConfig';
 import './theme/theme.css';
@@ -178,19 +181,21 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
 
   if (forceMaintenancePage) {
     return (
-      <Suspense fallback={<PageFallback />}>
-        <>
-          <Routes>
-            <Route
-              path="/maintenance"
-              element={<Maintenance config={maintenanceConfig} onOpenFeedback={onOpenFeedback} />}
-            />
-            <Route path="*" element={<Navigate to="/maintenance" replace />} />
-          </Routes>
-          <FeedbackModal open={feedbackOpen} onClose={onCloseFeedback} />
-          <AuthModal />
-        </>
-      </Suspense>
+      <ErrorBoundary>
+        <Suspense fallback={<PageFallback />}>
+          <>
+            <Routes>
+              <Route
+                path="/maintenance"
+                element={<Maintenance config={maintenanceConfig} onOpenFeedback={onOpenFeedback} />}
+              />
+              <Route path="*" element={<Navigate to="/maintenance" replace />} />
+            </Routes>
+            <FeedbackModal open={feedbackOpen} onClose={onCloseFeedback} />
+            <AuthModal />
+          </>
+        </Suspense>
+      </ErrorBoundary>
     );
   }
 
@@ -198,8 +203,9 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
     <div className={`app${currentTrack ? ' has-player' : ''}${isAdminRoute ? ' admin-app' : ''}`}>
       {!isAdminRoute && <PageHeader onFeedbackClick={onOpenFeedback} />}
       {!isAdminRoute && <MobileTabBar onFeedbackClick={onOpenFeedback} />}
-      <Suspense fallback={<PageFallback />}>
-        <Routes>
+      <ErrorBoundary>
+        <Suspense fallback={<PageFallback />}>
+          <Routes>
           {/* 公开路由 - 无需登录 */}
           <Route path="/" element={<Home />} />
           <Route path="/games/:id" element={<GameDetail />} />
@@ -247,6 +253,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
+      </ErrorBoundary>
       {!isAdminRoute && <FirstVisitModal />}
       {!isAdminRoute && <FeedbackModal open={feedbackOpen} onClose={onCloseFeedback} />}
       {!isAdminRoute && <SiteComplianceFooter />}
@@ -271,6 +278,17 @@ const App: React.FC = () => {
   useEffect(() => {
     initializeAuth();
   }, [initializeAuth]);
+
+  useEffect(() => {
+    const handleAuthExpired = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { redirectTo: string | null };
+      useAuthModalStore.getState().openLogin(detail.redirectTo);
+    };
+    authEvents.addEventListener('auth-expired', handleAuthExpired);
+    return () => {
+      authEvents.removeEventListener('auth-expired', handleAuthExpired);
+    };
+  }, []);
 
   return (
     <ConfigProvider theme={mode === 'dark' ? darkTheme : lightTheme} locale={zhCN}>

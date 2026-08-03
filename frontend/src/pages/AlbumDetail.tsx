@@ -1,13 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { Button, Collapse, Image, Skeleton, Tag, Tooltip, message } from 'antd';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Button, Collapse, Grid, Image, Skeleton, Tag, Tooltip } from 'antd';
 import { ArrowLeftOutlined, DownloadOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import { Track } from '../types';
 import { trackService, DOWNLOAD_ENABLED } from '../services/trackService';
+import { API_BASE_URL } from '../services/api';
 import { albumService } from '../services/albumService';
 import { usePlayerStore } from '../store/playerStore';
 import { useThemeStore } from '../store/themeStore';
 import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
+import { formatDuration } from '../utils/format';
+import { handleApiError } from '../utils/errorHandler';
 import { useDominantColor } from '../utils/useDominantColor';
 import './AlbumDetail.css';
 
@@ -41,6 +44,8 @@ const AlbumDetail: React.FC = () => {
 
   const { play, playTrackOnly, setPlaylist } = usePlayerStore();
   const mode = useThemeStore((state) => state.mode);
+  const { md } = Grid.useBreakpoint();
+  const isMobile = !md;
   const isDark = mode === 'dark';
   const coverThumbSrc = album?.cover_path ? trackService.getCoverUrl(album.cover_path, true) : null;
   const coverFullSrc = album?.cover_path ? trackService.getCoverUrl(album.cover_path) : null;
@@ -59,7 +64,7 @@ const AlbumDetail: React.FC = () => {
       setTracks(data.tracks);
       setDiscs(data.discs || []);
     } catch (error: any) {
-      message.error('加载专辑详情失败');
+      handleApiError(error, '加载专辑详情失败');
     } finally {
       setLoading(false);
     }
@@ -81,15 +86,7 @@ const AlbumDetail: React.FC = () => {
   };
 
   const handleDownloadAlbum = () => {
-    const apiBase = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
-    window.open(`${apiBase}/albums/${id}/download`, '_blank');
-  };
-
-  const formatDuration = (seconds: number) => {
-    if (!seconds) return '--';
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    window.open(`${API_BASE_URL}/albums/${id}/download`, '_blank');
   };
 
   const formatTotalDuration = (seconds: number) => {
@@ -142,24 +139,35 @@ const AlbumDetail: React.FC = () => {
             key={track.id}
             className="group grid grid-cols-[52px_minmax(0,1fr)_auto] items-center gap-2 border-b border-white/[0.08] px-2 py-2 transition-all duration-200 last:border-b-0 hover:bg-white/10 sm:grid-cols-[70px_minmax(0,1fr)_auto] sm:px-4 sm:py-3"
           >
-            <Button
-              type="text"
-              shape="circle"
-              onClick={() => handlePlay(track)}
-              className="!flex h-11 w-11 !items-center !justify-center rounded-full !border-0 !bg-transparent !p-0 text-sm font-semibold !text-[color:var(--text-secondary)] transition-all hover:!bg-white/10 hover:!text-[color:var(--text-primary)]"
-              aria-label={`播放 ${trackTitleCn}`}
-              icon={<PlayCircleOutlined className="hidden text-base group-hover:inline" />}
-            >
-              <span className="group-hover:hidden">{track.track_number || idx + 1}</span>
-            </Button>
+            {isMobile ? (
+              <Button
+                type="text"
+                shape="circle"
+                onClick={() => handlePlay(track)}
+                className="!flex h-11 w-11 !items-center !justify-center rounded-full !border-0 !bg-transparent !p-0 text-base !text-[color:var(--text-secondary)] hover:!bg-white/10 hover:!text-[color:var(--text-primary)]"
+                aria-label={`播放 ${trackTitleCn}`}
+                icon={<PlayCircleOutlined />}
+              />
+            ) : (
+              <Button
+                type="text"
+                shape="circle"
+                onClick={() => handlePlay(track)}
+                className="!flex h-11 w-11 !items-center !justify-center rounded-full !border-0 !bg-transparent !p-0 text-sm font-semibold !text-[color:var(--text-secondary)] transition-all hover:!bg-white/10 hover:!text-[color:var(--text-primary)]"
+                aria-label={`播放 ${trackTitleCn}`}
+                icon={<PlayCircleOutlined className="hidden text-base group-hover:inline" />}
+              >
+                <span className="group-hover:hidden">{track.track_number || idx + 1}</span>
+              </Button>
+            )}
 
             <div className="min-w-0">
-              <a
-                onClick={() => navigate(`/track/${track.id}`)}
-                className="block max-w-full cursor-pointer truncate bg-transparent text-left text-base font-semibold text-[color:var(--text-primary)] no-underline transition-colors hover:text-indigo-300"
+              <Link
+                to={`/track/${track.id}`}
+                className="block max-w-full cursor-pointer truncate bg-transparent text-left text-base font-semibold text-[color:var(--text-primary)] no-underline transition-colors hover:text-[#2d2d2d] hover:underline"
               >
                 {trackTitleCn}
-              </a>
+              </Link>
               {track.title_en && <p className="truncate text-xs text-[color:var(--text-secondary)]">{track.title_en}</p>}
               {track.notes && <p className="truncate text-xs text-[color:var(--text-tertiary)]">{track.notes}</p>}
             </div>
@@ -244,8 +252,8 @@ const AlbumDetail: React.FC = () => {
           </Button>
         </div>
 
-        <section className="album-hero-shell relative grid gap-6 overflow-hidden rounded-3xl border border-white/20 bg-white/[0.14] p-4 shadow-2xl backdrop-blur-md md:grid-cols-[320px_minmax(0,1fr)] md:p-8">
-          <div className="relative mx-auto w-full max-w-[320px]">
+        <section className="album-hero-shell relative grid gap-6 overflow-hidden rounded-3xl border border-white/20 bg-white/[0.14] p-4 shadow-2xl backdrop-blur-md md:grid-cols-[380px_minmax(0,1fr)] md:p-8">
+          <div className="relative mx-auto w-full max-w-[380px]">
             <div className="album-cover-glow" aria-hidden="true" />
             <Image
               width="100%"
@@ -269,7 +277,7 @@ const AlbumDetail: React.FC = () => {
 
             <div className="mt-5 flex flex-wrap justify-center gap-2 md:justify-start">
               {specBadges.map((spec) => (
-                <span key={spec} className="rounded-full border border-cyan-200/40 bg-gradient-to-r from-cyan-300/20 to-indigo-300/20 px-3 py-1 text-xs font-semibold tracking-wide text-cyan-50">
+                <span key={spec} className="rounded-full border border-slate-300/30 bg-white/20 px-3 py-1 text-xs font-semibold tracking-wide text-slate-700 dark:text-slate-200">
                   {spec}
                 </span>
               ))}
@@ -284,7 +292,7 @@ const AlbumDetail: React.FC = () => {
                 icon={<PlayCircleOutlined />}
                 onClick={handlePlayAll}
                 disabled={tracks.length === 0}
-                className="h-12 rounded-xl border-0 bg-gradient-to-r from-indigo-500 to-violet-500 font-semibold"
+                className="h-12 rounded-xl border-0 bg-[#16a34a] font-semibold text-white transition-all hover:bg-[#15803d]"
               >
                 播放全部
               </Button>

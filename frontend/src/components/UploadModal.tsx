@@ -1,8 +1,8 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   Modal, Upload, Button, Progress, List, Tag, Typography, Space,
-  Divider, Result, Badge, Steps, Alert, Input, Switch, Tooltip,
-  Row, Col, Card, Spin,
+  Divider, Result, Badge, Steps, Alert, Input, Tooltip,
+  Row, Col, Card, Spin, Select,
 } from 'antd';
 import {
   InboxOutlined, DeleteOutlined, CheckCircleOutlined, CloseCircleOutlined,
@@ -11,13 +11,15 @@ import {
   FileTextOutlined, TagOutlined, FolderOpenOutlined,
 } from '@ant-design/icons';
 import { trackService } from '../services/trackService';
+import { gameService } from '../services/gameService';
+import type { Game } from '../types';
 import { toast } from '../utils/toast';
 import './UploadModal.css';
 
 const { Dragger } = Upload;
 const { Text } = Typography;
 
-interface CreditEntry { key: string; value: string; }
+interface GameOption { label: string; value: number; }
 
 interface FileItem {
   uid: string;
@@ -26,13 +28,11 @@ interface FileItem {
   size: number;
   status: 'pending' | 'uploading' | 'done' | 'error';
   error?: string;
-  detectedTitle: string;
-  detectedAlbum: string;
   editTitle: string;
-  editAlbum: string;
-  // credits parsed from FLAC in browser
-  credits?: CreditEntry[];
-  creditsLoading?: boolean;
+  editTrackNumber: string;
+  scannedTitle: string;
+  scannedAlbum: string;
+  scannedTrackNumber: string;
 }
 
 interface UploadModalProps {
@@ -41,10 +41,10 @@ interface UploadModalProps {
   onSuccess: () => void;
 }
 
-function parseFilename(name: string): { title: string; album: string } {
-  // 文件名去掉扩展名即为标题，不做任何分割解析
-  const title = name.replace(/\.flac$/i, '');
-  return { title, album: '' };
+// 文件名仅用于去重和显示，标题/专辑由后端 metaflac 自动读取
+// 用户可在后续步骤手动覆盖
+function emptyMeta() {
+  return { title: '', album: '' };
 }
 
 const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }) => {
@@ -53,15 +53,26 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
   const [uploadProgress, setUploadProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState(0);
   const [uploadResults, setUploadResults] = useState<{ success: number; fail: number }>({ success: 0, fail: 0 });
-  const [autoCredits, setAutoCredits] = useState(true);
-  const [creditsScanning, setCreditsScanning] = useState(false);
-  const [duplicateChecking, setDuplicateChecking] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanProgress, setScanProgress] = useState(0);
+  const [scanSpeed, setScanSpeed] = useState('');
+  const [scanError, setScanError] = useState('');
+  const [albumGameMap, setAlbumGameMap] = useState<Record<string, number>>({});
+  const [games, setGames] = useState<GameOption[]>([]);
   const folderInputRef = useRef<HTMLInputElement>(null);
 
-  // Steps: 选择文件(0) → Credits预览(1) → 导入(2) → 完成(3)
+  useEffect(() => {
+    gameService.getGames().then(gs => {
+      setGames(gs.map(g => ({ label: g.name, value: g.id })));
+    }).catch(() => {
+      setGames([{ label: '原神', value: 1 }, { label: '崩坏：星穹铁道', value: 2 }, { label: '绝区零', value: 3 }]);
+    });
+  }, []);
+
+  // Steps: 选择文件(0) → 填写信息(1) → 导入(2) → 完成(3)
   const steps = [
     { title: '选择文件',     icon: <FileSearchOutlined /> },
-    { title: 'Credits 预览', icon: <TagOutlined /> },
+    { title: '扫描标签',   icon: <TagOutlined /> },
     { title: '导入',         icon: <UploadIcon /> },
     { title: '完成',         icon: <CheckCircleOutlined /> },
   ];
@@ -80,17 +91,18 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
         continue;
       }
         if (next.some(f => f.name === file.name && f.size === file.size)) continue;
-        const { title, album } = parseFilename(file.name);
+        const { title } = emptyMeta();
         next.push({
           uid: `${Date.now()}-${Math.random()}`,
           name: file.name,
           originFileObj: file,
           size: file.size,
           status: 'pending',
-          detectedTitle: title,
-          detectedAlbum: album,
-          editTitle: title,
-          editAlbum: album,
+          editTitle: '',
+          editTrackNumber: '',
+          scannedTitle: file.name.replace(/\.flac$/i, ''),
+          scannedAlbum: '',
+          scannedTrackNumber: '',
         });
       }
       return next;
@@ -112,120 +124,48 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
   const handleRemoveFile = (uid: string) =>
     setFileItems(prev => prev.filter(f => f.uid !== uid));
 
-  const handleUpdateCredit = (uid: string, idx: number, field: 'key' | 'value', val: string) =>
-    setFileItems(prev => prev.map(f => {
-      if (f.uid !== uid || !f.credits) return f;
-      const credits = f.credits.map((c, i) => i === idx ? { ...c, [field]: val } : c);
-      return { ...f, credits };
-    }));
-
-  const handleDeleteCredit = (uid: string, idx: number) =>
-    setFileItems(prev => prev.map(f => {
-      if (f.uid !== uid || !f.credits) return f;
-      return { ...f, credits: f.credits.filter((_, i) => i !== idx) };
-    }));
-
-  const handleAddCredit = (uid: string) =>
-    setFileItems(prev => prev.map(f => {
-      if (f.uid !== uid) return f;
-      return { ...f, credits: [...(f.credits ?? []), { key: '', value: '' }] };
-    }));
-
-  // Step 0 → Step 1: scan credits via backend API (or skip to step 2)
-  const handleGoToCredits = async () => {
+  // Step 0 → Step 1: scan FLAC tags via backend, then show results for review
+  const handleGoToMetadata = async () => {
     if (fileItems.length === 0) return;
-
-    let nextItems = fileItems;
-    setDuplicateChecking(true);
+    setScanning(true);
+    setScanError('');
+    setScanProgress(0);
+    setScanSpeed('');
     try {
-      const duplicates = await trackService.precheckDuplicateTracks(
-        fileItems.map((f, index) => ({
-          index,
-          file: f.name,
-          title: (f.editTitle || f.detectedTitle || '').trim(),
-        }))
+      const scanned = await trackService.scanTags(
+        fileItems.map(f => f.originFileObj),
+        (pct, spd) => { setScanProgress(pct); setScanSpeed(spd); },
       );
-
-      if (duplicates.length > 0) {
-        const shouldContinueAll = await new Promise<boolean>((resolve) => {
-          const detailRows = duplicates.slice(0, 8).map((dup) => {
-            const firstExisting = dup.existing_tracks?.[0];
-            const albumText = firstExisting?.album_title || '未分类专辑';
-            const artistText = firstExisting?.artists?.join(' / ') || '未知创作者';
-            return (
-              <div key={`${dup.index}-${dup.file}`} style={{ marginBottom: 6 }}>
-                <Text strong>{dup.file}</Text>
-                <br />
-                <Text type="secondary">数据库已有：#{firstExisting?.id ?? '-'} · {firstExisting?.title || dup.title} · {albumText} · {artistText}</Text>
-              </div>
-            );
-          });
-
-          Modal.confirm({
-            title: `检测到 ${duplicates.length} 首重名歌曲`,
-            width: 760,
-            okText: '继续导入全部',
-            cancelText: '移除重名后继续',
-            maskClosable: false,
-            keyboard: false,
-            content: (
-              <div>
-                <Text>已按“文件名（去扩展名）= 曲目名”匹配到数据库已有歌曲。请人工确认是否继续导入。</Text>
-                <div style={{ marginTop: 10, maxHeight: 260, overflowY: 'auto' }}>{detailRows}</div>
-                {duplicates.length > 8 && (
-                  <Text type="secondary">仅展示前 8 条，其余 {duplicates.length - 8} 条请在导入后复核。</Text>
-                )}
-              </div>
-            ),
-            onOk: () => resolve(true),
-            onCancel: () => resolve(false),
-          });
-        });
-
-        if (!shouldContinueAll) {
-          const duplicateIndexSet = new Set(duplicates.map((d) => d.index));
-          nextItems = fileItems.filter((_, idx) => !duplicateIndexSet.has(idx));
-          setFileItems(nextItems);
-          toast.warning(`已移除 ${duplicates.length} 首重名文件`);
-        }
-      }
-    } catch (e: any) {
-      toast.error('重名检查失败：' + (e?.message || '未知错误'));
-      return;
-    } finally {
-      setDuplicateChecking(false);
-    }
-
-    if (nextItems.length === 0) {
-      toast.warning('所有待导入文件均与现有曲目重名，已全部跳过');
-      setCurrentStep(0);
-      return;
-    }
-
-    if (!autoCredits) {
-      setCurrentStep(2); // skip credits preview, go straight to import
-      return;
-    }
-    setCurrentStep(1);
-    setCreditsScanning(true);
-    setFileItems(prev => prev.map(f => ({ ...f, creditsLoading: true, credits: undefined })));
-    try {
-      // 后端一次性解析所有文件，返回 [{filename, credits}]
-      const results = await trackService.previewCredits(nextItems.map(f => f.originFileObj));
+      // Map scan results back to fileItems by filename
+      const scanMap = new Map(scanned.map(s => [s.filename, s]));
       setFileItems(prev => prev.map(f => {
-        const match = results.find(r => r.filename === f.name);
-        return { ...f, credits: match ? match.credits : [], creditsLoading: false };
+        const s = scanMap.get(f.name);
+        if (!s) return f;
+        return {
+          ...f,
+          scannedTitle: s.title,
+          scannedAlbum: s.album,
+          scannedTrackNumber: s.track_number,
+          editTitle: '',     // reset — user hasn't decided override yet
+          editTrackNumber: '',
+        };
       }));
+      // 按专辑分组，每个专辑初始默认为游戏1
+      const albumGames: Record<string, number> = {};
+      scanned.forEach(s => {
+        if (s.album && !albumGames[s.album]) albumGames[s.album] = 1;
+      });
+      setAlbumGameMap(albumGames);
+      setCurrentStep(1);
     } catch (e: any) {
-      toast.error('读取 Credits 失败：' + (e?.message || '未知错误'));
-      setFileItems(prev => prev.map(f => ({ ...f, credits: [], creditsLoading: false })));
-    }
-    setCreditsScanning(false);
+      const msg = e?.response?.data?.error?.message || e?.message || '未知错误';
+      setScanError(msg);
+      toast.error('扫描标签失败：' + msg);
+    } finally { setScanning(false); }
   };
 
   const handleStartUpload = async () => {
     if (fileItems.length === 0) return;
-    const currentAutoCredits = autoCredits;
     setUploading(true);
     setUploadProgress(0);
     let successCount = 0; let failCount = 0;
@@ -234,12 +174,20 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
       const item = fileItems[i];
       setFileItems(prev => prev.map(f => f.uid === item.uid ? { ...f, status: 'uploading' } : f));
       try {
-        await trackService.uploadTracks([item.originFileObj], {
-          autoCredits: currentAutoCredits,
-          metaOverrides: [{ title: item.editTitle || undefined, album: item.editAlbum || undefined }],
-          // 传入编辑后的 credits（若已通过预览步骤）
-          creditsOverrides: [item.credits ?? null],
+        // 1. 获取 OSS 预签名上传 URL
+        const { uploadUrl, objectKey } = await trackService.getUploadToken(item.name, albumGameMap[item.scannedAlbum] || 1);
+
+        // 2. PUT 直传 OSS
+        await uploadToOSS(item.originFileObj, uploadUrl);
+
+        // 3. 通知服务器入库
+        await trackService.commitUpload({
+          objectKey,
+          gameId: albumGameMap[item.scannedAlbum] || 1,
+          title_override: item.editTitle.trim() || undefined,
+          track_number_override: item.editTrackNumber.trim() || undefined,
         });
+
         setFileItems(prev => prev.map(f => f.uid === item.uid ? { ...f, status: 'done' } : f));
         successCount++;
       } catch (e: any) {
@@ -258,10 +206,26 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
     if (failCount > 0) toast.error(`${failCount} 首导入失败`);
   };
 
+  /** PUT 文件到 OSS 预签名 URL */
+  const uploadToOSS = (file: File, url: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', url);
+      xhr.setRequestHeader('Content-Type', 'audio/flac');
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) resolve();
+        else reject(new Error(`OSS 上传失败: ${xhr.status}`));
+      };
+      xhr.onerror = () => reject(new Error('OSS 网络错误'));
+      xhr.send(file);
+    });
+  };
+
   const handleClose = () => {
     if (uploading) return;
     setFileItems([]); setCurrentStep(0); setUploadProgress(0);
-    setAutoCredits(true); setCreditsScanning(false); setDuplicateChecking(false);
+    setScanning(false); setScanError('');
+    setAlbumGameMap({});
     onClose();
   };
 
@@ -338,7 +302,6 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
                       description={
                         <Space size={4} wrap>
                           <Text type="secondary" style={{ fontSize: 11 }}>{formatSize(item.size)}</Text>
-                          {item.detectedTitle && <Tag color="purple" style={{ fontSize: 11 }}>{item.detectedTitle}</Tag>}
                         </Space>
                       }
                     />
@@ -348,146 +311,110 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
             </>
           )}
 
-          {/* Credits 决策区 */}
-          <Card size="small" className="upload-option-card" style={{ marginTop: 16 }}
-            title={<Space><TagOutlined style={{ color: '#667eea' }} /><span>是否自动读取 Credits？</span></Space>}
-          >
-            <div className="upload-option-row">
-              <div>
-                <div style={{ fontWeight: 500, marginBottom: 4 }}>
-                  自动从 FLAC 元数据提取 Credits（作曲、编曲、制作人、混音等）
-                </div>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  {autoCredits
-                    ? '✅ 已开启 — 点击「下一步」将读取每个文件的 Credits 供预览确认'
-                    : '⛔ 已关闭 — 将跳过 Credits，可在导入后手动添加'}
+          {scanning && (
+            <div style={{ textAlign: 'center', padding: '24px 0' }}>
+              <Progress
+                type="circle"
+                percent={scanProgress}
+                format={() => `${scanProgress}%`}
+                size={100}
+              />
+              <div style={{ marginTop: 16, color: 'var(--text-secondary)', fontSize: 14 }}>
+                正在上传并扫描 {fileItems.length} 首 FLAC 标签...
+              </div>
+              <div style={{ marginTop: 8 }}>
+                <Text type="secondary" style={{ fontSize: 13 }}>
+                  {scanProgress < 100
+                    ? `上传中 ${scanSpeed}`
+                    : '服务器正在解析标签...'}
                 </Text>
               </div>
-              <Switch
-                checked={autoCredits}
-                onChange={setAutoCredits}
-                disabled={duplicateChecking}
-                checkedChildren="读取" unCheckedChildren="忽略"
-                style={{ marginLeft: 16, flexShrink: 0 }}
-              />
             </div>
-          </Card>
+          )}
 
-          <div className="upload-footer">
+          {scanError && (
+            <Alert
+              type="error"
+              message="扫描失败"
+              description={scanError}
+              showIcon
+              closable
+              onClose={() => setScanError('')}
+              style={{ margin: '12px 0' }}
+            />
+          )}
+
+          {!scanning && <div className="upload-footer">
             <Button onClick={handleClose}>取消</Button>
-            <Button type="primary" icon={autoCredits ? <TagOutlined /> : <UploadIcon />}
-              loading={duplicateChecking}
-              disabled={fileItems.length === 0 || duplicateChecking}
-              onClick={handleGoToCredits}>
-              {duplicateChecking
-                ? '检查重名中...'
-                : (autoCredits ? `下一步：读取 Credits (${fileItems.length})` : `跳过，直接导入 (${fileItems.length})`)}
+            <Button type="primary" icon={<TagOutlined />}
+              disabled={fileItems.length === 0}
+              onClick={handleGoToMetadata}>
+              下一步：扫描标签 ({fileItems.length})
             </Button>
-          </div>
+          </div>}
         </>
       )}
 
-      {/* ── Step 1: Credits 预览 + 编辑 ──────────────────────────── */}
+      {/* ── Step 1: 核对标签 ──────────────────────────── */}
       {currentStep === 1 && (
         <>
-          {creditsScanning ? (
-            <div style={{ textAlign: 'center', padding: '40px 0' }}>
-              <Spin size="large" />
-              <div style={{ marginTop: 16, color: 'var(--text-secondary)' }}>正在读取 FLAC 文件 Credits 元数据…</div>
-            </div>
-          ) : (
-            <>
-              <Alert
-                message="可在下方直接修改、删除或添加 Credits 键值对，修改结果将在导入时写入数据库。"
-                type="info" showIcon icon={<InfoCircleOutlined />} style={{ marginBottom: 12 }}
-              />
-              <div style={{ maxHeight: 440, overflowY: 'auto' }}>
-                {fileItems.map(item => (
-                  <Card
-                    key={item.uid} size="small"
-                    className="upload-option-card"
-                    style={{ marginBottom: 10 }}
-                    title={
-                      <Space>
-                        <SoundOutlined style={{ color: '#667eea' }} />
-                        <Text ellipsis style={{ maxWidth: 380, fontSize: 13 }}>{item.name}</Text>
-                        <Tag color={(item.credits?.length ?? 0) > 0 ? 'green' : 'orange'}>
-                          {item.credits?.length ?? 0} 条 Credits
-                        </Tag>
-                      </Space>
-                    }
-                    extra={
-                      <Button
-                        type="dashed" size="small"
-                        icon={<span style={{ fontSize: 14, lineHeight: 1 }}>＋</span>}
-                        onClick={() => handleAddCredit(item.uid)}
-                        style={{ color: '#667eea', borderColor: '#667eea' }}
-                      >
-                        添加行
-                      </Button>
-                    }
-                  >
-                    {item.creditsLoading ? (
-                      <div style={{ textAlign: 'center', padding: 12 }}><Spin size="small" /></div>
-                    ) : (item.credits && item.credits.length > 0) ? (
-                      <div style={{ maxHeight: 240, overflowY: 'auto' }}>
-                        {/* 表头 */}
-                        <Row gutter={6} style={{ marginBottom: 4, padding: '0 4px' }}>
-                          <Col span={8}>
-                            <Text type="secondary" style={{ fontSize: 11 }}>KEY（标签名）</Text>
-                          </Col>
-                          <Col span={14}>
-                            <Text type="secondary" style={{ fontSize: 11 }}>VALUE（内容）</Text>
-                          </Col>
-                        </Row>
-                        {item.credits.map((credit, idx) => (
-                          <Row key={idx} gutter={6} style={{ marginBottom: 4 }} align="middle">
-                            <Col span={8}>
-                              <Input
-                                size="small"
-                                value={credit.key}
-                                onChange={e => handleUpdateCredit(item.uid, idx, 'key', e.target.value)}
-                                placeholder="例: composer"
-                                style={{ fontSize: 12 }}
-                              />
-                            </Col>
-                            <Col span={14}>
-                              <Input
-                                size="small"
-                                value={credit.value}
-                                onChange={e => handleUpdateCredit(item.uid, idx, 'value', e.target.value)}
-                                placeholder="例: 田中智章"
-                                style={{ fontSize: 12 }}
-                              />
-                            </Col>
-                            <Col span={2}>
-                              <Button
-                                type="text" size="small"
-                                icon={<DeleteOutlined />}
-                                danger
-                                onClick={() => handleDeleteCredit(item.uid, idx)}
-                              />
-                            </Col>
-                          </Row>
-                        ))}
-                      </div>
-                    ) : (
-                      <Alert
-                        type="warning" showIcon
-                        message="此文件未检测到 Credits 标签"
-                        description="可点击右上角「添加行」手动添加 Credits。"
-                        style={{ fontSize: 12 }}
+          <Alert
+            message={`已扫描 ${fileItems.length} 首 FLAC 标签 — ${Object.keys(albumGameMap).length} 个专辑`}
+            type="success" showIcon icon={<InfoCircleOutlined />} style={{ marginBottom: 8 }}
+          />
+
+          <div style={{ maxHeight: 420, overflowY: 'auto' }}>
+            {/* 按扫描到的专辑分组 */}
+            {Object.entries(albumGameMap).map(([album, gameId]) => {
+              const albumFiles = fileItems.filter(f => f.scannedAlbum === album);
+              return (
+                <Card key={album} size="small" style={{ marginBottom: 12 }}>
+                  <Row gutter={8} align="middle" style={{ marginBottom: 8 }}>
+                    <Col flex="auto">
+                      <Text strong style={{ fontSize: 13 }}>{album || '未分类专辑'}</Text>
+                      <Tag style={{ marginLeft: 8 }}>{albumFiles.length} 首</Tag>
+                    </Col>
+                    <Col>
+                      <Text style={{ fontSize: 12, marginRight: 4 }}>游戏：</Text>
+                      <Select
+                        size="small"
+                        value={gameId}
+                        onChange={v => setAlbumGameMap(prev => ({ ...prev, [album]: v }))}
+                        style={{ width: 140, fontSize: 12 }}
+                        options={games}
                       />
-                    )}
-                  </Card>
-                ))}
-              </div>
-            </>
-          )}
+                    </Col>
+                  </Row>
+                  {albumFiles.map((item, idx) => (
+                    <Row key={item.uid} gutter={8} style={{ marginBottom: 2 }} align="middle">
+                      <Col span={2} style={{ textAlign: 'center' }}>
+                        <Text type="secondary" style={{ fontSize: 11 }}>
+                          {item.scannedTrackNumber ? `#${item.scannedTrackNumber}` : `${idx + 1}`}
+                        </Text>
+                      </Col>
+                      <Col span={16}>
+                        <Text ellipsis style={{ fontSize: 11, lineHeight: '28px' }} title={item.name}>
+                          {item.name}
+                        </Text>
+                      </Col>
+                      <Col span={6}>
+                        <Input
+                          size="small"
+                          value={item.editTitle}
+                          onChange={e => setFileItems(prev => prev.map(f => f.uid === item.uid ? { ...f, editTitle: e.target.value } : f))}
+                          placeholder={item.scannedTitle}
+                          style={{ fontSize: 11 }}
+                        />
+                      </Col>
+                    </Row>
+                  ))}
+                </Card>
+              );
+            })}
+          </div>
           <div className="upload-footer">
-            <Button onClick={() => setCurrentStep(0)} disabled={creditsScanning}>上一步</Button>
-            <Button type="primary" icon={<UploadIcon />}
-              disabled={creditsScanning} onClick={() => setCurrentStep(2)}>
+            <Button onClick={() => setCurrentStep(0)}>上一步</Button>
+            <Button type="primary" icon={<UploadIcon />} onClick={() => setCurrentStep(2)}>
               确认，开始导入 ({fileItems.length} 首)
             </Button>
           </div>
@@ -515,8 +442,8 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
               </Col>
               <Col span={8}>
                 <div className="upload-stat">
-                  <div className="upload-stat-num" style={{ color: autoCredits ? '#52c41a' : '#faad14' }}>
-                    {autoCredits ? '读取' : '忽略'}
+                  <div className="upload-stat-num" style={{ color: '#52c41a' }}>
+                    手动
                   </div>
                   <div className="upload-stat-label">Credits</div>
                 </div>
@@ -551,7 +478,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
           )}
 
           <div className="upload-footer">
-            <Button onClick={() => setCurrentStep(autoCredits ? 1 : 0)} disabled={uploading}>上一步</Button>
+            <Button onClick={() => setCurrentStep(1)} disabled={uploading}>上一步</Button>
             <Button type="primary" icon={<UploadIcon />} loading={uploading} disabled={uploading}
               onClick={handleStartUpload}>
               {uploading
@@ -571,7 +498,6 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
             <Space direction="vertical" size={4} style={{ textAlign: 'center' }}>
               {uploadResults.success > 0 && <Tag color="green" style={{ fontSize: 13 }}>✅ {uploadResults.success} 首成功导入</Tag>}
               {uploadResults.fail > 0 && <Tag color="red" style={{ fontSize: 13 }}>❌ {uploadResults.fail} 首导入失败</Tag>}
-              {autoCredits && uploadResults.success > 0 && <Tag color="blue" style={{ fontSize: 12 }}>🎵 已自动写入 Credits 元数据</Tag>}
             </Space>
           }
           extra={

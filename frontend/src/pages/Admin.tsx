@@ -32,15 +32,14 @@ import {
   TeamOutlined,
   UploadOutlined,
 } from '@ant-design/icons';
-import { Link } from 'react-router-dom';
 import dayjs from 'dayjs';
-import type { ColumnsType } from 'antd/es/table';
 import type { MenuProps } from 'antd';
 import type { TableRowSelection } from 'antd/es/table/interface';
 import { trackService, type AdminTrackFilterOptions, type AdminTrackFilters, type SameAlbumDuplicateGroup } from '../services/trackService';
 import type { Track } from '../types';
 import { usePlayerStore } from '../store/playerStore';
 import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
+import { formatDuration } from '../utils/format';
 import AdminLayout from '../components/AdminLayout';
 import BulkMoveAlbumModal from '../components/BulkMoveAlbumModal';
 import BulkTagModal from '../components/BulkTagModal';
@@ -53,6 +52,7 @@ import TrackTagsManager from '../components/TrackTagsManager';
 import UploadModal from '../components/UploadModal';
 import AdminActionBar from '../components/admin/AdminActionBar';
 import AdminPageHeader from '../components/admin/AdminPageHeader';
+import { getTrackColumns } from '../components/admin/TrackTableColumns';
 import './Admin.css';
 
 const { useBreakpoint } = Grid;
@@ -128,6 +128,7 @@ const Admin: React.FC = () => {
   useEffect(() => {
     void fetchTracks();
     void loadTrackFilterOptions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps — mount-only: fetchTracks/loadTrackFilterOptions are not memoized
   }, []);
 
   useEffect(() => {
@@ -147,22 +148,10 @@ const Admin: React.FC = () => {
     return fromPath || fromInline ? 'has' : 'none';
   };
 
-  const formatDuration = (seconds: number | null) => {
-    if (!seconds) return '--:--';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
   const getTitleCn = (track: Track) => (track.title_cn && track.title_cn.trim()) || track.title;
   const getTitleEn = (track: Track) => (track.title_en && track.title_en.trim()) || '';
   const getAlbumTitleCn = (track: Track) => (track.album_title_cn && track.album_title_cn.trim()) || (track.album_title || '');
   const getAlbumTitleEn = (track: Track) => (track.album_title_en && track.album_title_en.trim()) || '';
-
-  const getUniqueFilters = (values: Array<string | null | undefined>) => {
-    const unique = Array.from(new Set(values.map((item) => (item || '').trim()).filter(Boolean)));
-    return unique.sort((a, b) => a.localeCompare(b, 'zh-CN')).map((value) => ({ text: value, value }));
-  };
 
   const normalizeTableFilters = (filters: Record<string, React.Key[] | null>): AdminTrackFilters => {
     const title = filters.title?.[0] ? String(filters.title[0]) : undefined;
@@ -374,156 +363,25 @@ const Admin: React.FC = () => {
     onChange: (keys) => setSelectedRowKeys(keys),
   };
 
-  const columns: ColumnsType<Track> = [
-    {
-      title: '封面',
-      dataIndex: 'cover_path',
-      key: 'cover',
-      width: 80,
-      render: (coverPath, record) => {
-        const coverSrc = coverPath || record.album_cover;
-        const thumbSrc = coverSrc ? trackService.getCoverUrl(coverSrc, true) : undefined;
-        const fullSrc = coverSrc ? trackService.getCoverUrl(coverSrc) : undefined;
-        return (
-          <Image
-            width={50}
-            height={50}
-            src={thumbSrc}
-            fallback={MUSIC_ICON_PLACEHOLDER}
-            style={{ borderRadius: 4, objectFit: 'cover' }}
-            preview={fullSrc ? { src: fullSrc } : false}
-          />
-        );
-      },
-    },
-    {
-      title: '标题',
-      dataIndex: 'title',
-      key: 'title',
-      ellipsis: true,
-      filters: getUniqueFilters(filterOptions.titles),
-      filteredValue: columnFilters.title || null,
-      filterMultiple: false,
-      filterSearch: true,
-      render: (_title: string, record: Track) => (
-        <Link to={`/track/${record.id}`}>
-          <div>{getTitleCn(record)}</div>
-          {getTitleEn(record) && <Typography.Text type="secondary" style={{ fontSize: 12 }}>{getTitleEn(record)}</Typography.Text>}
-        </Link>
-      ),
-    },
-    {
-      title: '专辑',
-      dataIndex: 'album_title',
-      key: 'album',
-      ellipsis: true,
-      responsive: ['sm'],
-      filters: getUniqueFilters(filterOptions.albums),
-      filteredValue: columnFilters.album || null,
-      filterMultiple: false,
-      filterSearch: true,
-      render: (_albumTitle: string, record: Track) => {
-        const titleCn = getAlbumTitleCn(record);
-        const titleEn = getAlbumTitleEn(record);
-        if (!titleCn) return '—';
-        const content = (
-          <div>
-            <div>{titleCn}</div>
-            {titleEn && <Typography.Text type="secondary" style={{ fontSize: 12 }}>{titleEn}</Typography.Text>}
-          </div>
-        );
-        if (!record.album_id) return content;
-        return <Link to={`/albums/${record.album_id}`}>{content}</Link>;
-      },
-    },
-    {
-      title: '备注',
-      key: 'notes',
-      width: 300,
-      responsive: ['sm'],
-      render: (_, record: Track) => (
-        <Space.Compact style={{ width: '100%' }}>
-          <Input
-            value={noteDraftById[record.id] ?? record.notes ?? ''}
-            placeholder="输入备注，失焦自动保存"
-            allowClear
-            maxLength={5000}
-            size="small"
-            disabled={savingNoteById[record.id]}
-            onChange={(e) => setNoteDraftById((prev) => ({ ...prev, [record.id]: e.target.value }))}
-            onBlur={(e) => { void handleNoteBlurSave(record, e.target.value); }}
-          />
-          <Popconfirm
-            title="清空备注"
-            description="确定清空该曲目的备注吗？"
-            okText="清空"
-            cancelText="取消"
-            onConfirm={() => { void handleClearTrackNotes(record); }}
-          >
-            <Button size="small" disabled={savingNoteById[record.id] || !(record.notes && record.notes.trim())}>清空</Button>
-          </Popconfirm>
-        </Space.Compact>
-      ),
-    },
-    {
-      title: '时长',
-      dataIndex: 'duration',
-      key: 'duration',
-      width: 70,
-      responsive: ['sm'],
-      filters: [
-        { text: '< 3 分钟', value: 'short' },
-        { text: '3-5 分钟', value: 'medium' },
-        { text: '> 5 分钟', value: 'long' },
-      ],
-      filteredValue: columnFilters.duration || null,
-      filterMultiple: false,
-      render: formatDuration,
-    },
-    {
-      title: '歌词',
-      key: 'lyrics',
-      width: 92,
-      filters: [
-        { text: '有歌词', value: 'has' },
-        { text: '无歌词', value: 'none' },
-        { text: '纯音乐', value: 'instrumental' },
-      ],
-      filteredValue: columnFilters.lyrics || null,
-      filterMultiple: false,
-      render: (_, record) => {
-        const status = getLyricsStatus(record);
-        return (
-          <Button
-            icon={<FileTextOutlined />}
-            className={`admin-lyrics-btn admin-lyrics-btn--${status}`}
-            onClick={() => {
-              setCurrentTrackId(record.id);
-              setLyricsEditorVisible(true);
-            }}
-            size="small"
-          >
-            {status === 'instrumental' ? '纯音乐' : '歌词'}
-          </Button>
-        );
-      },
-    },
-    {
-      title: '操作',
-      key: 'actions',
-      width: 230,
-      render: (_, record) => (
-        <Space wrap>
-          <Button type="primary" icon={<PlayCircleOutlined />} onClick={() => handlePlay(record)} size="small">播放</Button>
-          <Button icon={<EditOutlined />} onClick={() => handleEdit(record)} size="small">编辑</Button>
-          <Button icon={<TeamOutlined />} onClick={() => { setCurrentTrackId(record.id); setCreditsEditorVisible(true); }} size="small">制作人员</Button>
-          <Button icon={<TagsOutlined />} onClick={() => { setCurrentTrackId(record.id); setCurrentTrackTitle(getTitleCn(record)); setTagsManagerVisible(true); }} size="small">标签</Button>
-          <Button icon={<DownloadOutlined />} onClick={() => handleDownload(record)} size="small" />
-          <Button danger icon={<DeleteOutlined />} onClick={() => handleDelete(record)} size="small" />
-        </Space>
-      ),
-    },
-  ];
+  const columns = getTrackColumns({
+    noteDraftById,
+    savingNoteById,
+    onNoteDraftChange: (id, value) => setNoteDraftById((prev) => ({ ...prev, [id]: value })),
+    onNoteBlurSave: handleNoteBlurSave,
+    onClearTrackNotes: handleClearTrackNotes,
+    getLyricsStatus,
+    getTitleCn, getTitleEn,
+    getAlbumTitleCn, getAlbumTitleEn,
+    filterOptions,
+    columnFilters,
+    onPlay: handlePlay,
+    onEdit: handleEdit,
+    onDelete: handleDelete,
+    onDownload: handleDownload,
+    onOpenLyrics: (track) => { setCurrentTrackId(track.id); setLyricsEditorVisible(true); },
+    onOpenCredits: (track) => { setCurrentTrackId(track.id); setCreditsEditorVisible(true); },
+    onOpenTags: (track) => { setCurrentTrackId(track.id); setCurrentTrackTitle(getTitleCn(track)); setTagsManagerVisible(true); },
+  });
 
   const hasSelection = selectedRowKeys.length > 0;
 

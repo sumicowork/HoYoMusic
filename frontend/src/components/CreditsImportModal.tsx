@@ -8,11 +8,10 @@ import {
   WarningOutlined, MinusCircleOutlined, FileTextOutlined, ImportOutlined,
 } from '@ant-design/icons';
 import axios from 'axios';
+import { API_BASE_URL } from '../services/api';
 
 const { Dragger } = Upload;
 const { Text } = Typography;
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface ImportCreditEntry {

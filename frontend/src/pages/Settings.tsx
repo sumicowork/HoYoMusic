@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Form, Input, Button, message, Space, Typography, Divider, Switch, InputNumber, Table, Tag, Modal, Upload, Alert, Tabs } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { LockOutlined, ExportOutlined, DatabaseOutlined, MailOutlined, ToolOutlined, UploadOutlined, UndoOutlined } from '@ant-design/icons';
+import { ExportOutlined, DatabaseOutlined, MailOutlined, UploadOutlined, UndoOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
 import AdminLayout from '../components/AdminLayout';
 import AdminPageHeader from '../components/admin/AdminPageHeader';
-import api from '../services/api';
+import PasswordSection from '../components/admin/PasswordSection';
+import MaintenanceSection from '../components/admin/MaintenanceSection';
 import {
   trackService,
   type CatalogMetadataImportPayload,
@@ -16,20 +17,16 @@ import {
   siteConfigService,
   type FirstVisitModalConfig,
   type SiteComplianceConfig,
-  type MaintenanceModeConfig,
 } from '../services/siteConfigService';
 import { feedbackService, type FeedbackItem } from '../services/feedbackService';
 
 const { Text } = Typography;
 
 const Settings: React.FC = () => {
-  const [loading, setLoading] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
   const [modalSaving, setModalSaving] = useState(false);
   const [complianceLoading, setComplianceLoading] = useState(false);
   const [complianceSaving, setComplianceSaving] = useState(false);
-  const [maintenanceLoading, setMaintenanceLoading] = useState(false);
-  const [maintenanceSaving, setMaintenanceSaving] = useState(false);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [testEmailVisible, setTestEmailVisible] = useState(false);
   const [testEmailSending, setTestEmailSending] = useState(false);
@@ -52,21 +49,6 @@ const Settings: React.FC = () => {
   const [complianceForm] = Form.useForm();
   const [maintenanceForm] = Form.useForm();
   const [testEmailForm] = Form.useForm();
-
-  const toLocalDatetime = (isoValue: string | null | undefined): string | null => {
-    if (!isoValue) return null;
-    const date = new Date(isoValue);
-    if (Number.isNaN(date.getTime())) return null;
-    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-    return local.toISOString().slice(0, 16);
-  };
-
-  const toIsoDatetime = (localValue: string | null | undefined): string | null => {
-    if (!localValue) return null;
-    const date = new Date(localValue);
-    if (Number.isNaN(date.getTime())) return null;
-    return date.toISOString();
-  };
 
   const feedbackColumns: ColumnsType<FeedbackItem> = [
     {
@@ -228,27 +210,6 @@ const Settings: React.FC = () => {
     loadComplianceConfig();
   }, []);
 
-  const loadMaintenanceConfig = async () => {
-    setMaintenanceLoading(true);
-    try {
-      const config = await siteConfigService.getAdminMaintenanceMode();
-      maintenanceForm.setFieldsValue({
-        enabled: config.enabled,
-        expected_end_time: toLocalDatetime(config.expected_end_time),
-        message: config.message || '',
-      });
-    } catch (err: any) {
-      const msg = err?.response?.data?.error?.message || err?.message || '加载维护配置失败';
-      message.error(msg);
-    } finally {
-      setMaintenanceLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadMaintenanceConfig();
-  }, []);
-
   const loadFeedback = async (page = feedbackPagination.page, pageSize = feedbackPagination.pageSize) => {
     setFeedbackLoading(true);
     try {
@@ -266,26 +227,6 @@ const Settings: React.FC = () => {
   useEffect(() => {
     loadFeedback();
   }, []);
-
-  const handleChangePassword = async (values: { currentPassword: string; newPassword: string; confirmPassword: string }) => {
-    if (values.newPassword !== values.confirmPassword) {
-      return message.error('两次输入的新密码不一致');
-    }
-    setLoading(true);
-    try {
-      await api.post('/auth/change-password', {
-        currentPassword: values.currentPassword,
-        newPassword: values.newPassword,
-      });
-      message.success('密码修改成功');
-      form.resetFields();
-    } catch (err: any) {
-      const msg = err?.response?.data?.error?.message || '修改失败';
-      message.error(msg);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleExport = async (format: 'json' | 'csv') => {
     try {
@@ -330,32 +271,6 @@ const Settings: React.FC = () => {
       message.error(msg);
     } finally {
       setComplianceSaving(false);
-    }
-  };
-
-  const handleSaveMaintenance = async (values: { enabled: boolean; expected_end_time?: string | null; message?: string }) => {
-    setMaintenanceSaving(true);
-    try {
-      const payload: Pick<MaintenanceModeConfig, 'enabled' | 'expected_end_time'> = {
-        enabled: values.enabled,
-        expected_end_time: toIsoDatetime(values.expected_end_time),
-      };
-      const payloadWithMessage: Pick<MaintenanceModeConfig, 'enabled' | 'expected_end_time' | 'message'> = {
-        ...payload,
-        message: (values.message || '').trim(),
-      };
-      const saved = await siteConfigService.updateAdminMaintenanceMode(payloadWithMessage);
-      maintenanceForm.setFieldsValue({
-        enabled: saved.enabled,
-        expected_end_time: toLocalDatetime(saved.expected_end_time),
-        message: saved.message || '',
-      });
-      message.success('维护配置已保存');
-    } catch (err: any) {
-      const msg = err?.response?.data?.error?.message || err?.message || '保存失败';
-      message.error(msg);
-    } finally {
-      setMaintenanceSaving(false);
     }
   };
 
@@ -481,37 +396,7 @@ const Settings: React.FC = () => {
               key: 'security',
               label: '安全与账户',
               children: (
-                <Card title={<><LockOutlined /> 修改密码</>}>
-                  <Form form={form} layout="vertical" onFinish={handleChangePassword}>
-                    <Form.Item
-                      name="currentPassword"
-                      label="当前密码"
-                      rules={[{ required: true, message: '请输入当前密码' }]}
-                    >
-                      <Input.Password placeholder="输入当前密码" />
-                    </Form.Item>
-                    <Form.Item
-                      name="newPassword"
-                      label="新密码"
-                      rules={[
-                        { required: true, message: '请输入新密码' },
-                        { min: 6, message: '密码至少6个字符' },
-                      ]}
-                    >
-                      <Input.Password placeholder="输入新密码" />
-                    </Form.Item>
-                    <Form.Item
-                      name="confirmPassword"
-                      label="确认新密码"
-                      rules={[{ required: true, message: '请确认新密码' }]}
-                    >
-                      <Input.Password placeholder="再次输入新密码" />
-                    </Form.Item>
-                    <Button type="primary" htmlType="submit" loading={loading}>
-                      修改密码
-                    </Button>
-                  </Form>
-                </Card>
+                <PasswordSection form={form} />
               ),
             },
             {
@@ -725,39 +610,7 @@ const Settings: React.FC = () => {
               label: '维护与反馈',
               children: (
                 <Space direction="vertical" style={{ width: '100%' }} size={16}>
-                  <Card title={<><ToolOutlined /> 站点维护</>} loading={maintenanceLoading}>
-          <Form
-            form={maintenanceForm}
-            layout="vertical"
-            initialValues={{ enabled: false, expected_end_time: null, message: '' }}
-            onFinish={handleSaveMaintenance}
-          >
-            <Form.Item name="enabled" label="启用维护模式" valuePropName="checked">
-              <Switch checkedChildren="开启" unCheckedChildren="关闭" />
-            </Form.Item>
-
-            <Form.Item
-              name="expected_end_time"
-              label="预计结束时间"
-              extra="用于维护页展示，可留空。"
-            >
-              <Input type="datetime-local" />
-            </Form.Item>
-
-            <Form.Item
-              name="message"
-              label="维护说明"
-              rules={[{ max: 5000, message: '维护说明最多 5000 字' }]}
-              extra="将展示在维护页，可留空（留空时使用默认文案）。"
-            >
-              <Input.TextArea rows={4} placeholder="例如：数据库迁移中，预计 20:00 恢复。" maxLength={5000} showCount />
-            </Form.Item>
-
-            <Button type="primary" htmlType="submit" loading={maintenanceSaving}>
-              保存维护配置
-            </Button>
-          </Form>
-                  </Card>
+                  <MaintenanceSection form={maintenanceForm} />
 
                   <Card
           title="用户反馈"

@@ -70,6 +70,7 @@ const FirstVisitModal: React.FC = () => {
 
   return (
     <Modal
+      className="ant-modal-compact"
       open={visible}
       title={config.title}
       maskClosable={false}

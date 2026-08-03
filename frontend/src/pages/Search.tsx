@@ -18,6 +18,7 @@ import { getTags, getTagGroups, Tag as TagType, TagGroup } from '../services/tag
 import { gameService, Game } from '../services/gameService';
 import { usePlayerStore } from '../store/playerStore';
 import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
+import { formatDuration } from '../utils/format';
 import { useSearchStore } from '../store/searchStore';
 import { toast } from '../utils/toast';
 import { buildTagPathLookup, getTagPathLabel } from '../utils/tagPath';
@@ -25,6 +26,7 @@ import favoriteService from '../services/favoriteService';
 import playlistService from '../services/playlistService';
 import PlaylistPickerModal from '../components/PlaylistPickerModal';
 import { useDebugUserFeatures } from '../utils/debugFeature';
+import { handleApiError } from '../utils/errorHandler';
 import './Search.css';
 
 const { Content } = Layout;
@@ -172,7 +174,7 @@ const Search: React.FC = () => {
       });
     } catch (e: any) {
       if (e?.name === 'AbortError' || e?.name === 'CanceledError') return;
-      toast.error('搜索失败，请重试');
+      handleApiError(e, '搜索失败，请重试');
     } finally {
       setLoading(false);
     }
@@ -320,13 +322,6 @@ const Search: React.FC = () => {
     }
   };
 
-  const formatDuration = (seconds: number | null) => {
-    if (!seconds) return '--:--';
-    const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60);
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  };
-
   const columns: ColumnsType<Track> = [
     {
       title: '',
@@ -396,7 +391,7 @@ const Search: React.FC = () => {
     {
       title: '操作',
       key: 'actions',
-      width: 180,
+      width: 220,
       render: (_, record) => (
         <Space size={4}>
           <Tooltip title="播放">
@@ -662,6 +657,28 @@ const Search: React.FC = () => {
                           >
                             下载
                           </Button>
+                          {canUseDebugFeatures && (
+                            <Tooltip title={favoritesMap[record.id] ? '取消喜爱' : '喜爱'}>
+                              <Button
+                                size="small"
+                                icon={favoritesMap[record.id] ? <HeartFilled style={{ color: '#ff4d6a' }} /> : <HeartOutlined />}
+                                onClick={() => handleToggleFavorite(record.id)}
+                              >
+                                收藏
+                              </Button>
+                            </Tooltip>
+                          )}
+                          {canUseDebugFeatures && (
+                            <Tooltip title="添加到歌单">
+                              <Button
+                                size="small"
+                                icon={<PlusOutlined />}
+                                onClick={() => openPlaylistModal(record.id)}
+                              >
+                                歌单
+                              </Button>
+                            </Tooltip>
+                          )}
                         </Space>
                       </div>
                     </List.Item>

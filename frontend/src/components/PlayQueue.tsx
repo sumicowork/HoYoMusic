@@ -4,6 +4,7 @@ import { PlayCircleOutlined, DeleteOutlined, ClearOutlined, HolderOutlined } fro
 import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
 import { usePlayerStore } from '../store/playerStore';
 import { Track } from '../types';
+import { formatDuration } from '../utils/format';
 import './PlayQueue.css';
 
 const { Text } = Typography;
@@ -40,12 +41,6 @@ const PlayQueue: React.FC<PlayQueueProps> = ({ visible, onClose }) => {
     reorderPlaylist(newPlaylist);
   };
 
-  const formatDuration = (seconds: number | null) => {
-    if (!seconds) return '--:--';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   return (
     <Drawer

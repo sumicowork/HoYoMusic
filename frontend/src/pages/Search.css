@@ -239,10 +239,10 @@
 }
 
 .tag-chip--child {
-  font-size: 12px !important;
-  padding: 0 8px !important;
-  height: 22px !important;
-  line-height: 22px !important;
+  font-size: 13px !important;
+  padding: 0 10px !important;
+  height: 26px !important;
+  line-height: 26px !important;
 }
 
 .tag-children-row {
@@ -276,6 +276,12 @@
   background: rgba(102, 126, 234, 0.1);
   border-color: rgba(102, 126, 234, 0.3);
 }
+
+.search-mobile-item { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+.search-mobile-main { display: flex; align-items: center; gap: 12px; }
+.search-mobile-meta { flex: 1; min-width: 0; }
+.search-mobile-title { font-weight: 500; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.search-mobile-sub { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
 
 @media (max-width: 768px) {
   .search-hero-title { font-size: 26px; }

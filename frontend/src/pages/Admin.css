@@ -49,3 +49,31 @@
   box-shadow: 0 0 0 1px rgba(22, 119, 255, 0.62), 0 0 10px rgba(22, 119, 255, 0.62) !important;
 }
 
+/* ── 暗色模式：歌词状态按钮颜色适配 ── */
+[data-theme='dark'] .admin-lyrics-btn--has.ant-btn,
+[data-theme='dark'] .admin-lyrics-btn--has.ant-btn:hover,
+[data-theme='dark'] .admin-lyrics-btn--has.ant-btn:focus {
+  color: #b7eb8f;
+  border-color: #73d13d !important;
+  background-color: rgba(115, 211, 61, 0.14);
+  box-shadow: 0 0 0 1px rgba(115, 211, 61, 0.5), 0 0 12px rgba(115, 211, 61, 0.5) !important;
+}
+
+[data-theme='dark'] .admin-lyrics-btn--none.ant-btn,
+[data-theme='dark'] .admin-lyrics-btn--none.ant-btn:hover,
+[data-theme='dark'] .admin-lyrics-btn--none.ant-btn:focus {
+  color: #ffa39e;
+  border-color: #ff7875 !important;
+  background-color: rgba(255, 120, 117, 0.14);
+  box-shadow: 0 0 0 1px rgba(255, 120, 117, 0.5), 0 0 12px rgba(255, 120, 117, 0.5) !important;
+}
+
+[data-theme='dark'] .admin-lyrics-btn--instrumental.ant-btn,
+[data-theme='dark'] .admin-lyrics-btn--instrumental.ant-btn:hover,
+[data-theme='dark'] .admin-lyrics-btn--instrumental.ant-btn:focus {
+  color: #91caff;
+  border-color: #69b1ff !important;
+  background-color: rgba(105, 177, 255, 0.14);
+  box-shadow: 0 0 0 1px rgba(105, 177, 255, 0.5), 0 0 12px rgba(105, 177, 255, 0.5) !important;
+}
+

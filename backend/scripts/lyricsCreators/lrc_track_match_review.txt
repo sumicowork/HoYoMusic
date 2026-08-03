@@ -1,0 +1,8 @@
+GI上传用\原神-皎月云间之梦 Jade Moon Upon a Sea of Clouds\品茗尝清心 Cozy Leisure Time (Wangshu Daytime) (望舒昼间).lrc  ->  track#114 [品茗尝清心  (望舒昼间) Cozy Leisure Time (Wangshu Daytime)] (bag)
+GI上传用\原神-皎月云间之梦 Jade Moon Upon a Sea of Clouds\山风拂萝衣 Peaceful Hike (Qingce Daytime) (轻策昼间).lrc  ->  track#120 [山风拂萝衣 (轻策昼间) Peaceful Hike (Qingce Daytime) ] (bag)
+GI上传用\原神-皎月云间之梦 Jade Moon Upon a Sea of Clouds\美梦抚归人 Sojourner's Sweet Dream (Wangshu Night) (望舒夜间).lrc  ->  track#112 [美梦抚归人  (望舒夜间) Sojourner's Sweet Dream (Wangshu Night)] (bag)
+HSR上传用\崩坏星穹铁道-不眠之夜 WHITE NIGHT\WHITE NIGHT (不眠之夜) (日语).lrc  ->  track#2129 [WHITE NIGHT (不眠之夜) (日文版)] (prefix)
+HSR上传用\崩坏星穹铁道-不眠之夜 WHITE NIGHT\WHITE NIGHT (不眠之夜) (韩语).lrc  ->  track#2130 [WHITE NIGHT (不眠之夜) (韩文版)] (prefix)
+LRC\HSR上传用\崩坏星穹铁道-不眠之夜 WHITE NIGHT\WHITE NIGHT (不眠之夜) (日语).lrc  ->  track#2129 [WHITE NIGHT (不眠之夜) (日文版)] (prefix)
+LRC\HSR上传用\崩坏星穹铁道-不眠之夜 WHITE NIGHT\WHITE NIGHT (不眠之夜) (韩语).lrc  ->  track#2130 [WHITE NIGHT (不眠之夜) (韩文版)] (prefix)
+LRC\ZZZ上传用\绝区零-极限委托：PV原声集\狼质彬��.lrc  ->  track#2169 [狼质彬彬] (prefix,AMBIG)

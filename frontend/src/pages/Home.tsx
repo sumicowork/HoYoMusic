@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Layout, message, Skeleton, Button, Modal, Radio, Select, Space, Typography, InputNumber } from 'antd';
-import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 // Detect mobile viewport
 const useIsMobile = () => {
@@ -19,18 +18,23 @@ import {
   CustomerServiceOutlined,
   ClockCircleOutlined,
   FireOutlined,
+  InfoCircleOutlined,
+  LeftOutlined,
+  RightOutlined,
 } from '@ant-design/icons';
 import { gameService, Game } from '../services/gameService';
 import { albumService, Album } from '../services/albumService';
 import { trackService } from '../services/trackService';
+import { artistService } from '../services/artistService';
 import { usePlayerStore } from '../store/playerStore';
 import { Track } from '../types';
 import { getCoverUrl, handleImageError } from '../utils/imageUtils';
+import { formatDuration } from '../utils/format';
+import { handleApiError } from '../utils/errorHandler';
 import './Home.css';
 
 const { Content } = Layout;
 const { Text } = Typography;
-const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
 
 type RandomPlayMode = 'all' | 'games' | 'artist';
 
@@ -53,7 +57,11 @@ const GameCard: React.FC<{
     <div
       className={`game-card card-stagger-enter${isDisabled ? ' game-card-disabled' : ''}`}
       style={{ '--i': index } as React.CSSProperties}
+      tabIndex={0}
+      role="button"
+      aria-label={`${game.name} - ${status === 'active' ? '点击进入' : status === 'maintenance' ? '维护中' : '未发行'}`}
       onClick={onClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
     >
       <div className="game-cover">
         {game.cover_path ? (
@@ -120,15 +128,19 @@ const AlbumCarouselCard: React.FC<{ album: Album; onClick: () => void }> = ({ al
 
 /* ─── 歌曲推荐项 ─── */
 const TrackItem: React.FC<{ track: Track; onPlay: () => void }> = ({ track, onPlay }) => {
-  const formatDuration = (seconds: number | null) => {
-    if (!seconds) return '--:--';
-    const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60);
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  };
-
+  const navigate = useNavigate();
   return (
-    <div className="rec-track-item" onClick={onPlay}>
+    <div
+      className="rec-track-item"
+      onClick={(e) => {
+        const target = e.target as HTMLElement;
+        if (target.closest('.track-title') || target.closest('.rec-track-detail')) {
+          navigate(`/track/${track.id}`);
+        } else {
+          onPlay();
+        }
+      }}
+    >
       <img
         className="rec-track-cover"
         src={getCoverUrl(track.cover_path || track.album_cover || null, undefined, true)}
@@ -137,19 +149,14 @@ const TrackItem: React.FC<{ track: Track; onPlay: () => void }> = ({ track, onPl
         onError={handleImageError}
       />
       <div className="rec-track-info">
-        <div className="rec-track-title">
-          <Link
-            to={`/track/${track.id}`}
-            onClick={(event) => event.stopPropagation()}
-          >
-            {track.title}
-          </Link>
+        <div className="rec-track-title track-title">
+          {track.title}
         </div>
       </div>
       <span className="rec-track-duration">
         <ClockCircleOutlined /> {formatDuration(track.duration)}
       </span>
-      <PlayCircleOutlined className="rec-track-play" />
+      <InfoCircleOutlined className="rec-track-detail" />
     </div>
   );
 };
@@ -171,9 +178,23 @@ const Home: React.FC = () => {
   const [selectedArtist, setSelectedArtist] = useState<string | undefined>(undefined);
   const [randomCount, setRandomCount] = useState(1);
   const [randomPlaying, setRandomPlaying] = useState(false);
+  const [recommendTab, setRecommendTab] = useState<'recommend' | 'hot'>('recommend');
+  const [albumPaused, setAlbumPaused] = useState(false);
+  const albumMarqueeRef = useRef<HTMLDivElement>(null);
+
+  const handleAlbumScroll = (direction: 'left' | 'right') => {
+    setAlbumPaused(true);
+    if (albumMarqueeRef.current) {
+      albumMarqueeRef.current.scrollBy({
+        left: direction === 'left' ? -220 : 220,
+        behavior: 'smooth',
+      });
+    }
+  };
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps — mount-only: fetchData is not memoized
   }, []);
 
   const fetchData = async () => {
@@ -190,8 +211,8 @@ const Home: React.FC = () => {
       setTracks(tracksData);
       setTopTracks(topData);
       setArtists(artistsData);
-    } catch {
-      message.error('加载数据失败');
+    } catch (error) {
+      handleApiError(error, '加载数据失败');
     } finally {
       setLoading(false);
     }
@@ -202,12 +223,12 @@ const Home: React.FC = () => {
   };
 
   const fetchArtists = async (): Promise<ArtistOption[]> => {
-
-    const response = await axios.get(`${API_BASE_URL}/artists`, { params: { limit: 200 } });
-    if (response.data?.success) {
-      return response.data.data.artists || [];
+    try {
+      const artists = await artistService.getArtists({ limit: 1000 });
+      return artists.map(a => ({ name: a.name, track_count: a.track_count }));
+    } catch {
+      return [];
     }
-    return [];
   };
 
   const handleRandomPlay = async () => {
@@ -264,8 +285,8 @@ const Home: React.FC = () => {
         message.success(`随机播放 ${pickedTracks.length} 首歌曲`);
       }
       setRandomModalOpen(false);
-    } catch {
-      message.error('随机播放失败，请稍后重试');
+    } catch (error) {
+      handleApiError(error, '随机播放失败，请稍后重试');
     } finally {
       setRandomPlaying(false);
     }
@@ -332,24 +353,35 @@ const Home: React.FC = () => {
                   <h2 className="section-title home-section-title">
                     <AppstoreOutlined /> 随机专辑
                   </h2>
-                  <div className="carousel-marquee">
-                    <div className="carousel-marquee-track">
-                      {albums.map((album) => (
-                        <AlbumCarouselCard
-                          key={album.id}
-                          album={album}
-                          onClick={() => navigate(`/albums/${album.id}`)}
-                        />
-                      ))}
-                      {/* Duplicate for seamless loop — desktop only */}
-                      {!isMobile && albums.map((album) => (
-                        <AlbumCarouselCard
-                          key={`dup-${album.id}`}
-                          album={album}
-                          onClick={() => navigate(`/albums/${album.id}`)}
-                        />
-                      ))}
+                  <div
+                    className="carousel-wrapper"
+                    onMouseEnter={() => setAlbumPaused(true)}
+                    onMouseLeave={() => setAlbumPaused(false)}
+                  >
+                    <div className="carousel-marquee" ref={albumMarqueeRef}>
+                      <div className={`carousel-marquee-track${albumPaused ? ' paused' : ''}`}>
+                        {albums.map((album) => (
+                          <AlbumCarouselCard
+                            key={album.id}
+                            album={album}
+                            onClick={() => navigate(`/albums/${album.id}`)}
+                          />
+                        ))}
+                        {!isMobile && albums.map((album) => (
+                          <AlbumCarouselCard
+                            key={`dup-${album.id}`}
+                            album={album}
+                            onClick={() => navigate(`/albums/${album.id}`)}
+                          />
+                        ))}
+                      </div>
                     </div>
+                    <button className="carousel-arrow carousel-arrow-left" onClick={() => handleAlbumScroll('left')} aria-label="向左滚动">
+                      <LeftOutlined />
+                    </button>
+                    <button className="carousel-arrow carousel-arrow-right" onClick={() => handleAlbumScroll('right')} aria-label="向右滚动">
+                      <RightOutlined />
+                    </button>
                   </div>
                 </section>
               )}
@@ -363,6 +395,7 @@ const Home: React.FC = () => {
                 cancelText="取消"
                 confirmLoading={randomPlaying}
                 destroyOnHidden
+                className="ant-modal-compact"
               >
                 <Space direction="vertical" size={14} style={{ width: '100%' }}>
                   <Radio.Group
@@ -416,49 +449,54 @@ const Home: React.FC = () => {
                 </Space>
               </Modal>
 
-              {/* 随机歌曲推荐 — 连续滚动 */}
-              {tracks.length > 0 && (
+              {/* 推荐 / 热门 Tab 切换区 */}
+              {(tracks.length > 0 || topTracks.length > 0) && (
                 <section className="rec-section rec-tracks">
-                  <h2 className="section-title home-section-title">
-                    <PlayCircleOutlined /> 随机推荐
-                  </h2>
-                  <div className="track-marquee">
-                    <div className="track-marquee-track">
-                      {tracks.map((track) => (
+                  <div className="rec-tabs-header">
+                    <button
+                      className={`rec-tab-button${recommendTab === 'recommend' ? ' active' : ''}`}
+                      onClick={() => setRecommendTab('recommend')}
+                    >
+                      <PlayCircleOutlined /> 为你推荐
+                    </button>
+                    <button
+                      className={`rec-tab-button${recommendTab === 'hot' ? ' active' : ''}`}
+                      onClick={() => setRecommendTab('hot')}
+                    >
+                      <FireOutlined /> 热门排行
+                    </button>
+                  </div>
+                  {recommendTab === 'recommend' ? (
+                    <div className="track-marquee">
+                      <div className="track-marquee-track">
+                        {tracks.map((track) => (
+                          <TrackItem
+                            key={track.id}
+                            track={track}
+                            onPlay={() => playTrackOnly(track)}
+                          />
+                        ))}
+                        {/* Duplicate for seamless loop — desktop only */}
+                        {!isMobile && tracks.map((track) => (
+                          <TrackItem
+                            key={`dup-${track.id}`}
+                            track={track}
+                            onPlay={() => playTrackOnly(track)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {topTracks.map((track) => (
                         <TrackItem
-                          key={track.id}
-                          track={track}
-                          onPlay={() => playTrackOnly(track)}
-                        />
-                      ))}
-                      {/* Duplicate for seamless loop — desktop only */}
-                      {!isMobile && tracks.map((track) => (
-                        <TrackItem
-                          key={`dup-${track.id}`}
+                          key={`top-${track.id}`}
                           track={track}
                           onPlay={() => playTrackOnly(track)}
                         />
                       ))}
                     </div>
-                  </div>
-                </section>
-              )}
-
-              {/* 热门曲目 */}
-              {topTracks.length > 0 && (
-                <section className="rec-section rec-tracks">
-                  <h2 className="section-title home-section-title">
-                    <FireOutlined /> 热门曲目
-                  </h2>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    {topTracks.map((track) => (
-                      <TrackItem
-                        key={`top-${track.id}`}
-                        track={track}
-                        onPlay={() => playTrackOnly(track)}
-                      />
-                    ))}
-                  </div>
+                  )}
                 </section>
               )}
             </aside>

@@ -1,16 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Button, Image, Skeleton, Tag, Tooltip, message } from 'antd';
+import { Breadcrumb, Button, Image, Skeleton, Tag, Tooltip, message } from 'antd';
 import { ArrowLeftOutlined, DownloadOutlined, HeartFilled, HeartOutlined, PlayCircleOutlined, PlusOutlined } from '@ant-design/icons';
-import axios from 'axios';
 import { Track, TrackMusicSourceItem } from '../types';
 import { trackService, DOWNLOAD_ENABLED } from '../services/trackService';
 import { usePlayerStore } from '../store/playerStore';
 import LyricsDisplay from '../components/LyricsDisplay';
 import CreditsDisplay from '../components/CreditsDisplay';
 import MusicSourcesDisplay from '../components/MusicSourcesDisplay';
+import { lyricsService } from '../services/lyricsService';
+import { creditsService } from '../services/creditsService';
 import { getTagGroups, getTags, getTrackTags, Tag as TagType, TagGroup } from '../services/tagService';
 import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
+import { formatDuration } from '../utils/format';
 import { buildTagPathLookup, getTagPathLabel } from '../utils/tagPath';
 import favoriteService from '../services/favoriteService';
 import playlistService from '../services/playlistService';
@@ -19,8 +21,6 @@ import { useDebugUserFeatures } from '../utils/debugFeature';
 import { useThemeStore } from '../store/themeStore';
 import { useDominantColor } from '../utils/useDominantColor';
 import './TrackDetail.css';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
 
 interface Credit {
   id: number;
@@ -44,6 +44,7 @@ const TrackDetail: React.FC = () => {
   const [musicSources, setMusicSources] = useState<TrackMusicSourceItem[]>([]);
   const [favorited, setFavorited] = useState(false);
   const [playlistModalOpen, setPlaylistModalOpen] = useState(false);
+  const [detailTab, setDetailTab] = useState<'lyrics' | 'credits' | 'sources'>('lyrics');
   const tagPathLookup = useMemo(
     () => buildTagPathLookup(allTags.length > 0 ? allTags : tags, tagGroups),
     [allTags, tags, tagGroups]
@@ -137,10 +138,8 @@ const TrackDetail: React.FC = () => {
 
   const fetchLyrics = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/lyrics/${id}/lyrics`);
-      if (response.data.success && response.data.data.lyrics) {
-        setLyrics(response.data.data.lyrics);
-      }
+      const lyricsData = await lyricsService.getLyrics(parseInt(id!, 10));
+      setLyrics(lyricsData);
     } catch (error) {
       setLyrics(null);
     }
@@ -148,10 +147,8 @@ const TrackDetail: React.FC = () => {
 
   const fetchCredits = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/credits/${id}/credits`);
-      if (response.data.success) {
-        setCredits(response.data.data.credits);
-      }
+      const creditsData = await creditsService.getCredits(parseInt(id!, 10));
+      setCredits(creditsData);
     } catch (error) {
       console.error('获取制作人员信息失败:', error);
     }
@@ -220,11 +217,6 @@ const TrackDetail: React.FC = () => {
     }
   };
 
-  const formatDuration = (seconds: number | null) => {
-    if (!seconds) return '--';
-    return `${Math.floor(seconds / 60)}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`;
-  };
-
   const specCards = useMemo(() => {
     if (!track) return [];
     const cards: Array<{ label: string; value: string }> = [
@@ -279,14 +271,22 @@ const TrackDetail: React.FC = () => {
       <div className="track-immersive-orb" aria-hidden="true" />
 
       <main className="track-detail-content relative mx-auto w-full max-w-6xl px-3 pb-24 pt-6 sm:px-6">
+        <Breadcrumb
+          className="mb-3"
+          items={[
+            { title: <Link to="/" className="text-[color:var(--text-secondary)] hover:text-[color:var(--text-primary)]">首页</Link> },
+            ...(albumTitleCn ? [{ title: track.album_id ? <Link to={`/albums/${track.album_id}`} className="text-[color:var(--text-secondary)] hover:text-[color:var(--text-primary)]">{albumTitleCn}</Link> : <span className="text-[color:var(--text-tertiary)]">{albumTitleCn}</span> }] : []),
+            { title: <span className="font-semibold text-[color:var(--text-primary)]">{titleCn || track.title}</span> },
+          ]}
+        />
         <div className="track-detail-back-wrap mb-4">
           <Button icon={<ArrowLeftOutlined />} onClick={handleBack} className="h-11 rounded-xl px-4">
             返回上一页
           </Button>
         </div>
 
-        <section className="track-hero-panel grid gap-6 rounded-3xl border border-white/20 bg-white/[0.14] p-4 shadow-2xl backdrop-blur-md lg:grid-cols-[300px_minmax(0,1fr)] lg:p-8">
-          <div className="relative mx-auto w-full max-w-[300px]">
+        <section className="track-hero-panel grid gap-6 rounded-3xl border border-white/20 bg-white/[0.14] p-4 shadow-2xl backdrop-blur-md lg:grid-cols-[340px_minmax(0,1fr)] lg:p-8">
+          <div className="track-cover-tilted relative mx-auto w-full max-w-[340px]">
             <div className="track-cover-glow" aria-hidden="true" />
             <Image
               width="100%"
@@ -307,11 +307,11 @@ const TrackDetail: React.FC = () => {
               <p className="mt-3 text-sm text-[color:var(--text-secondary)]">
                 专辑：
                 {track.album_id ? (
-                  <Link to={`/albums/${track.album_id}`} className="font-semibold text-indigo-500 hover:text-indigo-600">
+                  <Link to={`/albums/${track.album_id}`} className="font-semibold text-[#2d2d2d] underline decoration-gray-300 underline-offset-2 hover:text-black hover:decoration-black">
                     {albumTitleCn}
                   </Link>
                 ) : (
-                  <span className="font-semibold text-indigo-500">{albumTitleCn}</span>
+                  <span className="font-semibold text-[#2d2d2d]">{albumTitleCn}</span>
                 )}
                 {albumTitleEn && <span className="ml-2 text-[color:var(--text-tertiary)]">{albumTitleEn}</span>}
               </p>
@@ -349,7 +349,7 @@ const TrackDetail: React.FC = () => {
                 icon={<PlayCircleOutlined />}
                 size="large"
                 onClick={handlePlay}
-                className="h-12 min-w-[148px] rounded-xl border-0 bg-gradient-to-r from-indigo-500 to-violet-500 font-semibold"
+                className="h-12 min-w-[148px] rounded-xl border-0 bg-[#16a34a] font-semibold text-white transition-all hover:bg-[#15803d]"
               >
                 播放
               </Button>
@@ -396,17 +396,43 @@ const TrackDetail: React.FC = () => {
           onSubmit={handleAddToPlaylist}
         />
 
-        {lyrics && (
-          <LyricsDisplay
-            lyricsContent={lyrics}
-            currentTime={progress}
-            onSeek={handleSeek}
-          />
-        )}
-
-        {credits.length > 0 && <CreditsDisplay credits={credits} />}
-
-        <MusicSourcesDisplay sources={musicSources} />
+        <section className="mt-6">
+          <div className="mb-4 flex gap-1 rounded-2xl border border-white/20 bg-white/[0.12] p-1.5 backdrop-blur-md">
+            {[
+              { key: 'lyrics' as const, label: '歌词', disabled: !lyrics },
+              { key: 'credits' as const, label: '制作信息', disabled: credits.length === 0 },
+              { key: 'sources' as const, label: '音乐来源', disabled: musicSources.length === 0 },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                disabled={tab.disabled}
+                onClick={() => setDetailTab(tab.key)}
+                className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
+                  detailTab === tab.key
+                    ? 'bg-[#2d2d2d] text-white'
+                    : tab.disabled
+                      ? 'cursor-not-allowed text-[color:var(--text-tertiary)] opacity-50'
+                      : 'text-[color:var(--text-secondary)] hover:bg-gray-100 hover:text-[#2d2d2d]'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          {detailTab === 'lyrics' && lyrics && (
+            <LyricsDisplay
+              lyricsContent={lyrics}
+              currentTime={progress}
+              onSeek={handleSeek}
+            />
+          )}
+          {detailTab === 'credits' && credits.length > 0 && (
+            <CreditsDisplay credits={credits} />
+          )}
+          {detailTab === 'sources' && (
+            <MusicSourcesDisplay sources={musicSources} />
+          )}
+        </section>
       </main>
     </div>
   );

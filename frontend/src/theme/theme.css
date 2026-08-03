@@ -3,43 +3,71 @@
 :root {
   --font-display: 'Noto Serif SC', Georgia, 'Times New Roman', serif;
   --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  /* 语义色 */
+  --color-success: #22c55e;
+  --color-success-bg: rgba(34, 197, 94, 0.12);
+  --color-warning: #f59e0b;
+  --color-warning-bg: rgba(245, 158, 11, 0.12);
+  --color-danger: #ef4444;
+  --color-danger-bg: rgba(239, 68, 68, 0.12);
+  --color-info: #3b82f6;
+  --color-info-bg: rgba(59, 130, 246, 0.12);
+
+  /* 间距系统（8px 基数） */
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  --spacing-10: 40px;
+  --spacing-12: 48px;
+  --spacing-16: 64px;
+
+  /* 响应式断点（文档化参考） */
+  --breakpoint-mobile: 480px;
+  --breakpoint-tablet: 768px;
+  --breakpoint-desktop: 1024px;
+  --breakpoint-wide: 1400px;
 }
 
 :root[data-theme='light'] {
-  /* 背景色 */
-  --bg-primary: #ffffff;
-  --bg-secondary: #fafafa;
-  --bg-tertiary: #f5f5f5;
+  /* 背景色 — 暖奶油系 */
+  --bg-primary: #faf8f5;
+  --bg-secondary: #f3f0ea;
+  --bg-tertiary: #ede8df;
   --bg-elevated: #ffffff;
-  --bg-overlay: rgba(0, 0, 0, 0.45);
+  --bg-overlay: rgba(0, 0, 0, 0.35);
 
-  /* 文字颜色 */
+  /* 文字颜色 — 暖黑 */
   --text-primary: rgba(0, 0, 0, 0.88);
-  --text-secondary: rgba(0, 0, 0, 0.65);
-  --text-tertiary: rgba(0, 0, 0, 0.45);
-  --text-disabled: rgba(0, 0, 0, 0.25);
-  --text-inverse: rgba(255, 255, 255, 0.85);
+  --text-secondary: rgba(0, 0, 0, 0.60);
+  --text-tertiary: rgba(0, 0, 0, 0.40);
+  --text-disabled: rgba(0, 0, 0, 0.22);
+  --text-inverse: rgba(255, 255, 255, 0.90);
 
-  /* 边框颜色 */
-  --border-primary: #d9d9d9;
-  --border-secondary: #f0f0f0;
-  --border-tertiary: rgba(5, 5, 5, 0.06);
+  /* 边框颜色 — 暖灰 */
+  --border-primary: #e0dbd2;
+  --border-secondary: #ede8df;
+  --border-tertiary: rgba(0, 0, 0, 0.05);
 
   /* 分割线 */
-  --divider: rgba(5, 5, 5, 0.06);
+  --divider: rgba(0, 0, 0, 0.06);
 
-  /* 阴影 */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
-  --shadow-md: 0 1px 2px -2px rgba(0, 0, 0, 0.16), 0 3px 6px 0 rgba(0, 0, 0, 0.12), 0 5px 12px 4px rgba(0, 0, 0, 0.09);
-  --shadow-lg: 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 9px 28px 8px rgba(0, 0, 0, 0.05);
+  /* 阴影 — 暖底 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.06), 0 8px 32px rgba(0, 0, 0, 0.05);
 
-  /* 音乐卡片 */
+  /* 音乐卡片 — 纯白 */
   --card-bg: #ffffff;
-  --card-hover-bg: #fafafa;
-  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-  --card-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --card-hover-bg: #faf8f5;
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --card-shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.10);
 
-  /* 播放器 */
+  /* 播放器 — 纯白 */
   --player-bg: #ffffff;
   --player-control-bg: rgba(0, 0, 0, 0.04);
   --player-control-hover: rgba(0, 0, 0, 0.08);
@@ -47,20 +75,20 @@
   /* 侧边栏 */
   --sidebar-bg: #ffffff;
   --sidebar-item-hover: rgba(0, 0, 0, 0.04);
-  --sidebar-item-active: #e6f7ff;
+  --sidebar-item-active: #f5f0ea;
 
   /* 输入框 */
   --input-bg: #ffffff;
-  --input-border: #d9d9d9;
-  --input-hover-border: #40a9ff;
+  --input-border: #e0dbd2;
+  --input-hover-border: #888;
 
   /* 专辑封面叠加 */
-  --album-overlay: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.5) 100%);
+  --album-overlay: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.45) 100%);
 
   /* 滚动条 */
-  --scrollbar-track: #f0f0f0;
-  --scrollbar-thumb: #bfbfbf;
-  --scrollbar-thumb-hover: #999999;
+  --scrollbar-track: #f3f0ea;
+  --scrollbar-thumb: #d0cbc0;
+  --scrollbar-thumb-hover: #b0aaa0;
 }
 
 :root[data-theme='dark'] {
@@ -119,6 +147,16 @@
   --scrollbar-track: #1f1f1f;
   --scrollbar-thumb: #434343;
   --scrollbar-thumb-hover: #595959;
+
+  /* 语义色（深色版，bg 透明度 0.18） */
+  --color-success: #22c55e;
+  --color-success-bg: rgba(34, 197, 94, 0.18);
+  --color-warning: #f59e0b;
+  --color-warning-bg: rgba(245, 158, 11, 0.18);
+  --color-danger: #ef4444;
+  --color-danger-bg: rgba(239, 68, 68, 0.18);
+  --color-info: #3b82f6;
+  --color-info-bg: rgba(59, 130, 246, 0.18);
 }
 
 

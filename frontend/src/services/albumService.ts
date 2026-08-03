@@ -1,4 +1,5 @@
 import api, { createApiClient } from './api';
+import type { PaginationMeta } from '../types';
 
 const publicApi = createApiClient({ noCacheForAuthedGet: false });
 
@@ -74,8 +75,8 @@ export const albumService = {
     throw new Error('Failed to fetch random albums');
   },
 
-  async getAlbums(page = 1, limit = 20, search = ''): Promise<{ albums: Album[]; pagination: any }> {
-    const response = await api.get<ApiResponse<{ albums: Album[]; pagination: any }>>(
+  async getAlbums(page = 1, limit = 20, search = ''): Promise<{ albums: Album[]; pagination: PaginationMeta }> {
+    const response = await api.get<ApiResponse<{ albums: Album[]; pagination: PaginationMeta }>>(
       `/albums?page=${page}&limit=${limit}&search=${search}`
     );
     if (response.data.success && response.data.data) {

@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Form, Input, Button, List, message, Space, InputNumber } from 'antd';
 import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import axios from 'axios';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
+import { API_BASE_URL } from '../services/api';
 
 interface Credit {
   id: number;

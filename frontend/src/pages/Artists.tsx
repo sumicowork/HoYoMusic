@@ -2,20 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Layout, List, Input, Avatar, Skeleton, Empty, message, Row, Col, Card, Tag } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { SearchOutlined, UserOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import { artistService, Artist } from '../services/artistService';
 import './Artists.css';
 
 const { Content } = Layout;
 const { Search } = Input;
-const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
-
-interface Artist {
-  id: number;
-  name: string;
-  track_count: number;
-  album_count: number;
-  roles: string[];
-}
 
 const Artists: React.FC = () => {
   const navigate = useNavigate();
@@ -29,12 +20,8 @@ const Artists: React.FC = () => {
   const fetchArtists = async (search = '') => {
     setLoading(true);
     try {
-      const response = await axios.get(`${API_BASE_URL}/artists`, {
-        params: { search, limit: 100 }
-      });
-      if (response.data.success) {
-        setArtists(response.data.data.artists);
-      }
+      const artists = await artistService.getArtists({ search, limit: 1000 });
+      setArtists(artists);
     } catch (error: any) {
       message.error('加载创作者列表失败');
     } finally {

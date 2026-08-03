@@ -82,6 +82,7 @@ export interface Album {
   cover_path: string | null;
   release_date: string | null;
   notes?: string | null;
+  track_count?: number;
 }
 
 export interface ApiResponse<T> {
@@ -93,14 +94,16 @@ export interface ApiResponse<T> {
   };
 }
 
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
 export interface PaginatedResponse<T> {
   items: T[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
+  pagination: PaginationMeta;
 }
 
 export interface LoginRequest {

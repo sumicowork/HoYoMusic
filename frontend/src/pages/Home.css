@@ -472,21 +472,30 @@
   gap: 4px;
 }
 
-.rec-track-play {
+.rec-track-detail {
   font-size: 20px;
   color: var(--aurora-1);
   opacity: 0;
   transition: opacity 0.2s ease, transform 0.2s ease;
   flex-shrink: 0;
+  cursor: pointer;
 }
 
-.rec-track-item:hover .rec-track-play {
+.rec-track-item:hover .rec-track-detail {
   opacity: 1;
   transform: scale(1.1);
 }
 
 .rec-track-item:hover .rec-track-duration {
   display: none;
+}
+
+.track-title {
+  cursor: pointer;
+}
+
+.track-title:hover {
+  text-decoration: underline;
 }
 
 /* ============================================================
@@ -680,13 +689,17 @@
     font-size: 11px;
   }
 
-  .rec-track-play {
+  .rec-track-detail {
     opacity: 0.5;
     font-size: 18px;
   }
 
   .rec-track-item:hover .rec-track-duration {
     display: flex;
+  }
+
+  .track-title:hover {
+    text-decoration: none;
   }
 }
 
@@ -733,4 +746,92 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* ── Recommendation tabs ── */
+.rec-tabs-header {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.rec-tab-button {
+  flex: 1;
+  background: transparent;
+  border: 1px solid var(--border-secondary, rgba(255,255,255,0.12));
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-body, 'Plus Jakarta Sans', sans-serif);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.rec-tab-button:hover {
+  color: var(--text-primary);
+  border-color: var(--color-primary, #667eea);
+}
+
+.rec-tab-button.active {
+  background: var(--color-primary, #667eea);
+  color: #fff;
+  border-color: var(--color-primary, #667eea);
+}
+
+@media (max-width: 768px) {
+  .rec-tab-button {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+}
+
+/* ── Carousel manual control ── */
+.carousel-wrapper {
+  position: relative;
+}
+
+.carousel-wrapper:hover .carousel-marquee {
+  overflow-x: auto;
+}
+
+.carousel-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.55);
+  border: none;
+  color: #fff;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 5;
+  backdrop-filter: blur(4px);
+}
+
+.carousel-wrapper:hover .carousel-arrow {
+  opacity: 1;
+}
+
+.carousel-arrow-left {
+  left: 4px;
+}
+
+.carousel-arrow-right {
+  right: 4px;
+}
+
+.carousel-marquee-track.paused {
+  animation-play-state: paused;
 }

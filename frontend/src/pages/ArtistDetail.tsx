@@ -2,18 +2,19 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Layout, Table, Button, Space, Tag, Skeleton, Avatar, Tabs, Card, Row, Col, message, Tooltip, Grid, List, Typography } from 'antd';
 import { ArrowLeftOutlined, PlayCircleOutlined, DownloadOutlined, UserOutlined } from '@ant-design/icons';
-import axios from 'axios';
-import { Track } from '../types';
+import { Track, Album } from '../types';
 import { trackService, DOWNLOAD_ENABLED } from '../services/trackService';
 import { usePlayerStore } from '../store/playerStore';
+import { artistService } from '../services/artistService';
+import type { Game } from '../services/gameService';
 import { getCoverUrl, handleImageError } from '../utils/imageUtils';
+import { formatDuration } from '../utils/format';
 import './ArtistDetail.css';
 
 const { Content } = Layout;
 const { TabPane } = Tabs;
 const { useBreakpoint } = Grid;
 const { Text } = Typography;
-const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
 
 interface Artist {
   id: number;
@@ -25,28 +26,13 @@ interface Artist {
   avatar_path?: string | null;
 }
 
-interface Album {
-  id: number;
-  title: string;
-  cover_path: string;
-  release_date: string;
-  track_count: number;
-}
-
-interface GameInfo {
-  id: number;
-  name: string;
-  name_en: string;
-  cover_path: string;
-}
-
 const ArtistDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();  // actually the person's name (encoded)
   const navigate = useNavigate();
   const [artist, setArtist] = useState<Artist | null>(null);
   const [tracks, setTracks] = useState<Track[]>([]);
   const [albums, setAlbums] = useState<Album[]>([]);
-  const [games, setGames] = useState<GameInfo[]>([]);
+  const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const screens = useBreakpoint();
   const isMobile = !screens.md;
@@ -59,12 +45,12 @@ const ArtistDetail: React.FC = () => {
 
   const fetchArtistDetails = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/artists/${id}`);
-      if (response.data.success) {
-        setArtist(response.data.data.artist);
-        setTracks(response.data.data.tracks);
-        setAlbums(response.data.data.albums);
-        if (response.data.data.games) setGames(response.data.data.games);
+      const data = await artistService.getArtistById(parseInt(id!, 10));
+      if (data) {
+        setArtist(data.artist);
+        setTracks(data.tracks);
+        setAlbums(data.albums);
+        if (data.games) setGames(data.games);
       }
     } catch (error: any) {
       message.error('加载创作者详情失败');
@@ -80,12 +66,6 @@ const ArtistDetail: React.FC = () => {
   const handleDownload = (track: Track) => {
     window.open(trackService.getDownloadUrlPublic(track.id), '_blank');
   };
-  const formatDuration = (seconds: number) => {
-    if (!seconds) return '--';
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   const trackColumns = [
     {
@@ -93,9 +73,9 @@ const ArtistDetail: React.FC = () => {
       dataIndex: 'title',
       key: 'title',
       render: (title: string, record: Track) => (
-        <a onClick={() => navigate(`/track/${record.id}`)} style={{ color: '#1890ff', cursor: 'pointer' }}>
+        <Link to={`/track/${record.id}`} style={{ color: '#1890ff', cursor: 'pointer' }}>
           {title}
-        </a>
+        </Link>
       ),
     },
     {

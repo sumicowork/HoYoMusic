@@ -3,7 +3,7 @@ import { ThemeConfig } from 'antd';
 // 深色主题配置
 export const darkTheme: ThemeConfig = {
   token: {
-    colorPrimary: '#667eea',
+    colorPrimary: '#d4a574',
     fontFamily: "'Plus Jakarta Sans', 'Noto Serif SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     colorBgBase: '#141414',
     colorBgContainer: '#1f1f1f',
@@ -25,27 +25,27 @@ export const darkTheme: ThemeConfig = {
   algorithm: undefined, // 不使用内置算法，使用自定义token
 };
 
-// 浅色主题配置
+// 浅色主题配置 — 中性画框
 export const lightTheme: ThemeConfig = {
   token: {
-    colorPrimary: '#667eea',
+    colorPrimary: '#2d2d2d',
     fontFamily: "'Plus Jakarta Sans', 'Noto Serif SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-    colorBgBase: '#ffffff',
+    colorBgBase: '#faf8f5',
     colorBgContainer: '#ffffff',
     colorBgElevated: '#ffffff',
-    colorBorder: '#d9d9d9',
-    colorBorderSecondary: '#f0f0f0',
+    colorBorder: '#e0dbd2',
+    colorBorderSecondary: '#ede8df',
     colorText: 'rgba(0, 0, 0, 0.88)',
-    colorTextSecondary: 'rgba(0, 0, 0, 0.65)',
-    colorTextTertiary: 'rgba(0, 0, 0, 0.45)',
-    colorTextQuaternary: 'rgba(0, 0, 0, 0.25)',
-    colorFill: 'rgba(0, 0, 0, 0.15)',
-    colorFillSecondary: 'rgba(0, 0, 0, 0.06)',
-    colorFillTertiary: 'rgba(0, 0, 0, 0.04)',
-    colorFillQuaternary: 'rgba(0, 0, 0, 0.02)',
-    colorBgLayout: '#f5f5f5',
-    colorBgSpotlight: '#f0f0f0',
-    colorSplit: 'rgba(5, 5, 5, 0.06)',
+    colorTextSecondary: 'rgba(0, 0, 0, 0.60)',
+    colorTextTertiary: 'rgba(0, 0, 0, 0.40)',
+    colorTextQuaternary: 'rgba(0, 0, 0, 0.22)',
+    colorFill: 'rgba(0, 0, 0, 0.08)',
+    colorFillSecondary: 'rgba(0, 0, 0, 0.04)',
+    colorFillTertiary: 'rgba(0, 0, 0, 0.02)',
+    colorFillQuaternary: 'rgba(0, 0, 0, 0.01)',
+    colorBgLayout: '#faf8f5',
+    colorBgSpotlight: '#f3f0ea',
+    colorSplit: 'rgba(0, 0, 0, 0.05)',
   },
   algorithm: undefined,
 };

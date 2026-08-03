@@ -4,10 +4,14 @@
 # Dependencies
 node_modules/
 
-# Environment variables
+# Environment variables (all variants; keep .env.example tracked)
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+
+# Sensitive backups (env backups, page backups)
+*.bak*
+*.bak-*
 
 # Build output
 dist/
@@ -18,6 +22,7 @@ backend/uploads/
 
 # Database dumps / backups (local only, data snapshots not source)
 db/backups/
+backend/db/backups/
 *.dump
 
 # Logs
@@ -60,6 +65,11 @@ ip_geo_cache.json
 
 # Obsidian workspace
 .obsidian/
+
+# WorkBuddy workspace memory & temp analysis (local only)
+.workbuddy/memory/
+.workbuddy/flac-tools/
+.workbuddy/__pycache__/
 
 # Desktop .NET build artifacts
 client-desktop/**/bin/

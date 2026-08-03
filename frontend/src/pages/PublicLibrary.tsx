@@ -7,6 +7,7 @@ import { trackService, DOWNLOAD_ENABLED } from '../services/trackService';
 import { usePlayerStore } from '../store/playerStore';
 import { Link } from 'react-router-dom';
 import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
+import { formatDuration } from '../utils/format';
 import favoriteService from '../services/favoriteService';
 import playlistService from '../services/playlistService';
 import PlaylistPickerModal from '../components/PlaylistPickerModal';
@@ -119,13 +120,6 @@ const PublicLibrary: React.FC = () => {
       const msg = error?.response?.data?.error?.message || '添加到歌单失败';
       message.error(msg);
     }
-  };
-
-  const formatDuration = (seconds: number | null) => {
-    if (!seconds) return '--:--';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   const columns: ColumnsType<Track> = [

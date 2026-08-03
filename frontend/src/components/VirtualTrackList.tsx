@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Track } from '../types';
 import { usePlayerStore } from '../store/playerStore';
 import { getCoverUrl, handleImageError } from '../utils/imageUtils';
+import { formatDuration } from '../utils/format';
 import { PlayCircleOutlined, ClockCircleOutlined } from '@ant-design/icons';
 
 interface Props {
@@ -11,13 +12,6 @@ interface Props {
   height: number;
   onPlay?: (track: Track) => void;
 }
-
-const formatDuration = (seconds: number | null) => {
-  if (!seconds) return '--:--';
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, '0')}`;
-};
 
 const ITEM_HEIGHT = 56;
 

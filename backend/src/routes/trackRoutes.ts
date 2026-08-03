@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { uploadTracks, getTracks, getTrackFilterOptions, getTrackById, streamTrack, downloadTrack, updateTrack, clearTrackNotes, clearAllTrackNotes, deleteTrack, uploadTrackCover, bulkDeleteTracks, bulkMoveTracksToAlbum, previewCredits, precheckDuplicateTracks, scanSameAlbumDuplicateTracks, previewTrackNotesImport, commitTrackNotesImport, getTrackNotesImportCandidates, exportAllTrackNotes, exportCatalogMetadata, replaceCatalogMetadataByUuid, previewCatalogMetadataByUuid, commitCatalogMetadataByUuid, rollbackCatalogMetadataImportBatch } from '../controllers/trackController';
+import { uploadTracks, scanFlacTags, getUploadToken, commitUpload, getTracks, getTrackFilterOptions, getTrackById, streamTrack, downloadTrack, updateTrack, clearTrackNotes, clearAllTrackNotes, deleteTrack, uploadTrackCover, bulkDeleteTracks, bulkMoveTracksToAlbum, precheckDuplicateTracks, scanSameAlbumDuplicateTracks, previewTrackNotesImport, commitTrackNotesImport, getTrackNotesImportCandidates, exportAllTrackNotes, exportCatalogMetadata, replaceCatalogMetadataByUuid, previewCatalogMetadataByUuid, commitCatalogMetadataByUuid, rollbackCatalogMetadataImportBatch } from '../controllers/trackController';
 import { authenticateAdmin } from '../middleware/auth';
 import { authenticateStream } from '../middleware/authenticateStream';
 import upload, { coverUpload } from '../middleware/upload';
@@ -48,7 +48,25 @@ const downloadDisabled = (_req: Request, res: Response) =>
  *           application/json:
  *             schema: { $ref: '#/components/schemas/Error' }
  */
-router.post('/upload', authenticateAdmin, upload.array('tracks', 20), uploadTracks);
+router.post('/upload', authenticateAdmin, upload.array('tracks', 200), uploadTracks);
+
+/**
+ * /tracks/scan:
+ *   POST - scan FLAC tags without saving (returns title/album/track_number for review)
+ */
+router.post('/scan', authenticateAdmin, upload.array('tracks', 200), scanFlacTags);
+
+/**
+ * /tracks/upload-token:
+ *   POST - 获取 OSS 预签名上传 URL（前端直传，不走服务器中转）
+ */
+router.post('/upload-token', authenticateAdmin, getUploadToken);
+
+/**
+ * /tracks/commit:
+ *   POST - 提交 OSS 直传文件：服务器从 OSS 下载 → 读标签 → 入库
+ */
+router.post('/commit', authenticateAdmin, commitUpload);
 
 /**
  * @openapi
@@ -77,7 +95,7 @@ router.post('/precheck-duplicates', authenticateAdmin, precheckDuplicateTracks);
 
 /**
  * @openapi
- * /tracks/preview-credits:
+ * /tracks/preview-credits: [DEPRECATED — removed with music-metadata]
  *   post:
  *     tags: [Tracks]
  *     summary: 上传文件并预览制作人员信息
@@ -106,7 +124,7 @@ router.post('/precheck-duplicates', authenticateAdmin, precheckDuplicateTracks);
  *           application/json:
  *             schema: { $ref: '#/components/schemas/Error' }
  */
-router.post('/preview-credits', authenticateAdmin, upload.array('tracks', 20), previewCredits);
+// router.post('/preview-credits', authenticateAdmin, upload.array('tracks', 20), previewCredits); // DEPRECATED
 
 /**
  * @openapi

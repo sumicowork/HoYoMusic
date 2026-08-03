@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Input, Button, message, Space, Upload, Typography } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import axios from 'axios';
+import { API_BASE_URL } from '../services/api';
 
 const { TextArea } = Input;
 const { Text } = Typography;
-const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
 type LyricsStatus = 'none' | 'has' | 'instrumental';
 
 interface LyricsEditorProps {

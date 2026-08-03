@@ -95,7 +95,7 @@ const CreditsDisplay: React.FC<CreditsDisplayProps> = ({ credits }) => {
                     <button
                       key={`${credit.role}-${person.name}`}
                       type="button"
-                      className="credit-link h-11 rounded-full border border-white/25 bg-white/[0.2] px-3 text-sm text-[color:var(--text-primary)] transition-colors hover:border-indigo-300/50 hover:text-indigo-600"
+                      className="credit-link h-11 rounded-full border border-gray-200 bg-gray-50 px-3 text-sm text-[color:var(--text-primary)] transition-colors hover:border-gray-400 hover:bg-gray-100 hover:text-[#2d2d2d]"
                       onClick={() => navigate(person.artist_id ? `/artists/${person.artist_id}` : `/artists/${encodeURIComponent(person.name)}`)}
                     >
                       {person.name}

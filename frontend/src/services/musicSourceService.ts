@@ -1,5 +1,6 @@
 import api from './api';
 import type { ApiResponse, Track } from '../types';
+import { parseDownloadFileName, extractBlobErrorMessage } from '../utils/download';
 
 // ── 公开只读：场景树浏览 ──────────────────────────────
 export interface PublicMusicTreeNode {
@@ -141,32 +142,6 @@ interface ExportMusicSourcesResult {
 }
 
 const DEFAULT_EXPORT_FILE_NAME = 'music-sources-export.json';
-
-const parseDownloadFileName = (contentDisposition?: string, fallback = DEFAULT_EXPORT_FILE_NAME): string => {
-  if (!contentDisposition) return fallback;
-
-  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
-  if (utf8Match?.[1]) {
-    return decodeURIComponent(utf8Match[1]).replace(/(^"|"$)/g, '');
-  }
-
-  const plainMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
-  if (plainMatch?.[1]) {
-    return plainMatch[1].trim();
-  }
-
-  return fallback;
-};
-
-const extractBlobErrorMessage = async (blob: Blob): Promise<string | null> => {
-  try {
-    const text = await blob.text();
-    const parsed = JSON.parse(text) as { error?: { message?: string } };
-    return parsed.error?.message || null;
-  } catch {
-    return null;
-  }
-};
 
 export const musicSourceService = {
   // 公开只读：某游戏的场景音乐树

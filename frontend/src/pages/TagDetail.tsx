@@ -22,6 +22,7 @@ import { getTagById, getTagGroups, Tag, TagGroup } from '../services/tagService'
 import { usePlayerStore } from '../store/playerStore';
 import { trackService, DOWNLOAD_ENABLED } from '../services/trackService';
 import { buildTagPathLookup, getTagPathLabel } from '../utils/tagPath';
+import { formatDuration } from '../utils/format';
 import './TagDetail.css';
 
 const { Content } = Layout;
@@ -83,13 +84,6 @@ const TagDetail: React.FC = () => {
 
   const handleDownload = (trackId: number) => {
     window.open(trackService.getDownloadUrlPublic(trackId), '_blank');
-  };
-
-  const formatDuration = (seconds: number | null) => {
-    if (!seconds) return '--:--';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   const columns = [

@@ -29,7 +29,9 @@ export const ossConfig: OSSConfig = {
 
 // 创建 OSS 客户端实例（懒加载）
 let ossClient: OSS | null = null;
+let ossClientPublic: OSS | null = null;
 
+/** 内网 OSS 客户端：服务器→OSS 操作使用，免外网流量费 */
 export const getOSSClient = (): OSS => {
   if (!ossClient) {
     if (!ossConfig.accessKeyId || !ossConfig.accessKeySecret || !ossConfig.bucket) {
@@ -44,6 +46,8 @@ export const getOSSClient = (): OSS => {
       accessKeySecret: ossConfig.accessKeySecret,
       bucket: ossConfig.bucket,
       secure: ossConfig.secure,
+      internal: true, // 内网 endpoint，免外网流量费
+      timeout: 300000, // 5min — large FLAC uploads need more time
     };
 
     if (ossConfig.endpoint) {
@@ -51,9 +55,25 @@ export const getOSSClient = (): OSS => {
     }
 
     ossClient = new OSS(clientOptions);
-    console.log(`[OSS] Client initialized. Region: ${ossConfig.region}, Bucket: ${ossConfig.bucket}`);
+    console.log(`[OSS] Client initialized (internal). Region: ${ossConfig.region}, Bucket: ${ossConfig.bucket}`);
   }
   return ossClient;
+};
+
+/** 公网 OSS 客户端：仅用于生成预签名上传 URL（前端直传需要公网地址） */
+export const getOSSPublicClient = (): OSS => {
+  if (!ossClientPublic) {
+    ossClientPublic = new OSS({
+      region: ossConfig.region,
+      accessKeyId: ossConfig.accessKeyId,
+      accessKeySecret: ossConfig.accessKeySecret,
+      bucket: ossConfig.bucket,
+      secure: ossConfig.secure,
+      timeout: 300000,
+    });
+    console.log('[OSS] Public client initialized for pre-signed URLs');
+  }
+  return ossClientPublic;
 };
 
 /**

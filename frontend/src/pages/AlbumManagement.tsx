@@ -109,6 +109,7 @@ const AlbumManagement: React.FC = () => {
   useEffect(() => {
     fetchAlbums();
     fetchGames();
+    // eslint-disable-next-line react-hooks/exhaustive-deps — mount-only: fetchAlbums/fetchGames are not memoized
   }, []);
 
   useEffect(() => {
@@ -200,7 +201,6 @@ const AlbumManagement: React.FC = () => {
           notes: values.notes || null,
         };
 
-        console.log('Updating album with data:', updateData);
 
         await albumService.updateAlbum(editingAlbum.id, updateData);
         message.success('专辑更新成功！');

@@ -4,9 +4,9 @@ import { UploadOutlined, PictureOutlined } from '@ant-design/icons';
 import type { UploadFile, RcFile } from 'antd/es/upload/interface';
 import axios from 'axios';
 import { getCoverUrl } from '../utils/imageUtils';
+import { API_BASE_URL } from '../services/api';
 
-const API_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
-const API_BASE = API_URL.replace('/api', '');
+const API_BASE = API_BASE_URL.replace('/api', '');
 
 interface AlbumCoverUploadProps {
   visible: boolean;
@@ -59,7 +59,7 @@ const AlbumCoverUpload: React.FC<AlbumCoverUploadProps> = ({
       const token = localStorage.getItem('token');
 
       const response = await axios.post(
-        `${API_URL}/albums/${albumId}/cover`,
+        `${API_BASE_URL}/albums/${albumId}/cover`,
         formData,
         {
           headers: {

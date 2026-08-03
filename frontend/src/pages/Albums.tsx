@@ -30,7 +30,7 @@ const Albums: React.FC = () => {
   const fetchAlbums = async (search = '') => {
     setLoading(true);
     try {
-      const data = await albumService.getAlbums(1, 100, search);
+      const data = await albumService.getAlbums(1, 500, search);
       setAlbums(data.albums);
     } catch (error: any) {
       message.error('加载专辑列表失败');
@@ -43,7 +43,7 @@ const Albums: React.FC = () => {
     fetchAlbums(value);
   };
 
-  const formatDuration = (seconds: number) => {
+  const formatAlbumDuration = (seconds: number) => {
     if (!seconds) return '--';
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -103,7 +103,7 @@ const Albums: React.FC = () => {
                       <div className="album-info">
                         <div>{album.track_count || 0} 首</div>
                         {album.total_duration && (
-                          <div>{formatDuration(album.total_duration)}</div>
+                          <div>{formatAlbumDuration(album.total_duration)}</div>
                         )}
                         {album.release_date && (
                           <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>

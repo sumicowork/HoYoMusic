@@ -1,6 +1,5 @@
 import axios from 'axios';
 import type { AxiosInstance } from 'axios';
-import { useAuthModalStore } from '../store/authModalStore';
 
 // ── Generated, OpenAPI-derived API surface (truth = backend OpenAPI) ──
 // The generated client (`openapi-fetch`, typed via `paths` from api-types) is
@@ -10,6 +9,8 @@ import { useAuthModalStore } from '../store/authModalStore';
 export { apiClient, type ApiClient } from '../generated/api-client';
 export type * from '../generated/api-types';
 
+// Auth expired event bus — decouples api.ts from UI store
+export const authEvents = new EventTarget();
 
 const VISITOR_ID_KEY = 'visitor_id';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -55,7 +56,10 @@ export const getOrCreateVisitorId = (): string | null => {
   }
 };
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
+export const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
+
+/** 媒体流/下载/封面：走主域名享受 ESA CDN 加速 */
+export const MEDIA_BASE_URL = `${window.location.origin}/api`;
 
 const createApiClient = (options?: { noCacheForAuthedGet?: boolean }): AxiosInstance => {
   const client = axios.create({
@@ -95,7 +99,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       const pathname = typeof window !== 'undefined' ? window.location.pathname + window.location.search + window.location.hash : null;
-      useAuthModalStore.getState().openLogin(pathname || null);
+      authEvents.dispatchEvent(new CustomEvent('auth-expired', { detail: { redirectTo: pathname } }));
     }
     return Promise.reject(error);
   }

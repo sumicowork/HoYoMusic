@@ -94,6 +94,7 @@ const PlaylistPickerModal: React.FC<PlaylistPickerModalProps> = ({ open, onCance
 
   return (
     <Modal
+      className="ant-modal-compact"
       title={title}
       open={open}
       onCancel={onCancel}

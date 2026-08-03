@@ -1,8 +1,9 @@
-import api, { createApiClient } from './api';
-import { ApiResponse, Track, TrackMusicSourceItem } from '../types';
+import api, { createApiClient, API_BASE_URL, MEDIA_BASE_URL } from './api';
+import { ApiResponse, PaginationMeta, Track, TrackMusicSourceItem } from '../types';
 import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
+import { parseDownloadFileName, extractBlobErrorMessage } from '../utils/download';
+import { readFlacTagsBrowser } from '../utils/flacTagsBrowser';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || `${window.location.origin}/api`;
 
 /**
  * 全局下载功能开关
@@ -169,32 +170,6 @@ interface ExportCatalogMetadataResult {
 const DEFAULT_TRACK_NOTES_EXPORT_FILE_NAME = 'track-notes-export.json';
 const DEFAULT_CATALOG_METADATA_EXPORT_FILE_NAME = 'catalog-metadata-export.json';
 
-const parseDownloadFileName = (contentDisposition?: string, fallback = DEFAULT_TRACK_NOTES_EXPORT_FILE_NAME): string => {
-  if (!contentDisposition) return fallback;
-
-  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
-  if (utf8Match?.[1]) {
-    return decodeURIComponent(utf8Match[1]).replace(/(^"|"$)/g, '');
-  }
-
-  const plainMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
-  if (plainMatch?.[1]) {
-    return plainMatch[1].trim();
-  }
-
-  return fallback;
-};
-
-const extractBlobErrorMessage = async (blob: Blob): Promise<string | null> => {
-  try {
-    const text = await blob.text();
-    const parsed = JSON.parse(text) as { error?: { message?: string } };
-    return parsed.error?.message || null;
-  } catch {
-    return null;
-  }
-};
-
 export const trackService = {
   // Random tracks for homepage recommendations
   async getRandomTracks(count = 10): Promise<Track[]> {
@@ -208,13 +183,65 @@ export const trackService = {
   },
 
   // Admin APIs (需要认证)
+
+  /** 扫描 FLAC 标签（浏览器本地读取，不上传文件） */
+  async scanTags(
+    files: File[],
+    onProgress?: (pct: number, speed: string) => void,
+  ): Promise<Array<{ filename: string; title: string; album: string; track_number: string }>> {
+    const results: Array<{ filename: string; title: string; album: string; track_number: string }> = [];
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      const tags = await readFlacTagsBrowser(f);
+      results.push({ filename: f.name, ...tags });
+      // 进度：本地读极快，按文件数算百分比
+      if (onProgress) {
+        onProgress(Math.round(((i + 1) / files.length) * 100), '本地读取');
+      }
+      // 让出主线程避免 UI 卡顿
+      await new Promise(r => setTimeout(r, 0));
+    }
+    return results;
+  },
+
+  /** 获取 OSS 预签名上传 URL */
+  async getUploadToken(filename: string, gameId: number): Promise<{ uploadUrl: string; objectKey: string }> {
+    const response = await api.post<ApiResponse<{ uploadUrl: string; objectKey: string }>>(
+      '/tracks/upload-token',
+      { filename, game_id: gameId }
+    );
+    if (response.data.success) return response.data.data;
+    throw new Error(response.data.error?.message || '获取上传URL失败');
+  },
+
+  /** 提交 OSS 直传文件到数据库 */
+  async commitUpload(params: {
+    objectKey: string;
+    gameId: number;
+    title_override?: string;
+    album_override?: string;
+    track_number_override?: string;
+  }): Promise<{ track: { id: number; title: string; file_path: string } }> {
+    const response = await api.post<ApiResponse<{ track: { id: number; title: string; file_path: string } }>>(
+      '/tracks/commit',
+      {
+        objectKey: params.objectKey,
+        game_id: params.gameId,
+        title_override: params.title_override || undefined,
+        album_override: params.album_override || undefined,
+        track_number_override: params.track_number_override || undefined,
+      }
+    );
+    if (response.data.success) return response.data.data;
+    throw new Error(response.data.error?.message || '提交失败');
+  },
+
   async uploadTracks(
     files: File[],
     options?: {
-      autoCredits?: boolean;
+      gameId?: number;
       metaOverrides?: Array<{ title?: string; album?: string }>;
-      // 前端编辑后的 credits，与 files 一一对应；若传入则覆盖后端自动解析
-      creditsOverrides?: Array<Array<{ key: string; value: string }> | null>;
+      trackNumberOverride?: string;
     }
   ): Promise<any> {
     const formData = new FormData();
@@ -222,27 +249,23 @@ export const trackService = {
       formData.append('tracks', file);
     });
 
-    // auto_credits via URL query（绕开 multipart body 字段顺序问题）
-    const autoCreditsVal = options?.autoCredits === false ? 'false' : 'true';
+    if (options?.gameId !== undefined) {
+      formData.append('game_id', String(options.gameId));
+    }
+
+    if (options?.trackNumberOverride) {
+      formData.append('track_number_override_0', options.trackNumberOverride);
+    }
 
     if (options?.metaOverrides) {
       options.metaOverrides.forEach((meta, idx) => {
         if (meta.title)  formData.append(`title_override_${idx}`,  meta.title);
-        if (meta.album !== undefined) formData.append(`album_override_${idx}`, meta.album);
-      });
-    }
-
-    // 传入编辑后的 credits（JSON 序列化）
-    if (options?.creditsOverrides) {
-      options.creditsOverrides.forEach((credits, idx) => {
-        if (credits && credits.length > 0) {
-          formData.append(`credits_override_${idx}`, JSON.stringify(credits));
-        }
+        if (meta.album !== undefined && meta.album !== '') formData.append(`album_override_${idx}`, meta.album);
       });
     }
 
     const response = await api.post<ApiResponse<any>>(
-      `/tracks/upload?auto_credits=${autoCreditsVal}`,
+      `/tracks/upload?auto_credits=false`,
       formData,
       { headers: { 'Content-Type': 'multipart/form-data' } }
     );
@@ -347,7 +370,7 @@ export const trackService = {
     throw new Error(response.data.error?.message || '重复检查失败');
   },
 
-  async getTracks(page = 1, limit = 20, search = '', filters: AdminTrackFilters = {}): Promise<{ tracks: Track[]; pagination: any }> {
+  async getTracks(page = 1, limit = 20, search = '', filters: AdminTrackFilters = {}): Promise<{ tracks: Track[]; pagination: PaginationMeta }> {
     const query = new URLSearchParams();
     query.set('page', String(page));
     query.set('limit', String(limit));
@@ -364,7 +387,7 @@ export const trackService = {
       query.set('has_lyrics', String(filters.hasLyrics));
     }
 
-    const response = await api.get<ApiResponse<{ tracks: Track[]; pagination: any }>>(
+    const response = await api.get<ApiResponse<{ tracks: Track[]; pagination: PaginationMeta }>>(
       `/tracks?${query.toString()}`
     );
     if (response.data.success && response.data.data) {
@@ -382,8 +405,8 @@ export const trackService = {
   },
 
   // Public APIs (无需认证)
-  async getTracksPublic(page = 1, limit = 20, search = ''): Promise<{ tracks: Track[]; pagination: any }> {
-    const response = await publicApi.get<ApiResponse<{ tracks: Track[]; pagination: any }>>(
+  async getTracksPublic(page = 1, limit = 20, search = ''): Promise<{ tracks: Track[]; pagination: PaginationMeta }> {
+    const response = await publicApi.get<ApiResponse<{ tracks: Track[]; pagination: PaginationMeta }>>(
       `/public/tracks?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}&sort_by=release_date&sort_dir=DESC`
     );
     if (response.data.success && response.data.data) {
@@ -392,7 +415,7 @@ export const trackService = {
     throw new Error('获取曲目列表失败');
   },
 
-  async searchTracksPublic(params: TrackSearchParams): Promise<{ tracks: Track[]; pagination: any }> {
+  async searchTracksPublic(params: TrackSearchParams): Promise<{ tracks: Track[]; pagination: PaginationMeta }> {
     const query = new URLSearchParams();
     if (params.search)                        query.set('search',          params.search);
     if (params.game_ids?.length)              query.set('game_ids',        params.game_ids.join(','));
@@ -408,7 +431,7 @@ export const trackService = {
     query.set('page',  String(params.page  ?? 1));
     query.set('limit', String(params.limit ?? 20));
 
-    const response = await publicApi.get<ApiResponse<{ tracks: Track[]; pagination: any }>>(
+    const response = await publicApi.get<ApiResponse<{ tracks: Track[]; pagination: PaginationMeta }>>(
       `/public/tracks?${query.toString()}`
     );
     if (response.data.success && response.data.data) {
@@ -459,26 +482,26 @@ export const trackService = {
 
   getStreamUrl(id: number): string {
     const token = localStorage.getItem('token');
-    return `${API_BASE_URL}/tracks/${id}/stream?token=${token}`;
+    return `${MEDIA_BASE_URL}/tracks/${id}/stream?token=${token}`;
   },
 
   getStreamUrlPublic(id: number): string {
-    return `${API_BASE_URL}/public/tracks/${id}/stream`;
+    return `${MEDIA_BASE_URL}/public/tracks/${id}/stream`;
   },
 
   getDownloadUrl(id: number): string {
     const token = localStorage.getItem('token');
-    return `${API_BASE_URL}/tracks/${id}/download?token=${token}`;
+    return `${MEDIA_BASE_URL}/tracks/${id}/download?token=${token}`;
   },
 
   getDownloadUrlPublic(id: number): string {
-    return `${API_BASE_URL}/public/tracks/${id}/download`;
+    return `${MEDIA_BASE_URL}/public/tracks/${id}/download`;
   },
 
   getCoverUrl(coverPath: string | null, thumb?: boolean): string {
     // 空封面：优先使用静态占位图，加载失败时回退到内联 SVG，避免 404
     if (!coverPath) return MUSIC_ICON_PLACEHOLDER;
-    const backendOrigin = API_BASE_URL.replace('/api', '');
+    const backendOrigin = MEDIA_BASE_URL.replace('/api', '');
     const sizeParam = thumb ? '&size=thumb' : '';
     // OSS / 外部存储：cover_path 是完整 http(s) URL，通过服务器代理中转，避免前端直连 OSS
     if (coverPath.startsWith('http://') || coverPath.startsWith('https://')) {

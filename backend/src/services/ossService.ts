@@ -1,7 +1,7 @@
 import { Readable } from 'stream';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { getOSSClient, ossConfig, buildOSSPublicUrl } from '../config/oss';
+import { getOSSClient, getOSSPublicClient, ossConfig, buildOSSPublicUrl } from '../config/oss';
 
 export class OSSService {
   private get client() {
@@ -142,6 +142,33 @@ export class OSSService {
     const objectKey = this.extractObjectKey(objectKeyOrUrl);
     const url = this.client.signatureUrl(objectKey, { expires: expireSeconds });
     return url;
+  }
+
+  /**
+   * 生成 PUT 预签名上传 URL（前端直传 OSS，不走服务器中转）
+   * @param objectKey OSS object key
+   * @param expireSeconds  有效期（秒），默认 3600
+   */
+  generatePutSignedUrl(objectKey: string, expireSeconds = 3600): string {
+    // 使用公网 endpoint — 前端直传 OSS 无法访问内网地址
+    const pub = getOSSPublicClient();
+    return pub.signatureUrl(objectKey, {
+      expires: expireSeconds,
+      method: 'PUT',
+      'Content-Type': 'audio/flac',
+    });
+  }
+
+  /**
+   * 下载文件到本地临时路径
+   * @param objectKey OSS object key
+   * @param localPath 本地临时文件路径
+   */
+  async downloadToFile(objectKey: string, localPath: string): Promise<void> {
+    const result = await this.client.get(objectKey, localPath);
+    if ((result as any).res?.status >= 400) {
+      throw new Error(`OSS download failed: ${(result as any).res?.status}`);
+    }
   }
 
   /**
