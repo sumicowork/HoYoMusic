@@ -688,6 +688,18 @@ const runMigrations = async () => {
   try {
     await pool.query(`DROP TABLE IF EXISTS track_artists CASCADE`);
   } catch (e) { console.error('migration drop_legacy_track_artists:', e); }
+
+  // 18. lyrics_analysis (AI 歌词分析：清洗后文本 + 分析状态)
+  //     status: none=未分析 / pending=排队中 / done=完成 / failed=失败(可重试) / review=待人工确认
+  try {
+    await pool.query(`ALTER TABLE tracks ADD COLUMN IF NOT EXISTS lyrics_text TEXT`);
+    await pool.query(`ALTER TABLE tracks ADD COLUMN IF NOT EXISTS lyrics_analysis_status VARCHAR(20) NOT NULL DEFAULT 'none'`);
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS idx_tracks_lyrics_analysis_status
+       ON tracks (lyrics_analysis_status)
+       WHERE lyrics_analysis_status IN ('pending', 'review')`
+    );
+  } catch (e) { console.error('migration lyrics_analysis:', e); }
 };
 
 const startServer = async () => {
@@ -737,6 +749,10 @@ const startServer = async () => {
     // Pre-warm DB connection pool
     const { warmPool } = await import('./config/database');
     await warmPool(3);
+
+    // Start AI lyrics analysis worker (async, non-blocking)
+    const { startLyricsAnalysisWorker } = await import('./services/lyricsAnalysisWorker');
+    startLyricsAnalysisWorker(pool);
 
     // Start server
     const server = app.listen(PORT, () => {

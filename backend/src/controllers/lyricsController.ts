@@ -165,8 +165,8 @@ const saveLyricsForTrack = async (trackId: number, file: Express.Multer.File): P
   );
 
   await pool.query(
-    'UPDATE tracks SET lyrics_path = $1, lyrics_status = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
-    [nextLyricsPath, LYRICS_STATUS.HAS, trackId]
+    'UPDATE tracks SET lyrics_path = $1, lyrics_status = $2, lyrics_analysis_status = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4',
+    [nextLyricsPath, LYRICS_STATUS.HAS, 'pending', trackId]
   );
 
   if (oldLyricsPath) {
@@ -199,8 +199,8 @@ export const uploadLyrics = async (req: Request, res: Response) => {
 
     // Update track record
     await pool.query(
-      'UPDATE tracks SET lyrics_path = $1, lyrics_status = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
-      [lyricsPath, LYRICS_STATUS.HAS, id]
+      'UPDATE tracks SET lyrics_path = $1, lyrics_status = $2, lyrics_analysis_status = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4',
+      [lyricsPath, LYRICS_STATUS.HAS, 'pending', id]
     );
 
     await remoteResourceCache.deleteBinary('lyrics', buildLyricsCacheKey(lyricsPath));
@@ -583,8 +583,8 @@ export const updateLyrics = async (req: Request, res: Response) => {
     );
 
     await pool.query(
-      'UPDATE tracks SET lyrics_path = $1, lyrics_status = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
-      [nextLyricsPath, LYRICS_STATUS.HAS, id]
+      'UPDATE tracks SET lyrics_path = $1, lyrics_status = $2, lyrics_analysis_status = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4',
+      [nextLyricsPath, LYRICS_STATUS.HAS, 'pending', id]
     );
 
     if (lyrics_path && lyrics_path !== nextLyricsPath) {
@@ -650,7 +650,7 @@ export const deleteLyrics = async (req: Request, res: Response) => {
 
     // Update database
     await pool.query(
-      'UPDATE tracks SET lyrics_path = NULL, lyrics_status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      "UPDATE tracks SET lyrics_path = NULL, lyrics_status = $1, lyrics_text = NULL, lyrics_analysis_status = 'none', updated_at = CURRENT_TIMESTAMP WHERE id = $2",
       [LYRICS_STATUS.NONE, id]
     );
 
@@ -693,7 +693,7 @@ export const markTrackInstrumental = async (req: Request, res: Response) => {
     }
 
     await pool.query(
-      'UPDATE tracks SET lyrics_path = NULL, lyrics_status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      "UPDATE tracks SET lyrics_path = NULL, lyrics_status = $1, lyrics_text = NULL, lyrics_analysis_status = 'none', updated_at = CURRENT_TIMESTAMP WHERE id = $2",
       [LYRICS_STATUS.INSTRUMENTAL, id]
     );
 
