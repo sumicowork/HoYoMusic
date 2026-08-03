@@ -53,10 +53,10 @@ export function detectHardCase(lrc: string): string | null {
   const lines = lrc.split(/\r?\n/);
   for (const l of lines) {
     if (!/\[\d{2}:\d{2}[.:\d]*\]/.test(l)) continue;
-    // 1) 「角色：」冒号后为空，歌词可能在后续行（如 "念白："）
+    // 1) 「角色：」冒号后为空，歌词可能在后续行（如 "念白："）——模型可能误删歌词
     if (/^\[\d{2}:\d{2}[.:\d]*\][^:：]{0,20}[:：]\s*$/.test(l)) return 'empty_role_line';
-    // 2) 中文+拉丁连写（如 "郑宇界JODODO"）——人名规范化需人工/artist 层确认
-    if (/[\u4e00-\u9fff][A-Za-z]{2,}/.test(l)) return 'cjk_latin_concatenated';
+    // 注：中文+拉丁连写（郑宇界JODODO）不再标记 review——忠实原文原则下
+    //     保持原文不拆即为正确行为，人名规范化是 artist 层的职责
   }
   return null;
 }
