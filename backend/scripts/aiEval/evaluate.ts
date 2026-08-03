@@ -102,8 +102,8 @@ async function main() {
     console.log(`🤖 真实模式：AI_BASE_URL=${process.env.AI_API_BASE_URL} AI_MODEL=${process.env.AI_MODEL}`);
   }
 
-  const client = await connectDb();
-  console.log('📦 已连接 DB（只读）');
+  const client = process.env.EVAL_DATA_DIR ? null : await connectDb();
+  console.log(client ? '📦 已连接 DB（只读）' : '📦 本地 dump 模式（EVAL_DATA_DIR）');
 
   // 1. 收集 LRC 文件并按游戏分层抽样
   const allLrc = listLrcFiles(root);
@@ -265,7 +265,7 @@ async function main() {
   console.log(`  整首级别: 完全 ${e.perfect} | 部分 ${e.partial} | 未命中 ${e.none} | 无真值 ${e.noTruth}`);
   console.log(`\n【3. 歌词清洗】${summary.cleaning.vocalSamples} 个样本已附在报告中，请人工复核`);
   console.log(`\n📄 报告: ${outFile}`);
-  await client.end();
+  if (client) await client.end();
 }
 
 main().catch((err) => {

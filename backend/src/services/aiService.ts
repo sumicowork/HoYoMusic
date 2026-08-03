@@ -68,36 +68,33 @@ function getDispatcher(): unknown {
 const dispatcher = getDispatcher();
 
 // ── 系统提示词（分类 + 清洗）──────────────────────────────────────
-const CLASSIFY_SYSTEM_PROMPT = `你是米哈游（HoYoVerse）游戏音乐 LRC 歌词分析专家。你的任务：判断一首 LRC 是 VOCAL（有真实人声歌词）还是 INSTRUMENTAL（纯器乐/纯创作者信息），并清洗歌词。
+const CLASSIFY_SYSTEM_PROMPT = `你是米哈游（HoYoVerse）游戏音乐 LRC 歌词分析专家。判断一首 LRC 是 VOCAL（有真实人声歌词）还是 INSTRUMENTAL（纯器乐/纯创作者信息），并清洗歌词。
 
-判断标准（经人工逐首验证）：
-- "作曲 Composer：XXX" "二胡 Erhu：XXX" "录音棚 Recording Studio：XXX" "演唱 Artist：XXX" "合唱 Choir：XXX" 等「角色：人名」格式行 = 创作者/credit 信息，不是歌词
-- "Let's pave it out and break through" "熱き波に触れ" "Ah, si je pouvais vivre dans l'eau" 等任何语言的人声歌词 = VOCAL
-- "Hah~~" "(Over and over)" 等人声和音/念白 = VOCAL（也算歌词）
-- 若文件中存在任何真实人声行 → 整首 = VOCAL
-- 若全部是「角色：人名」格式 → INSTRUMENTAL
-- [ti:]/[ar:]/[al:]/[by:]/[offset:] 等元数据头行不是歌词也不是 credit，清洗时删除
+识别规则：
+- 「角色：人名」格式行（作曲 Composer：xxx / 二胡 Erhu：xxx / 录音棚 Recording Studio：xxx / 演唱 Artist：xxx / 合唱 Choir：xxx 等）= 创作者/credit 信息，不是歌词
+- 任何语言的真实人声歌词行 = VOCAL（含人声和音、念白，如 "Hah~~"、"(Over and over)"）
+- 存在任何真实人声行 → 整首 = VOCAL；全部是「角色：人名」行 → INSTRUMENTAL
+- [ti:]/[ar:]/[al:]/[by:]/[offset:] 等元数据头：不是歌词也不是 credit
 
 输出要求（严格 JSON，不要 markdown 代码块，不要任何其他文字）：
 {"kind":"vocal|instrumental|unknown","confidence":0到1的小数,"clean_lyrics":"清洗后的LRC全文或null","credits":[{"role":"角色原文","names":["人名1","人名2"]}]}
 
 - kind=instrumental 时 clean_lyrics 为 null
 - clean_lyrics 仅含真实歌词行，保留 [mm:ss.xx] 时间戳，去掉所有 credit 行和元数据行
-- credits 数组：LRC 中出现的所有「角色：人名」行（含 "角色 by 人名" 变体，如 "Music by HOYO-MiX"），role 用 LRC 原文（不翻译不臆造），names 拆成个人（顿号/逗号/斜杠分隔，但保留括号内署名如 "(HOYO-MiX)"）
-- 人名若含 @ 符号（如 "焦磊 Ricky.J@Soundhub Studios"），删除 @ 及其之后的内容，仅保留 @ 前的人名
-- 名字是纯团队/企划/项目名也保留，不要因"不像人名"而跳过
+- credits 数组：LRC 中出现的所有 credit 行（含录音棚等设施行、乐团名）；role 为「角色」部分原文（如 "作曲 Composer"，不翻译、不臆造、不改写）；names 为「人名」部分按明显分隔符拆分的个人列表，括号署名（如 "(HOYO-MiX)"）保留在名字内
+- 不提取版权/厂牌标识行：「Music by xxx」「出品 Produced by：xxx」等 by 格式行和出品行，不是创作者信息
+- 人名保持 LRC 原文原样，不做任何删改（包括 @ 等符号）
 - 无法判断时 kind=unknown，confidence 给低分`;
 
 // ── 系统提示词（仅抽取创作者，评估用）────────────────────────────
-const EXTRACT_SYSTEM_PROMPT = `你是米哈游（HoYoVerse）游戏音乐 LRC 创作者信息提取器。你的任务：从 LRC 中提取所有创作者/制作人员信息。
+const EXTRACT_SYSTEM_PROMPT = `你是米哈游（HoYoVerse）游戏音乐 LRC 创作者信息提取器。从 LRC 中提取所有创作者/制作人员信息。
 
 规则：
-- 提取所有「角色：人名」格式的行（作曲/作词/编曲/演唱/乐器/录音/混音/母带/出品等）
-- 兼容变体格式：「角色 by 人名」（如 "Music by HOYO-MiX"），此时 role 取 by 前的词（如 "Music"），name 取 by 后的内容
-- role 必须使用 LRC 原文（如 "作曲 Composer"），不翻译、不改写、不臆造
-- names 拆分为个人：用顿号、逗号、斜杠（/、/）或「feat.」「&」「and」分隔；人名内的括号署名（如 "车子玉 Ziyu Che (HOYO-MiX)"）必须保留在名字内
-- 人名若含 @ 符号（如 "焦磊 Ricky.J@Soundhub Studios"），删除 @ 及其之后的内容，仅保留 @ 前的人名
-- 名字是纯团队/企划/项目名（如 "勇气碾碎末日交响"）也保留，不要因"不像人名"而跳过
+- 提取所有「角色：人名」格式的 credit 行：作曲/作词/编曲/演唱/乐器/录音师/录音棚/混音/母带/制作人等（含设施行如录音棚、乐团名）
+- 不提取版权/厂牌标识行：「Music by xxx」「出品 Produced by：xxx」等 by 格式行和出品行，不是创作者信息
+- role 为「角色」部分原文（如 "作曲 Composer"），不翻译、不臆造、不改写
+- names 为「人名」部分按明显分隔符拆分的个人列表，括号署名保留在名字内
+- 人名保持 LRC 原文原样，不做任何删改（包括 @ 等符号）
 - 不要提取 [ti:]/[ar:]/[al:] 等元数据头，不要提取歌词行
 - 只输出 JSON，不要 markdown 代码块，不要任何解释文字
 
@@ -153,7 +150,7 @@ function extractJson<T>(raw: string): T {
   return JSON.parse(text) as T;
 }
 
-/** 归一化模型返回的 credits 数组 */
+/** 归一化模型返回的 credits 数组（仅结构归一，人名忠实保留原文） */
 function normalizeCredits(raw: unknown): CreditLine[] {
   if (!Array.isArray(raw)) return [];
   const out: CreditLine[] = [];

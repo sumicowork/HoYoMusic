@@ -105,6 +105,32 @@ export function matchTrackByFilename(filename: string, tracks: TrackInfo[]): Tra
 }
 
 // ── DB（只读）─────────────────────────────────────────────────────
+// 优先用本地 dump（EVAL_DATA_DIR 指向 aiEval/data），避免依赖 ssh 隧道
+
+let localTracks: TrackInfo[] | null = null;
+let localCredits: Map<number, { role: string; value: string }[]> | null = null;
+
+function loadLocalData(): { tracks: TrackInfo[]; credits: Map<number, { role: string; value: string }[]> } | null {
+  const dir = process.env.EVAL_DATA_DIR;
+  if (!dir) return null;
+  const tracksFile = path.join(dir, 'tracks.json');
+  const creditsFile = path.join(dir, 'credits.json');
+  if (!fs.existsSync(tracksFile) || !fs.existsSync(creditsFile)) return null;
+  const tracks = (JSON.parse(fs.readFileSync(tracksFile, 'utf8')) as any[]).map((r) => ({
+    id: r.id,
+    title: r.title,
+    titleCn: r.title_cn,
+    titleEn: r.title_en,
+    lyricsStatus: r.lyrics_status,
+  }));
+  const credits = new Map<number, { role: string; value: string }[]>();
+  for (const c of JSON.parse(fs.readFileSync(creditsFile, 'utf8')) as any[]) {
+    const list = credits.get(c.track_id) || [];
+    list.push({ role: c.role, value: c.value });
+    credits.set(c.track_id, list);
+  }
+  return { tracks, credits };
+}
 
 export async function connectDb(): Promise<Client> {
   const client = new Client({
@@ -118,22 +144,43 @@ export async function connectDb(): Promise<Client> {
   return client;
 }
 
-/** 拉取全部 track 基本信息（内存匹配用） */
-export async function fetchTracks(client: Client): Promise<TrackInfo[]> {
+/** 拉取全部 track 基本信息（内存匹配用；本地 dump 模式不连 DB） */
+export async function fetchTracks(client: Client | null): Promise<TrackInfo[]> {
+  if (localTracks) return localTracks;
+  if (!localTracks && process.env.EVAL_DATA_DIR) {
+    const data = loadLocalData();
+    if (data) {
+      localTracks = data.tracks;
+      localCredits = data.credits;
+      return localTracks;
+    }
+  }
+  if (!client) throw new Error('无 DB 连接且无本地 dump');
   const res = await client.query(
     `SELECT id, title, title_cn, title_en, lyrics_status FROM tracks`,
   );
-  return res.rows.map((r) => ({
+  localTracks = res.rows.map((r) => ({
     id: r.id,
     title: r.title,
     titleCn: r.title_cn,
     titleEn: r.title_en,
     lyricsStatus: r.lyrics_status,
   }));
+  return localTracks;
 }
 
-/** 拉取指定 track 的 credits 真值（人工 v13 落地） */
-export async function fetchTrackCredits(client: Client, trackId: number): Promise<{ role: string; value: string }[]> {
+/** 拉取指定 track 的 credits 真值（人工 v13 落地；本地 dump 模式不连 DB） */
+export async function fetchTrackCredits(client: Client | null, trackId: number): Promise<{ role: string; value: string }[]> {
+  if (localCredits) return localCredits.get(trackId) || [];
+  if (!localCredits && process.env.EVAL_DATA_DIR) {
+    const data = loadLocalData();
+    if (data) {
+      localTracks = data.tracks;
+      localCredits = data.credits;
+      return localCredits.get(trackId) || [];
+    }
+  }
+  if (!client) throw new Error('无 DB 连接且无本地 dump');
   const res = await client.query(
     `SELECT credit_key AS role, credit_value AS value FROM track_credits WHERE track_id = $1 ORDER BY id`,
     [trackId],

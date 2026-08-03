@@ -13,7 +13,7 @@ async function main() {
     console.error('用法: ts-node quick_compare.ts <lrc路径> [更多...]');
     process.exit(1);
   }
-  const client = await connectDb();
+  const client = process.env.EVAL_DATA_DIR ? null : await connectDb();
   const tracks = await fetchTracks(client);
 
   for (const file of files) {
@@ -60,7 +60,7 @@ async function main() {
 
     if (missing.length === 0 && extra.length === 0) console.log('   ✅ 完全一致');
   }
-  await client.end();
+  if (client) await client.end();
 }
 
 main().catch((err) => {

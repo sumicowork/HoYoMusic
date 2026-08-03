@@ -63,6 +63,7 @@ tsc_err.txt
 *_result.json
 ip_geo_cache.json
 backend/scripts/aiEval/out/
+backend/scripts/aiEval/data/
 
 # Obsidian workspace
 .obsidian/
