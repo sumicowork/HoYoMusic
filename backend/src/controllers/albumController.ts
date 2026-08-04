@@ -695,30 +695,29 @@ export const updateAlbum = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { title, title_cn, title_en, release_date, game_id, notes, source_type } = req.body;
+    console.log(`[album-update] id=${id} source_type=${source_type} fullBody=${JSON.stringify(req.body).slice(0, 400)}`);
+
+    // 动态 SQL：undefined = 未传（保留原值）；null = 显式清空
+    const sets: string[] = [];
+    const values: any[] = [];
+    const push = (field: string, value: any) => {
+      if (value === undefined) return; // 未传，不更新
+      sets.push(`${field} = $${values.length + 1}`);
+      values.push(value);
+    };
+    push('title', title);
+    push('title_cn', title_cn);
+    push('title_en', title_en);
+    push('release_date', release_date);
+    push('game_id', game_id);
+    push('notes', notes);
+    push('source_type', source_type);
+    sets.push('updated_at = CURRENT_TIMESTAMP');
+    values.push(id);
 
     const result = await pool.query(
-      `UPDATE albums 
-       SET
-         title = $1,
-         title_cn = COALESCE($2, title_cn),
-         title_en = COALESCE($3, title_en),
-         release_date = $4,
-         game_id = $5,
-         notes = $6,
-         source_type = COALESCE($7, source_type),
-         updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $8 
-       RETURNING *`,
-      [
-        title,
-        title_cn !== undefined ? title_cn : null,
-        title_en !== undefined ? title_en : null,
-        release_date,
-        game_id || null,
-        notes !== undefined ? notes : null,
-        source_type !== undefined ? source_type : null,
-        id,
-      ]
+      `UPDATE albums SET ${sets.join(', ')} WHERE id = $${values.length} RETURNING *`,
+      values
     );
 
     if (result.rows.length === 0) {
