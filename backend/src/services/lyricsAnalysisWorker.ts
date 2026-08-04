@@ -64,6 +64,41 @@ export function detectHardCase(lrc: string): string | null {
 let workerTimer: NodeJS.Timeout | null = null;
 const inFlight = new Set<number>();
 
+/** 落库创作者信息（幂等：先删后插，artists 重建前 artist_id 置空） */
+async function saveCredits(pool: Pool, trackId: number, credits: unknown): Promise<void> {
+  if (!Array.isArray(credits) || credits.length === 0) return;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM track_credits WHERE track_id = $1', [trackId]);
+    let order = 0;
+    let inserted = 0;
+    for (const item of credits) {
+      if (!item || typeof item !== 'object') continue;
+      const role = String((item as Record<string, unknown>).role ?? '').trim();
+      const namesRaw = (item as Record<string, unknown>).names;
+      const names = Array.isArray(namesRaw)
+        ? namesRaw.map((n) => String(n).trim()).filter(Boolean)
+        : [];
+      if (!role) continue;
+      for (const name of names) {
+        await client.query(
+          `INSERT INTO track_credits (track_id, credit_key, credit_value, display_order) VALUES ($1, $2, $3, $4)`,
+          [trackId, role, name, order++],
+        );
+        inserted++;
+      }
+    }
+    await client.query('COMMIT');
+    if (inserted > 0) console.log(`[lyricsWorker] #${trackId} credits 落库 ${inserted} 行`);
+  } catch (e: any) {
+    await client.query('ROLLBACK');
+    console.warn(`[lyricsWorker] #${trackId} credits 落库失败: ${e?.message ?? e}`);
+  } finally {
+    client.release();
+  }
+}
+
 async function processOne(pool: Pool, trackId: number): Promise<void> {
   if (inFlight.has(trackId)) return;
   inFlight.add(trackId);
@@ -123,6 +158,7 @@ async function processOne(pool: Pool, trackId: number): Promise<void> {
           [trackId],
         );
         console.log(`[lyricsWorker] #${trackId} ${track.title} → vocal 但无实际歌词，降级 instrumental`);
+        await saveCredits(pool, trackId, analysis.credits);
         return;
       }
       await pool.query(
@@ -130,12 +166,14 @@ async function processOne(pool: Pool, trackId: number): Promise<void> {
         [trackId, cleanLyrics],
       );
       console.log(`[lyricsWorker] #${trackId} ${track.title} → vocal (conf ${analysis.confidence.toFixed(2)})`);
+      await saveCredits(pool, trackId, analysis.credits);
     } else if (analysis.kind === 'instrumental') {
       await pool.query(
         `UPDATE tracks SET lyrics_status = 'instrumental', lyrics_text = NULL, lyrics_analysis_status = 'done' WHERE id = $1`,
         [trackId],
       );
       console.log(`[lyricsWorker] #${trackId} ${track.title} → instrumental (conf ${analysis.confidence.toFixed(2)})`);
+      await saveCredits(pool, trackId, analysis.credits);
     } else {
       console.warn(`[lyricsWorker] #${trackId} ${track.title} unknown → failed`);
       await pool.query(`UPDATE tracks SET lyrics_analysis_status = 'failed' WHERE id = $1`, [trackId]);
