@@ -37,6 +37,7 @@ const AlbumManagement: React.FC = () => {
   const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
   const [editingAlbum, setEditingAlbum] = useState<Album | null>(null);
   const [editModalVisible, setEditModalVisible] = useState(false);
+  const [sourceTypeDraft, setSourceTypeDraft] = useState<'NORMAL' | 'EXTRA'>('NORMAL');
   const [coverUploadVisible, setCoverUploadVisible] = useState(false);
   const [selectedAlbumForCover, setSelectedAlbumForCover] = useState<Album | null>(null);
   const [form] = Form.useForm();
@@ -177,6 +178,7 @@ const AlbumManagement: React.FC = () => {
 
   const handleEdit = (album: Album) => {
     setEditingAlbum(album);
+    setSourceTypeDraft(album.source_type || 'NORMAL');
     form.setFieldsValue({
       title: album.title,
       title_cn: album.title_cn || album.title,
@@ -199,7 +201,7 @@ const AlbumManagement: React.FC = () => {
           title_en: values.title_en || null,
           game_id: values.game_id || null,
           release_date: values.release_date ? values.release_date.format('YYYY-MM-DD') : null,
-          source_type: values.source_type || 'NORMAL',
+          source_type: sourceTypeDraft || 'NORMAL',
           notes: values.notes || null,
         };
 
@@ -1048,11 +1050,14 @@ const AlbumManagement: React.FC = () => {
             <DatePicker style={{ width: '100%' }} format="YYYYMMDD" placeholder="例如 20250101" />
           </Form.Item>
           <Form.Item
-            name="source_type"
             label="来源标识"
             tooltip="NORMAL=常规专辑（参与自动匹配）；EXTRA=外部提取（不参与任何自动匹配，需人工关联）"
           >
-            <Select placeholder="选择来源标识">
+            <Select
+              value={sourceTypeDraft}
+              onChange={(v) => setSourceTypeDraft(v)}
+              placeholder="选择来源标识"
+            >
               <Select.Option value="NORMAL">NORMAL（常规）</Select.Option>
               <Select.Option value="EXTRA">EXTRA（外部提取，人工处理）</Select.Option>
             </Select>
