@@ -331,7 +331,7 @@ const Player: React.FC = () => {
     const newHowl = new Howl({
       src: [streamUrl],
       html5: true,
-      format: ['flac'],
+      format: currentTrack?.file_path?.toLowerCase().endsWith('.mp3') ? ['mp3'] : ['flac'],
       volume: volume,
       loop: currentPlayMode === 'single',
       onload: function () { setDuration(newHowl.duration()); },

@@ -220,7 +220,7 @@ const TrackDetail: React.FC = () => {
   const specCards = useMemo(() => {
     if (!track) return [];
     const cards: Array<{ label: string; value: string }> = [
-      { label: '格式', value: 'FLAC' },
+      { label: '格式', value: track.file_path?.toLowerCase().endsWith('.mp3') ? 'MP3' : 'FLAC' },
       { label: '时长', value: formatDuration(track.duration) },
     ];
 

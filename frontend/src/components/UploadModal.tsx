@@ -84,9 +84,11 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
       const next = [...prev];
       for (const file of files) {
       const ok = file.name.toLowerCase().endsWith('.flac') ||
-                 file.type === 'audio/flac' || file.type === 'audio/x-flac';
+                 file.name.toLowerCase().endsWith('.mp3') ||
+                 file.type === 'audio/flac' || file.type === 'audio/x-flac' ||
+                 file.type === 'audio/mpeg' || file.type === 'audio/mp3';
       if (!ok) {
-        toast.error(`${file.name} 不是 FLAC 格式，已跳过`);
+        toast.error(`${file.name} 不是 FLAC/MP3 格式，已跳过`);
         continue;
       }
         if (next.some(f => f.name === file.name && f.size === file.size)) continue;
@@ -99,7 +101,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
           status: 'pending',
           editTitle: '',
           editTrackNumber: '',
-          scannedTitle: file.name.replace(/\.flac$/i, ''),
+          scannedTitle: file.name.replace(/\.(flac|mp3)$/i, ''),
           scannedAlbum: '',
           scannedTrackNumber: '',
         });
@@ -210,7 +212,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open('PUT', url);
-      xhr.setRequestHeader('Content-Type', 'audio/flac');
+      xhr.setRequestHeader('Content-Type', file.type || (file.name.toLowerCase().endsWith('.mp3') ? 'audio/mpeg' : 'audio/flac'));
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) resolve();
         else reject(new Error(`OSS 上传失败: ${xhr.status}`));
@@ -255,18 +257,18 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
             // @ts-ignore – webkitdirectory is non-standard but widely supported
             webkitdirectory=""
             multiple
-            accept=".flac"
+            accept=".flac,.mp3"
             style={{ display: 'none' }}
             onChange={handleFolderChange}
           />
 
-          <Dragger multiple accept=".flac" beforeUpload={handleBeforeUpload}
+          <Dragger multiple accept=".flac,.mp3" beforeUpload={handleBeforeUpload}
             showUploadList={false} className="upload-dragger">
             <p className="ant-upload-drag-icon">
               <InboxOutlined style={{ color: '#667eea', fontSize: 48 }} />
             </p>
-            <p className="ant-upload-text">点击或拖拽 FLAC 文件到此区域</p>
-            <p className="ant-upload-hint">支持批量选择，仅支持 .flac 格式 · 默认以文件名作为歌曲标题</p>
+            <p className="ant-upload-text">点击或拖拽 FLAC / MP3 文件到此区域</p>
+            <p className="ant-upload-hint">支持批量选择，仅支持 .flac / .mp3 格式 · 默认以文件名作为歌曲标题</p>
           </Dragger>
 
           <div style={{ textAlign: 'center', marginTop: 10, marginBottom: 4 }}>
@@ -278,7 +280,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
               选择文件夹上传
             </Button>
             <Text type="secondary" style={{ display: 'block', fontSize: 11, marginTop: 4 }}>
-              选择文件夹后将自动扫描其中所有 .flac 文件（含子文件夹）
+              选择文件夹后将自动扫描其中所有 .flac / .mp3 文件（含子文件夹）
             </Text>
           </div>
 

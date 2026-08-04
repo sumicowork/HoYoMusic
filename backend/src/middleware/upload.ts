@@ -23,15 +23,15 @@ const diskStorage = multer.diskStorage({
   },
 });
 
-// File filter for FLAC only
+// File filter for FLAC / MP3
 const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  const allowedMimeTypes = ['audio/flac', 'audio/x-flac'];
+  const allowedMimeTypes = ['audio/flac', 'audio/x-flac', 'audio/mpeg', 'audio/mp3', 'audio/x-mp3'];
   const ext = path.extname(file.originalname).toLowerCase();
 
-  if (allowedMimeTypes.includes(file.mimetype) || ext === '.flac') {
+  if (allowedMimeTypes.includes(file.mimetype) || ext === '.flac' || ext === '.mp3') {
     cb(null, true);
   } else {
-    cb(new Error('Only FLAC files are allowed'));
+    cb(new Error('Only FLAC / MP3 files are allowed'));
   }
 };
 

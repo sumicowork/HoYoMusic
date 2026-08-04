@@ -119,7 +119,10 @@ const AlbumDetail: React.FC = () => {
   }, [tracks, discs]);
 
   const specBadges = useMemo(() => {
-    const result: string[] = ['FLAC'];
+    const formats = new Set(
+      tracks.map((item) => (item.file_path?.toLowerCase().endsWith('.mp3') ? 'MP3' : 'FLAC'))
+    );
+    const result: string[] = [formats.size > 1 ? 'FLAC/MP3' : [...formats][0] || 'FLAC'];
     const qualityTrack = tracks.find((item) => item.sample_rate && item.bit_depth);
     if (qualityTrack?.sample_rate && qualityTrack?.bit_depth) {
       result.push(`${(qualityTrack.sample_rate / 1000).toFixed(1)}kHz / ${qualityTrack.bit_depth}bit`);

@@ -11,9 +11,9 @@ export interface FlacTags {
 export async function readFlacTagsBrowser(file: File): Promise<FlacTags> {
   const buf = new Uint8Array(await file.arrayBuffer());
 
-  // 1. FLAC magic: 'fLaC'
+  // 1. FLAC magic: 'fLaC'（非 FLAC（如 MP3）→ 降级为文件名，不中断流程）
   if (buf[0] !== 0x66 || buf[1] !== 0x4C || buf[2] !== 0x61 || buf[3] !== 0x43) {
-    return { title: file.name.replace(/\.flac$/i, ''), album: '', track_number: '' };
+    return { title: file.name.replace(/\.(flac|mp3)$/i, ''), album: '', track_number: '' };
   }
 
   let pos = 4;
@@ -43,7 +43,7 @@ export async function readFlacTagsBrowser(file: File): Promise<FlacTags> {
   }
 
   return {
-    title: tags.TITLE || file.name.replace(/\.flac$/i, ''),
+    title: tags.TITLE || file.name.replace(/\.(flac|mp3)$/i, ''),
     album: tags.ALBUM || '',
     track_number: tags.TRACKNUMBER || '',
   };

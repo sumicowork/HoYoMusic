@@ -11,11 +11,20 @@ import storageService from '../services/storageService';
 import { toStringList } from '../utils/metadata';
 
 const FLAC_MAGIC = Buffer.from('fLaC', 'ascii');
+const ID3_MAGIC = Buffer.from('ID3', 'ascii');
 
-const isValidFlacBuffer = (buffer: Buffer): boolean => {
-  // FLAC stream marker must be at byte 0.
-  return buffer.length >= FLAC_MAGIC.length && buffer.subarray(0, FLAC_MAGIC.length).equals(FLAC_MAGIC);
+/** 深度校验：FLAC（fLaC 标记）或 MP3（ID3v2 头 / MPEG frame sync 0xFFEx） */
+const isValidAudioBuffer = (buffer: Buffer): boolean => {
+  if (buffer.length >= FLAC_MAGIC.length && buffer.subarray(0, FLAC_MAGIC.length).equals(FLAC_MAGIC)) return true;
+  if (buffer.length >= ID3_MAGIC.length && buffer.subarray(0, ID3_MAGIC.length).equals(ID3_MAGIC)) return true;
+  if (buffer.length >= 2 && buffer[0] === 0xff && (buffer[1] & 0xe0) === 0xe0) return true;
+  return false;
 };
+
+const isMp3Path = (filePath: string): boolean => path.extname(filePath).toLowerCase() === '.mp3';
+
+/** 按文件扩展名返回音频 Content-Type */
+const audioContentType = (filePath: string): string => (isMp3Path(filePath) ? 'audio/mpeg' : 'audio/flac');
 
 /** 用 metaflac 读取 TITLE / ALBUM / TRACKNUMBER（不依赖 music-metadata） */
 const readFlacVorbisTags = (filePath: string): Record<string, string> => {
@@ -39,6 +48,23 @@ const readFlacVorbisTags = (filePath: string): Record<string, string> => {
   }
 };
 
+/** 通用标签读取：FLAC 走 metaflac，MP3 走 music-metadata（ID3） */
+const readAudioTags = async (filePath: string): Promise<Record<string, string>> => {
+  if (!isMp3Path(filePath)) return readFlacVorbisTags(filePath);
+  try {
+    const { parseFile } = await import('music-metadata');
+    const meta = await parseFile(filePath, { duration: false });
+    const tags: Record<string, string> = {};
+    if (meta.common.title) tags.TITLE = meta.common.title;
+    if (meta.common.album) tags.ALBUM = meta.common.album;
+    const trackNo = meta.common.track?.no;
+    if (trackNo !== undefined && trackNo !== null) tags.TRACKNUMBER = String(trackNo);
+    return tags;
+  } catch {
+    return {};
+  }
+};
+
 /** 用 metaflac 读取流信息（duration / sample rate / bit depth） */
 const readFlacStreamInfo = (filePath: string): { duration: number | null; sampleRate: number | null; bitDepth: number | null } => {
   try {
@@ -54,6 +80,22 @@ const readFlacStreamInfo = (filePath: string): { duration: number | null; sample
       duration: (totalSamples && sampleRate) ? Math.round(totalSamples / sampleRate) : null,
       sampleRate: sampleRate || null,
       bitDepth: bitDepth || null,
+    };
+  } catch {
+    return { duration: null, sampleRate: null, bitDepth: null };
+  }
+};
+
+/** 通用流信息：FLAC 走 metaflac，MP3 走 music-metadata（无位深概念） */
+const readAudioStreamInfo = async (filePath: string): Promise<{ duration: number | null; sampleRate: number | null; bitDepth: number | null }> => {
+  if (!isMp3Path(filePath)) return readFlacStreamInfo(filePath);
+  try {
+    const { parseFile } = await import('music-metadata');
+    const meta = await parseFile(filePath, { duration: true });
+    return {
+      duration: meta.format.duration ? Math.round(meta.format.duration) : null,
+      sampleRate: meta.format.sampleRate || null,
+      bitDepth: null, // MP3 无位深（有损）
     };
   } catch {
     return { duration: null, sampleRate: null, bitDepth: null };
@@ -505,21 +547,21 @@ export const uploadTracks = async (req: Request, res: Response) => {
         fileBuffer = await fs.promises.readFile(file.path);
 
         // ── Deep file type validation (magic bytes) ──
-        if (!isValidFlacBuffer(fileBuffer)) {
-          console.warn(`File ${file.originalname} failed FLAC magic byte check`);
+        if (!isValidAudioBuffer(fileBuffer)) {
+          console.warn(`File ${file.originalname} failed FLAC/MP3 magic byte check`);
           // Clean up temp file
           try { await fs.promises.unlink(file.path); } catch {}
           continue; // skip this file
         }
 
-        // ═══ 读取 FLAC Vorbis 标签（仅 TITLE/ALBUM/TRACKNUMBER，不依赖 music-metadata）═══
-        // 优先级：前端 override > FLAC 标签 > 文件名
-        const flacTags = readFlacVorbisTags(file.path);
+        // ═══ 读取音频标签（FLAC Vorbis / MP3 ID3，仅 TITLE/ALBUM/TRACKNUMBER）═══
+        // 优先级：前端 override > 音频标签 > 文件名
+        const flacTags = await readAudioTags(file.path);
 
         const titleOverride = getTitleOverride(fileIdx);
         const albumOverride = getAlbumOverride(fileIdx);
 
-        const title = titleOverride || flacTags.TITLE || path.basename(file.originalname, '.flac');
+        const title = titleOverride || flacTags.TITLE || path.basename(file.originalname, path.extname(file.originalname));
         const albumTitle = albumOverride || flacTags.ALBUM || null;
         const normalizedAlbumTitle = albumTitle ? albumTitle.trim() : null;
 
@@ -713,17 +755,17 @@ export const scanFlacTags = async (req: Request, res: Response) => {
 
     for (const file of files) {
       try {
-        const tags = readFlacVorbisTags(file.path);
+        const tags = await readAudioTags(file.path);
         results.push({
           filename: file.originalname,
-          title: tags.TITLE || path.basename(file.originalname, '.flac'),
+          title: tags.TITLE || path.basename(file.originalname, path.extname(file.originalname)),
           album: tags.ALBUM || '',
           track_number: tags.TRACKNUMBER || '',
         });
       } catch {
         results.push({
           filename: file.originalname,
-          title: path.basename(file.originalname, '.flac'),
+          title: path.basename(file.originalname, path.extname(file.originalname)),
           album: '',
           track_number: '',
         });
@@ -794,10 +836,10 @@ export const commitUpload = async (req: Request, res: Response) => {
     tempPath = path.join(require('os').tmpdir(), `commit_${Date.now()}_${filename}`);
     await ossService.downloadToFile(objectKey, tempPath);
 
-    // 2. 读 FLAC 标签和流信息
-    const flacTags = readFlacVorbisTags(tempPath);
-    const streamInfo = readFlacStreamInfo(tempPath);
-    const title = title_override || flacTags.TITLE || path.basename(filename, '.flac');
+    // 2. 读音频标签和流信息（FLAC metaflac / MP3 music-metadata）
+    const flacTags = await readAudioTags(tempPath);
+    const streamInfo = await readAudioStreamInfo(tempPath);
+    const title = title_override || flacTags.TITLE || path.basename(filename, path.extname(filename));
     const albumTitle = album_override || flacTags.ALBUM || null;
     const trackNumber = track_number_override
       ? (parseInt(track_number_override, 10) || null)
@@ -1870,7 +1912,7 @@ export const streamTrack = async (req: Request, res: Response) => {
           const statusCode = ossRes.statusCode || 200;
           // 透传关键响应头
           const forwardHeaders: Record<string, string | string[]> = {
-            'Content-Type': (ossRes.headers['content-type'] as string) || 'audio/flac',
+            'Content-Type': (ossRes.headers['content-type'] as string) || audioContentType(filePath),
             'Accept-Ranges': 'bytes',
           };
           if (ossRes.headers['content-length']) {
@@ -1929,14 +1971,14 @@ export const streamTrack = async (req: Request, res: Response) => {
           'Content-Range': `bytes ${start}-${end}/${fileSize}`,
           'Accept-Ranges': 'bytes',
           'Content-Length': chunksize,
-          'Content-Type': 'audio/flac',
+          'Content-Type': audioContentType(fullPath),
         });
 
         file.pipe(res);
       } else {
         res.writeHead(200, {
           'Content-Length': fileSize,
-          'Content-Type': 'audio/flac',
+          'Content-Type': audioContentType(fullPath),
         });
         fs.createReadStream(fullPath).pipe(res);
       }
@@ -1964,19 +2006,21 @@ export const downloadTrack = async (req: Request, res: Response) => {
     }
 
     const { title, file_path } = trackResult.rows[0];
+    const downloadExt = path.extname(file_path).toLowerCase() || '.flac';
+    const downloadName = `${encodeURIComponent(title)}${downloadExt}`;
 
     if (storageService.isWebDAV()) {
       // WebDAV模式：重定向到WebDAV URL
-      res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(title)}.flac"`);
+      res.setHeader('Content-Disposition', `attachment; filename="${downloadName}"`);
       return res.redirect(file_path);
     } else if (storageService.isOSS()) {
       // OSS 模式：服务器中转下载，用签名 URL 拉流
       const ossService = (await import('../services/ossService')).default;
       const signedUrl = await ossService.getSignedUrl(file_path, 300);
-      res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(title)}.flac"`);
+      res.setHeader('Content-Disposition', `attachment; filename="${downloadName}"`);
       const ossRequest = (signedUrl.startsWith('https') ? https : http).get(signedUrl, (ossRes) => {
         const forwardHeaders: Record<string, string> = {
-          'Content-Type': (ossRes.headers['content-type'] as string) || 'audio/flac',
+          'Content-Type': (ossRes.headers['content-type'] as string) || audioContentType(file_path),
         };
         if (ossRes.headers['content-length']) {
           forwardHeaders['Content-Length'] = ossRes.headers['content-length'] as string;
@@ -1994,7 +2038,7 @@ export const downloadTrack = async (req: Request, res: Response) => {
     } else {
       // 本地存储模式：使用res.download
       const fullPath = storageService.getFullPath(file_path);
-      res.download(fullPath, `${title}.flac`, (err) => {
+      res.download(fullPath, `${title}${downloadExt}`, (err) => {
         if (err) {
           console.error('Download error:', err);
           if (!res.headersSent) {
