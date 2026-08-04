@@ -540,11 +540,33 @@ export const updateLyrics = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const lyricsContent = req.body.lyrics;
+    const mode = req.body.mode;
 
     if (!lyricsContent) {
       return res.status(400).json({
         success: false,
         error: { code: 'NO_LYRICS', message: 'No lyrics content provided' }
+      });
+    }
+
+    // 清洗模式：编辑器编辑的是最终展示歌词——直接更新 lyrics_text，不碰原始文件/不重跑 AI
+    if (mode === 'cleaned') {
+      await pool.query(
+        `UPDATE tracks
+         SET lyrics_text = $1,
+             lyrics_status = 'has',
+             lyrics_analysis_status = 'done',
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $2`,
+        [lyricsContent, id]
+      );
+      return res.json({
+        success: true,
+        data: {
+          lyrics_status: LYRICS_STATUS.HAS,
+          lyrics_source: 'cleaned',
+          message: 'Lyrics updated successfully',
+        },
       });
     }
 

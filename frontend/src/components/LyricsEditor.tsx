@@ -50,7 +50,7 @@ const LyricsEditor: React.FC<LyricsEditorProps> = ({ trackId, visible, onClose, 
         return;
       }
 
-      const response = await axios.get(`${API_BASE_URL}/lyrics/${trackId}/lyrics?raw=1`, {
+      const response = await axios.get(`${API_BASE_URL}/lyrics/${trackId}/lyrics`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -84,7 +84,7 @@ const LyricsEditor: React.FC<LyricsEditorProps> = ({ trackId, visible, onClose, 
       const url = `${API_BASE_URL}/lyrics/${trackId}/lyrics`;
       const method = hasExisting ? 'put' : 'post';
 
-      await axios[method](url, { lyrics }, {
+      await axios[method](url, { lyrics, mode: 'cleaned' }, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
