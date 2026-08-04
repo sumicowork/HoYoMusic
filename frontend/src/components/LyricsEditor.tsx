@@ -50,7 +50,7 @@ const LyricsEditor: React.FC<LyricsEditorProps> = ({ trackId, visible, onClose, 
         return;
       }
 
-      const response = await axios.get(`${API_BASE_URL}/lyrics/${trackId}/lyrics`, {
+      const response = await axios.get(`${API_BASE_URL}/lyrics/${trackId}/lyrics?raw=1`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 

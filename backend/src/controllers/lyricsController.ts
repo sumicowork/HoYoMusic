@@ -440,9 +440,10 @@ export const commitLyricsBatchImport = async (req: Request, res: Response) => {
 export const getLyrics = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const useRaw = req.query.raw === '1';
 
     const trackResult = await pool.query(
-      'SELECT lyrics_path, lyrics_status FROM tracks WHERE id = $1',
+      'SELECT lyrics_path, lyrics_status, lyrics_text FROM tracks WHERE id = $1',
       [id]
     );
 
@@ -453,8 +454,21 @@ export const getLyrics = async (req: Request, res: Response) => {
       });
     }
 
-    const { lyrics_path } = trackResult.rows[0];
+    const { lyrics_path, lyrics_text } = trackResult.rows[0];
     const lyricsStatus = normalizeLyricsStatus(trackResult.rows[0].lyrics_status);
+
+    // 优先返回 AI 清洗后的歌词（lyrics_text）；管理后台编辑器传 raw=1 拿原始文件
+    if (!useRaw && lyrics_text && lyrics_text.trim()) {
+      return res.json({
+        success: true,
+        data: {
+          lyrics: lyrics_text,
+          lyrics_path,
+          lyrics_status: lyricsStatus,
+          lyrics_source: 'cleaned',
+        },
+      });
+    }
 
     if (!lyrics_path) {
       return res.status(404).json({
@@ -509,6 +523,7 @@ export const getLyrics = async (req: Request, res: Response) => {
         lyrics: lyricsContent,
         lyrics_path,
         lyrics_status: lyricsStatus,
+        lyrics_source: 'raw',
       }
     });
   } catch (error) {
