@@ -567,6 +567,15 @@ export const updateLyrics = async (req: Request, res: Response) => {
       return uploadLyrics(req, res);
     }
 
+    // 编辑保存后重置 pending：worker 重新 AI 清洗/分类，刷新 lyrics_text（展示层数据）
+    const requeue = `
+      UPDATE tracks
+      SET lyrics_status = $1,
+          lyrics_analysis_status = 'pending',
+          lyrics_text = NULL,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2`;
+
     if (storageService.isLocal()) {
       // Local mode updates in place to keep path stable.
       const filePath = storageService.getFullPath(lyrics_path);
@@ -574,10 +583,7 @@ export const updateLyrics = async (req: Request, res: Response) => {
       await fs.writeFile(filePath, lyricsContent, 'utf-8');
 
       await remoteResourceCache.deleteBinary('lyrics', buildLyricsCacheKey(lyrics_path));
-      await pool.query(
-        'UPDATE tracks SET lyrics_status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-        [LYRICS_STATUS.HAS, id]
-      );
+      await pool.query(requeue, [LYRICS_STATUS.HAS, id]);
 
       return res.json({
         success: true,
@@ -598,7 +604,7 @@ export const updateLyrics = async (req: Request, res: Response) => {
     );
 
     await pool.query(
-      'UPDATE tracks SET lyrics_path = $1, lyrics_status = $2, lyrics_analysis_status = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4',
+      'UPDATE tracks SET lyrics_path = $1, lyrics_status = $2, lyrics_analysis_status = $3, lyrics_text = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $4',
       [nextLyricsPath, LYRICS_STATUS.HAS, 'pending', id]
     );
 
