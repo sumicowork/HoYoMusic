@@ -107,9 +107,10 @@ async function processOne(pool: Pool, trackId: number): Promise<void> {
     }
 
     if (analysis.kind === 'vocal') {
-      // 后处理：剥离 LRC 标题行（[mm:ss.xx]歌名 - 厂牌/歌手），防止残留
+      // 后处理：HTML 实体解码（&#48520; → 불，QQ 韩语歌词常见）+ 剥离标题行
       let cleanLyrics = (analysis.cleanLyrics || '').trim();
       cleanLyrics = cleanLyrics
+        .replace(/&#(\d+);/g, (_m, code) => String.fromCodePoint(Number(code)))
         .split('\n')
         .filter((l) => !/^\[\d{2}:\d{2}[.\d]*\]\s*[^-—]*[-—]\s*(HOYO-MiX|三Z-STUDIO)(\s*\/.*)?\s*$/i.test(l.trim()))
         .join('\n')
