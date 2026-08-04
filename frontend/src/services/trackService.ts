@@ -1,4 +1,4 @@
-import api, { createApiClient, API_BASE_URL, MEDIA_BASE_URL } from './api';
+import api, { createApiClient, MEDIA_BASE_URL } from './api';
 import { ApiResponse, PaginationMeta, Track, TrackMusicSourceItem } from '../types';
 import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
 import { parseDownloadFileName, extractBlobErrorMessage } from '../utils/download';
@@ -210,7 +210,7 @@ export const trackService = {
       '/tracks/upload-token',
       { filename, game_id: gameId }
     );
-    if (response.data.success) return response.data.data;
+    if (response.data.success && response.data.data) return response.data.data;
     throw new Error(response.data.error?.message || '获取上传URL失败');
   },
 
@@ -232,7 +232,7 @@ export const trackService = {
         track_number_override: params.track_number_override || undefined,
       }
     );
-    if (response.data.success) return response.data.data;
+    if (response.data.success && response.data.data) return response.data.data;
     throw new Error(response.data.error?.message || '提交失败');
   },
 

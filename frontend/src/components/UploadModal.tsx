@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   Modal, Upload, Button, Progress, List, Tag, Typography, Space,
   Divider, Result, Badge, Steps, Alert, Input, Tooltip,
-  Row, Col, Card, Spin, Select,
+  Row, Col, Card, Select,
 } from 'antd';
 import {
   InboxOutlined, DeleteOutlined, CheckCircleOutlined, CloseCircleOutlined,
@@ -12,7 +12,6 @@ import {
 } from '@ant-design/icons';
 import { trackService } from '../services/trackService';
 import { gameService } from '../services/gameService';
-import type { Game } from '../types';
 import { toast } from '../utils/toast';
 import './UploadModal.css';
 
@@ -91,7 +90,7 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
         continue;
       }
         if (next.some(f => f.name === file.name && f.size === file.size)) continue;
-        const { title } = emptyMeta();
+        emptyMeta();
         next.push({
           uid: `${Date.now()}-${Math.random()}`,
           name: file.name,

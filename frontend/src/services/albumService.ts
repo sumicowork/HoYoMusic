@@ -16,6 +16,7 @@ export interface Album {
   track_count: number;
   total_duration: number;
   notes?: string | null;
+  source_type?: 'NORMAL' | 'EXTRA';
 }
 
 export interface ApiResponse<T> {

@@ -183,6 +183,7 @@ const AlbumManagement: React.FC = () => {
       title_en: album.title_en || '',
       game_id: album.game_id,
       release_date: album.release_date ? dayjs(album.release_date) : null,
+      source_type: album.source_type || 'NORMAL',
       notes: album.notes || '',
     });
     setEditModalVisible(true);
@@ -198,6 +199,7 @@ const AlbumManagement: React.FC = () => {
           title_en: values.title_en || null,
           game_id: values.game_id || null,
           release_date: values.release_date ? values.release_date.format('YYYY-MM-DD') : null,
+          source_type: values.source_type || 'NORMAL',
           notes: values.notes || null,
         };
 
@@ -704,6 +706,18 @@ const AlbumManagement: React.FC = () => {
       },
     },
     {
+      title: '来源',
+      dataIndex: 'source_type',
+      key: 'source_type',
+      width: 90,
+      render: (sourceType: string) =>
+        sourceType === 'EXTRA' ? (
+          <span style={{ color: '#fa8c16', fontWeight: 600 }}>EXTRA</span>
+        ) : (
+          <span style={{ color: 'var(--text-secondary)' }}>NORMAL</span>
+        ),
+    },
+    {
       title: '曲目数',
       dataIndex: 'track_count',
       key: 'track_count',
@@ -1032,6 +1046,16 @@ const AlbumManagement: React.FC = () => {
           </Form.Item>
           <Form.Item name="release_date" label="发行日期">
             <DatePicker style={{ width: '100%' }} format="YYYYMMDD" placeholder="例如 20250101" />
+          </Form.Item>
+          <Form.Item
+            name="source_type"
+            label="来源标识"
+            tooltip="NORMAL=常规专辑（参与自动匹配）；EXTRA=外部提取（不参与任何自动匹配，需人工关联）"
+          >
+            <Select placeholder="选择来源标识">
+              <Select.Option value="NORMAL">NORMAL（常规）</Select.Option>
+              <Select.Option value="EXTRA">EXTRA（外部提取，人工处理）</Select.Option>
+            </Select>
           </Form.Item>
           <Form.Item name="notes" label="备注">
             <Input.TextArea rows={3} placeholder="专辑备注信息（可选）" maxLength={5000} showCount />

@@ -705,7 +705,7 @@ export const updateAlbum = async (req: Request, res: Response) => {
          release_date = $4,
          game_id = $5,
          notes = $6,
-         source_type = $7,
+         source_type = COALESCE($7, source_type),
          updated_at = CURRENT_TIMESTAMP 
        WHERE id = $8 
        RETURNING *`,
@@ -716,7 +716,7 @@ export const updateAlbum = async (req: Request, res: Response) => {
         release_date,
         game_id || null,
         notes !== undefined ? notes : null,
-        source_type !== undefined ? source_type : 'NORMAL',
+        source_type !== undefined ? source_type : null,
         id,
       ]
     );
