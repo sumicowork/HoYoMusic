@@ -27,6 +27,7 @@ export const updateAlbumSchema = z.object({
   release_date: z.string().nullable().optional(),
   game_id: z.union([z.number().int().positive(), z.null()]).optional(),
   notes: z.string().max(5000).nullable().optional(),
+  source_type: z.enum(['NORMAL', 'EXTRA']).optional(),
 });
 
 export const bulkUpdateGameSchema = z.object({

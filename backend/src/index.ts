@@ -700,6 +700,17 @@ const runMigrations = async () => {
        WHERE lyrics_analysis_status IN ('pending', 'review')`
     );
   } catch (e) { console.error('migration lyrics_analysis:', e); }
+
+  // 19. albums.source_type（专辑来源标识：NORMAL=常规 / EXTRA=外部提取需人工，不参与自动匹配）
+  try {
+    await pool.query(`ALTER TABLE albums ADD COLUMN IF NOT EXISTS source_type VARCHAR(20) NOT NULL DEFAULT 'NORMAL'`);
+    await pool.query(
+      `ALTER TABLE albums DROP CONSTRAINT IF EXISTS albums_source_type_check`
+    );
+    await pool.query(
+      `ALTER TABLE albums ADD CONSTRAINT albums_source_type_check CHECK (source_type IN ('NORMAL', 'EXTRA'))`
+    );
+  } catch (e) { console.error('migration albums_source_type:', e); }
 };
 
 const startServer = async () => {

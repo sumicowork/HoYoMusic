@@ -116,13 +116,15 @@ function loadLocalData(): { tracks: TrackInfo[]; credits: Map<number, { role: st
   const tracksFile = path.join(dir, 'tracks.json');
   const creditsFile = path.join(dir, 'credits.json');
   if (!fs.existsSync(tracksFile) || !fs.existsSync(creditsFile)) return null;
-  const tracks = (JSON.parse(fs.readFileSync(tracksFile, 'utf8')) as any[]).map((r) => ({
-    id: r.id,
-    title: r.title,
-    titleCn: r.title_cn,
-    titleEn: r.title_en,
-    lyricsStatus: r.lyrics_status,
-  }));
+  const tracks = (JSON.parse(fs.readFileSync(tracksFile, 'utf8')) as any[])
+    .filter((r) => !(r.source_type === 'EXTRA')) // EXTRA 专辑不参与自动匹配
+    .map((r) => ({
+      id: r.id,
+      title: r.title,
+      titleCn: r.title_cn,
+      titleEn: r.title_en,
+      lyricsStatus: r.lyrics_status,
+    }));
   const credits = new Map<number, { role: string; value: string }[]>();
   for (const c of JSON.parse(fs.readFileSync(creditsFile, 'utf8')) as any[]) {
     const list = credits.get(c.track_id) || [];
@@ -156,8 +158,12 @@ export async function fetchTracks(client: Client | null): Promise<TrackInfo[]> {
     }
   }
   if (!client) throw new Error('无 DB 连接且无本地 dump');
+  // EXTRA 专辑（外部提取、需人工关联）不参与任何自动匹配
   const res = await client.query(
-    `SELECT id, title, title_cn, title_en, lyrics_status FROM tracks`,
+    `SELECT t.id, t.title, t.title_cn, t.title_en, t.lyrics_status
+     FROM tracks t
+     LEFT JOIN albums a ON a.id = t.album_id
+     WHERE a.source_type IS NULL OR a.source_type <> 'EXTRA'`,
   );
   localTracks = res.rows.map((r) => ({
     id: r.id,

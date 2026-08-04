@@ -694,7 +694,7 @@ export const getAlbumById = async (req: Request, res: Response) => {
 export const updateAlbum = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { title, title_cn, title_en, release_date, game_id, notes } = req.body;
+    const { title, title_cn, title_en, release_date, game_id, notes, source_type } = req.body;
 
     const result = await pool.query(
       `UPDATE albums 
@@ -705,8 +705,9 @@ export const updateAlbum = async (req: Request, res: Response) => {
          release_date = $4,
          game_id = $5,
          notes = $6,
+         source_type = $7,
          updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $7 
+       WHERE id = $8 
        RETURNING *`,
       [
         title,
@@ -715,6 +716,7 @@ export const updateAlbum = async (req: Request, res: Response) => {
         release_date,
         game_id || null,
         notes !== undefined ? notes : null,
+        source_type !== undefined ? source_type : 'NORMAL',
         id,
       ]
     );
