@@ -162,6 +162,7 @@ const AlbumManagement: React.FC = () => {
         title_en: album.title_en ?? null,
         game_id: album.game_id || null,
         release_date: nextIso,
+        source_type: album.source_type || 'NORMAL',
         notes: album.notes || null,
       });
 
