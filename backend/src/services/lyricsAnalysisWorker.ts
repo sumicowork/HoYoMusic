@@ -107,9 +107,26 @@ async function processOne(pool: Pool, trackId: number): Promise<void> {
     }
 
     if (analysis.kind === 'vocal') {
+      // 后处理：剥离 LRC 标题行（[mm:ss.xx]歌名 - 厂牌/歌手），防止残留
+      let cleanLyrics = (analysis.cleanLyrics || '').trim();
+      cleanLyrics = cleanLyrics
+        .split('\n')
+        .filter((l) => !/^\[\d{2}:\d{2}[.\d]*\]\s*[^-—]*[-—]\s*(HOYO-MiX|三Z-STUDIO)(\s*\/.*)?\s*$/i.test(l.trim()))
+        .join('\n')
+        .trim();
+      // 剥离后无实际歌词行 → 降级为 instrumental
+      const lyricLines = cleanLyrics.split('\n').filter((l) => l.trim());
+      if (lyricLines.length === 0) {
+        await pool.query(
+          `UPDATE tracks SET lyrics_status = 'instrumental', lyrics_text = NULL, lyrics_analysis_status = 'done' WHERE id = $1`,
+          [trackId],
+        );
+        console.log(`[lyricsWorker] #${trackId} ${track.title} → vocal 但无实际歌词，降级 instrumental`);
+        return;
+      }
       await pool.query(
         `UPDATE tracks SET lyrics_status = 'has', lyrics_text = $2, lyrics_analysis_status = 'done' WHERE id = $1`,
-        [trackId, analysis.cleanLyrics],
+        [trackId, cleanLyrics],
       );
       console.log(`[lyricsWorker] #${trackId} ${track.title} → vocal (conf ${analysis.confidence.toFixed(2)})`);
     } else if (analysis.kind === 'instrumental') {

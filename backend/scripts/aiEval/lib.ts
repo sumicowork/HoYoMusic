@@ -44,12 +44,13 @@ export function detectEncoding(filePath: string): 'gbk' | 'utf8' {
 
 // ── 名称归一化 ────────────────────────────────────────────────────
 
-/** 宽松归一化：小写 + 去括号内容 + 所有分隔符折叠为空格（用于标题匹配） */
+/** 宽松归一化：NFKC 兼容分解（⻘→青、⼈→人、‑→-）+ 小写 + 去括号内容 + 所有分隔符折叠为空格（用于标题匹配） */
 export function normalizeTitle(s: string): string {
   return s
+    .normalize('NFKC')
     .toLowerCase()
     .replace(/[（(【\[].*?[）)】\]]/g, ' ')
-    .replace(/[\s_\-—·.,"'!?！？。，、]+/g, ' ')
+    .replace(/[\s_\-—·.,"'!?！？。，、…]+/g, ' ')
     .trim();
 }
 
@@ -101,7 +102,19 @@ export function matchTrackByFilename(filename: string, tracks: TrackInfo[]): Tra
       }
     }
   }
-  return best;
+  if (best) return best;
+
+  // 第四层：词序无关（中英文顺序互换，如 QQ 音乐 "A Sepulchral Gloom 如堕霓雾" vs DB "如堕霓雾 A Sepulchral Gloom"）
+  const sortWords = (s: string) => s.split(/\s+/).filter(Boolean).sort().join(' ');
+  const normSorted = sortWords(norm);
+  const sortedMatches = tracks.filter((t) => {
+    const tn = normalizeTitle(t.title);
+    if (tn && sortWords(tn) === normSorted) return true;
+    if (t.titleCn && normalizeTitle(t.titleCn) && sortWords(normalizeTitle(t.titleCn)) === normSorted) return true;
+    if (t.titleEn && normalizeTitle(t.titleEn) && sortWords(normalizeTitle(t.titleEn)) === normSorted) return true;
+    return false;
+  });
+  return sortedMatches[0] || null;
 }
 
 // ── DB（只读）─────────────────────────────────────────────────────
