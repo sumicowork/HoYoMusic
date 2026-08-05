@@ -801,7 +801,10 @@ export const getUploadToken = async (req: Request, res: Response) => {
 
     const ossService = (await import('../services/ossService')).default;
     const objectKey = ossService.generateObjectKey(filename, 'tracks');
-    const uploadUrl = ossService.generatePutSignedUrl(objectKey, 3600);
+    // Content-Type 参与签名：按扩展名决定，客户端 PUT 时必须发送一致的类型
+    const ext = path.extname(filename).toLowerCase();
+    const contentType = ext === '.mp3' ? 'audio/mpeg' : 'audio/flac';
+    const uploadUrl = ossService.generatePutSignedUrl(objectKey, 3600, contentType);
 
     return res.json({ success: true, data: { uploadUrl, objectKey } });
   } catch (error) {

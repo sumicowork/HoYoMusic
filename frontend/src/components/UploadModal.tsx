@@ -212,7 +212,8 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open('PUT', url);
-      xhr.setRequestHeader('Content-Type', file.type || (file.name.toLowerCase().endsWith('.mp3') ? 'audio/mpeg' : 'audio/flac'));
+      // Content-Type 必须与后端签名时一致（参与 OSS 签名）——统一按扩展名判断，不用 file.type（浏览器变体多）
+      xhr.setRequestHeader('Content-Type', file.name.toLowerCase().endsWith('.mp3') ? 'audio/mpeg' : 'audio/flac');
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) resolve();
         else reject(new Error(`OSS 上传失败: ${xhr.status}`));

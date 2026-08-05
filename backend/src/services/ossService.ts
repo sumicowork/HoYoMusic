@@ -148,14 +148,15 @@ export class OSSService {
    * 生成 PUT 预签名上传 URL（前端直传 OSS，不走服务器中转）
    * @param objectKey OSS object key
    * @param expireSeconds  有效期（秒），默认 3600
+   * @param contentType    上传时客户端必须使用完全一致的 Content-Type（参与签名）
    */
-  generatePutSignedUrl(objectKey: string, expireSeconds = 3600): string {
+  generatePutSignedUrl(objectKey: string, expireSeconds = 3600, contentType = 'audio/flac'): string {
     // 使用公网 endpoint — 前端直传 OSS 无法访问内网地址
     const pub = getOSSPublicClient();
     return pub.signatureUrl(objectKey, {
       expires: expireSeconds,
       method: 'PUT',
-      'Content-Type': 'audio/flac',
+      'Content-Type': contentType,
     });
   }
 
