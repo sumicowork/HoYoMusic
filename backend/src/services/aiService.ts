@@ -91,6 +91,7 @@ const CLASSIFY_SYSTEM_PROMPT = `你是米哈游（HoYoVerse）游戏音乐 LRC �
 
 【credits 规则】
 - 提取所有 credit 行：作曲/作词/编曲/演唱/乐器/录音师/录音棚/混音/母带/制作人/指挥/乐队/合唱等（含设施行、乐团名）
+- 完整性：credits 必须覆盖 LRC 中出现的**所有** credit 行，不得遗漏（除下方不提取项）
 - 不提取：**版权/厂牌标识行：「Music by xxx」「出品 Produced by：xxx」等 by 格式行和出品行（不是创作者信息）**；"©"、"版权所有"、"All rights reserved"、"(C)" 开头；元数据头、标题行、歌词行、占位声明行
 - role = 「角色」部分原文（如 "作曲 Composer"），不翻译、不臆造、不改写
 - names = 「人名」部分按明确分隔符（顿号/逗号/斜杠）拆分的个人列表；每个元素必须是**最小不可再分的实体**（人名/角色名/乐团/工作室名），不得再含冒号、职务词或分隔符；括号内容（含 "（CV：声优名）"，如 "温迪（CV：喵☆酱）"）作为名字的一部分整体保留
@@ -111,15 +112,17 @@ const EXTRACT_SYSTEM_PROMPT = `你是米哈游（HoYoVerse）游戏音乐 LRC �
 
 规则：
 - 提取所有「角色：人名」格式的 credit 行：作曲/作词/编曲/演唱/乐器/录音师/录音棚/混音/母带/制作人/指挥/乐队/合唱等（含设施行如录音棚、乐团名）
+- 完整性：credits 必须覆盖 LRC 中出现的**所有** credit 行，不得遗漏（除下方不提取项）
 - 不提取：**版权/厂牌标识行：「Music by xxx」「出品 Produced by：xxx」等 by 格式行和出品行（不是创作者信息）**；"©"、"版权所有"、"All rights reserved"、"(C)" 开头；[ti:]/[ar:]/[al:] 等元数据头、标题行（"[mm:ss]歌名 - 厂牌"）、歌词行、占位声明行（"此歌曲为没有填词的纯音乐"）
 - role 为「角色」部分原文（如 "作曲 Composer"），不翻译、不臆造、不改写
 - names 为「人名」部分按明确分隔符（顿号/逗号/斜杠）拆分的个人列表；每个元素是**最小不可再分的实体**，不得再含冒号/职务词/分隔符，括号内容（含 "（CV：声优名）"）整体保留
 - 若名字部分出现**嵌套子职务**（如 "独奏乐器 Solo Instruments：Guitar：xxx / Piano：yyy"），按子职务拆成多行，role 取子职务（如 "Guitar"、"Piano"），names 为各子职务下的名字——每行保证「职务↔名字」一一对应
 - 空格不是人名分隔符："中文 拼音转写"（如 "车子玉 Ziyu Che"）视为同一人；仅当空格后是独立艺名/ID（非拼音，如 "张清 HaSu-P" 的 HaSu-P）才拆为不同人
 - 人名保持 LRC 原文原样，不做任何删改（包括 @ 等符号）
+- confidence = 本次抽取的整体可信度（0-1 小数）：若 LRC 中 credit 行格式混乱/含歧义导致无法完全确定，给低分；格式规范且全部提取 → 高分
 - 只输出 JSON，不要 markdown 代码块，不要任何解释文字
 
-输出格式：{"credits":[{"role":"角色原文","names":["人名1","人名2"]}]}`;
+输出格式：{"confidence":0到1的小数,"credits":[{"role":"角色原文","names":["人名1","人名2"]}]}`;
 
 /** 调用 OpenAI 兼容 chat/completions */
 async function chat(messages: ChatMessage[]): Promise<string> {
@@ -220,14 +223,15 @@ export async function analyzeLyrics(lrcText: string): Promise<LyricsAnalysis> {
   };
 }
 
-/** 仅抽取创作者信息（评估用） */
-export async function extractCredits(lrcText: string): Promise<CreditLine[]> {
+/** 仅抽取创作者信息（评估用），返回抽取结果 + 整体可信度 */
+export async function extractCredits(lrcText: string): Promise<{ credits: CreditLine[]; confidence: number }> {
   const content = await chat([
     { role: 'system', content: EXTRACT_SYSTEM_PROMPT },
     { role: 'user', content: `请提取以下 LRC 的创作者信息：\n\n${lrcText}` },
   ]);
-  const parsed = extractJson<{ credits?: unknown }>(content);
-  return normalizeCredits(parsed.credits);
+  const parsed = extractJson<{ credits?: unknown; confidence?: number }>(content);
+  const confidence = Math.min(1, Math.max(0, Number(parsed.confidence) || 0));
+  return { credits: normalizeCredits(parsed.credits), confidence };
 }
 
 // ── MOCK 实现（无 key 时本地跑通流程用）───────────────────────────

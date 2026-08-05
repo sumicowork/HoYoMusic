@@ -25,7 +25,8 @@ async function main() {
 
     let ai: CreditLine[] = [];
     try {
-      ai = await extractCredits(lrcText);
+      const extracted = await extractCredits(lrcText);
+      ai = extracted.credits;
     } catch (err: any) {
       console.log(`   ❌ AI 失败: ${err?.message ?? err}`);
     }
