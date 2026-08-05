@@ -74,9 +74,10 @@ const CLASSIFY_SYSTEM_PROMPT = `你是米哈游（HoYoVerse）游戏音乐 LRC �
 1. 元数据头：[ti:][ar:][al:][by:][offset:] 等 → 忽略，既不是歌词也不是 credit
 2. 标题行：[mm:ss.xx]歌名 - 厂牌/歌手（如 "[00:00.20]万千星火的欢宴 With Zealous Passion We Rejoice - HOYO-MiX"）→ 忽略，不是歌词
 3. 占位声明：内容为"此歌曲为没有填词的纯音乐"等 → 忽略；若全文仅此类占位声明 → INSTRUMENTAL
-4. credit 行：「角色：人名」格式（作曲 Composer：xxx / 二胡 Erhu：xxx / 录音棚 Recording Studio：xxx / 演唱 Artist：xxx / 合唱 Choir：xxx / 出品 Produced by：xxx / 制作人 Producer：xxx）→ 创作者信息，不是歌词
+4. credit 行：「角色：人名/机构名」格式（作曲 Composer：xxx / 二胡 Erhu：xxx / 录音棚 Recording Studio：xxx / 演唱 Artist：xxx / 合唱 Choir：xxx / 制作人 Producer：xxx；出品 Produced by、Music by 也属 credit 型行）→ 创作者信息，不是歌词
 5. 歌词行：其他任何语言的真实人声内容（含和音、哼唱 "Hah~~"、重复句 "(Over and over)"）→ 歌词
-6. 念白行：「念白：台词内容」（冒号后是人声台词）→ 歌词行；「念白 Narrator：人名」（冒号后是名字）→ credit 行
+6. 念白行：「念白：台词内容」（冒号后是完整句子）→ 歌词行；「念白 Narrator：人名」（冒号后是名字）→ credit 行
+7. 判定辅助：冒号后是**完整句子**（句子成分完整、非人名/机构名形态）→ 不是 credit 行，是歌词行（如外语歌词 "Ah: si je pouvais vivre dans l'eau"）
 
 【分类判定】
 - 存在任何歌词行 → VOCAL；全部是 credit 行 → INSTRUMENTAL；无法判断 → unknown（confidence 给低分）
