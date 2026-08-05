@@ -141,6 +141,17 @@ async function processOne(pool: Pool, trackId: number): Promise<void> {
       }
     }
 
+    if (analysis.kind === 'vocal' || analysis.kind === 'instrumental') {
+      // 置信度门槛：低置信度不硬判，进 review 留人工定夺（防止假 vocal/假 instrumental 污染）
+      if (analysis.confidence < 0.9) {
+        console.warn(
+          `[lyricsWorker] #${trackId} ${track.title} ${analysis.kind} 置信度 ${analysis.confidence.toFixed(2)} < 0.9 → review`,
+        );
+        await pool.query(`UPDATE tracks SET lyrics_analysis_status = 'review' WHERE id = $1`, [trackId]);
+        return;
+      }
+    }
+
     if (analysis.kind === 'vocal') {
       // 后处理：HTML 实体解码（&#48520; → 불，QQ 韩语歌词常见）+ 剥离标题行
       let cleanLyrics = (analysis.cleanLyrics || '').trim();
