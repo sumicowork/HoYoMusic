@@ -151,10 +151,16 @@ const UploadModal: React.FC<UploadModalProps> = ({ visible, onClose, onSuccess }
           editTrackNumber: '',
         };
       }));
-      // 按专辑分组，每个专辑初始默认为游戏1
+      // 按专辑分组；默认游戏按专辑标题前缀智能猜测（避免默认原神导致重复建专辑）
+      const guessGame = (albumTitle: string): number => {
+        if (/崩坏3|女武神/.test(albumTitle)) return 4;
+        if (/崩坏星穹铁道|星穹/.test(albumTitle)) return 2;
+        if (/绝区零|ZZZ/.test(albumTitle)) return 3;
+        return 1; // 原神兜底
+      };
       const albumGames: Record<string, number> = {};
       scanned.forEach(s => {
-        if (s.album && !albumGames[s.album]) albumGames[s.album] = 1;
+        if (s.album && !albumGames[s.album]) albumGames[s.album] = guessGame(s.album);
       });
       setAlbumGameMap(albumGames);
       setCurrentStep(1);
