@@ -14,11 +14,20 @@
  *
  * 启动：startLyricsAnalysisWorker()（幂等，内部 setInterval，不阻塞主进程）
  */
-import { Pool } from 'pg';
+import { Pool, PoolClient } from 'pg';
 import fs from 'fs/promises';
 import https from 'https';
 import http from 'http';
 import { analyzeLyrics } from './aiService';
+
+/** 生成艺术家 URL slug（与 scripts/backfillArtists.ts 一致：base-name + id 保证唯一） */
+function slugify(name: string, id: number): string {
+  const base = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return `${base || 'artist'}-${id}`;
+}
 
 const AI_CONCURRENCY = Number(process.env.AI_CONCURRENCY || 50);
 const AI_POLL_INTERVAL_MS = Number(process.env.AI_POLL_INTERVAL_MS || 10000);
@@ -58,7 +67,41 @@ async function readLyricsContent(lyricsPath: string | null): Promise<string> {
 let workerTimer: NodeJS.Timeout | null = null;
 const inFlight = new Set<number>();
 
-/** 落库创作者信息（幂等：先删后插，artists 重建前 artist_id 置空） */
+/**
+ * 确保创作者档案存在并返回其 id（新 credit 出现时自动建档，不再依赖手动 backfill）
+ * - 精确匹配（trim 后）优先；命中 artist_aliases 别名规则时归并到 canonical_name
+ * - 新建时 slug 即时补全（slugify(name, id)）
+ */
+async function ensureArtist(client: PoolClient, name: string): Promise<number | null> {
+  const trimmed = name.trim();
+  if (!trimmed) return null;
+  // 1. 别名规则 → canonical
+  let canonical = trimmed;
+  try {
+    const alias = await client.query(
+      `SELECT canonical_name FROM artist_aliases WHERE LOWER(alias_name) = LOWER($1) LIMIT 1`,
+      [trimmed],
+    );
+    if (alias.rows[0]?.canonical_name) canonical = alias.rows[0].canonical_name.trim();
+  } catch {
+    /* artist_aliases 表不存在时忽略 */
+  }
+  // 2. 已存在（按 canonical 精确匹配）
+  const exist = await client.query(`SELECT id FROM artists WHERE name = $1 LIMIT 1`, [canonical]);
+  if (exist.rows[0]) return exist.rows[0].id as number;
+  // 3. 新建（事务内，幂等）
+  const ins = await client.query<{ id: number }>(
+    `INSERT INTO artists (name, slug, type, created_at, updated_at)
+     VALUES ($1, NULL, 'person', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+     RETURNING id`,
+    [canonical],
+  );
+  const id = ins.rows[0].id;
+  await client.query(`UPDATE artists SET slug = $1 WHERE id = $2`, [slugify(canonical, id), id]);
+  return id;
+}
+
+/** 落库创作者信息（幂等：先删后插；同时自动建档 artists 并回填 artist_id） */
 async function saveCredits(pool: Pool, trackId: number, credits: unknown): Promise<void> {
   if (!Array.isArray(credits) || credits.length === 0) return;
   const client = await pool.connect();
@@ -76,9 +119,10 @@ async function saveCredits(pool: Pool, trackId: number, credits: unknown): Promi
         : [];
       if (!role) continue;
       for (const name of names) {
+        const artistId = await ensureArtist(client, name);
         await client.query(
-          `INSERT INTO track_credits (track_id, credit_key, credit_value, display_order) VALUES ($1, $2, $3, $4)`,
-          [trackId, role, name, order++],
+          `INSERT INTO track_credits (track_id, credit_key, credit_value, display_order, artist_id) VALUES ($1, $2, $3, $4, $5)`,
+          [trackId, role, name, order++, artistId],
         );
         inserted++;
       }
