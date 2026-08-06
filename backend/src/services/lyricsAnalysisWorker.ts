@@ -48,18 +48,11 @@ async function readLyricsContent(lyricsPath: string | null): Promise<string> {
   return fs.readFile(filePath, 'utf-8');
 }
 
-/** 难点特征检测（代码层确定性规则，命中→review 待人工） */
-export function detectHardCase(lrc: string): string | null {
-  const lines = lrc.split(/\r?\n/);
-  for (const l of lines) {
-    if (!/\[\d{2}:\d{2}[.:\d]*\]/.test(l)) continue;
-    // 1) 「角色：」冒号后为空，歌词可能在后续行（如 "念白："）——模型可能误删歌词
-    if (/^\[\d{2}:\d{2}[.:\d]*\][^:：]{0,20}[:：]\s*$/.test(l)) return 'empty_role_line';
-    // 注：中文+拉丁连写（郑宇界JODODO）不再标记 review——忠实原文原则下
-    //     保持原文不拆即为正确行为，人名规范化是 artist 层的职责
-  }
-  return null;
-}
+/**
+ * QQ 接口广告/推荐残留行（夹带在歌词中间，如「您或许在找：」「おすすめは：」）
+ * 这类行不是歌词，落库前必须剔除
+ */
+const AD_JUNK_PATTERNS = [/您或许在找/, /おすすめは/, /失格偶像/, /创作好难/];
 
 let workerTimer: NodeJS.Timeout | null = null;
 const inFlight = new Set<number>();
@@ -119,13 +112,9 @@ async function processOne(pool: Pool, trackId: number): Promise<void> {
       return;
     }
 
-    // 难点特征 → review（保留人工定夺）
-    const hardCase = detectHardCase(lrc);
-    if (hardCase) {
-      console.log(`[lyricsWorker] #${trackId} ${track.title} 命中难点特征(${hardCase}) → review`);
-      await pool.query(`UPDATE tracks SET lyrics_analysis_status = 'review' WHERE id = $1`, [trackId]);
-      return;
-    }
+    // 难点特征检测已移除（2026-08-06）：原 empty_role_line 规则（时间戳+冒号结尾）
+    // 误伤 16 首 vocal（角色对白/念白/歌词大意行的"角色名："标记被卡进 review），
+    // 提示词已有念白/对白区分规则 + 置信度门槛兜底，此规则不再需要。
 
     // AI 分析（失败重试 1 次）
     let analysis;
@@ -158,7 +147,12 @@ async function processOne(pool: Pool, trackId: number): Promise<void> {
       cleanLyrics = cleanLyrics
         .replace(/&#(\d+);/g, (_m, code) => String.fromCodePoint(Number(code)))
         .split('\n')
-        .filter((l) => !/^\[\d{2}:\d{2}[.\d]*\]\s*[^-—]*[-—]\s*(HOYO-MiX|三Z-STUDIO)(\s*\/.*)?\s*$/i.test(l.trim()))
+        .filter((l) => {
+          const t = l.trim();
+          if (/^\[\d{2}:\d{2}[.\d]*\]\s*[^-—]*[-—]\s*(HOYO-MiX|三Z-STUDIO)(\s*\/.*)?\s*$/i.test(t)) return false; // 标题行
+          if (AD_JUNK_PATTERNS.some((p) => p.test(t))) return false; // QQ 广告残留
+          return true;
+        })
         .join('\n')
         .trim();
       // 剥离后无实际歌词行 → 降级为 instrumental

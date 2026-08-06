@@ -142,7 +142,10 @@ async function chat(messages: ChatMessage[]): Promise<string> {
         model: AI_MODEL,
         messages,
         temperature: 0,
-        max_tokens: 8000,
+        // max_tokens 必须覆盖 reasoning_content（思维链）+ content 两部分：
+        // deepseek-v4-flash 对歧义 LRC 会输出超长思维链，8000 会被思维链吃光导致
+        // content 为空或 JSON 截断（2026-08-06 根因定位）→ 32000
+        max_tokens: 32000,
       }),
       signal: controller.signal,
     };
@@ -163,7 +166,88 @@ async function chat(messages: ChatMessage[]): Promise<string> {
   }
 }
 
-/** 从模型输出中稳健提取 JSON（容忍 ```json 包裹或前后多余文字） */
+/**
+ * 修复常见 JSON 输出瑕疵（模型偶发）：
+ * 1. 字符串内裸换行（模型把歌词多行直接写进字符串，未转义 \n）→ 替换为 \n 转义
+ * 2. 未闭合字符串（如 clean_lyrics 末尾引号缺失）
+ * 3. 尾随逗号（,} 或 ,]）
+ * 修复失败返回 null
+ */
+function repairJson(raw: string): string | null {
+  let t = raw;
+  // ① 字符串内裸换行 → 转义（JSON 规范不允许字符串内真实换行）
+  let out = '';
+  let inStr = false;
+  let esc = false;
+  for (const c of t) {
+    if (esc) {
+      out += c;
+      esc = false;
+      continue;
+    }
+    if (inStr) {
+      if (c === '\\') {
+        out += c;
+        esc = true;
+        continue;
+      }
+      if (c === '"') {
+        inStr = false;
+      } else if (c === '\n' || c === '\r') {
+        out += '\\n'; // 裸换行 → \n 转义
+        continue;
+      }
+    } else if (c === '"') {
+      inStr = true;
+    }
+    out += c;
+  }
+  t = out;
+  // ② 尾随逗号
+  t = t.replace(/,\s*([}\]])/g, '$1');
+  try {
+    JSON.parse(t);
+    return t;
+  } catch {
+    /* continue */
+  }
+  // ③ 未闭合字符串：从后向前找第一个未配对的引号起点，截断到其内容末尾并补引号
+  inStr = false;
+  esc = false;
+  let openIdx = -1;
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (esc) {
+      esc = false;
+      continue;
+    }
+    if (inStr) {
+      if (c === '\\') {
+        esc = true;
+      } else if (c === '"') {
+        inStr = false;
+      }
+    } else if (c === '"') {
+      inStr = true;
+      openIdx = i;
+    }
+  }
+  if (inStr && openIdx >= 0) {
+    const tail = t.slice(openIdx + 1);
+    const cut = tail.search(/[,\}\]\n]/);
+    const content = cut >= 0 ? tail.slice(0, cut) : tail;
+    const fixed = t.slice(0, openIdx + 1) + content + '"';
+    try {
+      JSON.parse(fixed);
+      return fixed;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/** 从模型输出中稳健提取 JSON（容忍 ```json 包裹、前后多余文字、常见输出瑕疵） */
 function extractJson<T>(raw: string): T {
   let text = raw.trim();
   const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -171,7 +255,13 @@ function extractJson<T>(raw: string): T {
   const first = text.indexOf('{');
   const last = text.lastIndexOf('}');
   if (first >= 0 && last > first) text = text.slice(first, last + 1);
-  return JSON.parse(text) as T;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    const repaired = repairJson(text);
+    if (repaired !== null) return JSON.parse(repaired) as T;
+    throw new Error(`JSON 解析失败且修复失败: ${text.slice(0, 200)}`);
+  }
 }
 
 /** 归一化模型返回的 credits 数组（仅结构归一，人名忠实保留原文） */
