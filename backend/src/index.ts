@@ -25,6 +25,8 @@ import analyticsRoutes from './routes/analyticsRoutes';
 import playlistRoutes from './routes/playlistRoutes';
 import favoriteRoutes from './routes/favoriteRoutes';
 import discRoutes from './routes/discRoutes';
+import commentRoutes from './routes/commentRoutes';
+import ratingRoutes from './routes/ratingRoutes';
 import debugRoutes from './routes/debugRoutes';
 import settingsRoutes from './routes/settingsRoutes';
 import userRoutes from './routes/userRoutes';
@@ -203,6 +205,8 @@ app.use('/api/games', gameRoutes); // Game routes
 app.use('/api/tags', tagRoutes);         // Tag routes
 app.use('/api/playlists', playlistRoutes); // Playlist routes (authenticated)
 app.use('/api/favorites', favoriteRoutes); // Favorites routes (authenticated)
+app.use('/api/comments', commentRoutes);   // 评论（合规：实名+审核+举报）
+app.use('/api/ratings', ratingRoutes);     // 评分
 app.use('/api', discRoutes);               // Disc subdivision routes
 app.use('/api/analytics', analyticsRoutes); // Analytics (authenticated)
 app.use('/api/public', publicRoutes);    // Public routes (无需认证)

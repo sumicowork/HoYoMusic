@@ -5,6 +5,7 @@ import { randomInt, randomUUID } from 'crypto';
 import passport from '../config/passport';
 import pool from '../config/database';
 import { getMailConfigurationError, sendVerificationCodeEmail } from '../services/emailService';
+import { sendSmsCode } from '../services/smsService';
 
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
@@ -285,6 +286,113 @@ export const getCurrentUser = (req: Request, res: Response) => {
       user: req.user,
     },
   });
+};
+
+// ── 手机号实名：发送验证码 ─────────────────────────────
+// 合规：《互联网跟帖评论服务管理规定》第4条① 基于移动电话号码的真实身份信息认证
+export const sendPhoneCode = async (req: Request, res: Response) => {
+  try {
+    const { phone } = req.body as { phone: string };
+    const normalized = String(phone || '').trim();
+    if (!/^1[3-9]\d{9}$/.test(normalized)) {
+      return res.status(400).json({ success: false, error: { code: 'INVALID_PHONE', message: '手机号格式不正确' } });
+    }
+
+    const code = createVerificationCode();
+    const challengeId = randomUUID();
+    const codeHash = await bcrypt.hash(code, 10);
+    const expiresAt = new Date(Date.now() + VERIFICATION_EXPIRES_MINUTES * 60 * 1000);
+
+    await pool.query(
+      `DELETE FROM auth_verification_codes WHERE phone = $1 AND consumed_at IS NULL`,
+      [normalized],
+    );
+    await pool.query(
+      `INSERT INTO auth_verification_codes (phone, challenge_id, code_hash, expires_at)
+       VALUES ($1, $2, $3, $4)`,
+      [normalized, challengeId, codeHash, expiresAt.toISOString()],
+    );
+
+    const result = await sendSmsCode(normalized, code);
+    if (!result.success) {
+      return res.status(500).json({ success: false, error: { code: 'SMS_SEND_FAILED', message: result.message } });
+    }
+
+    return res.json({
+      success: true,
+      data: { message: '验证码已发送', verification_challenge_id: challengeId },
+    });
+  } catch (error) {
+    console.error('Send phone code error:', error);
+    return res.status(500).json({ success: false, error: { code: 'SEND_FAILED', message: '发送验证码失败' } });
+  }
+};
+
+// ── 手机号实名：验证并绑定到当前用户 ───────────────────
+export const bindPhone = async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    if (!user?.id) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: '请先登录' } });
+
+    const { phone, code } = req.body as { phone: string; code: string };
+    const normalized = String(phone || '').trim();
+    if (!/^1[3-9]\d{9}$/.test(normalized)) {
+      return res.status(400).json({ success: false, error: { code: 'INVALID_PHONE', message: '手机号格式不正确' } });
+    }
+
+    // 手机号是否已被他人绑定
+    const taken = await pool.query(
+      `SELECT id FROM users WHERE phone = $1 AND id <> $2 AND phone_verified`,
+      [normalized, user.id],
+    );
+    if (taken.rows.length > 0) {
+      return res.status(409).json({ success: false, error: { code: 'PHONE_TAKEN', message: '该手机号已绑定其他账号' } });
+    }
+
+    const record = await pool.query(
+      `SELECT id, code_hash, expires_at, attempt_count, locked_until
+       FROM auth_verification_codes
+       WHERE phone = $1 AND consumed_at IS NULL
+       ORDER BY created_at DESC LIMIT 1`,
+      [normalized],
+    );
+    if (record.rows.length === 0) {
+      return res.status(400).json({ success: false, error: { code: 'NO_CODE', message: '请先发送验证码' } });
+    }
+
+    const row = record.rows[0];
+    if (row.locked_until && new Date(row.locked_until) > new Date()) {
+      return res.status(429).json({ success: false, error: { code: 'TOO_MANY_ATTEMPTS', message: '尝试次数过多，请稍后再试' } });
+    }
+    if (new Date(row.expires_at) < new Date()) {
+      return res.status(400).json({ success: false, error: { code: 'CODE_EXPIRED', message: '验证码已过期' } });
+    }
+
+    const ok = await bcrypt.compare(String(code || '').trim(), row.code_hash);
+    if (!ok) {
+      const attempts = row.attempt_count + 1;
+      const lock = attempts >= VERIFICATION_MAX_ATTEMPTS ? new Date(Date.now() + VERIFICATION_LOCK_MINUTES * 60 * 1000) : null;
+      await pool.query(
+        `UPDATE auth_verification_codes SET attempt_count = $1, locked_until = $2 WHERE id = $3`,
+        [attempts, lock, row.id],
+      );
+      return res.status(400).json({ success: false, error: { code: 'INVALID_CODE', message: '验证码错误' } });
+    }
+
+    await pool.query(
+      `UPDATE auth_verification_codes SET consumed_at = now() WHERE id = $1`,
+      [row.id],
+    );
+    await pool.query(
+      `UPDATE users SET phone = $1, phone_verified = true WHERE id = $2`,
+      [normalized, user.id],
+    );
+
+    return res.json({ success: true, data: { message: '手机号绑定成功，已完成实名认证' } });
+  } catch (error) {
+    console.error('Bind phone error:', error);
+    return res.status(500).json({ success: false, error: { code: 'BIND_FAILED', message: '绑定失败' } });
+  }
 };
 
 export const changePassword = async (req: Request, res: Response) => {

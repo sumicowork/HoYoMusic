@@ -12,6 +12,7 @@ import { MUSIC_ICON_PLACEHOLDER } from '../utils/imageUtils';
 import { formatDuration } from '../utils/format';
 import { handleApiError } from '../utils/errorHandler';
 import { useDominantColor } from '../utils/useDominantColor';
+import CommentSection from '../components/CommentSection';
 import './AlbumDetail.css';
 
 interface Album {
@@ -342,6 +343,7 @@ const AlbumDetail: React.FC = () => {
             </>
           ) : renderTrackList(tracks)}
         </section>
+        <CommentSection targetType="album" targetId={Number(id)} />
       </main>
     </div>
   );

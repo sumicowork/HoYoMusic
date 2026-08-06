@@ -21,6 +21,7 @@ import type { Track } from '../types';
 import { getCoverUrl, handleImageError } from '../utils/imageUtils';
 import { formatDuration as formatTrackDuration } from '../utils/format';
 import { handleApiError } from '../utils/errorHandler';
+import CommentSection from '../components/CommentSection';
 import './GameDetail.css';
 
 const { Content } = Layout;
@@ -554,6 +555,7 @@ const GameDetail: React.FC = () => {
             { key: 'sources', label: <span><ApartmentOutlined /> 场景音乐</span>, children: sourcesTab },
           ]}
         />
+        <CommentSection targetType="game" targetId={Number(id)} />
       </Content>
     </Layout>
   );

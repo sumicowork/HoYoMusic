@@ -5,6 +5,8 @@ import {
   changePassword,
   sendRegistrationVerificationCode,
   register,
+  sendPhoneCode,
+  bindPhone,
 } from '../controllers/authController';
 import { authenticateJWT } from '../middleware/auth';
 import { noStore } from '../middleware/cacheHeaders';
@@ -177,5 +179,9 @@ router.get('/me', authenticateJWT, getCurrentUser);
  *             schema: { $ref: '#/components/schemas/Error' }
  */
 router.post('/change-password', authenticateJWT as any, changePassword);
+
+// 手机号实名（评论功能前置：后台实名认证）
+router.post('/send-phone-code', sendPhoneCode);
+router.post('/bind-phone', authenticateJWT as any, bindPhone);
 
 export default router;

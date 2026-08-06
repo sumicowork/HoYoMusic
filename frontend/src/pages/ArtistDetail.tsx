@@ -9,6 +9,7 @@ import { artistService } from '../services/artistService';
 import type { Game } from '../services/gameService';
 import { getCoverUrl, handleImageError } from '../utils/imageUtils';
 import { formatDuration } from '../utils/format';
+import CommentSection from '../components/CommentSection';
 import './ArtistDetail.css';
 
 const { Content } = Layout;
@@ -279,6 +280,7 @@ const ArtistDetail: React.FC = () => {
             </Row>
           </TabPane>
         </Tabs>
+        <CommentSection targetType="artist" targetId={Number(id)} />
       </Content>
     </Layout>
   );

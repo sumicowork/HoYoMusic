@@ -72,5 +72,23 @@ export const authService = {
   isAuthenticated(): boolean {
     return !!localStorage.getItem('token');
   },
+
+  async sendPhoneCode(phone: string): Promise<{ message: string; verification_challenge_id?: string }> {
+    try {
+      const response = await api.post<ApiResponse<{ message: string; verification_challenge_id?: string }>>('/auth/send-phone-code', { phone });
+      return response.data.data || { message: '验证码已发送' };
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error, '发送验证码失败'));
+    }
+  },
+
+  async bindPhone(phone: string, code: string): Promise<void> {
+    try {
+      const response = await api.post<ApiResponse<{ message: string }>>('/auth/bind-phone', { phone, code });
+      if (!response.data.success) throw new Error(response.data.error?.message || '绑定失败');
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error, '绑定失败'));
+    }
+  },
 };
 

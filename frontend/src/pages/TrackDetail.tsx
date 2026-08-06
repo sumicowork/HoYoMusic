@@ -8,6 +8,7 @@ import { usePlayerStore } from '../store/playerStore';
 import LyricsDisplay from '../components/LyricsDisplay';
 import CreditsDisplay from '../components/CreditsDisplay';
 import MusicSourcesDisplay from '../components/MusicSourcesDisplay';
+import CommentSection from '../components/CommentSection';
 import { lyricsService } from '../services/lyricsService';
 import { creditsService } from '../services/creditsService';
 import { getTagGroups, getTags, getTrackTags, Tag as TagType, TagGroup } from '../services/tagService';
@@ -433,6 +434,7 @@ const TrackDetail: React.FC = () => {
             <MusicSourcesDisplay sources={musicSources} />
           )}
         </section>
+        <CommentSection targetType="track" targetId={Number(id)} />
       </main>
     </div>
   );

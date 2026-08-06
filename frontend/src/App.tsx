@@ -50,6 +50,8 @@ const Settings = lazy(() => import('./pages/Settings'));
 const MusicSourceLibraryManagement = lazy(() => import('./pages/MusicSourceLibraryManagement'));
 const Profile = lazy(() => import('./pages/Profile'));
 const UserManagement = lazy(() => import('./pages/UserManagement'));
+const CommentReview = lazy(() => import('./pages/CommentReview'));
+const LegalPages = lazy(() => import('./pages/LegalPages'));
 const Maintenance = lazy(() => import('./pages/Maintenance'));
 
 // 绑定静态实例，使 toast 工具在组件树外也能调用
@@ -172,6 +174,7 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
     '/admin/albums': <AlbumManagement />,
     '/admin/tags': <TagManagement />,
     '/admin/games': <GameManagement />,
+    '/admin/comments': <CommentReview />,
     '/admin/artists': <ArtistManagement />,
     '/admin/users': <UserManagement />,
     '/admin/analytics': <Analytics />,
@@ -228,6 +231,11 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
             path="/me"
             element={<ProtectedRoute><Profile /></ProtectedRoute>}
           />
+
+          {/* 法律页面 */}
+          <Route path="/terms" element={<LegalPages />} />
+          <Route path="/legal/:doc" element={<LegalPages />} />
+          <Route path="/privacy" element={<LegalPages />} />
 
           {/* 管理后台路由 - 需要登录 */}
           {ADMIN_NAV_ITEMS.map((item) => (
