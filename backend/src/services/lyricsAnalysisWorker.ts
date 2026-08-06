@@ -49,10 +49,11 @@ async function readLyricsContent(lyricsPath: string | null): Promise<string> {
 }
 
 /**
- * QQ 接口广告/推荐残留行（夹带在歌词中间，如「您或许在找：」「おすすめは：」）
- * 这类行不是歌词，落库前必须剔除
+ * ⚠️ 广告残留过滤已撤回（2026-08-06）：原以为「您或许在找：」「おすすめは：」是 QQ
+ * 接口夹带的广告，实锤为**歌词本体**——绝区零《天使加载中》中/日文版官方歌词
+ * 都有这段「搜索框戏仿+话题标签」段落（萌娘百科/biligame 收录确认）。
+ * 教训：LRC 行未经验证前不得以"看着像广告"为由删除。
  */
-const AD_JUNK_PATTERNS = [/您或许在找/, /おすすめは/, /失格偶像/, /创作好难/];
 
 let workerTimer: NodeJS.Timeout | null = null;
 const inFlight = new Set<number>();
@@ -149,9 +150,7 @@ async function processOne(pool: Pool, trackId: number): Promise<void> {
         .split('\n')
         .filter((l) => {
           const t = l.trim();
-          if (/^\[\d{2}:\d{2}[.\d]*\]\s*[^-—]*[-—]\s*(HOYO-MiX|三Z-STUDIO)(\s*\/.*)?\s*$/i.test(t)) return false; // 标题行
-          if (AD_JUNK_PATTERNS.some((p) => p.test(t))) return false; // QQ 广告残留
-          return true;
+          return !/^\[\d{2}:\d{2}[.\d]*\]\s*[^-—]*[-—]\s*(HOYO-MiX|三Z-STUDIO)(\s*\/.*)?\s*$/i.test(t); // 标题行
         })
         .join('\n')
         .trim();
