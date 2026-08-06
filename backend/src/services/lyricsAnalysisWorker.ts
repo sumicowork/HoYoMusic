@@ -67,6 +67,25 @@ async function readLyricsContent(lyricsPath: string | null): Promise<string> {
 let workerTimer: NodeJS.Timeout | null = null;
 const inFlight = new Set<number>();
 
+// ── 职务规范映射缓存（credit_role_map：原文 → 规范中文）──────────────
+let roleMap: Map<string, string> | null = null;
+
+/** 加载职务规范映射（首次调用时全量加载，之后缓存） */
+async function loadRoleMap(client: PoolClient): Promise<Map<string, string>> {
+  if (roleMap) return roleMap;
+  const res = await client.query(`SELECT role_key, role_norm FROM credit_role_map`);
+  roleMap = new Map(res.rows.map((r) => [r.role_key as string, r.role_norm as string]));
+  return roleMap;
+}
+
+/** 计算职务规范名：映射表优先；未命中时机械兜底（中文部分，无中文用原文）——零丢失 */
+function roleNorm(role: string, map: Map<string, string>): string {
+  const hit = map.get(role);
+  if (hit) return hit;
+  const cn = role.replace(/[A-Za-z0-9@.\-()（）&/ ]+/g, '').trim();
+  return cn || role;
+}
+
 /**
  * 确保创作者档案存在并返回其 id（新 credit 出现时自动建档，不再依赖手动 backfill）
  * - 精确匹配（trim 后）优先；命中 artist_aliases 别名规则时归并到 canonical_name
@@ -118,11 +137,13 @@ async function saveCredits(pool: Pool, trackId: number, credits: unknown): Promi
         ? namesRaw.map((n) => String(n).trim()).filter(Boolean)
         : [];
       if (!role) continue;
+      const map = await loadRoleMap(client);
+      const norm = roleNorm(role, map);
       for (const name of names) {
         const artistId = await ensureArtist(client, name);
         await client.query(
-          `INSERT INTO track_credits (track_id, credit_key, credit_value, display_order, artist_id) VALUES ($1, $2, $3, $4, $5)`,
-          [trackId, role, name, order++, artistId],
+          `INSERT INTO track_credits (track_id, credit_key, credit_role_norm, credit_value, display_order, artist_id) VALUES ($1, $2, $3, $4, $5, $6)`,
+          [trackId, role, norm, name, order++, artistId],
         );
         inserted++;
       }
