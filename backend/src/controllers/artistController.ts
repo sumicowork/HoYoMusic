@@ -28,10 +28,9 @@ export const getArtists = async (req: Request, res: Response) => {
         SELECT tc.artist_id,
                COUNT(DISTINCT tc.track_id)                 AS track_count,
                COUNT(DISTINCT t.album_id)                  AS album_count,
-               array_agg(DISTINCT COALESCE(ara.canonical_role, tc.credit_key)) AS roles
+               array_agg(DISTINCT COALESCE(NULLIF(tc.credit_role_norm, ''), tc.credit_key)) AS roles
         FROM track_credits tc
         LEFT JOIN tracks t ON tc.track_id = t.id
-        LEFT JOIN artist_role_aliases ara ON LOWER(tc.credit_key) = LOWER(ara.alias_role)
         WHERE tc.artist_id IS NOT NULL
         GROUP BY tc.artist_id
       )`;
@@ -172,7 +171,7 @@ export const getArtistById = async (req: Request, res: Response) => {
         `SELECT t.*,
                 a.title       AS album_title,
                 a.cover_path  AS album_cover,
-                array_agg(DISTINCT COALESCE(ara.canonical_role, tc.credit_key)) AS roles,
+                array_agg(DISTINCT COALESCE(NULLIF(tc.credit_role_norm, ''), tc.credit_key)) AS roles,
                 COALESCE(
                   (SELECT json_agg(json_build_object('id', ar.id, 'name', ar.name))
                    FROM track_credits tcx
@@ -183,7 +182,6 @@ export const getArtistById = async (req: Request, res: Response) => {
          FROM track_credits tc
          JOIN tracks t ON tc.track_id = t.id
          LEFT JOIN albums a ON t.album_id = a.id
-         LEFT JOIN artist_role_aliases ara ON LOWER(tc.credit_key) = LOWER(ara.alias_role)
          WHERE tc.artist_id = $1
          GROUP BY t.id, a.title, a.cover_path
          ORDER BY t.created_at DESC`,
@@ -213,10 +211,9 @@ export const getArtistById = async (req: Request, res: Response) => {
       pool.query(
         `SELECT COUNT(DISTINCT tc.track_id) AS track_count,
                 COUNT(DISTINCT t.album_id)  AS album_count,
-                array_agg(DISTINCT COALESCE(ara.canonical_role, tc.credit_key)) AS roles
+                array_agg(DISTINCT COALESCE(NULLIF(tc.credit_role_norm, ''), tc.credit_key)) AS roles
          FROM track_credits tc
          LEFT JOIN tracks t ON tc.track_id = t.id
-         LEFT JOIN artist_role_aliases ara ON LOWER(tc.credit_key) = LOWER(ara.alias_role)
          WHERE tc.artist_id = $1`,
         [artistId]
       ),
@@ -290,7 +287,13 @@ export const updateArtist = async (req: Request, res: Response) => {
     for (const mapping of normalizedRoleMappings) {
       const roleUpdate = await client.query(
         `UPDATE track_credits
-         SET credit_key = $1, updated_at = CURRENT_TIMESTAMP
+         SET credit_key = $1,
+             credit_role_norm = COALESCE(
+               (SELECT role_norm FROM credit_role_map WHERE role_key = $1),
+               NULLIF(regexp_replace($1, '[A-Za-z0-9@.\\-()（）&/ ]+', '', 'g'), ''),
+               $1
+             ),
+             updated_at = CURRENT_TIMESTAMP
          WHERE LOWER(credit_value) = LOWER($2)
            AND LOWER(credit_key) = LOWER($3)`,
         [mapping.to, sourceName, mapping.from]
@@ -381,9 +384,8 @@ export const getArtistRoles = async (req: Request, res: Response) => {
 
     const result = await pool.query(
       `WITH canonical_roles AS (
-         SELECT COALESCE(ara.canonical_role, tc.credit_key) AS role_name
+         SELECT COALESCE(NULLIF(tc.credit_role_norm, ''), tc.credit_key) AS role_name
          FROM track_credits tc
-         LEFT JOIN artist_role_aliases ara ON LOWER(tc.credit_key) = LOWER(ara.alias_role)
          WHERE tc.credit_key IS NOT NULL AND BTRIM(tc.credit_key) <> ''
        )
        SELECT role_name AS role, COUNT(*)::int AS usage_count

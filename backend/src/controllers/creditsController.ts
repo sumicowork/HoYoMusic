@@ -96,7 +96,7 @@ export const getCredits = async (req: Request, res: Response) => {
     const { id } = req.params;
 
     const result = await pool.query(
-      `SELECT id, credit_key, credit_value, display_order, artist_id
+      `SELECT id, credit_key, credit_value, credit_role_norm, display_order, artist_id
        FROM track_credits
        WHERE track_id = $1
        ORDER BY display_order ASC, id ASC`,

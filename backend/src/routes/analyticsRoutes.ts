@@ -400,7 +400,7 @@ const warmupAppCache = async () => {
       tc.credit_value                         AS name,
       COUNT(DISTINCT tc.track_id)             AS track_count,
       COUNT(DISTINCT t.album_id)              AS album_count,
-      array_agg(DISTINCT tc.credit_key)       AS roles
+      array_agg(DISTINCT COALESCE(NULLIF(tc.credit_role_norm, ''), tc.credit_key)) AS roles
     FROM track_credits tc
     LEFT JOIN tracks t ON tc.track_id = t.id
     WHERE tc.credit_value IS NOT NULL AND tc.credit_value <> ''
