@@ -96,6 +96,8 @@ const CLASSIFY_SYSTEM_PROMPT = `你是米哈游（HoYoVerse）游戏音乐 LRC �
 - role = 「角色」部分原文（如 "作曲 Composer"），不翻译、不臆造、不改写
 - names = 「人名」部分按明确分隔符（顿号/逗号/斜杠）拆分的个人列表；每个元素必须是**最小不可再分的实体**（人名/角色名/乐团/工作室名），不得再含冒号、职务词或分隔符；括号内容（含 "（CV：声优名）"，如 "温迪（CV：喵☆酱）"）作为名字的一部分整体保留
 - 嵌套子职务（如 "独奏乐器 Solo Instruments：Guitar：xxx / Piano：yyy"）→ 按子职务拆成多行，role 取子职务（如 "Guitar"、"Piano"），names 为各子职务下的名字——每行保证「职务↔名字」一一对应
+- **role 本身含多个平级职务**（如 "作曲/编曲"、"混音/母带 Mixing/Mastering Engineer"、"Mixing&Mastering"、"小号/富鲁格号 Trumpet/Flugelhorn"）→ 拆成多行，每行 role 取**单个职务**（中文按 / 、 & 顿号拆分、英文按 / & 拆分，中英配对；英文共享后缀如 "Mixing/Mastering Engineer" 拆为 "Mixing Engineer"+"Mastering Engineer"）；同一人的多个职务 = 多行
+- **role 内不得残留冒号**（如 "录音师：Recording Engineer" 是错误的，应为 "录音师 Recording Engineer"）
 - 空格不是人名分隔符："中文 拼音转写"（如 "车子玉 Ziyu Che"）视为同一人；仅当空格后是独立艺名/ID（非拼音，如 "张清 HaSu-P" 的 HaSu-P）才拆为不同人
 - 人名保持 LRC 原文原样，不做任何删改（包括 @ 等符号）
 
@@ -117,6 +119,8 @@ const EXTRACT_SYSTEM_PROMPT = `你是米哈游（HoYoVerse）游戏音乐 LRC �
 - role 为「角色」部分原文（如 "作曲 Composer"），不翻译、不臆造、不改写
 - names 为「人名」部分按明确分隔符（顿号/逗号/斜杠）拆分的个人列表；每个元素是**最小不可再分的实体**，不得再含冒号/职务词/分隔符，括号内容（含 "（CV：声优名）"）整体保留
 - 若名字部分出现**嵌套子职务**（如 "独奏乐器 Solo Instruments：Guitar：xxx / Piano：yyy"），按子职务拆成多行，role 取子职务（如 "Guitar"、"Piano"），names 为各子职务下的名字——每行保证「职务↔名字」一一对应
+- **role 本身含多个平级职务**（如 "作曲/编曲"、"混音/母带 Mixing/Mastering Engineer"、"Mixing&Mastering"、"小号/富鲁格号 Trumpet/Flugelhorn"）→ 拆成多行，每行 role 取**单个职务**（中文按 / 、 & 顿号拆分、英文按 / & 拆分，中英配对；英文共享后缀如 "Mixing/Mastering Engineer" 拆为 "Mixing Engineer"+"Mastering Engineer"）；同一人的多个职务 = 多行
+- **role 内不得残留冒号**（如 "录音师：Recording Engineer" 是错误的，应为 "录音师 Recording Engineer"）
 - 空格不是人名分隔符："中文 拼音转写"（如 "车子玉 Ziyu Che"）视为同一人；仅当空格后是独立艺名/ID（非拼音，如 "张清 HaSu-P" 的 HaSu-P）才拆为不同人
 - 人名保持 LRC 原文原样，不做任何删改（包括 @ 等符号）
 - confidence = 本次抽取的整体可信度（0-1 小数）：若 LRC 中 credit 行格式混乱/含歧义导致无法完全确定，给低分；格式规范且全部提取 → 高分
