@@ -484,11 +484,11 @@ router.get('/overview', async (_req: Request, res: Response) => {
     }
 
     const [total, today, unique7d, errors, avgMs] = await Promise.all([
-      pool.query(`SELECT COUNT(*)::int AS v FROM visit_logs WHERE category = 'normal' AND status != 503 AND WHERE ts >= NOW() - INTERVAL '7 days'`),
-      pool.query(`SELECT COUNT(*)::int AS v FROM visit_logs WHERE category = 'normal' AND status != 503 AND WHERE ts >= (NOW() AT TIME ZONE 'Asia/Shanghai')::date AT TIME ZONE 'Asia/Shanghai'`),
-      pool.query(`SELECT COUNT(DISTINCT ${UNIQUE_VISITOR_EXPR})::int AS v FROM visit_logs WHERE category = 'normal' AND status != 503 AND WHERE ts >= NOW() - INTERVAL '7 days'`),
+      pool.query(`SELECT COUNT(*)::int AS v FROM visit_logs WHERE category = 'normal' AND status != 503 AND ts >= NOW() - INTERVAL '7 days'`),
+      pool.query(`SELECT COUNT(*)::int AS v FROM visit_logs WHERE category = 'normal' AND status != 503 AND ts >= (NOW() AT TIME ZONE 'Asia/Shanghai')::date AT TIME ZONE 'Asia/Shanghai'`),
+      pool.query(`SELECT COUNT(DISTINCT ${UNIQUE_VISITOR_EXPR})::int AS v FROM visit_logs WHERE category = 'normal' AND status != 503 AND ts >= NOW() - INTERVAL '7 days'`),
       pool.query(`SELECT COUNT(*)::int AS v FROM visit_logs WHERE status >= 400 AND ts >= (NOW() AT TIME ZONE 'Asia/Shanghai')::date AT TIME ZONE 'Asia/Shanghai'`),
-      pool.query(`SELECT ROUND(AVG(duration_ms))::int AS v FROM visit_logs WHERE category = 'normal' AND status != 503 AND WHERE ts >= NOW() - INTERVAL '24 hours'`),
+      pool.query(`SELECT ROUND(AVG(duration_ms))::int AS v FROM visit_logs WHERE category = 'normal' AND status != 503 AND ts >= NOW() - INTERVAL '24 hours'`),
     ]);
     sendSuccess(res, {
       total:    total.rows[0].v,
@@ -548,7 +548,7 @@ router.get('/trend', async (req: Request, res: Response) => {
         0::int AS requestTraffic,
         COUNT(*)::int AS pageView
       FROM visit_logs
-      WHERE category = 'normal' AND status != 503 AND WHERE ts >= NOW() - INTERVAL '1 day' * $1
+      WHERE category = 'normal' AND status != 503 AND ts >= NOW() - INTERVAL '1 day' * $1
       GROUP BY 1 ORDER BY 1
     `, [d]);
     sendSuccess(res, result.rows, 'sql');
@@ -655,7 +655,7 @@ router.get('/countries', async (req: Request, res: Response) => {
         COUNT(*)::int AS requests,
         COUNT(DISTINCT ${UNIQUE_VISITOR_EXPR})::int AS visitors
       FROM visit_logs
-      WHERE category = 'normal' AND status != 503 AND WHERE ts >= NOW() - INTERVAL '1 day' * $1
+      WHERE category = 'normal' AND status != 503 AND ts >= NOW() - INTERVAL '1 day' * $1
       GROUP BY 1,2,3
     `, [d]);
 
@@ -717,7 +717,7 @@ router.get('/countries/debug', async (req: Request, res: Response) => {
          COUNT(*)::int AS requests,
          COUNT(DISTINCT ${UNIQUE_VISITOR_EXPR})::int AS visitors
        FROM visit_logs
-       WHERE category = 'normal' AND status != 503 AND WHERE ts >= NOW() - INTERVAL '1 day' * $1
+       WHERE category = 'normal' AND status != 503 AND ts >= NOW() - INTERVAL '1 day' * $1
        GROUP BY 1,2,3
        ORDER BY requests DESC
        LIMIT $2`,
@@ -806,7 +806,7 @@ router.get('/visitors', async (req: Request, res: Response) => {
          FROM (
            SELECT ${VISITOR_KEY_EXPR} AS visitor_key
            FROM visit_logs
-           WHERE category = 'normal' AND status != 503 AND WHERE ts >= NOW() - INTERVAL '1 day' * $1
+           WHERE category = 'normal' AND status != 503 AND ts >= NOW() - INTERVAL '1 day' * $1
            GROUP BY 1
          ) v`,
         [d]
@@ -821,7 +821,7 @@ router.get('/visitors', async (req: Request, res: Response) => {
            MAX(ts) AS last_seen,
            COUNT(DISTINCT path)::int AS unique_paths
          FROM visit_logs
-         WHERE category = 'normal' AND status != 503 AND WHERE ts >= NOW() - INTERVAL '1 day' * $1
+         WHERE category = 'normal' AND status != 503 AND ts >= NOW() - INTERVAL '1 day' * $1
          GROUP BY 1
          ORDER BY MAX(ts) DESC
          LIMIT $2 OFFSET $3`,
@@ -1197,7 +1197,7 @@ router.get('/cities', async (req: Request, res: Response) => {
         COUNT(*)::int           AS requests,
         COUNT(DISTINCT ${UNIQUE_VISITOR_EXPR})::int AS visitors
       FROM visit_logs
-      WHERE category = 'normal' AND status != 503 AND WHERE ts >= NOW() - INTERVAL '1 day' * $1
+      WHERE category = 'normal' AND status != 503 AND ts >= NOW() - INTERVAL '1 day' * $1
         AND latitude IS NOT NULL AND longitude IS NOT NULL
       GROUP BY 1,2,3,4 ORDER BY 5 DESC LIMIT 200
     `, [d]);
@@ -1250,7 +1250,7 @@ router.get('/pages', async (req: Request, res: Response) => {
         ROUND(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY duration_ms))::int AS p95_ms,
         COUNT(*) FILTER (WHERE status >= 400)::int     AS errors
       FROM visit_logs
-      WHERE category = 'normal' AND status != 503 AND WHERE ts >= NOW() - INTERVAL '1 day' * $1
+      WHERE category = 'normal' AND status != 503 AND ts >= NOW() - INTERVAL '1 day' * $1
         AND method = 'GET'
       GROUP BY 1 ORDER BY 2 DESC LIMIT 50
     `, [d]);
@@ -1297,17 +1297,17 @@ router.get('/devices', async (req: Request, res: Response) => {
     const [browsers, oses, devices] = await Promise.all([
       pool.query(`
         SELECT COALESCE(NULLIF(ua_browser,''),'Unknown') AS name, COUNT(*)::int AS value
-        FROM visit_logs WHERE category = 'normal' AND status != 503 AND WHERE ts >= NOW() - INTERVAL '1 day' * $1
+        FROM visit_logs WHERE category = 'normal' AND status != 503 AND ts >= NOW() - INTERVAL '1 day' * $1
         GROUP BY 1 ORDER BY 2 DESC LIMIT 10
       `, [d]),
       pool.query(`
         SELECT COALESCE(NULLIF(ua_os,''),'Unknown') AS name, COUNT(*)::int AS value
-        FROM visit_logs WHERE category = 'normal' AND status != 503 AND WHERE ts >= NOW() - INTERVAL '1 day' * $1
+        FROM visit_logs WHERE category = 'normal' AND status != 503 AND ts >= NOW() - INTERVAL '1 day' * $1
         GROUP BY 1 ORDER BY 2 DESC LIMIT 8
       `, [d]),
       pool.query(`
         SELECT COALESCE(NULLIF(ua_device,''),'desktop') AS name, COUNT(*)::int AS value
-        FROM visit_logs WHERE category = 'normal' AND status != 503 AND WHERE ts >= NOW() - INTERVAL '1 day' * $1
+        FROM visit_logs WHERE category = 'normal' AND status != 503 AND ts >= NOW() - INTERVAL '1 day' * $1
         GROUP BY 1 ORDER BY 2 DESC
       `, [d]),
     ]);
@@ -1353,7 +1353,7 @@ router.get('/status-codes', async (req: Request, res: Response) => {
 
     const result = await pool.query(`
       SELECT status::text AS name, COUNT(*)::int AS value
-      FROM visit_logs WHERE category = 'normal' AND status != 503 AND WHERE ts >= NOW() - INTERVAL '1 day' * $1
+      FROM visit_logs WHERE category = 'normal' AND status != 503 AND ts >= NOW() - INTERVAL '1 day' * $1
       GROUP BY 1 ORDER BY 2 DESC
     `, [d]);
     sendSuccess(res, result.rows, 'sql');
@@ -1404,7 +1404,7 @@ router.get('/performance', async (req: Request, res: Response) => {
         MAX(duration_ms)::int AS max_ms,
         COUNT(*)::int AS requests
       FROM visit_logs
-      WHERE category = 'normal' AND status != 503 AND WHERE ts >= NOW() - INTERVAL '1 day' * $1
+      WHERE category = 'normal' AND status != 503 AND ts >= NOW() - INTERVAL '1 day' * $1
       GROUP BY 1 ORDER BY 1
     `, [d]);
     sendSuccess(res, result.rows, 'sql');
@@ -1476,6 +1476,65 @@ router.get('/recent', async (req: Request, res: Response) => {
  *           application/json:
  *             schema: { $ref: '#/components/schemas/Error' }
  */
+/**
+ * @openapi
+ * /analytics/esa/cache:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: ESA 边缘缓存命中分布（ESA 独有口径，需配置 ESA 凭据）
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: days
+ *         schema: { type: integer, maximum: 7 }
+ *     responses:
+ *       '200':
+ *         description: 缓存命中分布
+ *         content:
+ *           application/json:
+ *             schema: { type: object }
+ */
+router.get('/esa/cache', async (req: Request, res: Response) => {
+  try {
+    if (!analyticsEsaService.isReady()) {
+      return res.json({ success: true, data: { enabled: false, message: 'ESA 未配置（需要 ESA_ACCESS_KEY_ID/ESA_ACCESS_KEY_SECRET/ESA_SITE_ID）' } });
+    }
+    const d = Math.min(Math.max(parseInt(req.query.days as string) || 7, 1), 7);
+    const data = await analyticsEsaService.getCacheStatus(d);
+    return res.json({ success: true, data });
+  } catch (e: any) {
+    if (String(e?.message || '').toLowerCase().includes('quotacheckfailed')) {
+      return res.json({ success: true, data: { enabled: false, message: 'ESA 当前套餐不支持数据分析功能（QuotaCheckFailed）' } });
+    }
+    return res.status(500).json(safeError(e));
+  }
+});
+
+/**
+ * @openapi
+ * /analytics/esa/status:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: ESA 配置状态与过滤口径
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       '200':
+ *         description: ESA 配置状态
+ */
+router.get('/esa/status', async (_req: Request, res: Response) => {
+  res.json({
+    success: true,
+    data: {
+      enabled: analyticsEsaService.isReady(),
+      mode: process.env.ANALYTICS_PROVIDER || 'sql',
+      host_filter: process.env.ESA_HOST_FILTER || '',
+      message: analyticsEsaService.isReady()
+        ? 'ESA 已配置（统计按 ESA_HOST_FILTER 过滤）'
+        : 'ESA 未配置，统计走源站 SQL（含 category 过滤）',
+    },
+  });
+});
+
 router.get('/cache', async (_req: Request, res: Response) => {
   try {
     const [remote] = await Promise.all([
@@ -1582,7 +1641,7 @@ router.get('/referers', async (req: Request, res: Response) => {
              ELSE referer END AS referer,
         COUNT(*)::int AS hits
       FROM visit_logs
-      WHERE category = 'normal' AND status != 503 AND WHERE ts >= NOW() - INTERVAL '1 day' * $1
+      WHERE category = 'normal' AND status != 503 AND ts >= NOW() - INTERVAL '1 day' * $1
       GROUP BY 1 ORDER BY 2 DESC LIMIT 20
     `, [d]);
     sendSuccess(res, result.rows, 'sql');

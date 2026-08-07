@@ -87,6 +87,25 @@ class AnalyticsEsaService {
   // keep it optional for accounts that expose extra metrics.
   private readonly fieldLatency = process.env.ESA_FIELD_LATENCY || '';
 
+  // 子域过滤：只统计该 Host 的流量（ESA 站点可能挂多个子域）。
+  // 原理：dimension 用 ClientRequestHost 分组，应用层筛 dimensionValue === hostFilter。
+  private readonly hostFilter = (process.env.ESA_HOST_FILTER || '').trim().toLowerCase();
+
+  // 有 hostFilter 时用 ClientRequestHost 维度（返回按域名分组，随后过滤）；否则用 ALL 全量
+  private getQueryDimension(): string[] {
+    return this.hostFilter ? ['ClientRequestHost'] : ['ALL'];
+  }
+
+  // 按 host 过滤响应（仅当本次查询以 ClientRequestHost 为维度时生效，
+  // 避免误伤 EdgeCacheStatus 等其他维度的查询）
+  private filterRowsByHost(body: any, useHostDimension: boolean): any {
+    if (!this.hostFilter || !useHostDimension || !Array.isArray(body?.data)) return body;
+    const rows: any[] = body.data.filter((r: any) =>
+      String(r?.dimensionValue || '').trim().toLowerCase() === this.hostFilter,
+    );
+    return { ...body, data: rows };
+  }
+
   isEnabled(): boolean {
     return this.mode !== 'sql';
   }
@@ -135,7 +154,8 @@ class AnalyticsEsaService {
     };
     const req = new (EsaModule as any).DescribeSiteTimeSeriesDataRequest(rawReq);
     const resp: any = await client.describeSiteTimeSeriesData(req);
-    return resp?.body || {};
+    const useHost = fields.some((f) => f.dimension?.includes('ClientRequestHost'));
+    return this.filterRowsByHost(resp?.body || {}, useHost);
   }
 
   private async describeTop(days: number, limit: number, fields: Array<{ fieldName: string; dimension?: string[] }>): Promise<any> {
@@ -150,7 +170,8 @@ class AnalyticsEsaService {
     };
     const req = new (EsaModule as any).DescribeSiteTopDataRequest(rawReq);
     const resp: any = await client.describeSiteTopData(req);
-    return resp?.body || {};
+    const useHost = fields.some((f) => f.dimension?.includes('ClientRequestHost'));
+    return this.filterRowsByHost(resp?.body || {}, useHost);
   }
 
   private findSummaryValue(body: any, fieldName: string): number {
@@ -208,15 +229,15 @@ class AnalyticsEsaService {
 
   private buildOverviewFields(includeLatency: boolean, includePageView: boolean): Array<{ fieldName: string; dimension?: string[] }> {
     const fields: Array<{ fieldName: string; dimension?: string[] }> = [
-      { fieldName: this.fieldRequests, dimension: ['ALL'] },
-      { fieldName: this.fieldTraffic, dimension: ['ALL'] },
-      { fieldName: this.fieldRequestTraffic, dimension: ['ALL'] },
+      { fieldName: this.fieldRequests, dimension: this.getQueryDimension() },
+      { fieldName: this.fieldTraffic, dimension: this.getQueryDimension() },
+      { fieldName: this.fieldRequestTraffic, dimension: this.getQueryDimension() },
     ];
     if (includePageView) {
-      fields.push({ fieldName: this.fieldVisitors, dimension: ['ALL'] });
+      fields.push({ fieldName: this.fieldVisitors, dimension: this.getQueryDimension() });
     }
     if (includeLatency && this.fieldLatency) {
-      fields.push({ fieldName: this.fieldLatency, dimension: ['ALL'] });
+      fields.push({ fieldName: this.fieldLatency, dimension: this.getQueryDimension() });
     }
     return fields;
   }
@@ -236,7 +257,7 @@ class AnalyticsEsaService {
     const [all30d, today, unique7d, errors] = await Promise.all([
       this.describeTimeSeries(this.maxDays, 86400, this.buildOverviewFields(false, false)),
       this.describeTimeSeries(1, 3600, this.buildOverviewFields(true, true)),
-      this.describeTimeSeries(this.maxDays, 86400, [{ fieldName: this.fieldVisitors, dimension: ['ALL'] }]),
+      this.describeTimeSeries(this.maxDays, 86400, [{ fieldName: this.fieldVisitors, dimension: this.getQueryDimension() }]),
       this.getErrorCountByStatus(1),
     ]);
 
@@ -254,10 +275,10 @@ class AnalyticsEsaService {
 
   async getTrend(days: number): Promise<Array<{ date: string; requests: number; visitors: number; traffic: number; requestTraffic: number; pageView: number }>> {
     const body = await this.describeTimeSeries(days, 86400, [
-      { fieldName: this.fieldRequests, dimension: ['ALL'] },
-      { fieldName: this.fieldVisitors, dimension: ['ALL'] },
-      { fieldName: this.fieldTraffic, dimension: ['ALL'] },
-      { fieldName: this.fieldRequestTraffic, dimension: ['ALL'] },
+      { fieldName: this.fieldRequests, dimension: this.getQueryDimension() },
+      { fieldName: this.fieldVisitors, dimension: this.getQueryDimension() },
+      { fieldName: this.fieldTraffic, dimension: this.getQueryDimension() },
+      { fieldName: this.fieldRequestTraffic, dimension: this.getQueryDimension() },
     ]);
 
     const dataRows: any[] = Array.isArray(body?.data) ? body.data : [];
@@ -304,8 +325,8 @@ class AnalyticsEsaService {
 
   async getHourly(): Promise<Array<{ hour: number; requests: number; visitors: number }>> {
     const body = await this.describeTimeSeries(1, 3600, [
-      { fieldName: this.fieldRequests, dimension: ['ALL'] },
-      { fieldName: this.fieldVisitors, dimension: ['ALL'] },
+      { fieldName: this.fieldRequests, dimension: this.getQueryDimension() },
+      { fieldName: this.fieldVisitors, dimension: this.getQueryDimension() },
     ]);
     const rows: any[] = Array.isArray(body?.data) ? body.data : [];
     const reqRow = rows.find((r) => String(r?.fieldName || '').toLowerCase() === this.fieldRequests.toLowerCase());
@@ -398,9 +419,9 @@ class AnalyticsEsaService {
   }
 
   async getPerformance(days: number): Promise<Array<{ hour: string; avg_ms: number; p95_ms: number; max_ms: number; requests: number }>> {
-    const fields: Array<{ fieldName: string; dimension?: string[] }> = [{ fieldName: this.fieldRequests, dimension: ['ALL'] }];
+    const fields: Array<{ fieldName: string; dimension?: string[] }> = [{ fieldName: this.fieldRequests, dimension: this.getQueryDimension() }];
     if (this.fieldLatency) {
-      fields.push({ fieldName: this.fieldLatency, dimension: ['ALL'] });
+      fields.push({ fieldName: this.fieldLatency, dimension: this.getQueryDimension() });
     }
     const body = await this.describeTimeSeries(days, 3600, fields);
     const rows: any[] = Array.isArray(body?.data) ? body.data : [];
@@ -434,6 +455,40 @@ class AnalyticsEsaService {
       referer: String(item?.dimensionValue || 'Direct / None') || 'Direct / None',
       hits: toInt(item?.value, 0),
     })).slice(0, 20);
+  }
+
+  /**
+   * ESA 独有口径：缓存命中分布（EdgeCacheStatus 维度，站点全量口径——无法叠加域名维度，返回时标注 host）
+   * 命中判定：EdgeCacheStatus 值为 Hit / Dynamic / Miss（Revalidate 等按实际返回）
+   */
+  async getCacheStatus(days: number): Promise<{
+    enabled: boolean;
+    host: string;
+    distribution: Array<{ status: string; requests: number }>;
+    hit_rate: number | null;
+  }> {
+    const body = await this.describeTop(days, 10, [{ fieldName: this.fieldRequests, dimension: ['EdgeCacheStatus'] }]);
+    const rows = (body?.data || []).find((r: any) => String(r?.fieldName || '').toLowerCase() === this.fieldRequests.toLowerCase());
+    const detail: any[] = Array.isArray(rows?.detailData) ? rows.detailData : [];
+    const distribution = detail
+      .map((item: any) => ({ status: String(item?.dimensionValue || 'Unknown'), requests: toInt(item?.value, 0) }))
+      .filter((d: any) => d.requests > 0);
+
+    const hit = distribution.filter((d: any) => /hit/i.test(d.status)).reduce((s, d) => s + d.requests, 0);
+    const total = distribution.reduce((s, d) => s + d.requests, 0);
+    const hitRate = total > 0 ? Math.round((hit / total) * 1000) / 10 : null;
+
+    return {
+      enabled: true,
+      host: this.hostFilter || 'ALL（站点全量）',
+      distribution,
+      hit_rate: hitRate,
+    };
+  }
+
+  /** ESA 是否已配置可用（有凭据且非 sql 模式） */
+  isReady(): boolean {
+    return this.isEnabled() && this.canInit();
   }
 }
 
