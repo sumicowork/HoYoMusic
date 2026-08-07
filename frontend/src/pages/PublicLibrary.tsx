@@ -46,6 +46,7 @@ const PublicLibrary: React.FC = () => {
       }));
     } catch (error: any) {
       console.error('获取曲目失败:', error);
+      message.error('加载曲目失败，请稍后重试');
     } finally {
       setLoading(false);
     }

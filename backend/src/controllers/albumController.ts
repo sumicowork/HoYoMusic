@@ -695,7 +695,6 @@ export const updateAlbum = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { title, title_cn, title_en, release_date, game_id, notes, source_type } = req.body;
-    console.log(`[album-update] id=${id} source_type=${source_type} fullBody=${JSON.stringify(req.body).slice(0, 400)}`);
 
     // 动态 SQL：undefined = 未传（保留原值）；null = 显式清空
     const sets: string[] = [];

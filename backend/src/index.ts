@@ -164,15 +164,7 @@ app.use((req, res, next) => {
 });
 
 // ── Core Middleware ─────────────────────────────────────────────
-// 临时诊断：记录 PUT /api/albums 的原始请求体（排查 source_type 丢失）
-app.use(express.json({
-  limit: '1mb',
-  verify: (req: any, _res: any, buf: Buffer) => {
-    if (req.method === 'PUT' && String(req.url).includes('/albums/')) {
-      console.log(`[raw-body] ${req.method} ${req.url} raw=${buf.toString('utf-8').slice(0, 400)}`);
-    }
-  },
-}));
+app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(passport.initialize());
 

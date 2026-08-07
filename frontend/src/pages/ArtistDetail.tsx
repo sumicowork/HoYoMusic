@@ -46,7 +46,8 @@ const ArtistDetail: React.FC = () => {
 
   const fetchArtistDetails = async () => {
     try {
-      const data = await artistService.getArtistById(parseInt(id!, 10));
+      // 直接传原始 id（数字或名字），后端双模式解析；parseInt 会把中文名变 NaN
+      const data = await artistService.getArtistById(id!);
       if (data) {
         setArtist(data.artist);
         setTracks(data.tracks);

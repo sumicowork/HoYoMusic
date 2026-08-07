@@ -265,8 +265,10 @@ const AppRoutes: React.FC<AppRoutesProps> = ({ feedbackOpen, onOpenFeedback, onC
       {!isAdminRoute && <FirstVisitModal />}
       {!isAdminRoute && <FeedbackModal open={feedbackOpen} onClose={onCloseFeedback} />}
       {!isAdminRoute && <SiteComplianceFooter />}
-      <AuthModal />
-      {!isAdminRoute && currentTrack && <Player />}
+      <ErrorBoundary>
+        <AuthModal />
+        {!isAdminRoute && currentTrack && <Player />}
+      </ErrorBoundary>
     </div>
   );
 };

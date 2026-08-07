@@ -32,7 +32,8 @@ export const artistService = {
     return [];
   },
 
-  async getArtistById(id: number): Promise<{
+  // id 支持数字或名字（含别名）：后端双模式解析，禁止前端 parseInt（中文名会被转成 NaN 导致 404）
+  async getArtistById(id: string | number): Promise<{
     artist: Artist;
     tracks: Track[];
     albums: Album[];
