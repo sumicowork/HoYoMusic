@@ -41,7 +41,9 @@ const LOOKBACK_HOURS = parseInt(process.env.ESA_LOG_LOOKBACK_HOURS || '8', 10);
 const args = process.argv.slice(2);
 const hoursArg = args.find((a) => a.startsWith('--hours='));
 const full = args.includes('--full');
-const WINDOW_HOURS = full ? 31 * 24 : parseInt(hoursArg ? hoursArg.slice(8) : '24', 10);
+let WINDOW_HOURS = full ? 31 * 24 : parseInt(hoursArg ? hoursArg.slice(8) : '24', 10);
+// ESA 离线日志查询上限：StartTime 不得早于当前时间 31 天（服务端按天截断，留 1 小时余量）
+WINDOW_HOURS = Math.min(WINDOW_HOURS, 31 * 24 - LOOKBACK_HOURS - 1);
 
 if (!ESA_SITE_ID || !ESA_AK || !ESA_SK) {
   console.error('缺少 ESA_SITE_ID / ESA_ACCESS_KEY_ID / ESA_ACCESS_KEY_SECRET 配置');
