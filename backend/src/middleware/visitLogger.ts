@@ -23,6 +23,7 @@ type VisitLogEntry = [
   number,
   number | null,
   string | null,
+  string, // category: normal | scanner | bot
 ];
 
 // Lazily load geoip-lite and ua-parser-js so startup isn't blocked
@@ -36,7 +37,60 @@ const SKIP_PREFIXES = ['/uploads/', '/api/public/covers/proxy', '/api/public/sit
 const SKIP_METHODS = new Set(['OPTIONS', 'HEAD']);
 const VISITOR_COOKIE_KEY = 'visitor_id';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const SKIP_PATTERNS = [/\/stream(\?|$)/, /\.(woff2?|ttf|ico|svg|map)(\?|$)/i];
+// 高频静态资源不入库（统计价值低 + 防爆量；CDN 命中多数到不了源站）
+const SKIP_PATTERNS = [
+  /\/stream(\?|$)/,
+  /\.(woff2?|ttf|ico|svg|map|js|css|png|jpe?g|webp|gif|avif)(\?|$)/i,
+];
+
+// ── 流量分类（方案C：全量留存+标记，统计过滤，审计看全量）──
+// scanner: 攻击/漏洞探测特征（路径或 UA）
+const SCANNER_PATH_PATTERNS = [
+  /(^|\/)\.git(\/|$)/, /(^|\/)\.env(\/|$)/, /(^|\/)\.svn(\/|$)/, /(^|\/)\.hg(\/|$)/,
+  /(^|\/)\.aws(\/|$)/, /(^|\/)\.ssh(\/|$)/, /(^|\/)\.bashrc/, /(^|\/)\.dockerenv/,
+  /(^|\/)\.npmrc/, /(^|\/)\.htaccess/, /(^|\/)\.DS_Store/,
+  /^\/wp-/, /^\/wp-admin/, /^\/wp-login/,
+  /^\/phpmyadmin/, /^\/pma(\/|$)/, /^\/actuator/, /^\/manager(\/|$)/,
+  /^\/server-status/, /^\/server-info/, /^\/cgi-bin/,
+  /^\/config(\/|$|\.)/, /^\/backup/, /^\/shell/, /^\/webshell/,
+  /^\/vendor(\/|$)/, /^\/node_modules(\/|$)/, /^\/tmp(\/|$)/,
+  /^\/graphql(\/|$)/, /^\/v1\/graphql/, /^\/api\/graphql/, /^\/index\.php/,
+  /^\/mcp(\/|$)/, /^\/dns-query/, /^\/sse(\/|$)/, /^\/client\//,
+  /^\/solr/, /^\/elasticsearch/, /^\/jenkins/, /^\/confluence/, /^\/jira/,
+  /^\/Dr0v/, /^\/webui(\/|$)/, /^\/admin\/config/, /^\/admin\/login/, /^\/api\/v1\//,
+  /\.(sql|bak|tar\.gz|zip|log|conf|ini|yaml|yml|pem|key|sqlite)(\?|$)/i,
+];
+const SCANNER_UA_PATTERNS = [
+  /python-requests/i, /^curl\//i, /^wget/i, /go-http-client/i, /libwww/i,
+  /nikto/i, /sqlmap/i, /nmap/i, /masscan/i, /zgrab/i, /httpclient/i,
+  /okhttp/i, /^java\/\d/i, /scrapy/i, /aiohttp/i, /httpx/i, /fetch(\/|$)/i,
+  /postman/i, /insomnia/i, /httpie/i, /fuzz/i,
+];
+// bot: 搜索引擎爬虫/站点监控/无头浏览器
+const BOT_UA_PATTERNS = [
+  /bot/i, /spider/i, /crawl/i, /uptimerobot/i, /headless/i, /lighthouse/i,
+  /baidu/i, /bing/i, /yandex/i, /sogou/i, /360spider/i, /googlebot/i,
+  /facebookexternalhit/i, /semrush/i, /ahrefs/i, /dotbot/i, /petalbot/i,
+  /bytespider/i, /amazonbot/i, /applebot/i, /duckduckbot/i, /bingbot/i,
+];
+
+function classifyRequest(path: string, ua: string, isApi: boolean): 'normal' | 'scanner' | 'bot' {
+  // 攻击路径特征优先
+  for (const p of SCANNER_PATH_PATTERNS) {
+    if (p.test(path)) return 'scanner';
+  }
+  // 空 UA 的 API 请求（正常浏览器必有 UA）
+  if (isApi && !ua.trim()) return 'scanner';
+  // 扫描工具 UA
+  for (const p of SCANNER_UA_PATTERNS) {
+    if (p.test(ua)) return 'scanner';
+  }
+  // 搜索引擎/监控
+  for (const p of BOT_UA_PATTERNS) {
+    if (p.test(ua)) return 'bot';
+  }
+  return 'normal';
+}
 const VISIT_LOGGER_ENABLED = process.env.VISIT_LOGGER_ENABLED !== 'false';
 const FLUSH_INTERVAL_MS = Math.max(200, parseInt(process.env.VISIT_LOGGER_FLUSH_MS || '1000', 10));
 const BATCH_SIZE = Math.max(10, parseInt(process.env.VISIT_LOGGER_BATCH_SIZE || '30', 10));
@@ -203,8 +257,8 @@ async function flushQueue(force = false): Promise<void> {
 
   try {
     const placeholders = batch.map((_, i) => {
-      const base = i * 19;
-      return `($${base + 1},$${base + 2},$${base + 3},$${base + 4},$${base + 5},$${base + 6},$${base + 7},$${base + 8},$${base + 9},$${base + 10},$${base + 11},$${base + 12},$${base + 13},$${base + 14},$${base + 15},$${base + 16},$${base + 17},$${base + 18},$${base + 19})`;
+      const base = i * 20;
+      return `($${base + 1},$${base + 2},$${base + 3},$${base + 4},$${base + 5},$${base + 6},$${base + 7},$${base + 8},$${base + 9},$${base + 10},$${base + 11},$${base + 12},$${base + 13},$${base + 14},$${base + 15},$${base + 16},$${base + 17},$${base + 18},$${base + 19},$${base + 20})`;
     }).join(',');
     const values = batch.flat();
 
@@ -213,7 +267,7 @@ async function flushQueue(force = false): Promise<void> {
         (ip, visitor_id, country, region, city, latitude, longitude,
          method, path, status, duration_ms,
          user_agent, ua_browser, ua_os, ua_device,
-         referer, bytes_sent, actor_user_id, actor_username)
+         referer, bytes_sent, actor_user_id, actor_username, category)
        VALUES ${placeholders}`,
       values
     );
@@ -297,6 +351,8 @@ export function visitLogger(req: Request, res: Response, next: NextFunction) {
       const bytesRaw = Number(res.getHeader('content-length'));
       const bytes = Number.isFinite(bytesRaw) && bytesRaw >= 0 ? bytesRaw : 0;
 
+      const category = classifyRequest(urlPath, ua, urlPath.startsWith('/api/'));
+
       enqueue([
         ip, visitorId, country, region, city, lat, lon,
         req.method, urlPath.slice(0, 1024), res.statusCode, duration,
@@ -304,6 +360,7 @@ export function visitLogger(req: Request, res: Response, next: NextFunction) {
         referer, bytes,
         authIdentity.userId,
         authIdentity.username,
+        category,
       ]);
     } catch { /* never crash the app */ }
   });
