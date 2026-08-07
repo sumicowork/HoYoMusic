@@ -1,66 +1,193 @@
 import React from 'react';
-import { Card, Typography } from 'antd';
-import { useLocation } from 'react-router-dom';
+import { Card, Tag, Typography } from 'antd';
+import { Link, useLocation } from 'react-router-dom';
 import './LegalPages.css';
 
-const { Title, Paragraph } = Typography;
+const { Title, Paragraph, Text } = Typography;
+
+const TermsDoc: React.FC = () => (
+  <>
+    <Title level={2}>用户协议</Title>
+    <Paragraph type="secondary">
+      版本：v1.1 ｜ 生效日期：2026 年 8 月 7 日 ｜ 适用于 hoyodb.com 全站（含桌面客户端）
+    </Paragraph>
+
+    <Title level={4}>一、服务说明</Title>
+    <Paragraph>
+      本网站（hoyodb.com，以下称"本站"）是 HoYoVerse（米哈游）系列游戏音乐的资料整理与试听网站，向用户提供曲目资料、专辑信息、创作者归属、歌词展示、无损试听，以及评论、评分等互动功能。本站为个人运营的非商业性资料站。
+    </Paragraph>
+    <Paragraph>您使用本站服务，即表示已阅读并同意本协议的全部条款。如您不同意，请停止注册或使用本站。</Paragraph>
+
+    <Title level={4}>二、账号注册与实名认证</Title>
+    <Paragraph>
+      1. 注册账号时，您须提供真实、准确的邮箱与用户名，并通过邮箱验证码完成验证；注册即视为您已阅读并同意本《用户协议》与《隐私政策》。<br />
+      2. 依据《互联网跟帖评论服务管理规定》，发表评论、评分、举报等互动行为须完成基于手机号码的实名认证。手机号仅用于实名认证与账号安全，不会公开显示。<br />
+      3. 您应妥善保管账号与密码，对账号下的一切行为负责；不得冒用他人身份注册，不得转让、出借账号。
+    </Paragraph>
+
+    <Title level={4}>三、用户行为规范</Title>
+    <Paragraph>您发布的内容（包括评论、评分评语等）应当遵守法律法规，遵循公序良俗，不得含有以下内容：</Paragraph>
+    <Paragraph>
+      1. 违反宪法及法律法规，危害国家安全、破坏国家统一的内容；<br />
+      2. 煽动民族仇恨、民族歧视，破坏民族团结的内容；<br />
+      3. 宣扬暴力、恐怖、色情、赌博、毒品的内容；<br />
+      4. 侮辱、诽谤、辱骂、威胁他人，侵害他人合法权益的内容；<br />
+      5. 侵犯他人知识产权、肖像权、隐私权的内容；<br />
+      6. 虚假信息、广告引流、垃圾刷屏、人身骚扰信息；<br />
+      7. 法律法规禁止的其他内容。
+    </Paragraph>
+
+    <Title level={4}>四、用户内容与授权</Title>
+    <Paragraph>
+      1. 您对自己发布的评论、评分等内容享有相应权利（著作权法另有规定的除外）。<br />
+      2. 为提供互动服务之必要，您授予本站一项非独占、可转授权、免许可费、全球范围内的使用许可，用于在本站范围内存储、展示、整理上述内容（不含对外商业利用）。<br />
+      3. 您保证所发布内容不侵犯任何第三方权利。因您发布内容引发的纠纷，由您自行承担责任。
+    </Paragraph>
+
+    <Title level={4}>五、知识产权与版权声明</Title>
+    <Paragraph>
+      1. 本站收录的曲目信息、专辑资料、歌词文本、试听音频、封面图片等，均来源于公开渠道（如官方发布、公开维基资料等），相关知识产权归 miHoYo / HoYoVerse 及相关权利方所有。<br />
+      2. 本站数据库结构、界面设计、程序代码等由本站自行开发，受著作权法保护，未经许可不得复制、传播或用于商业用途。<br />
+      3. 您不得对本网站进行批量抓取、爬取、镜像或利用本站数据构建第三方服务；不得将本站内容用于任何商业用途。
+    </Paragraph>
+    <Paragraph>
+      <Text strong>侵权投诉：</Text>
+      如您认为本站内容（包括音频、歌词、图片等）侵犯了您的合法权益，可通过站内「意见反馈」入口向我们说明具体情况（含权利证明与被投诉内容位置），我们将在核实后依法处理，包括及时移除相关内容。
+    </Paragraph>
+
+    <Title level={4}>六、审核、举报与申诉</Title>
+    <Paragraph>
+      1. 依据《互联网跟帖评论服务管理规定》，本站对用户发布的评论、评分实行先审后发与人工巡查相结合的审核机制，并对发布日志留存不少于 6 个月。<br />
+      2. 您发现违规内容时，可通过评论区「举报」功能向我们举报，我们将及时核实处理。<br />
+      3. 对违反本协议的用户，我们有权采取拒绝发布、删除内容、限制或关闭账号等措施，并保存相关记录。<br />
+      4. 如您对账号处置或内容删除有异议，可通过站内「意见反馈」入口提出申诉，我们将在合理期限内核查并回复。
+    </Paragraph>
+
+    <Title level={4}>七、服务的变更与终止</Title>
+    <Paragraph>
+      1. 本站有权根据运营需要调整、暂停或终止部分或全部服务，并尽可能提前通知。<br />
+      2. 对于严重违反本协议或法律法规的用户，本站有权不经通知直接终止其账号及相关服务。
+    </Paragraph>
+
+    <Title level={4}>八、账号注销</Title>
+    <Paragraph>
+      您可随时停止使用本站服务。如需注销账号，可通过站内「意见反馈」入口提交注销申请（请注明注册邮箱），我们将在核实身份后 15 日内为您办理注销并删除相关个人信息（法律法规要求留存的除外）。
+    </Paragraph>
+
+    <Title level={4}>九、免责声明</Title>
+    <Paragraph>
+      1. 本站资料来源于公开渠道整理，仅供参考，不保证完全准确、完整或最新；因资料误差造成的影响，本站不承担相应责任。<br />
+      2. 用户发布的内容仅代表用户个人观点，不代表本站立场；因用户内容引发的任何纠纷，由用户自行负责。<br />
+      3. 本站提供的音频仅用于资料展示与试听，请支持正版；下载、传播或商业使用音频可能构成侵权，相关责任由行为人自行承担。<br />
+      4. 本站页面可能包含指向第三方网站的链接，对第三方网站的内容与行为不承担责任。
+    </Paragraph>
+
+    <Title level={4}>十、协议的变更</Title>
+    <Paragraph>
+      本站可适时修订本协议，修订后的协议将在本站公布并更新生效日期。协议变更后，如您继续使用本站服务，视为接受修订后的协议；如不同意，您应停止使用。
+    </Paragraph>
+
+    <Title level={4}>十一、法律适用与争议解决</Title>
+    <Paragraph>
+      本协议的订立、执行与解释均适用中华人民共和国法律。因本协议产生的争议，双方应友好协商解决；协商不成的，任何一方可向本站运营者所在地有管辖权的人民法院提起诉讼。
+    </Paragraph>
+
+    <Title level={4}>十二、联系我们</Title>
+    <Paragraph>如您对本协议有任何疑问，可通过站内「意见反馈」入口（页面右下角反馈按钮）与我们联系。</Paragraph>
+  </>
+);
+
+const PrivacyDoc: React.FC = () => (
+  <>
+    <Title level={2}>隐私政策</Title>
+    <Paragraph type="secondary">
+      版本：v1.1 ｜ 生效日期：2026 年 8 月 7 日 ｜ 适用于 hoyodb.com 全站（含桌面客户端）
+    </Paragraph>
+    <Paragraph>
+      本网站（hoyodb.com，以下称"本站"）重视并保护您的个人信息。本政策说明我们如何收集、使用、存储和保护您的信息。我们仅收集提供服务所必需的信息，并在最小范围内处理。
+    </Paragraph>
+
+    <Title level={4}>一、我们收集的信息</Title>
+    <Paragraph>
+      1. 注册信息：用户名、邮箱（用于账号注册与验证码验证）。<br />
+      2. 实名信息：手机号（发表评论、评分前的实名认证所需，依据《互联网跟帖评论服务管理规定》）。<br />
+      3. 使用信息：IP 地址、浏览器 User-Agent（用于评论发布日志留存及安全防护，留存期限不少于 6 个月）。<br />
+      4. 本地存储信息：主题偏好、播放队列等（仅保存在您设备本地，见本政策第六条）。
+    </Paragraph>
+
+    <Title level={4}>二、敏感个人信息的单独说明</Title>
+    <Paragraph>
+      您的手机号属于《个人信息保护法》规定的敏感个人信息。我们仅在您主动发起手机号实名认证时收集，用于真实身份核验与账号安全，不用于任何其他目的（包括不用于营销）。您可以通过"我的-手机号绑定"处查看绑定状态，绑定信息仅以脱敏形式（如 138****1234）向您本人展示。
+    </Paragraph>
+
+    <Title level={4}>三、信息的使用目的</Title>
+    <Paragraph>
+      1. 手机号：仅用于实名认证与账号安全，绝不公开、绝不用于营销推广。<br />
+      2. 邮箱：用于账号注册、找回密码等账号服务。<br />
+      3. 评论日志（含 IP、UA）：仅用于内容安全审核、垃圾与攻击防护，以及依法配合监管要求。
+    </Paragraph>
+
+    <Title level={4}>四、第三方服务</Title>
+    <Paragraph>
+      1. 短信验证码：由阿里云短信服务发送，您的手机号将传输至该服务商用于验证码投递；我们与服务商之间的数据处理受相关协议约束。<br />
+      2. 文件存储：音频、歌词、图片等文件存储于对象存储服务（OSS）。<br />
+      3. 服务器托管：网站部署于中国境内云服务器。除上述为提供服务所必需的情形外，我们不会向任何第三方提供您的个人信息。
+    </Paragraph>
+
+    <Title level={4}>五、信息的存储与保护</Title>
+    <Paragraph>
+      1. 您的个人信息存储于中国境内的服务器，不向境外传输。<br />
+      2. 密码以加密（bcrypt）形式存储；手机号、邮箱等敏感字段采用加密与访问控制措施。<br />
+      3. 评论日志（含 IP、UA）留存不少于 6 个月，期满后定期清理；评论内容采用软删除机制，您删除评论后内容不再公开显示。<br />
+      4. 我们采取必要的技术和管理措施（访问控制、日志审计、定期备份等）防止信息泄露、损毁或丢失。
+    </Paragraph>
+
+    <Title level={4}>六、Cookie 与本地存储</Title>
+    <Paragraph>
+      本站不向您设备写入跟踪类 Cookie。为提供正常功能，我们使用浏览器本地存储（localStorage）保存：登录凭证、主题偏好（深色/浅色）、播放队列与音量等。上述数据仅存于您的设备，不上传服务器，您可随时在浏览器设置中清除。
+    </Paragraph>
+
+    <Title level={4}>七、您的权利</Title>
+    <Paragraph>
+      依据《个人信息保护法》，您享有以下权利：<br />
+      1. 访问与更正：在"我的"页面查看并修改您的用户名、手机号绑定状态等。<br />
+      2. 删除：您可删除自己发布的评论；对不再需要的个人信息，可申请删除。<br />
+      3. 注销账号：通过站内「意见反馈」入口提交注销申请（注明注册邮箱），我们将在核实身份后 15 日内注销账号并删除相关个人信息（法律法规要求留存的除外）。<br />
+      4. 撤回同意：您可随时停止使用相关功能；撤回同意不影响撤回前基于同意已进行的处理。
+    </Paragraph>
+
+    <Title level={4}>八、未成年人保护</Title>
+    <Paragraph>
+      本站内容面向全年龄用户。未满 14 周岁的儿童使用本站须取得监护人同意并由监护人陪同；监护人可通过站内「意见反馈」入口要求我们删除被监护儿童的个人信息。我们不会主动收集儿童个人信息。
+    </Paragraph>
+
+    <Title level={4}>九、政策的更新</Title>
+    <Paragraph>
+      本政策可能适时更新，更新后将在本站公布并更新生效日期。重大变更我们将以更显著的方式提示您。政策变更后，如您继续使用本站服务，视为接受更新后的政策。
+    </Paragraph>
+
+    <Title level={4}>十、联系我们</Title>
+    <Paragraph>如您对本政策或个人信息处理有任何疑问、意见或投诉，可通过站内「意见反馈」入口（页面右下角反馈按钮）与我们联系，我们将在合理期限内回复处理。</Paragraph>
+  </>
+);
 
 const LegalPages: React.FC = () => {
   const location = useLocation();
-  const doc = location.pathname.includes('privacy') ? 'privacy' : location.pathname.includes('terms') ? 'terms' : 'terms';
+  const path = location.pathname;
+  const doc = path.includes('privacy') ? 'privacy' : path.includes('terms') || path.includes('/legal/') ? 'terms' : 'terms';
 
   return (
     <div className="legal-page">
       <Card className="legal-card">
-        {doc === 'privacy' ? (
-          <>
-            <Title level={2}>隐私政策</Title>
-            <Paragraph>本网站（hoyodb.com）重视并保护您的个人信息。本政策说明我们如何收集、使用、存储和保护您的信息。</Paragraph>
-            <Title level={4}>一、我们收集的信息</Title>
-            <Paragraph>
-              1. 注册信息：用户名、密码（加密存储）、邮箱（用于注册验证）。<br />
-              2. 实名信息：手机号（用于发表评论前的实名认证，依据《互联网跟帖评论服务管理规定》后台实名要求）。<br />
-              3. 使用信息：IP 地址、浏览器信息（用于评论日志留存及安全防护，留存期限不少于 6 个月）。
-            </Paragraph>
-            <Title level={4}>二、信息的使用</Title>
-            <Paragraph>手机号仅用于实名认证与账号安全；日志信息仅用于内容安全管理和依法配合监管。</Paragraph>
-            <Title level={4}>三、信息的存储与保护</Title>
-            <Paragraph>手机号等敏感信息加密存储；我们采取必要的技术和管理措施防止信息泄露。</Paragraph>
-            <Title level={4}>四、您的权利</Title>
-            <Paragraph>您可随时修改或注销账号；如对个人信息处理有疑问，可通过网站联系方式与我们联系。</Paragraph>
-            <Title level={4}>五、未成年人保护</Title>
-            <Paragraph>本网站内容面向全年龄用户；未满 14 周岁的未成年人请在监护人指导下使用。</Paragraph>
-          </>
-        ) : (
-          <>
-            <Title level={2}>用户协议</Title>
-            <Paragraph>欢迎使用本网站。使用本网站即表示您同意以下条款。</Paragraph>
-            <Title level={4}>一、账号与实名</Title>
-            <Paragraph>
-              1. 注册账号须提供真实、准确的信息。<br />
-              2. 发表评论前须完成手机号实名认证（依据《互联网跟帖评论服务管理规定》）。<br />
-              3. 不得冒用他人身份注册或发表内容。
-            </Paragraph>
-            <Title level={4}>二、社区规范</Title>
-            <Paragraph>
-              发表评论（含评分评语）应当遵守法律法规，遵循公序良俗，不得发布以下内容：<br />
-              1. 违反法律法规、危害国家安全、破坏国家统一的内容；<br />
-              2. 煽动民族仇恨、民族歧视，破坏民族团结的内容；<br />
-              3. 宣扬暴力、色情、赌博、毒品的内容；<br />
-              4. 侮辱、诽谤、辱骂他人，侵害他人合法权益的内容；<br />
-              5. 虚假信息、广告引流、垃圾信息；<br />
-              6. 其他法律法规禁止的内容。
-            </Paragraph>
-            <Title level={4}>三、审核与处置</Title>
-            <Paragraph>
-              评论发布后经系统审核与人工巡查。对违反本规范的用户，我们有权采取拒绝发布、删除内容、限制或关闭账号、禁止重新注册等措施，并保存相关记录。
-            </Paragraph>
-            <Title level={4}>四、举报与申诉</Title>
-            <Paragraph>您可对违规内容进行举报；对被处置内容有异议的，可通过网站联系方式提出申诉。</Paragraph>
-            <Title level={4}>五、免责声明</Title>
-            <Paragraph>本站为米哈游（HoYoVerse）游戏音乐资料与试听站，站内资料来源于公开渠道，版权归原权利方所有。</Paragraph>
-          </>
-        )}
+        <div style={{ marginBottom: 16 }}>
+          <Tag color={doc === 'terms' ? 'blue' : 'default'}>
+            <Link to="/terms" style={{ color: 'inherit' }}>用户协议</Link>
+          </Tag>
+          <Tag color={doc === 'privacy' ? 'blue' : 'default'} style={{ marginLeft: 8 }}>
+            <Link to="/privacy" style={{ color: 'inherit' }}>隐私政策</Link>
+          </Tag>
+        </div>
+        {doc === 'privacy' ? <PrivacyDoc /> : <TermsDoc />}
       </Card>
     </div>
   );

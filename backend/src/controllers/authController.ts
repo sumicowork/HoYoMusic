@@ -140,7 +140,16 @@ export const register = async (req: Request, res: Response) => {
       verification_code: string;
       password: string;
       confirm_password: string;
+      accept_terms?: boolean;
     };
+
+    // 合规：《互联网跟帖评论服务管理规定》第5条① 须与注册用户签订服务协议
+    if (body.accept_terms !== true) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'TERMS_NOT_ACCEPTED', message: '请先阅读并同意《用户协议》和《隐私政策》' },
+      });
+    }
 
     if (body.password !== body.confirm_password) {
       return res.status(400).json({
@@ -235,8 +244,8 @@ export const register = async (req: Request, res: Response) => {
 
     const passwordHash = await bcrypt.hash(body.password, 10);
     const userInsert = await client.query(
-      `INSERT INTO users (username, email, email_verified, is_admin, account_status, password_hash)
-       VALUES ($1, $2, TRUE, FALSE, 'active', $3)
+      `INSERT INTO users (username, email, email_verified, is_admin, account_status, password_hash, accept_terms_at)
+       VALUES ($1, $2, TRUE, FALSE, 'active', $3, NOW())
        RETURNING id, username, email, email_verified, is_admin, account_status`,
       [username, email, passwordHash]
     );

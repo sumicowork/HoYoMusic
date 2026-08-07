@@ -17,6 +17,8 @@ export const registerSchema = z.object({
   verification_code: z.string().trim().regex(/^\d{6}$/, 'verification_code must be 6 digits'),
   password: z.string().min(6, 'password must be at least 6 characters').max(200),
   confirm_password: z.string().min(6).max(200),
+  // 合规：《互联网跟帖评论服务管理规定》第5条① 必须显式同意服务协议
+  accept_terms: z.literal(true, { message: '请先阅读并同意《用户协议》和《隐私政策》' }),
 });
 
 // ── Album ─────────────────────────────────────────────────────────

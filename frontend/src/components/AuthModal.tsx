@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Button, Form, Input, Modal, Space, Typography, message } from 'antd';
+import { Alert, Button, Checkbox, Form, Input, Modal, Space, Typography, message } from 'antd';
 import type { InputRef } from 'antd';
 import { LockOutlined, MailOutlined, UserOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
@@ -37,6 +37,7 @@ const AuthModal: React.FC = () => {
     verification_code: string;
     password: string;
     confirm_password: string;
+    accept_terms: boolean;
   }>();
 
   type RegisterFormValues = {
@@ -45,6 +46,7 @@ const AuthModal: React.FC = () => {
     verification_code: string;
     password: string;
     confirm_password: string;
+    accept_terms: boolean;
   };
 
   useEffect(() => {
@@ -156,6 +158,7 @@ const AuthModal: React.FC = () => {
         ...values,
         email: normalizedEmail,
         verification_challenge_id: verificationChallengeId,
+        accept_terms: true,
       };
       const result = await authService.register(payload);
       setToken(result.token);
@@ -299,6 +302,30 @@ const AuthModal: React.FC = () => {
                 ]}
               >
                 <Input.Password prefix={<LockOutlined />} placeholder="请再次输入密码" />
+              </Form.Item>
+
+              <Form.Item
+                name="accept_terms"
+                valuePropName="checked"
+                rules={[
+                  {
+                    validator: (_, value) =>
+                      value
+                        ? Promise.resolve()
+                        : Promise.reject(new Error('请先阅读并同意《用户协议》和《隐私政策》')),
+                  },
+                ]}
+              >
+                <Checkbox style={{ fontSize: 13 }}>
+                  我已阅读并同意{' '}
+                  <a href="/terms" target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                    《用户协议》
+                  </a>{' '}
+                  和{' '}
+                  <a href="/privacy" target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                    《隐私政策》
+                  </a>
+                </Checkbox>
               </Form.Item>
 
               <Form.Item style={{ marginBottom: 0 }}>

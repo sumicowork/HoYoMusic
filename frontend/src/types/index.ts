@@ -120,6 +120,7 @@ export interface RegisterRequest {
   verification_code: string;
   password: string;
   confirm_password: string;
+  accept_terms: boolean;
 }
 
 export interface LoginResponse {

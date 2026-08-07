@@ -28,6 +28,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { path: '/admin/games', label: '游戏管理', sectionKey: 'taxonomy' },
 
   { path: '/admin/users', label: '用户管理', sectionKey: 'operations' },
+  { path: '/admin/comments', label: '评论审核', sectionKey: 'operations' },
   { path: '/admin/analytics', label: '访问统计', sectionKey: 'operations' },
 
   { path: '/admin/settings', label: '系统设置', sectionKey: 'system' },
