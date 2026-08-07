@@ -4,6 +4,8 @@ import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { CommentTargetType } from '../services/commentService';
+import AdminLayout from '../components/AdminLayout';
+import AdminPageHeader from '../components/admin/AdminPageHeader';
 
 const { Text, Paragraph } = Typography;
 
@@ -103,8 +105,13 @@ const CommentReview: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: 24 }}>
-      <Card title="评论管理">
+    <AdminLayout>
+      <div className="comment-review-page" style={{ padding: 24 }}>
+        <AdminPageHeader
+          title="评论审核"
+          description="审核用户评论与举报处理，保障内容合规。"
+        />
+        <Card title="评论管理">
         <Tabs
           activeKey={tab}
           onChange={(k) => setTab(k as 'pending' | 'reports')}
@@ -187,7 +194,8 @@ const CommentReview: React.FC = () => {
           <Pagination current={reportPage} total={reportTotal} pageSize={20} onChange={loadReports} style={{ marginTop: 16, textAlign: 'center' }} />
         )}
       </Card>
-    </div>
+      </div>
+    </AdminLayout>
   );
 };
 
