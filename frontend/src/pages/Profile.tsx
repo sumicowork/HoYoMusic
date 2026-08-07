@@ -151,6 +151,34 @@ const Profile: React.FC = () => {
     navigate('/', { replace: true });
   };
 
+  // ── 账号注销（落实用户协议承诺：核实身份后办理注销并删除个人信息）──
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    if (!deletePassword) {
+      message.warning('请输入密码确认注销');
+      return;
+    }
+    setDeleting(true);
+    try {
+      const resp = await authService.deleteAccount(deletePassword);
+      if (resp?.success) {
+        message.success('账号已注销，感谢使用');
+        setDeleteOpen(false);
+        logout();
+        navigate('/', { replace: true });
+      } else {
+        message.error(resp?.error?.message || '注销失败，请稍后重试');
+      }
+    } catch (e: any) {
+      message.error(e?.response?.data?.error?.message || '注销失败，请稍后重试');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="profile-page">
       <Card className="profile-hero" bordered={false}>
@@ -341,6 +369,46 @@ const Profile: React.FC = () => {
             onChange={(event) => setNewPlaylistDesc(event.target.value)}
             rows={3}
             maxLength={500}
+          />
+        </Space>
+      </Modal>
+
+      {/* 危险区：账号注销 */}
+      <Card
+        title={<span style={{ color: '#ff4d4f' }}>危险操作</span>}
+        className="profile-module-card"
+        style={{ marginTop: 16, borderColor: '#ffccc7' }}
+      >
+        <Space direction="vertical" size={8} style={{ width: '100%' }}>
+          <Typography.Text type="secondary">
+            注销后：账号将无法登录，收藏、歌单、站内信将被删除；已发表的评论与评分将保留但显示为「已注销用户」。
+            注销流程需验证密码，核实后立即办理。
+          </Typography.Text>
+          <Button danger onClick={() => setDeleteOpen(true)}>
+            注销账号
+          </Button>
+        </Space>
+      </Card>
+
+      <Modal
+        title="确认注销账号"
+        open={deleteOpen}
+        onCancel={() => setDeleteOpen(false)}
+        onOk={() => void handleDeleteAccount()}
+        okText="确认注销"
+        okButtonProps={{ danger: true }}
+        cancelText="取消"
+        confirmLoading={deleting}
+      >
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <Typography.Text type="danger">
+            此操作不可撤销。注销后账号将永久停用，个人数据将被删除或匿名化处理。
+          </Typography.Text>
+          <Input.Password
+            placeholder="请输入登录密码以确认"
+            value={deletePassword}
+            onChange={(event) => setDeletePassword(event.target.value)}
+            maxLength={128}
           />
         </Space>
       </Modal>

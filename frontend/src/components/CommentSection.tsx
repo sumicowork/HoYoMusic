@@ -234,7 +234,7 @@ const CommentSection: React.FC<Props> = ({ targetType, targetId }) => {
             <List.Item.Meta
               title={
                 <span>
-                  <Text strong>{c.user.username}</Text>
+                  <Text strong>{String(c.user.username || '').startsWith('user_deleted_') ? '已注销用户' : c.user.username}</Text>
                   <Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>
                     {new Date(c.created_at).toLocaleString('zh-CN')}
                   </Text>

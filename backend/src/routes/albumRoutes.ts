@@ -16,8 +16,15 @@ import { validateBody } from '../middleware/validate';
 import { updateAlbumSchema, bulkUpdateGameSchema } from '../validators/schemas';
 import { cacheControl, CACHE_TTL } from '../middleware/cacheHeaders';
 import { authenticateAdmin } from '../middleware/auth';
+import { authenticateStream } from '../middleware/authenticateStream';
 
 const router = express.Router();
+
+// ── 全局下载开关（与单曲下载对齐：DOWNLOAD_ENABLED 控制，2026-08-07 体检修复）──
+const DOWNLOAD_ENABLED = process.env.DOWNLOAD_ENABLED === 'true';
+const downloadDisabled = (_req: express.Request, res: express.Response) =>
+  res.status(503).json({ success: false, error: { code: 'DOWNLOAD_DISABLED', message: '下载功能暂时关闭，服务器维护中。' } });
+// ──────────────────────────────────────────────────────────────────
 
 // Public routes (cached)
 /**
@@ -107,7 +114,7 @@ router.get('/:id', cacheControl(CACHE_TTL.SHORT), getAlbumById);
  *           application/json:
  *             schema: { $ref: '#/components/schemas/Error' }
  */
-router.get('/:id/download', downloadAlbum);
+router.get('/:id/download', authenticateStream, cacheControl(86400, { immutable: true }), DOWNLOAD_ENABLED ? downloadAlbum : downloadDisabled);
 
 // Protected routes
 /**

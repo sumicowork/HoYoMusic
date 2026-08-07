@@ -7,6 +7,7 @@ import {
   register,
   sendPhoneCode,
   bindPhone,
+  deleteAccount,
 } from '../controllers/authController';
 import { authenticateJWT } from '../middleware/auth';
 import { noStore } from '../middleware/cacheHeaders';
@@ -183,5 +184,8 @@ router.post('/change-password', authenticateJWT as any, changePassword);
 // 手机号实名（评论功能前置：后台实名认证）
 router.post('/send-phone-code', sendPhoneCode);
 router.post('/bind-phone', authenticateJWT as any, bindPhone);
+
+// 账号注销（密码验证 → 匿名化 + 禁用；管理员不允许自助注销）
+router.post('/delete-account', authenticateJWT as any, deleteAccount);
 
 export default router;

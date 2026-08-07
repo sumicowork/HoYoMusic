@@ -352,7 +352,8 @@ const runMigrations = async () => {
     `);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_playlists_user ON playlists(user_id)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_playlist_tracks_playlist ON playlist_tracks(playlist_id)`);
-    await pool.query(`UPDATE playlists SET is_public = FALSE WHERE is_public = TRUE`);
+    // NOTE: 曾有一次性的 `UPDATE playlists SET is_public=FALSE WHERE is_public=TRUE`，
+    // 每次启动强制清空公开歌单设置，与歌单公开功能矛盾——已移除（2026-08-07 体检修复）
   } catch (e) { console.error('migration playlists:', e); }
 
   // 4. favorites
@@ -671,11 +672,8 @@ const runMigrations = async () => {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_auth_codes_challenge ON auth_verification_codes (challenge_id)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_auth_codes_email ON auth_verification_codes (LOWER(email), created_at DESC)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_auth_codes_expires ON auth_verification_codes (expires_at)`);
-    await pool.query(`
-      UPDATE users
-      SET email_verified = TRUE, is_admin = TRUE, account_status = 'active', status_reason = NULL
-      WHERE username = 'admin'
-    `);
+    // NOTE: 曾有一次性的 admin 账号重置 UPDATE（强制 email_verified/is_admin/active），
+    // 每次重启会还原后台对 admin 的禁用/降权——已移除（2026-08-07 体检修复）
   } catch (e) { console.error('migration users_auth_extensions:', e); }
 
   // 16. feedback_messages
@@ -693,15 +691,9 @@ const runMigrations = async () => {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_feedback_messages_created_at ON feedback_messages (created_at DESC)`);
   } catch (e) { console.error('migration feedback_messages:', e); }
 
-  // 17. drop the *legacy* track_artists join table only.
-  //     IMPORTANT: `artists` is now a REAL canonical table (created by migration
-  //     0002 + populated by scripts/backfillArtists.ts). It must NEVER be dropped
-  //     here — an earlier version of this step dropped `artists CASCADE` on every
-  //     boot, which silently wiped the creator entity table. Do not reintroduce
-  //     that drop without also removing the migration + backfill pipeline first.
-  try {
-    await pool.query(`DROP TABLE IF EXISTS track_artists CASCADE`);
-  } catch (e) { console.error('migration drop_legacy_track_artists:', e); }
+  // 17. (REMOVED 2026-08-07) 曾在此处 DROP 旧 join 表 track_artists——启动路径不应含 DDL，
+  //     已移除；`artists` 是真实规范表（迁移 0002 + backfill 填充），永不可在此 DROP。
+  //     若 track_artists 确实需要清理，走 backend/db/migrations/ 一次性迁移。
 
   // 18. lyrics_analysis (AI 歌词分析：清洗后文本 + 分析状态)
   //     status: none=未分析 / pending=排队中 / done=完成 / failed=失败(可重试) / review=待人工确认

@@ -19,14 +19,17 @@ const VALID_IDS = new Set(
 
 (async () => {
   const tracks = await fetchTracks(null);
-  const lrcs = listLrcFiles('D:/CreditDebug/QQ音乐下载');
+  const LRC_ROOTS = ['D:/CreditDebug/QQ音乐下载'];
+  const lrcs = listLrcFiles(LRC_ROOTS[0]);
   const manifest: string[] = [];
   const skipped: string[] = [];
   const unmatched: string[] = [];
 
   for (const f of lrcs) {
     const base = path.basename(f);
-    const track = matchTrackByFilename(base, tracks);
+    // 专辑目录名作为匹配约束：同曲双收（同名不同专辑、内容不同）必须各归其位
+    const albumHint = path.basename(path.dirname(f));
+    const track = matchTrackByFilename(base, tracks, albumHint);
     if (!track) {
       unmatched.push(base);
       continue;
@@ -35,7 +38,13 @@ const VALID_IDS = new Set(
       skipped.push(`${track.id}\t${base}`);
       continue;
     }
-    const rel = f.replace(/\\/g, '/').replace('D:/CreditDebug/QQ音乐下载/', '');
+    let rel = f.replace(/\\/g, '/');
+    for (const root of LRC_ROOTS) {
+      if (rel.startsWith(root.replace(/\\/g, '/'))) {
+        rel = rel.slice(root.length).replace(/^\//, '');
+        break;
+      }
+    }
     manifest.push(`${track.id}\t${rel}`);
   }
 

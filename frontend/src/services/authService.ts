@@ -90,5 +90,11 @@ export const authService = {
       throw new Error(getApiErrorMessage(error, '绑定失败'));
     }
   },
+
+  // 账号注销（密码确认；成功即返回，调用方负责登出）
+  async deleteAccount(password: string): Promise<ApiResponse<{ message: string }>> {
+    const response = await api.post<ApiResponse<{ message: string }>>('/auth/delete-account', { password });
+    return response.data;
+  },
 };
 

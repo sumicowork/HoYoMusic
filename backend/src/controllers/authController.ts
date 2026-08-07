@@ -488,3 +488,73 @@ export const changePassword = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Failed to change password' } });
   }
 };
+
+/**
+ * 账号注销（P0-2 体检修复：落实用户协议"注销并删除个人信息"承诺）
+ * 流程：密码验证 → 匿名化个人标识（用户名/邮箱/手机号/密码）→ account_status='deleted'
+ *       → token_version+1 使旧 token 全部失效 → 清理收藏/歌单/站内信（个人内容）
+ * 保留：评论/评分/举报（内容展示与合规留痕需要，外键引用 users，显示为"已注销用户"）、
+ *       sms_send_log/visit_logs（监管留存），均已匿名化无个人可识别信息。
+ * 约束：管理员账号不允许自助注销（避免唯一管理入口失控，后台有禁用/降权流程）。
+ */
+export const deleteAccount = async (req: Request, res: Response) => {
+  const user = req.user as any;
+  try {
+    const { password } = req.body || {};
+    if (!password || typeof password !== 'string') {
+      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: '请输入密码以确认注销' } });
+    }
+
+    if (user.is_admin) {
+      return res.status(403).json({ success: false, error: { code: 'ADMIN_CANNOT_SELF_DELETE', message: '管理员账号不支持自助注销，请联系平台处理' } });
+    }
+
+    const result = await pool.query('SELECT password_hash FROM users WHERE id = $1', [user.id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: '用户不存在' } });
+    }
+
+    const isMatch = await bcrypt.compare(password, result.rows[0].password_hash);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, error: { code: 'WRONG_PASSWORD', message: '密码不正确' } });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      // 匿名化个人标识（username 唯一约束 → 生成随机后缀；email/phone 无唯一约束可置 NULL）
+      const suffix = randomBytesHex(4);
+      const deadHash = await bcrypt.hash(randomBytesHex(16), 10);
+      await client.query(
+        `UPDATE users
+         SET username = $1, email = NULL, phone = NULL,
+             password_hash = $2, account_status = 'deleted', deleted_at = CURRENT_TIMESTAMP,
+             token_version = token_version + 1, is_admin = FALSE,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $3`,
+        [`user_deleted_${suffix}`, deadHash, user.id]
+      );
+      // 清理个人内容（评论/评分保留：内容展示与审计需要，外键引用 users）
+      await client.query('DELETE FROM favorites WHERE user_id = $1', [user.id]);
+      await client.query('DELETE FROM playlists WHERE user_id = $1', [user.id]); // playlist_tracks 级联
+      await client.query('DELETE FROM site_messages WHERE sender_user_id = $1 OR receiver_user_id = $1', [user.id]);
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+
+    res.json({ success: true, data: { message: '账号已注销，个人数据已删除或匿名化处理' } });
+  } catch (error) {
+    console.error('Delete account error:', error);
+    res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: '注销失败，请稍后重试' } });
+  }
+};
+
+function randomBytesHex(len: number): string {
+  const bytes = require('crypto').randomBytes(len);
+  return bytes.toString('hex');
+}
+

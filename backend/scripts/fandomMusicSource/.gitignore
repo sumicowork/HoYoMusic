@@ -1,0 +1,3 @@
+# generated crawler cache & outputs (reproducible via the scripts)
+.cache/
+out/

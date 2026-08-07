@@ -14,7 +14,7 @@ import tempfile
 
 FLAC_EXE = r"C:\Users\sumi\WebstormProjects\HoYoMusic\.workbuddy\flac-tools\flac-1.5.0-win\Win64\flac.exe"
 METAF_EXE = r"C:\Users\sumi\WebstormProjects\HoYoMusic\.workbuddy\flac-tools\flac-1.5.0-win\Win64\metaflac.exe"
-SRC_DIR = r"D:\补充"
+SRC_DIR = r"D:/补充/plus/待上传新专辑/ZENLESS"
 TEMP_WAV_DIR = tempfile.mkdtemp(prefix="flac_recompress_")
 
 def extract_tags(flac_path):
@@ -119,7 +119,9 @@ def recompress(flac_path):
     return success
 
 def main():
-    flac_files = sorted(glob.glob(os.path.join(SRC_DIR, "*", "*.flac")))
+    flac_files = sorted(glob.glob(os.path.join(SRC_DIR, "*.flac")))
+    if not flac_files:
+        flac_files = sorted(glob.glob(os.path.join(SRC_DIR, "*", "*.flac")))
     total = len(flac_files)
     print(f"Found {total} FLAC files across {len(set(os.path.dirname(f) for f in flac_files))} albums\n")
     
