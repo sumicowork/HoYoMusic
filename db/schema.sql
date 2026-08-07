@@ -2,10 +2,10 @@
 -- PostgreSQL database dump
 --
 
-\restrict HS9l8Nqfuscacck1g9zrrekDmlGsP2snveWuR9HLfMN1mFbHBzaV9I0kQy2Cjlf
+\restrict AhQtm2Ct59BLfDDU1I5UFzkasB7kyQJX6y2Dury8thUjeLGlhmx3EY0eQHUKQXn
 
--- Dumped from database version 18.1
--- Dumped by pg_dump version 18.1
+-- Dumped from database version 18.2
+-- Dumped by pg_dump version 18.2
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -75,23 +75,6 @@ COMMENT ON FUNCTION public.get_tag_path(tag_id integer) IS 'Get full hierarchica
 
 
 --
--- Name: table_counts(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.table_counts() RETURNS TABLE(tname text, n bigint)
-    LANGUAGE plpgsql
-    AS $$
-DECLARE r record;
-BEGIN
-  FOR r IN SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'
-  LOOP
-    RETURN QUERY EXECUTE format('SELECT %L::text, count(*) FROM %I', r.table_name, r.table_name);
-  END LOOP;
-END;
-$$;
-
-
---
 -- Name: update_artist_avatar_timestamp(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -152,16 +135,6 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
--- Name: _migrations; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public._migrations (
-    name text NOT NULL,
-    applied_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
 -- Name: album_discs; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -209,7 +182,9 @@ CREATE TABLE public.albums (
     notes text,
     uuid uuid DEFAULT gen_random_uuid(),
     title_cn character varying(500),
-    title_en character varying(500)
+    title_en character varying(500),
+    source_type character varying(20) DEFAULT 'NORMAL'::character varying NOT NULL,
+    CONSTRAINT albums_source_type_check CHECK (((source_type)::text = ANY ((ARRAY['NORMAL'::character varying, 'EXTRA'::character varying])::text[])))
 );
 
 
@@ -390,14 +365,15 @@ ALTER SEQUENCE public.artists_id_seq OWNED BY public.artists.id;
 
 CREATE TABLE public.auth_verification_codes (
     id bigint NOT NULL,
-    email character varying(200) NOT NULL,
+    email character varying(200),
     code_hash character varying(255) NOT NULL,
     expires_at timestamp with time zone NOT NULL,
     consumed_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     attempt_count integer DEFAULT 0 NOT NULL,
     locked_until timestamp with time zone,
-    challenge_id uuid
+    challenge_id uuid,
+    phone character varying(20)
 );
 
 
@@ -503,6 +479,122 @@ ALTER SEQUENCE public.catalog_metadata_import_changes_id_seq OWNED BY public.cat
 
 
 --
+-- Name: comments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.comments (
+    id bigint NOT NULL,
+    target_type character varying(20) NOT NULL,
+    target_id integer NOT NULL,
+    user_id integer NOT NULL,
+    content text NOT NULL,
+    status character varying(20) DEFAULT 'pending'::character varying NOT NULL,
+    ip character varying(64),
+    user_agent character varying(500),
+    report_count integer DEFAULT 0 NOT NULL,
+    deleted_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    reviewed_by integer,
+    reviewed_at timestamp with time zone,
+    deleted_by integer,
+    CONSTRAINT comments_content_check CHECK (((length(content) >= 1) AND (length(content) <= 2000))),
+    CONSTRAINT comments_status_check CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'approved'::character varying, 'rejected'::character varying])::text[]))),
+    CONSTRAINT comments_target_type_check CHECK (((target_type)::text = ANY ((ARRAY['track'::character varying, 'album'::character varying, 'game'::character varying, 'artist'::character varying])::text[])))
+);
+
+
+--
+-- Name: comments_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.comments_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: comments_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.comments_id_seq OWNED BY public.comments.id;
+
+
+--
+-- Name: credit_role_map; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.credit_role_map (
+    role_key character varying(200) NOT NULL,
+    role_norm character varying(100) NOT NULL,
+    role_en character varying(200),
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+--
+-- Name: esa_edge_logs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.esa_edge_logs (
+    id bigint NOT NULL,
+    req_id character varying(64) NOT NULL,
+    ts timestamp with time zone NOT NULL,
+    host character varying(200) NOT NULL,
+    method character varying(10),
+    scheme character varying(10),
+    uri character varying(2048),
+    referer character varying(1024),
+    ua character varying(1024),
+    ua_browser character varying(128),
+    ua_os character varying(128),
+    ua_device character varying(64),
+    status integer,
+    cache_status character varying(32),
+    ttfbm_ms integer,
+    req_bytes integer,
+    resp_bytes bigint,
+    country character varying(8),
+    region character varying(128),
+    isp character varying(128),
+    client_ip character varying(64),
+    ingested_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: esa_edge_logs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.esa_edge_logs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: esa_edge_logs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.esa_edge_logs_id_seq OWNED BY public.esa_edge_logs.id;
+
+
+--
+-- Name: esa_log_ingest_state; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.esa_log_ingest_state (
+    log_name character varying(255) NOT NULL,
+    ingested_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: favorites; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -584,6 +676,41 @@ ALTER SEQUENCE public.games_id_seq OWNED BY public.games.id;
 
 
 --
+-- Name: genshin_terms_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.genshin_terms_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: genshin_terms; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.genshin_terms (
+    id integer DEFAULT nextval('public.genshin_terms_id_seq'::regclass) NOT NULL,
+    wiki character varying(40) DEFAULT 'genshin'::character varying NOT NULL,
+    en_name character varying(300) NOT NULL,
+    category character varying(80),
+    zhs character varying(300),
+    zht character varying(300),
+    ja character varying(300),
+    ko character varying(300),
+    source_page character varying(300),
+    status character varying(20) DEFAULT 'pending'::character varying NOT NULL,
+    note text,
+    uuid uuid DEFAULT gen_random_uuid(),
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+--
 -- Name: music_source_categories; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -595,7 +722,9 @@ CREATE TABLE public.music_source_categories (
     display_order integer DEFAULT 0 NOT NULL,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    uuid uuid DEFAULT gen_random_uuid()
+    uuid uuid DEFAULT gen_random_uuid(),
+    en_name character varying(200),
+    translation_status character varying(20) DEFAULT 'translated'::character varying NOT NULL
 );
 
 
@@ -632,7 +761,9 @@ CREATE TABLE public.music_source_nodes (
     display_order integer DEFAULT 0 NOT NULL,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    uuid uuid DEFAULT gen_random_uuid()
+    uuid uuid DEFAULT gen_random_uuid(),
+    en_name character varying(200),
+    translation_status character varying(20) DEFAULT 'pending'::character varying NOT NULL
 );
 
 
@@ -705,6 +836,79 @@ ALTER SEQUENCE public.playlists_id_seq OWNED BY public.playlists.id;
 
 
 --
+-- Name: ratings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.ratings (
+    id bigint NOT NULL,
+    target_type character varying(20) NOT NULL,
+    target_id integer NOT NULL,
+    user_id integer NOT NULL,
+    score smallint NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT ratings_score_check CHECK (((score >= 1) AND (score <= 5))),
+    CONSTRAINT ratings_target_type_check CHECK (((target_type)::text = ANY ((ARRAY['track'::character varying, 'album'::character varying, 'game'::character varying, 'artist'::character varying])::text[])))
+);
+
+
+--
+-- Name: ratings_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.ratings_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: ratings_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.ratings_id_seq OWNED BY public.ratings.id;
+
+
+--
+-- Name: reports; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.reports (
+    id bigint NOT NULL,
+    comment_id bigint NOT NULL,
+    reporter_id integer NOT NULL,
+    reason character varying(100) NOT NULL,
+    detail character varying(500),
+    status character varying(20) DEFAULT 'pending'::character varying NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    handled_at timestamp with time zone,
+    handler_id integer,
+    CONSTRAINT reports_status_check CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'handled'::character varying, 'ignored'::character varying])::text[])))
+);
+
+
+--
+-- Name: reports_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.reports_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: reports_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.reports_id_seq OWNED BY public.reports.id;
+
+
+--
 -- Name: site_message_deliveries; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -769,6 +973,37 @@ CREATE SEQUENCE public.site_messages_id_seq
 --
 
 ALTER SEQUENCE public.site_messages_id_seq OWNED BY public.site_messages.id;
+
+
+--
+-- Name: sms_send_log; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sms_send_log (
+    id bigint NOT NULL,
+    phone character varying(20) NOT NULL,
+    purpose character varying(20) DEFAULT 'phone_bind'::character varying NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: sms_send_log_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.sms_send_log_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: sms_send_log_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.sms_send_log_id_seq OWNED BY public.sms_send_log.id;
 
 
 --
@@ -913,7 +1148,8 @@ CREATE TABLE public.track_credits (
     display_order integer DEFAULT 0,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    artist_id integer
+    artist_id integer,
+    credit_role_norm character varying(100)
 );
 
 
@@ -949,7 +1185,8 @@ CREATE TABLE public.track_music_sources (
     node_id integer NOT NULL,
     display_order integer DEFAULT 0 NOT NULL,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    note text
 );
 
 
@@ -1075,6 +1312,8 @@ CREATE TABLE public.tracks (
     uuid uuid DEFAULT gen_random_uuid(),
     title_cn character varying(500),
     title_en character varying(500),
+    lyrics_text text,
+    lyrics_analysis_status character varying(20) DEFAULT 'none'::character varying NOT NULL,
     CONSTRAINT chk_tracks_lyrics_status CHECK (((lyrics_status)::text = ANY ((ARRAY['none'::character varying, 'has'::character varying, 'instrumental'::character varying])::text[])))
 );
 
@@ -1117,6 +1356,9 @@ CREATE TABLE public.users (
     last_login_at timestamp with time zone,
     last_login_ip character varying(64),
     token_version integer DEFAULT 0 NOT NULL,
+    phone character varying(20),
+    phone_verified boolean DEFAULT false NOT NULL,
+    accept_terms_at timestamp with time zone,
     CONSTRAINT users_account_status_check CHECK (((account_status)::text = ANY (ARRAY[('active'::character varying)::text, ('disabled'::character varying)::text])))
 );
 
@@ -1166,7 +1408,8 @@ CREATE TABLE public.visit_logs (
     bytes_sent integer,
     visitor_id character varying(128),
     actor_user_id integer,
-    actor_username character varying(128)
+    actor_username character varying(128),
+    category character varying(20) DEFAULT 'normal'::character varying NOT NULL
 );
 
 
@@ -1253,6 +1496,20 @@ ALTER TABLE ONLY public.catalog_metadata_import_changes ALTER COLUMN id SET DEFA
 
 
 --
+-- Name: comments id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.comments ALTER COLUMN id SET DEFAULT nextval('public.comments_id_seq'::regclass);
+
+
+--
+-- Name: esa_edge_logs id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.esa_edge_logs ALTER COLUMN id SET DEFAULT nextval('public.esa_edge_logs_id_seq'::regclass);
+
+
+--
 -- Name: feedback_messages id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1288,6 +1545,20 @@ ALTER TABLE ONLY public.playlists ALTER COLUMN id SET DEFAULT nextval('public.pl
 
 
 --
+-- Name: ratings id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ratings ALTER COLUMN id SET DEFAULT nextval('public.ratings_id_seq'::regclass);
+
+
+--
+-- Name: reports id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.reports ALTER COLUMN id SET DEFAULT nextval('public.reports_id_seq'::regclass);
+
+
+--
 -- Name: site_message_deliveries id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1299,6 +1570,13 @@ ALTER TABLE ONLY public.site_message_deliveries ALTER COLUMN id SET DEFAULT next
 --
 
 ALTER TABLE ONLY public.site_messages ALTER COLUMN id SET DEFAULT nextval('public.site_messages_id_seq'::regclass);
+
+
+--
+-- Name: sms_send_log id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sms_send_log ALTER COLUMN id SET DEFAULT nextval('public.sms_send_log_id_seq'::regclass);
 
 
 --
@@ -1362,14 +1640,6 @@ ALTER TABLE ONLY public.users ALTER COLUMN id SET DEFAULT nextval('public.users_
 --
 
 ALTER TABLE ONLY public.visit_logs ALTER COLUMN id SET DEFAULT nextval('public.visit_logs_id_seq'::regclass);
-
-
---
--- Name: _migrations _migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public._migrations
-    ADD CONSTRAINT _migrations_pkey PRIMARY KEY (name);
 
 
 --
@@ -1501,6 +1771,46 @@ ALTER TABLE ONLY public.catalog_metadata_import_changes
 
 
 --
+-- Name: comments comments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.comments
+    ADD CONSTRAINT comments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: credit_role_map credit_role_map_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.credit_role_map
+    ADD CONSTRAINT credit_role_map_pkey PRIMARY KEY (role_key);
+
+
+--
+-- Name: esa_edge_logs esa_edge_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.esa_edge_logs
+    ADD CONSTRAINT esa_edge_logs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: esa_edge_logs esa_edge_logs_req_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.esa_edge_logs
+    ADD CONSTRAINT esa_edge_logs_req_id_key UNIQUE (req_id);
+
+
+--
+-- Name: esa_log_ingest_state esa_log_ingest_state_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.esa_log_ingest_state
+    ADD CONSTRAINT esa_log_ingest_state_pkey PRIMARY KEY (log_name);
+
+
+--
 -- Name: favorites favorites_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1530,6 +1840,22 @@ ALTER TABLE ONLY public.games
 
 ALTER TABLE ONLY public.games
     ADD CONSTRAINT games_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: genshin_terms genshin_terms_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.genshin_terms
+    ADD CONSTRAINT genshin_terms_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: genshin_terms genshin_terms_wiki_en_name_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.genshin_terms
+    ADD CONSTRAINT genshin_terms_wiki_en_name_key UNIQUE (wiki, en_name);
 
 
 --
@@ -1581,6 +1907,30 @@ ALTER TABLE ONLY public.playlists
 
 
 --
+-- Name: ratings ratings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ratings
+    ADD CONSTRAINT ratings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: ratings ratings_target_user_uq; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ratings
+    ADD CONSTRAINT ratings_target_user_uq UNIQUE (target_type, target_id, user_id);
+
+
+--
+-- Name: reports reports_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.reports
+    ADD CONSTRAINT reports_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: site_message_deliveries site_message_deliveries_message_id_recipient_user_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1602,6 +1952,14 @@ ALTER TABLE ONLY public.site_message_deliveries
 
 ALTER TABLE ONLY public.site_messages
     ADD CONSTRAINT site_messages_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: sms_send_log sms_send_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sms_send_log
+    ADD CONSTRAINT sms_send_log_pkey PRIMARY KEY (id);
 
 
 --
@@ -1722,6 +2080,27 @@ ALTER TABLE ONLY public.users
 
 ALTER TABLE ONLY public.visit_logs
     ADD CONSTRAINT visit_logs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: avc_phone_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX avc_phone_idx ON public.auth_verification_codes USING btree (phone);
+
+
+--
+-- Name: comments_target_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX comments_target_idx ON public.comments USING btree (target_type, target_id, status, created_at DESC);
+
+
+--
+-- Name: comments_user_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX comments_user_idx ON public.comments USING btree (user_id);
 
 
 --
@@ -1851,6 +2230,34 @@ CREATE INDEX idx_catalog_metadata_changes_entity_uuid ON public.catalog_metadata
 
 
 --
+-- Name: idx_esa_edge_logs_cache; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_esa_edge_logs_cache ON public.esa_edge_logs USING btree (cache_status);
+
+
+--
+-- Name: idx_esa_edge_logs_country; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_esa_edge_logs_country ON public.esa_edge_logs USING btree (country);
+
+
+--
+-- Name: idx_esa_edge_logs_host_ts; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_esa_edge_logs_host_ts ON public.esa_edge_logs USING btree (host, ts DESC);
+
+
+--
+-- Name: idx_esa_edge_logs_ts; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_esa_edge_logs_ts ON public.esa_edge_logs USING btree (ts DESC);
+
+
+--
 -- Name: idx_favorites_user; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1865,6 +2272,34 @@ CREATE INDEX idx_feedback_messages_created_at ON public.feedback_messages USING 
 
 
 --
+-- Name: idx_genshin_terms_category; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_genshin_terms_category ON public.genshin_terms USING btree (category);
+
+
+--
+-- Name: idx_genshin_terms_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_genshin_terms_status ON public.genshin_terms USING btree (status);
+
+
+--
+-- Name: idx_genshin_terms_uuid; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_genshin_terms_uuid ON public.genshin_terms USING btree (uuid);
+
+
+--
+-- Name: idx_genshin_terms_wiki_cat; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_genshin_terms_wiki_cat ON public.genshin_terms USING btree (wiki, category);
+
+
+--
 -- Name: idx_music_source_categories_game; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1876,6 +2311,13 @@ CREATE INDEX idx_music_source_categories_game ON public.music_source_categories 
 --
 
 CREATE UNIQUE INDEX idx_music_source_categories_uuid ON public.music_source_categories USING btree (uuid);
+
+
+--
+-- Name: idx_music_source_nodes_game_cat_en; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_music_source_nodes_game_cat_en ON public.music_source_nodes USING btree (game_id, category_id, en_name);
 
 
 --
@@ -1998,6 +2440,13 @@ CREATE INDEX idx_track_music_sources_node ON public.track_music_sources USING bt
 
 
 --
+-- Name: idx_track_music_sources_note; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_track_music_sources_note ON public.track_music_sources USING btree (note) WHERE (note IS NOT NULL);
+
+
+--
 -- Name: idx_track_music_sources_track; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2068,6 +2517,13 @@ CREATE INDEX idx_tracks_lyrics ON public.tracks USING btree (lyrics_path) WHERE 
 
 
 --
+-- Name: idx_tracks_lyrics_analysis_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_tracks_lyrics_analysis_status ON public.tracks USING btree (lyrics_analysis_status) WHERE ((lyrics_analysis_status)::text = ANY ((ARRAY['pending'::character varying, 'review'::character varying])::text[]));
+
+
+--
 -- Name: idx_tracks_lyrics_status; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2117,6 +2573,13 @@ CREATE INDEX idx_visit_logs_actor_username ON public.visit_logs USING btree (act
 
 
 --
+-- Name: idx_visit_logs_category_ts; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_visit_logs_category_ts ON public.visit_logs USING btree (category, ts DESC);
+
+
+--
 -- Name: idx_visit_logs_country; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2142,6 +2605,41 @@ CREATE INDEX idx_visit_logs_ts ON public.visit_logs USING btree (ts DESC);
 --
 
 CREATE INDEX idx_visit_logs_visitor_id ON public.visit_logs USING btree (visitor_id);
+
+
+--
+-- Name: ratings_target_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ratings_target_idx ON public.ratings USING btree (target_type, target_id);
+
+
+--
+-- Name: reports_status_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX reports_status_idx ON public.reports USING btree (status, created_at);
+
+
+--
+-- Name: sms_send_log_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sms_send_log_created_idx ON public.sms_send_log USING btree (created_at);
+
+
+--
+-- Name: sms_send_log_phone_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX sms_send_log_phone_idx ON public.sms_send_log USING btree (phone, created_at DESC);
+
+
+--
+-- Name: users_phone_uq; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX users_phone_uq ON public.users USING btree (phone) WHERE (phone IS NOT NULL);
 
 
 --
@@ -2202,6 +2700,30 @@ ALTER TABLE ONLY public.catalog_metadata_import_batches
 
 ALTER TABLE ONLY public.catalog_metadata_import_changes
     ADD CONSTRAINT catalog_metadata_import_changes_batch_uuid_fkey FOREIGN KEY (batch_uuid) REFERENCES public.catalog_metadata_import_batches(batch_uuid) ON DELETE CASCADE;
+
+
+--
+-- Name: comments comments_deleted_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.comments
+    ADD CONSTRAINT comments_deleted_by_fkey FOREIGN KEY (deleted_by) REFERENCES public.users(id);
+
+
+--
+-- Name: comments comments_reviewed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.comments
+    ADD CONSTRAINT comments_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES public.users(id);
+
+
+--
+-- Name: comments comments_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.comments
+    ADD CONSTRAINT comments_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
 
 
 --
@@ -2282,6 +2804,38 @@ ALTER TABLE ONLY public.playlist_tracks
 
 ALTER TABLE ONLY public.playlists
     ADD CONSTRAINT playlists_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: ratings ratings_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ratings
+    ADD CONSTRAINT ratings_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: reports reports_comment_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.reports
+    ADD CONSTRAINT reports_comment_id_fkey FOREIGN KEY (comment_id) REFERENCES public.comments(id) ON DELETE CASCADE;
+
+
+--
+-- Name: reports reports_handler_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.reports
+    ADD CONSTRAINT reports_handler_id_fkey FOREIGN KEY (handler_id) REFERENCES public.users(id);
+
+
+--
+-- Name: reports reports_reporter_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.reports
+    ADD CONSTRAINT reports_reporter_id_fkey FOREIGN KEY (reporter_id) REFERENCES public.users(id);
 
 
 --
@@ -2416,5 +2970,5 @@ ALTER TABLE ONLY public.tracks
 -- PostgreSQL database dump complete
 --
 
-\unrestrict HS9l8Nqfuscacck1g9zrrekDmlGsP2snveWuR9HLfMN1mFbHBzaV9I0kQy2Cjlf
+\unrestrict AhQtm2Ct59BLfDDU1I5UFzkasB7kyQJX6y2Dury8thUjeLGlhmx3EY0eQHUKQXn
 
