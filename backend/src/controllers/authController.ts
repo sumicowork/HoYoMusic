@@ -509,12 +509,13 @@ export const deleteAccount = async (req: Request, res: Response) => {
       return res.status(403).json({ success: false, error: { code: 'ADMIN_CANNOT_SELF_DELETE', message: '管理员账号不支持自助注销，请联系平台处理' } });
     }
 
-    const result = await pool.query('SELECT password_hash FROM users WHERE id = $1', [user.id]);
+    const result = await pool.query('SELECT password_hash, username, email, phone FROM users WHERE id = $1', [user.id]);
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: '用户不存在' } });
     }
+    const original = result.rows[0];
 
-    const isMatch = await bcrypt.compare(password, result.rows[0].password_hash);
+    const isMatch = await bcrypt.compare(password, original.password_hash);
     if (!isMatch) {
       return res.status(401).json({ success: false, error: { code: 'WRONG_PASSWORD', message: '密码不正确' } });
     }
@@ -525,6 +526,7 @@ export const deleteAccount = async (req: Request, res: Response) => {
       // 匿名化个人标识（username 唯一约束 → 生成随机后缀；email/phone 无唯一约束可置 NULL）
       const suffix = randomBytesHex(4);
       const deadHash = await bcrypt.hash(randomBytesHex(16), 10);
+      const anonName = `user_deleted_${suffix}`;
       await client.query(
         `UPDATE users
          SET username = $1, email = NULL, phone = NULL,
@@ -532,12 +534,21 @@ export const deleteAccount = async (req: Request, res: Response) => {
              token_version = token_version + 1, is_admin = FALSE,
              updated_at = CURRENT_TIMESTAMP
          WHERE id = $3`,
-        [`user_deleted_${suffix}`, deadHash, user.id]
+        [anonName, deadHash, user.id]
       );
       // 清理个人内容（评论/评分保留：内容展示与审计需要，外键引用 users）
       await client.query('DELETE FROM favorites WHERE user_id = $1', [user.id]);
       await client.query('DELETE FROM playlists WHERE user_id = $1', [user.id]); // playlist_tracks 级联
       await client.query('DELETE FROM site_messages WHERE sender_user_id = $1 OR receiver_user_id = $1', [user.id]);
+      // 关联残留匿名化/清理（合规：与账号相关联的个人信息必须删除或匿名化）：
+      // ① 访问日志中的用户名关联 → 匿名化（日志本身按留存要求保留）
+      await client.query('UPDATE visit_logs SET actor_username = $1 WHERE actor_username = $2', [anonName, original.username]);
+      // ② 验证码记录（含邮箱/手机号明文）→ 删除
+      await client.query(
+        'DELETE FROM auth_verification_codes WHERE email = $1 OR phone = $2',
+        [original.email, original.phone]
+      );
+      // ③ sms_send_log 保留：实名认证信息为法定留存（《互联网跟帖评论服务管理规定》），不删除
       await client.query('COMMIT');
     } catch (e) {
       await client.query('ROLLBACK');
