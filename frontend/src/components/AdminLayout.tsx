@@ -12,7 +12,8 @@ import {
   BarChartOutlined,
   SettingOutlined,
   MenuOutlined,
-  ApartmentOutlined
+  ApartmentOutlined,
+  AuditOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
@@ -45,6 +46,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
     '/admin/tags': <TagsOutlined />,
     '/admin/games': <AppstoreOutlined />,
     '/admin/users': <UserOutlined />,
+    '/admin/comments': <AuditOutlined />,
     '/admin/analytics': <BarChartOutlined />,
     '/admin/settings': <SettingOutlined />,
   };
