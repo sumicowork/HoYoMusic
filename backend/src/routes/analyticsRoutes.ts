@@ -1580,10 +1580,11 @@ router.get('/esa-logs/countries', async (req: Request, res: Response) => {
   try {
     const d = esaLogsDays(req.query.days);
     const r = await pool.query(
-      `SELECT COALESCE(country, 'UNKNOWN') AS country, count(*)::int AS requests, count(DISTINCT client_ip)::int AS visitors
+      `SELECT COALESCE(country, 'Unknown') AS country, COALESCE(region, '') AS region,
+              count(*)::int AS requests, count(DISTINCT client_ip)::int AS visitors
        FROM esa_edge_logs WHERE ts >= NOW() - INTERVAL '1 day' * $1
-       GROUP BY 1 ORDER BY 2 DESC LIMIT 20`, [d]);
-    res.json({ success: true, data: r.rows.map((x) => ({ country: x.country, requests: x.requests, visitors: x.visitors })) });
+       GROUP BY 1, 2 ORDER BY 3 DESC LIMIT 30`, [d]);
+    res.json({ success: true, data: r.rows });
   } catch (e: any) { res.status(500).json(safeError(e)); }
 });
 
@@ -1618,9 +1619,32 @@ router.get('/esa-logs/pages', async (req: Request, res: Response) => {
   try {
     const d = esaLogsDays(req.query.days);
     const r = await pool.query(
-      `SELECT uri AS path, count(*)::int AS hits, count(DISTINCT client_ip)::int AS visitors
+      `SELECT uri AS path, count(*)::int AS hits, count(DISTINCT client_ip)::int AS visitors,
+              ROUND(AVG(ttfbm_ms))::int AS avg_ms,
+              ROUND(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY ttfbm_ms))::int AS p95_ms,
+              count(*) FILTER (WHERE status >= 400)::int AS errors
        FROM esa_edge_logs WHERE ts >= NOW() - INTERVAL '1 day' * $1
-       GROUP BY 1 ORDER BY 2 DESC LIMIT 30`, [d]);
+       GROUP BY 1 ORDER BY 2 DESC LIMIT 50`, [d]);
+    res.json({ success: true, data: r.rows });
+  } catch (e: any) { res.status(500).json(safeError(e)); }
+});
+
+/**
+ * @openapi
+ * /analytics/esa-logs/referers:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: ESA 边缘日志-来源分布（纯 music 子域）
+ *     security: [{ bearerAuth: [] }]
+ */
+router.get('/esa-logs/referers', async (req: Request, res: Response) => {
+  try {
+    const d = esaLogsDays(req.query.days);
+    const r = await pool.query(
+      `SELECT CASE WHEN referer IS NULL OR referer = '' OR referer = '-' THEN 'Direct / None' ELSE referer END AS referer,
+              count(*)::int AS hits
+       FROM esa_edge_logs WHERE ts >= NOW() - INTERVAL '1 day' * $1
+       GROUP BY 1 ORDER BY 2 DESC LIMIT 20`, [d]);
     res.json({ success: true, data: r.rows });
   } catch (e: any) { res.status(500).json(safeError(e)); }
 });
