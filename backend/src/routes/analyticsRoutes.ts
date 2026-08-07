@@ -1519,11 +1519,148 @@ router.get('/esa/status', async (_req: Request, res: Response) => {
       enabled: analyticsEsaService.isReady(),
       mode: process.env.ANALYTICS_PROVIDER || 'sql',
       host_filter: process.env.ESA_HOST_FILTER || '',
+      logs_ingested: await pool.query('SELECT count(*)::int AS c FROM esa_edge_logs').then((r) => r.rows[0].c).catch(() => 0),
       message: analyticsEsaService.isReady()
         ? 'ESA 已配置（统计按 ESA_HOST_FILTER 过滤）'
         : 'ESA 未配置，统计走源站 SQL（含 category 过滤）',
     },
   });
+});
+
+// ── ESA 离线日志聚合（方案C：边缘全量、纯 music 子域）──
+// 数据由 scripts/esa/ingestEdgeLogs.cjs 每日拉取（延迟 6-8 小时）
+const esaLogsDays = (v: any, max = 31) => Math.min(Math.max(parseInt(v) || 7, 1), max);
+
+/**
+ * @openapi
+ * /analytics/esa-logs/overview:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: ESA 边缘日志总览（纯 music 子域）
+ *     security: [{ bearerAuth: [] }]
+ */
+router.get('/esa-logs/overview', async (req: Request, res: Response) => {
+  try {
+    const d = esaLogsDays(req.query.days);
+    const [total, uniqueIps, errors, traffic, cache] = await Promise.all([
+      pool.query(`SELECT count(*)::int AS v FROM esa_edge_logs WHERE ts >= NOW() - INTERVAL '1 day' * $1`, [d]),
+      pool.query(`SELECT count(DISTINCT client_ip)::int AS v FROM esa_edge_logs WHERE ts >= NOW() - INTERVAL '1 day' * $1`, [d]),
+      pool.query(`SELECT count(*)::int AS v FROM esa_edge_logs WHERE status >= 400 AND ts >= NOW() - INTERVAL '1 day' * $1`, [d]),
+      pool.query(`SELECT COALESCE(sum(resp_bytes), 0)::bigint AS v FROM esa_edge_logs WHERE ts >= NOW() - INTERVAL '1 day' * $1`, [d]),
+      pool.query(
+        `SELECT
+           count(*) FILTER (WHERE cache_status = 'HIT') AS hit,
+           count(*) FILTER (WHERE cache_status IN ('HIT','MISS','EXPIRED','REVALIDATED')) AS cacheable
+         FROM esa_edge_logs WHERE ts >= NOW() - INTERVAL '1 day' * $1`, [d]),
+    ]);
+    const hit = cache.rows[0].hit, cacheable = cache.rows[0].cacheable;
+    res.json({
+      success: true,
+      data: {
+        total: total.rows[0].v,
+        unique_ips: uniqueIps.rows[0].v,
+        errors: errors.rows[0].v,
+        traffic_bytes: traffic.rows[0].v,
+        hit_rate: cacheable > 0 ? Math.round((hit / cacheable) * 1000) / 10 : null,
+        source: 'esa-logs',
+      },
+    });
+  } catch (e: any) { res.status(500).json(safeError(e)); }
+});
+
+/**
+ * @openapi
+ * /analytics/esa-logs/countries:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: ESA 边缘日志-国家/地区分布（纯 music 子域）
+ *     security: [{ bearerAuth: [] }]
+ */
+router.get('/esa-logs/countries', async (req: Request, res: Response) => {
+  try {
+    const d = esaLogsDays(req.query.days);
+    const r = await pool.query(
+      `SELECT COALESCE(country, 'UNKNOWN') AS country, count(*)::int AS requests, count(DISTINCT client_ip)::int AS visitors
+       FROM esa_edge_logs WHERE ts >= NOW() - INTERVAL '1 day' * $1
+       GROUP BY 1 ORDER BY 2 DESC LIMIT 20`, [d]);
+    res.json({ success: true, data: r.rows.map((x) => ({ country: x.country, requests: x.requests, visitors: x.visitors })) });
+  } catch (e: any) { res.status(500).json(safeError(e)); }
+});
+
+/**
+ * @openapi
+ * /analytics/esa-logs/cache:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: ESA 边缘日志-缓存命中分布（纯 music 子域）
+ *     security: [{ bearerAuth: [] }]
+ */
+router.get('/esa-logs/cache', async (req: Request, res: Response) => {
+  try {
+    const d = esaLogsDays(req.query.days);
+    const r = await pool.query(
+      `SELECT cache_status AS status, count(*)::int AS requests
+       FROM esa_edge_logs WHERE ts >= NOW() - INTERVAL '1 day' * $1
+       GROUP BY 1 ORDER BY 2 DESC`, [d]);
+    res.json({ success: true, data: r.rows });
+  } catch (e: any) { res.status(500).json(safeError(e)); }
+});
+
+/**
+ * @openapi
+ * /analytics/esa-logs/pages:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: ESA 边缘日志-热门路径（纯 music 子域）
+ *     security: [{ bearerAuth: [] }]
+ */
+router.get('/esa-logs/pages', async (req: Request, res: Response) => {
+  try {
+    const d = esaLogsDays(req.query.days);
+    const r = await pool.query(
+      `SELECT uri AS path, count(*)::int AS hits, count(DISTINCT client_ip)::int AS visitors
+       FROM esa_edge_logs WHERE ts >= NOW() - INTERVAL '1 day' * $1
+       GROUP BY 1 ORDER BY 2 DESC LIMIT 30`, [d]);
+    res.json({ success: true, data: r.rows });
+  } catch (e: any) { res.status(500).json(safeError(e)); }
+});
+
+/**
+ * @openapi
+ * /analytics/esa-logs/devices:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: ESA 边缘日志-设备分布（纯 music 子域）
+ *     security: [{ bearerAuth: [] }]
+ */
+router.get('/esa-logs/devices', async (req: Request, res: Response) => {
+  try {
+    const d = esaLogsDays(req.query.days);
+    const [browsers, oses, devices] = await Promise.all([
+      pool.query(`SELECT COALESCE(NULLIF(ua_browser,''),'Unknown') AS name, count(*)::int AS value FROM esa_edge_logs WHERE ts >= NOW() - INTERVAL '1 day' * $1 GROUP BY 1 ORDER BY 2 DESC LIMIT 10`, [d]),
+      pool.query(`SELECT COALESCE(NULLIF(ua_os,''),'Unknown') AS name, count(*)::int AS value FROM esa_edge_logs WHERE ts >= NOW() - INTERVAL '1 day' * $1 GROUP BY 1 ORDER BY 2 DESC LIMIT 8`, [d]),
+      pool.query(`SELECT COALESCE(NULLIF(ua_device,''),'desktop') AS name, count(*)::int AS value FROM esa_edge_logs WHERE ts >= NOW() - INTERVAL '1 day' * $1 GROUP BY 1 ORDER BY 2 DESC`, [d]),
+    ]);
+    res.json({ success: true, data: { browsers: browsers.rows, oses: oses.rows, devices: devices.rows } });
+  } catch (e: any) { res.status(500).json(safeError(e)); }
+});
+
+/**
+ * @openapi
+ * /analytics/esa-logs/status-codes:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: ESA 边缘日志-状态码分布（纯 music 子域）
+ *     security: [{ bearerAuth: [] }]
+ */
+router.get('/esa-logs/status-codes', async (req: Request, res: Response) => {
+  try {
+    const d = esaLogsDays(req.query.days);
+    const r = await pool.query(
+      `SELECT status::text AS name, count(*)::int AS value FROM esa_edge_logs
+       WHERE ts >= NOW() - INTERVAL '1 day' * $1 GROUP BY 1 ORDER BY 2 DESC`, [d]);
+    res.json({ success: true, data: r.rows });
+  } catch (e: any) { res.status(500).json(safeError(e)); }
 });
 
 router.get('/cache', async (_req: Request, res: Response) => {
