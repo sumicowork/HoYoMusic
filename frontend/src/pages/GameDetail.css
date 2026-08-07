@@ -62,7 +62,7 @@
   border-radius: 14px;
 }
 
-/* 原神背景 */
+/* 原神背景（OSS 经服务器代理，避免前端直连 OSS） */
 .game-detail-layout.genshin-bg {
   position: relative;
   background: #1a1a2e;
@@ -75,7 +75,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-image: url('/genshin-bg.png');
+  background-image: url('/api/public/covers/proxy?path=https%3A%2F%2Fhoyomusic.oss-cn-shanghai.aliyuncs.com%2Fhoyomusic%2Fbg%2Fgenshin-bg.png');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -89,7 +89,7 @@
   z-index: 1;
 }
 
-/* 崩坏星穹铁道背景 */
+/* 崩坏星穹铁道背景（OSS 经服务器代理） */
 .game-detail-layout.starrail-bg {
   position: relative;
   background: #1a1a2e;
@@ -102,7 +102,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-image: url('/starrail-bg.png');
+  background-image: url('/api/public/covers/proxy?path=https%3A%2F%2Fhoyomusic.oss-cn-shanghai.aliyuncs.com%2Fhoyomusic%2Fbg%2Fstarrail-bg.png');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -116,7 +116,7 @@
   z-index: 1;
 }
 
-/* 绝区零背景 */
+/* 绝区零背景（OSS 经服务器代理） */
 .game-detail-layout.zzz-bg {
   position: relative;
   background: #1a1a2e;
@@ -129,7 +129,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-image: url('/zzz-bg.jpg');
+  background-image: url('/api/public/covers/proxy?path=https%3A%2F%2Fhoyomusic.oss-cn-shanghai.aliyuncs.com%2Fhoyomusic%2Fbg%2Fzzz-bg.jpg');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -153,7 +153,7 @@
   content: '';
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background-image: url('/games/honkai3.png');
+  background-image: url('/api/public/covers/proxy?path=https%3A%2F%2Fhoyomusic.oss-cn-shanghai.aliyuncs.com%2Fhoyomusic%2Fgames%2Fhonkai3.png');
   background-size: cover;
   background-position: center top;
   background-repeat: no-repeat;
@@ -177,7 +177,7 @@
   content: '';
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background-image: url('/games/tears.jpg');
+  background-image: url('/api/public/covers/proxy?path=https%3A%2F%2Fhoyomusic.oss-cn-shanghai.aliyuncs.com%2Fhoyomusic%2Fgames%2Ftears.jpg');
   background-size: cover;
   background-position: center top;
   background-repeat: no-repeat;
@@ -201,7 +201,7 @@
   content: '';
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background-image: url('/games/nexus.jpg');
+  background-image: url('/api/public/covers/proxy?path=https%3A%2F%2Fhoyomusic.oss-cn-shanghai.aliyuncs.com%2Fhoyomusic%2Fgames%2Fnexus.jpg');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -225,7 +225,7 @@
   content: '';
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background-image: url('/games/petit.jpg');
+  background-image: url('/api/public/covers/proxy?path=https%3A%2F%2Fhoyomusic.oss-cn-shanghai.aliyuncs.com%2Fhoyomusic%2Fgames%2Fpetit.jpg');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;

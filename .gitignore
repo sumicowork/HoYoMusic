@@ -79,3 +79,7 @@ client-desktop/**/obj/
 client-desktop/**/obj_temp/
 client-desktop/**/TestResults/
 
+
+# 本地资源迁移备份/实验目录（不入库）
+.comp-test/
+.removed-assets-backup/
