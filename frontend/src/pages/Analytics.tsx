@@ -234,6 +234,8 @@ const Analytics: React.FC = () => {
   const [pages, setPages]           = useState<any[]>([]);
   const [devices, setDevices]       = useState<any>({ browsers:[], oses:[], devices:[] });
   const [statusCodes, setStatus]    = useState<any[]>([]);
+  const [cacheStatus, setCacheStatus] = useState<any[]>([]);
+  const [cacheHitRate, setCacheHitRate] = useState<number | null>(null);
   const [perf, setPerf]             = useState<any[]>([]);
   const [recent, setRecent]         = useState<any[]>([]);
   const [referers, setReferers]     = useState<any[]>([]);
@@ -290,6 +292,8 @@ const Analytics: React.FC = () => {
         performance: withHardTimeout(api.get(`/analytics/performance?days=${days}`, { timeout: ANALYTICS_TIMEOUT_MS }), ANALYTICS_TIMEOUT_MS),
         recent: withHardTimeout(api.get('/analytics/recent?limit=100', { timeout: ANALYTICS_TIMEOUT_MS }), ANALYTICS_TIMEOUT_MS),
         referers: withHardTimeout(api.get(`/analytics/esa-logs/referers?days=${days}`, { timeout: ANALYTICS_TIMEOUT_MS }), ANALYTICS_TIMEOUT_MS),
+        esaCache: withHardTimeout(api.get(`/analytics/esa-logs/cache?days=${days}`, { timeout: ANALYTICS_TIMEOUT_MS }), ANALYTICS_TIMEOUT_MS),
+        esaOverview: withHardTimeout(api.get(`/analytics/esa-logs/overview?days=${days}`, { timeout: ANALYTICS_TIMEOUT_MS }), ANALYTICS_TIMEOUT_MS),
         cache: withHardTimeout(api.get('/analytics/cache', { timeout: ANALYTICS_TIMEOUT_MS }), ANALYTICS_TIMEOUT_MS),
         hotTracks: withHardTimeout(api.get(`/analytics/tracks/hot?days=${days}&limit=50`, { timeout: ANALYTICS_TIMEOUT_MS }), ANALYTICS_TIMEOUT_MS),
         visitors: withHardTimeout(api.get(`/analytics/visitors?days=${days}&page=1&limit=50`, { timeout: ANALYTICS_TIMEOUT_MS }), ANALYTICS_TIMEOUT_MS),
@@ -310,7 +314,7 @@ const Analytics: React.FC = () => {
           return null;
         }
         const rawSource = String((result.value as any)?.data?.source || '').toLowerCase();
-        nextSources[String(key)] = rawSource === 'esa' ? 'esa' : 'sql';
+        nextSources[String(key)] = rawSource.startsWith('esa') ? 'esa' : 'sql';
         return result.value.data?.data ?? null;
       };
 
@@ -348,6 +352,12 @@ const Analytics: React.FC = () => {
 
       const referersData = getData('referers');
       if (referersData) setReferers(referersData);
+
+      const esaCacheData = getData('esaCache');
+      if (esaCacheData) setCacheStatus(esaCacheData);
+
+      const esaOvData = getData('esaOverview');
+      if (esaOvData) setCacheHitRate(esaOvData?.hit_rate ?? null);
 
       const cacheData = getData('cache');
       if (cacheData) setCacheInfo(cacheData);
@@ -654,6 +664,27 @@ const Analytics: React.FC = () => {
           </Row>
 
           <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+            {/* ── Edge Cache Status ── */}
+            <Col xs={24} lg={10}>
+              <Card title={<span>🗂️ 边缘缓存命中（music 子域）{sourceTag('esaCache')}</span>} className="analytics-card" style={{ height: '100%' }}>
+                {cacheHitRate !== null && (
+                  <div style={{ textAlign: 'center', marginBottom: 4 }}>
+                    <Text strong style={{ fontSize: 30 }}>{cacheHitRate}%</Text>
+                    <Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>可缓存对象命中率</Text>
+                  </div>
+                )}
+                <ResponsiveContainer width="100%" height={cacheHitRate !== null ? 170 : 230}>
+                  <BarChart data={cacheStatus} layout="vertical" margin={{ left: 8, right: 16 }}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                    <XAxis type="number" tick={{ fontSize: 10 }} />
+                    <YAxis type="category" dataKey="status" tick={{ fontSize: 11 }} width={95} />
+                    <RechartTooltip />
+                    <Bar dataKey="requests" name="请求数" fill="#5ee7df" radius={[0, 3, 3, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </Card>
+            </Col>
+
             {/* ── Countries ── */}
             <Col xs={24} lg={14}>
               <Card title={<span>🌍 中国省级行政区 / 其他{sourceTag('countries')}</span>} className="analytics-card">

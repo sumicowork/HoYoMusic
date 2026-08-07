@@ -1603,7 +1603,7 @@ router.get('/esa-logs/cache', async (req: Request, res: Response) => {
       `SELECT cache_status AS status, count(*)::int AS requests
        FROM esa_edge_logs WHERE ts >= NOW() - INTERVAL '1 day' * $1
        GROUP BY 1 ORDER BY 2 DESC`, [d]);
-    res.json({ success: true, data: r.rows });
+    res.json({ success: true, data: r.rows, source: 'esa-logs' });
   } catch (e: any) { res.status(500).json(safeError(e)); }
 });
 
