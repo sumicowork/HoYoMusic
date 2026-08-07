@@ -480,7 +480,8 @@ class AnalyticsEsaService {
 
     return {
       enabled: true,
-      host: this.hostFilter || 'ALL（站点全量）',
+      // EdgeCacheStatus 维度无法叠加 ClientRequestHost 过滤，数据为站点全量口径（如实标注，避免误导）
+      host: 'ALL（站点全量口径：含 hoyodb.com 主域等，无法按域名过滤）',
       distribution,
       hit_rate: hitRate,
     };

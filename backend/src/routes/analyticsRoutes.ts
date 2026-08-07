@@ -480,6 +480,13 @@ router.get('/overview', async (_req: Request, res: Response) => {
   try {
     const esaData = await tryEsa('overview', async () => analyticsEsaService.getOverview());
     if (esaData) {
+      // errors 字段：ESA 的状态码维度无法叠加 host 过滤（全站口径），改用 SQL 统计本站（music 子域源站日志）
+      const err = await pool.query(
+        `SELECT COUNT(*)::int AS v FROM visit_logs
+         WHERE status >= 400 AND status != 503 AND category = 'normal'
+           AND ts >= (NOW() AT TIME ZONE 'Asia/Shanghai')::date AT TIME ZONE 'Asia/Shanghai'`,
+      );
+      esaData.errors = err.rows[0].v;
       return sendSuccess(res, esaData, 'esa');
     }
 
@@ -642,10 +649,6 @@ router.get('/hourly', async (_req: Request, res: Response) => {
 router.get('/countries', async (req: Request, res: Response) => {
   try {
     const d = clampDays(req.query.days, ESA_MAX_DAYS);
-    const esaData = await tryEsa('countries', async () => analyticsEsaService.getCountries(d));
-    if (esaData) {
-      return sendSuccess(res, esaData, 'esa');
-    }
 
     const result = await pool.query(`
       SELECT
@@ -1236,10 +1239,6 @@ router.get('/cities', async (req: Request, res: Response) => {
 router.get('/pages', async (req: Request, res: Response) => {
   try {
     const d = clampDays(req.query.days, ESA_MAX_DAYS);
-    const esaData = await tryEsa('pages', async () => analyticsEsaService.getPages(d));
-    if (esaData) {
-      return sendSuccess(res, esaData, 'esa');
-    }
 
     const result = await pool.query(`
       SELECT
@@ -1289,10 +1288,6 @@ router.get('/pages', async (req: Request, res: Response) => {
 router.get('/devices', async (req: Request, res: Response) => {
   try {
     const d = clampDays(req.query.days, ESA_MAX_DAYS);
-    const esaData = await tryEsa('devices', async () => analyticsEsaService.getDevices(d));
-    if (esaData) {
-      return sendSuccess(res, esaData, 'esa');
-    }
 
     const [browsers, oses, devices] = await Promise.all([
       pool.query(`
@@ -1346,10 +1341,6 @@ router.get('/devices', async (req: Request, res: Response) => {
 router.get('/status-codes', async (req: Request, res: Response) => {
   try {
     const d = clampDays(req.query.days, ESA_MAX_DAYS);
-    const esaData = await tryEsa('status-codes', async () => analyticsEsaService.getStatusCodes(d));
-    if (esaData) {
-      return sendSuccess(res, esaData, 'esa');
-    }
 
     const result = await pool.query(`
       SELECT status::text AS name, COUNT(*)::int AS value
@@ -1630,10 +1621,6 @@ router.post('/cache/warmup', async (_req: Request, res: Response) => {
 router.get('/referers', async (req: Request, res: Response) => {
   try {
     const d = clampDays(req.query.days, ESA_MAX_DAYS);
-    const esaData = await tryEsa('referers', async () => analyticsEsaService.getReferers(d));
-    if (esaData) {
-      return sendSuccess(res, esaData, 'esa');
-    }
 
     const result = await pool.query(`
       SELECT
