@@ -167,7 +167,7 @@ export const deleteComment = async (req: Request, res: Response, next: NextFunct
       return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: '无权删除' } });
     }
 
-    await pool.query(`UPDATE comments SET deleted_at = now() WHERE id = $1`, [id]);
+    await pool.query(`UPDATE comments SET deleted_at = now(), deleted_by = $1 WHERE id = $2`, [user.id, id]);
     return res.json({ success: true, data: { message: '已删除' } });
   } catch (e) {
     next(e);
@@ -245,18 +245,20 @@ export const listPendingComments = async (req: Request, res: Response, next: Nex
   }
 };
 
-// ── 管理端：审核（approve/reject）───────────────────────
+// ── 管理端：审核（approve/reject，留痕）────────────────
 export const reviewComment = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const id = Number(req.params.id);
+    const user = getUser(req);
     const { action } = req.body as { action?: string };
     if (action !== 'approve' && action !== 'reject') {
       return res.status(400).json({ success: false, error: { code: 'INVALID_INPUT', message: 'action 必须为 approve 或 reject' } });
     }
 
     const r = await pool.query(
-      `UPDATE comments SET status = $1, updated_at = now() WHERE id = $2 AND deleted_at IS NULL RETURNING id, status`,
-      [action === 'approve' ? 'approved' : 'rejected', id],
+      `UPDATE comments SET status = $1, reviewed_by = $2, reviewed_at = now(), updated_at = now()
+       WHERE id = $3 AND deleted_at IS NULL RETURNING id, status`,
+      [action === 'approve' ? 'approved' : 'rejected', user?.id ?? null, id],
     );
     if (r.rows.length === 0) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: '评论不存在' } });
 
@@ -310,7 +312,11 @@ export const handleReport = async (req: Request, res: Response, next: NextFuncti
     if (r.rows.length === 0) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: '举报不存在或已处理' } });
 
     if (delete_comment) {
-      await pool.query(`UPDATE comments SET deleted_at = now() WHERE id = (SELECT comment_id FROM reports WHERE id = $1)`, [id]);
+      await pool.query(
+        `UPDATE comments SET deleted_at = now(), deleted_by = $1
+         WHERE id = (SELECT comment_id FROM reports WHERE id = $2)`,
+        [user?.id ?? null, id],
+      );
     }
 
     return res.json({ success: true, data: { message: '已处理' } });
