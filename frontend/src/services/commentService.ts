@@ -8,7 +8,6 @@ export interface CommentItem {
   content: string;
   status: 'pending' | 'approved' | 'rejected';
   created_at: string;
-  report_count: number;
   user: { id: number; username: string };
 }
 

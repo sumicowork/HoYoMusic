@@ -36,6 +36,7 @@ const Profile: React.FC = () => {
   const [phoneSending, setPhoneSending] = useState(false);
   const [phoneBinding, setPhoneBinding] = useState(false);
   const [phoneCountdown, setPhoneCountdown] = useState(0);
+  const [showChangePhone, setShowChangePhone] = useState(false);
 
   const handleSendPhoneCode = async () => {
     if (!/^1[3-9]\d{9}$/.test(phoneInput)) {
@@ -73,6 +74,7 @@ const Profile: React.FC = () => {
       useAuthStore.setState({ user: freshUser });
       setPhoneInput('');
       setPhoneCode('');
+      setShowChangePhone(false);
     } catch (e) {
       message.error((e as Error).message);
     } finally {
@@ -171,14 +173,17 @@ const Profile: React.FC = () => {
         <Space direction="vertical" size={16} style={{ width: '100%' }}>
 
           <Card title="实名认证" className="profile-module-card">
-            {user?.phone_verified ? (
-              <Typography.Text type="success">
-                已实名认证（手机号 {user.phone ? `${user.phone.slice(0, 3)}****${user.phone.slice(-4)}` : '已绑定'}）——可发表评论
-              </Typography.Text>
+            {user?.phone_verified && !showChangePhone ? (
+              <Space direction="vertical" size={8}>
+                <Typography.Text type="success">
+                  已实名认证（手机号 {user.phone ? `${user.phone.slice(0, 3)}****${user.phone.slice(-4)}` : '已绑定'}）——可发表评论与评分
+                </Typography.Text>
+                <Button size="small" onClick={() => setShowChangePhone(true)}>换绑手机号</Button>
+              </Space>
             ) : (
               <Space direction="vertical" size={8}>
                 <Typography.Text type="warning">
-                  按《互联网跟帖评论服务管理规定》，发表评论需完成手机号实名认证
+                  按《互联网跟帖评论服务管理规定》，发表评论、评分需完成手机号实名认证
                 </Typography.Text>
                 <Space.Compact style={{ width: 280 }}>
                   <Input
@@ -198,9 +203,16 @@ const Profile: React.FC = () => {
                   value={phoneCode}
                   onChange={(e) => setPhoneCode(e.target.value.replace(/[^\d]/g, ''))}
                 />
-                <Button type="primary" onClick={handleBindPhone} loading={phoneBinding}>
-                  绑定并完成实名
-                </Button>
+                <Space>
+                  <Button type="primary" onClick={handleBindPhone} loading={phoneBinding}>
+                    {user?.phone_verified ? '确认换绑' : '绑定并完成实名'}
+                  </Button>
+                  {showChangePhone && (
+                    <Button onClick={() => { setShowChangePhone(false); setPhoneInput(''); setPhoneCode(''); }}>
+                      取消
+                    </Button>
+                  )}
+                </Space>
               </Space>
             )}
           </Card>

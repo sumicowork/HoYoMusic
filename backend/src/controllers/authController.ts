@@ -23,6 +23,31 @@ const getJwtSecret = (): string => {
 
 const createVerificationCode = (): string => String(randomInt(0, 1000000)).padStart(6, '0');
 
+// 手机号维度短信限流（防短信轰炸/控费）：60 秒间隔 + 每自然日（UTC+8）上限
+const SMS_MIN_INTERVAL_MS = 60 * 1000;
+const SMS_DAILY_LIMIT = 10;
+
+async function checkSmsThrottle(phone: string): Promise<{ ok: boolean; message?: string; code?: string }> {
+  const recent = await pool.query(
+    `SELECT 1 FROM sms_send_log WHERE phone = $1 AND created_at > now() - interval '60 seconds' LIMIT 1`,
+    [phone],
+  );
+  if (recent.rows.length > 0) {
+    return { ok: false, code: 'SMS_TOO_FREQUENT', message: '发送过于频繁，请 60 秒后再试' };
+  }
+
+  const daily = await pool.query(
+    `SELECT count(*)::int AS c FROM sms_send_log
+     WHERE phone = $1 AND created_at > (now() AT TIME ZONE 'Asia/Shanghai')::date::timestamptz`,
+    [phone],
+  );
+  if (daily.rows[0].c >= SMS_DAILY_LIMIT) {
+    return { ok: false, code: 'SMS_DAILY_LIMIT', message: '该手机号今日短信发送次数已达上限' };
+  }
+
+  return { ok: true };
+}
+
 export const login = (req: Request, res: Response, next: NextFunction) => {
   passport.authenticate('local', { session: false }, (err: any, user: any, info: any) => {
     if (err) {
@@ -307,6 +332,12 @@ export const sendPhoneCode = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: { code: 'INVALID_PHONE', message: '手机号格式不正确' } });
     }
 
+    // 手机号维度限流（60s 间隔 + 每日上限）
+    const throttle = await checkSmsThrottle(normalized);
+    if (!throttle.ok) {
+      return res.status(429).json({ success: false, error: { code: throttle.code, message: throttle.message } });
+    }
+
     const code = createVerificationCode();
     const challengeId = randomUUID();
     const codeHash = await bcrypt.hash(code, 10);
@@ -326,6 +357,9 @@ export const sendPhoneCode = async (req: Request, res: Response) => {
     if (!result.success) {
       return res.status(500).json({ success: false, error: { code: 'SMS_SEND_FAILED', message: result.message } });
     }
+
+    // 发送成功才记日志（限流依据 + 审计留存）
+    await pool.query(`INSERT INTO sms_send_log (phone, purpose) VALUES ($1, 'phone_bind')`, [normalized]);
 
     return res.json({
       success: true,

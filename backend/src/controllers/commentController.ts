@@ -10,6 +10,19 @@ import { moderateComment } from '../services/moderationService';
 const VALID_TARGETS = ['track', 'album', 'game', 'artist'] as const;
 type TargetType = (typeof VALID_TARGETS)[number];
 
+// 目标表映射（type 已过白名单校验，拼接安全）
+const TARGET_TABLES: Record<TargetType, string> = {
+  track: 'tracks',
+  album: 'albums',
+  game: 'games',
+  artist: 'artists',
+};
+
+async function assertTargetExists(type: TargetType, id: number): Promise<boolean> {
+  const r = await pool.query(`SELECT 1 FROM ${TARGET_TABLES[type]} WHERE id = $1`, [id]);
+  return r.rows.length > 0;
+}
+
 interface AuthedUser {
   id: number;
   username: string;
@@ -43,6 +56,11 @@ export const createComment = async (req: Request, res: Response, next: NextFunct
     const { target_type, target_id, content } = req.body as { target_type: string; target_id: number; content: string };
     const t = parseTarget(target_type, target_id);
     if (!t.ok) return res.status(400).json({ success: false, error: { code: 'INVALID_INPUT', message: t.message } });
+
+    // 目标必须存在（防孤儿评论）
+    if (!(await assertTargetExists(t.type, t.id))) {
+      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: '评论目标不存在' } });
+    }
 
     const text = String(content ?? '').trim();
     const mod = moderateComment(text);
@@ -97,7 +115,7 @@ export const listComments = async (req: Request, res: Response, next: NextFuncti
     }
 
     const list = await pool.query(
-      `SELECT c.id, c.content, c.status, c.created_at, c.report_count,
+      `SELECT c.id, c.content, c.status, c.created_at,
               u.username, u.id AS user_id
        FROM comments c
        JOIN users u ON u.id = c.user_id
@@ -123,7 +141,6 @@ export const listComments = async (req: Request, res: Response, next: NextFuncti
           content: r.content,
           status: r.status,
           created_at: r.created_at,
-          report_count: r.report_count,
           user: { id: r.user_id, username: r.username },
         })),
         total: total.rows[0].c,
@@ -166,8 +183,13 @@ export const reportComment = async (req: Request, res: Response, next: NextFunct
     const id = Number(req.params.id);
     const { reason, detail } = req.body as { reason?: string; detail?: string };
 
-    const r = await pool.query('SELECT id FROM comments WHERE id = $1 AND deleted_at IS NULL', [id]);
+    const r = await pool.query('SELECT id, user_id FROM comments WHERE id = $1 AND deleted_at IS NULL', [id]);
     if (r.rows.length === 0) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: '评论不存在' } });
+
+    // 禁止举报自己的评论（防刷举报计数）
+    if (r.rows[0].user_id === user.id) {
+      return res.status(400).json({ success: false, error: { code: 'CANNOT_REPORT_SELF', message: '不能举报自己的评论' } });
+    }
 
     const dup = await pool.query(
       `SELECT id FROM reports WHERE comment_id = $1 AND reporter_id = $2 AND status = 'pending'`,
@@ -193,6 +215,9 @@ export const reportComment = async (req: Request, res: Response, next: NextFunct
 export const listPendingComments = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const status = String(req.query.status || 'pending');
+    if (!['pending', 'approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ success: false, error: { code: 'INVALID_INPUT', message: 'status 无效' } });
+    }
     const page = Math.max(1, Number(req.query.page) || 1);
     const pageSize = Math.min(50, Math.max(1, Number(req.query.page_size) || 20));
     const offset = (page - 1) * pageSize;
@@ -274,10 +299,13 @@ export const handleReport = async (req: Request, res: Response, next: NextFuncti
     const id = Number(req.params.id);
     const user = getUser(req);
     const { action, delete_comment } = req.body as { action?: string; delete_comment?: boolean };
+    if (action !== 'handled' && action !== 'ignored') {
+      return res.status(400).json({ success: false, error: { code: 'INVALID_INPUT', message: 'action 必须为 handled 或 ignored' } });
+    }
 
     const r = await pool.query(
-      `UPDATE reports SET status = 'handled', handled_at = now(), handler_id = $1 WHERE id = $2 AND status = 'pending' RETURNING id`,
-      [user?.id, id],
+      `UPDATE reports SET status = $1, handled_at = now(), handler_id = $2 WHERE id = $3 AND status = 'pending' RETURNING id`,
+      [action === 'ignored' ? 'ignored' : 'handled', user?.id, id],
     );
     if (r.rows.length === 0) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: '举报不存在或已处理' } });
 

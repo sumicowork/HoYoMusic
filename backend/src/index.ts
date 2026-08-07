@@ -117,6 +117,16 @@ const verificationLimiter = rateLimit({
 });
 app.use('/api/auth/send-verification-code', verificationLimiter);
 
+// 短信验证码 IP 限流（配合 sms_send_log 手机号维度限流，双重防短信轰炸）
+const phoneCodeLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: { code: 'RATE_LIMIT', message: 'Too many SMS requests, please try again later.' } },
+});
+app.use('/api/auth/send-phone-code', phoneCodeLimiter);
+
 const debugLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
   max: 30,

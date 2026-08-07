@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button, Card, Empty, List, Pagination, Tabs, Tag, Typography, message } from 'antd';
 import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
+import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { CommentTargetType } from '../services/commentService';
 
@@ -33,6 +34,14 @@ interface ReportItem {
 }
 
 const TARGET_LABEL: Record<string, string> = { track: '曲目', album: '专辑', game: '游戏', artist: '创作者' };
+
+const targetPath = (type: string, id: number): string => {
+  if (type === 'track') return `/track/${id}`;
+  if (type === 'album') return `/albums/${id}`;
+  if (type === 'game') return `/games/${id}`;
+  if (type === 'artist') return `/artists/${id}`;
+  return '/';
+};
 
 const CommentReview: React.FC = () => {
   const [tab, setTab] = useState<'pending' | 'reports'>('pending');
@@ -119,7 +128,9 @@ const CommentReview: React.FC = () => {
                         title={
                           <span>
                             <Text strong>{c.username}</Text>
-                            <Tag style={{ marginLeft: 8 }}>{TARGET_LABEL[c.target_type]}#{c.target_id}</Tag>
+                            <Link to={targetPath(c.target_type, c.target_id)} target="_blank">
+                              <Tag style={{ marginLeft: 8 }} color="blue">{TARGET_LABEL[c.target_type]}#{c.target_id}</Tag>
+                            </Link>
                             <Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>{new Date(c.created_at).toLocaleString('zh-CN')}</Text>
                             {c.ip && <Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>IP {c.ip}</Text>}
                           </span>

@@ -40,6 +40,10 @@ const CommentSection: React.FC<Props> = ({ targetType, targetId }) => {
   // 举报
   const [reportTarget, setReportTarget] = useState<CommentItem | null>(null);
   const [reportReason, setReportReason] = useState<string>(REPORT_REASONS[0]);
+  const [reportDetail, setReportDetail] = useState('');
+
+  // 实名校验（评论/评分均需实名）
+  const notVerified = isAuthenticated && !user?.phone_verified;
 
   const load = useCallback(async (p: number) => {
     setLoading(true);
@@ -96,6 +100,10 @@ const CommentSection: React.FC<Props> = ({ targetType, targetId }) => {
       openAuthModal();
       return;
     }
+    if (notVerified) {
+      message.warning('评分需要先完成手机号实名认证（个人中心绑定）');
+      return;
+    }
     try {
       await ratingService.submit(targetType, targetId, score);
       message.success('评分成功');
@@ -127,9 +135,10 @@ const CommentSection: React.FC<Props> = ({ targetType, targetId }) => {
   const handleReport = async () => {
     if (!reportTarget) return;
     try {
-      await commentService.report(reportTarget.id, reportReason);
+      await commentService.report(reportTarget.id, reportReason, reportDetail.trim() || undefined);
       message.success('举报已受理');
       setReportTarget(null);
+      setReportDetail('');
     } catch (e) {
       message.error((e as Error).message);
     }
@@ -150,6 +159,11 @@ const CommentSection: React.FC<Props> = ({ targetType, targetId }) => {
             allowHalf={false}
             style={{ fontSize: 16 }}
           />
+          {notVerified && (
+            <Text type="warning" style={{ marginLeft: 8, fontSize: 12 }}>
+              评分需实名认证（个人中心绑定手机号）
+            </Text>
+          )}
           <Text type="secondary" style={{ marginLeft: 8 }}>
             {rating && rating.count > 0 ? `${rating.average.toFixed(1)} 分（${rating.count} 人）` : '暂无评分'}
           </Text>
@@ -207,9 +221,11 @@ const CommentSection: React.FC<Props> = ({ targetType, targetId }) => {
           <List.Item
             key={c.id}
             actions={[
-              <Button key="report" type="text" size="small" icon={<FlagOutlined />} onClick={() => setReportTarget(c)}>
-                举报
-              </Button>,
+              user && user.id !== c.user.id ? (
+                <Button key="report" type="text" size="small" icon={<FlagOutlined />} onClick={() => { setReportDetail(''); setReportTarget(c); }}>
+                  举报
+                </Button>
+              ) : null,
               user && (user.id === c.user.id || user.is_admin) ? (
                 <Button key="del" type="text" size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(c.id)} />
               ) : null,
@@ -223,6 +239,7 @@ const CommentSection: React.FC<Props> = ({ targetType, targetId }) => {
                     {new Date(c.created_at).toLocaleString('zh-CN')}
                   </Text>
                   {c.status === 'pending' && <Text type="warning" style={{ marginLeft: 8, fontSize: 12 }}>（审核中）</Text>}
+                  {c.status === 'rejected' && <Text type="danger" style={{ marginLeft: 8, fontSize: 12 }}>（未通过审核）</Text>}
                 </span>
               }
               description={<Paragraph style={{ margin: 0 }}>{c.content}</Paragraph>}
@@ -247,8 +264,17 @@ const CommentSection: React.FC<Props> = ({ targetType, targetId }) => {
         onCancel={() => setReportTarget(null)}
         onOk={handleReport}
         okText="提交举报"
+        destroyOnHidden
       >
-        <Select value={reportReason} onChange={setReportReason} style={{ width: '100%' }} options={REPORT_REASONS.map((r) => ({ value: r, label: r }))} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <Select value={reportReason} onChange={setReportReason} style={{ width: '100%' }} options={REPORT_REASONS.map((r) => ({ value: r, label: r }))} />
+          <Input.TextArea
+            value={reportDetail}
+            onChange={(e) => setReportDetail(e.target.value.slice(0, 500))}
+            placeholder="补充说明（可选，最多 500 字）"
+            autoSize={{ minRows: 2, maxRows: 4 }}
+          />
+        </div>
       </Modal>
     </div>
   );

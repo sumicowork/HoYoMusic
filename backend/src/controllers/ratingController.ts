@@ -18,6 +18,13 @@ export const upsertRating = async (req: Request, res: Response, next: NextFuncti
     const user = (req as any).user;
     if (!user) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: '请先登录' } });
 
+    // 合规：评分属于公开互动信息，与评论一致要求手机号实名（《互联网跟帖评论服务管理规定》）
+    const u = await pool.query('SELECT id, phone_verified FROM users WHERE id = $1', [user.id]);
+    if (u.rows.length === 0) return res.status(401).json({ success: false, error: { code: 'UNAUTHORIZED', message: '用户不存在' } });
+    if (!u.rows[0].phone_verified) {
+      return res.status(403).json({ success: false, error: { code: 'PHONE_NOT_VERIFIED', message: '请先绑定手机号完成实名认证' } });
+    }
+
     const { target_type, target_id, score } = req.body as { target_type: string; target_id: number; score: number };
     const t = parseTarget(target_type, target_id);
     if (!t.ok) return res.status(400).json({ success: false, error: { code: 'INVALID_INPUT', message: t.message } });
@@ -25,6 +32,12 @@ export const upsertRating = async (req: Request, res: Response, next: NextFuncti
     const s = Number(score);
     if (!Number.isInteger(s) || s < 1 || s > 5) {
       return res.status(400).json({ success: false, error: { code: 'INVALID_INPUT', message: '评分必须为 1-5 的整数' } });
+    }
+
+    // 目标必须存在（防孤儿数据）
+    const exists = await pool.query(`SELECT 1 FROM ${t.type}s WHERE id = $1`, [t.id]);
+    if (exists.rows.length === 0) {
+      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: '目标不存在' } });
     }
 
     await pool.query(
