@@ -539,7 +539,8 @@ export const deleteAccount = async (req: Request, res: Response) => {
       // 清理个人内容（评论/评分保留：内容展示与审计需要，外键引用 users）
       await client.query('DELETE FROM favorites WHERE user_id = $1', [user.id]);
       await client.query('DELETE FROM playlists WHERE user_id = $1', [user.id]); // playlist_tracks 级联
-      await client.query('DELETE FROM site_messages WHERE sender_user_id = $1 OR receiver_user_id = $1', [user.id]);
+      // site_messages 为广播制（仅 sender_user_id 列，无收件人列）
+      await client.query('DELETE FROM site_messages WHERE sender_user_id = $1', [user.id]);
       // 关联残留匿名化/清理（合规：与账号相关联的个人信息必须删除或匿名化）：
       // ① 访问日志中的用户名关联 → 匿名化（日志本身按留存要求保留）
       await client.query('UPDATE visit_logs SET actor_username = $1 WHERE actor_username = $2', [anonName, original.username]);
